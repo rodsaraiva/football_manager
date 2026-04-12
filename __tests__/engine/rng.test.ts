@@ -58,7 +58,7 @@ describe('SeededRng', () => {
     const original = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
     const shuffled = rng.shuffle([...original]);
     expect(shuffled).toHaveLength(original.length);
-    expect(shuffled.sort((a, b) => a - b)).toEqual(original);
+    expect([...shuffled].sort((a, b) => a - b)).toEqual(original);
     expect(shuffled).not.toEqual(original);
   });
 
