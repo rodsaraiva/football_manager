@@ -417,9 +417,9 @@ export function generateSeedData(seed: number): SeedData {
 
       // Club facilities scale with reputation
       const facilityBase = Math.round(rep / 10);
-      const trainingFacilities = clamp(facilityBase + rng.nextInt(-1, 1), 1, 10);
-      const youthAcademy = clamp(facilityBase + rng.nextInt(-1, 1), 1, 10);
-      const medicalDepartment = clamp(facilityBase + rng.nextInt(-1, 1), 1, 10);
+      const trainingFacilities = clamp(facilityBase + rng.nextInt(-1, 1), 1, 5);
+      const youthAcademy = clamp(facilityBase + rng.nextInt(-1, 1), 1, 5);
+      const medicalDepartment = clamp(facilityBase + rng.nextInt(-1, 1), 1, 5);
 
       // Budget scales with reputation
       const budgetBase = Math.pow(rep / 100, 2) * 200_000_000;
@@ -565,8 +565,8 @@ export function generateSeedData(seed: number): SeedData {
       const shuffledRoles = rng.shuffle([...STAFF_ROLES]).slice(0, staffCount);
 
       for (const role of shuffledRoles) {
-        const abilityBase = Math.round((rep / 100) * 80) + rng.nextInt(-10, 10);
-        const ability = clamp(abilityBase, 20, 99);
+        const abilityBase = Math.round((rep / 100) * 16) + rng.nextInt(-2, 4);
+        const ability = clamp(abilityBase, 1, 20);
         const staffWage = Math.round(ability * 100 * rng.nextFloat(0.8, 1.2));
         const staffNationality = rng.next() < 0.7 ? natConfig.primary : rng.pick(natConfig.secondary);
         const staffName = generatePlayerName(rng, staffNationality);

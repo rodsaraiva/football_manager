@@ -4,8 +4,8 @@
     "name": "Lewis Phillips",
     "role": "physio",
     "clubId": 1,
-    "ability": 63,
-    "wage": 6700,
+    "ability": 13,
+    "wage": 1400,
     "contractEnd": 2027
   },
   {
@@ -13,8 +13,8 @@
     "name": "Niklas Schmidt",
     "role": "scout",
     "clubId": 1,
-    "ability": 67,
-    "wage": 5800,
+    "ability": 14,
+    "wage": 1200,
     "contractEnd": 2029
   },
   {
@@ -22,8 +22,8 @@
     "name": "Luke Turner",
     "role": "assistant",
     "clubId": 1,
-    "ability": 61,
-    "wage": 6200,
+    "ability": 12,
+    "wage": 1200,
     "contractEnd": 2028
   },
   {
@@ -31,8 +31,8 @@
     "name": "Andrea Greco",
     "role": "youth_coach",
     "clubId": 1,
-    "ability": 74,
-    "wage": 7500,
+    "ability": 16,
+    "wage": 1600,
     "contractEnd": 2029
   },
   {
@@ -40,8 +40,8 @@
     "name": "Steven Morin",
     "role": "assistant",
     "clubId": 2,
-    "ability": 70,
-    "wage": 7200,
+    "ability": 15,
+    "wage": 1500,
     "contractEnd": 2026
   },
   {
@@ -49,8 +49,8 @@
     "name": "Charlie Johnson",
     "role": "scout",
     "clubId": 2,
-    "ability": 71,
-    "wage": 8200,
+    "ability": 15,
+    "wage": 1700,
     "contractEnd": 2029
   },
   {
@@ -58,8 +58,8 @@
     "name": "Ethan Jackson",
     "role": "physio",
     "clubId": 2,
-    "ability": 84,
-    "wage": 9300,
+    "ability": 19,
+    "wage": 2100,
     "contractEnd": 2026
   },
   {
@@ -67,8 +67,8 @@
     "name": "Samuel Davis",
     "role": "fitness_coach",
     "clubId": 2,
-    "ability": 69,
-    "wage": 8300,
+    "ability": 14,
+    "wage": 1700,
     "contractEnd": 2026
   },
   {
@@ -76,8 +76,8 @@
     "name": "Andres Aguilar",
     "role": "youth_coach",
     "clubId": 2,
-    "ability": 68,
-    "wage": 6100,
+    "ability": 14,
+    "wage": 1300,
     "contractEnd": 2026
   },
   {
@@ -85,8 +85,8 @@
     "name": "Alex Evans",
     "role": "scout",
     "clubId": 3,
-    "ability": 62,
-    "wage": 6600,
+    "ability": 12,
+    "wage": 1300,
     "contractEnd": 2029
   },
   {
@@ -94,8 +94,8 @@
     "name": "Tom Thompson",
     "role": "youth_coach",
     "clubId": 3,
-    "ability": 76,
-    "wage": 6500,
+    "ability": 16,
+    "wage": 1400,
     "contractEnd": 2026
   },
   {
@@ -103,8 +103,8 @@
     "name": "Thomas Adams",
     "role": "physio",
     "clubId": 3,
-    "ability": 79,
-    "wage": 7500,
+    "ability": 17,
+    "wage": 1600,
     "contractEnd": 2026
   },
   {
@@ -112,8 +112,8 @@
     "name": "Michael Smith",
     "role": "assistant",
     "clubId": 3,
-    "ability": 63,
-    "wage": 6800,
+    "ability": 12,
+    "wage": 1300,
     "contractEnd": 2029
   },
   {
@@ -121,8 +121,8 @@
     "name": "Ethan Anderson",
     "role": "fitness_coach",
     "clubId": 3,
-    "ability": 77,
-    "wage": 8200,
+    "ability": 17,
+    "wage": 1800,
     "contractEnd": 2027
   },
   {
@@ -130,8 +130,8 @@
     "name": "Thomas Garcia",
     "role": "fitness_coach",
     "clubId": 4,
-    "ability": 74,
-    "wage": 8600,
+    "ability": 17,
+    "wage": 2000,
     "contractEnd": 2029
   },
   {
@@ -139,8 +139,8 @@
     "name": "Daniel Harris",
     "role": "scout",
     "clubId": 4,
-    "ability": 68,
-    "wage": 6900,
+    "ability": 15,
+    "wage": 1500,
     "contractEnd": 2027
   },
   {
@@ -148,8 +148,8 @@
     "name": "Lewis Robinson",
     "role": "physio",
     "clubId": 4,
-    "ability": 74,
-    "wage": 8700,
+    "ability": 17,
+    "wage": 2000,
     "contractEnd": 2028
   },
   {
@@ -157,8 +157,8 @@
     "name": "William Ramirez",
     "role": "youth_coach",
     "clubId": 4,
-    "ability": 70,
-    "wage": 7300,
+    "ability": 16,
+    "wage": 1700,
     "contractEnd": 2028
   },
   {
@@ -166,8 +166,8 @@
     "name": "Massimo Esposito",
     "role": "fitness_coach",
     "clubId": 5,
-    "ability": 66,
-    "wage": 7100,
+    "ability": 14,
+    "wage": 1500,
     "contractEnd": 2026
   },
   {
@@ -175,8 +175,8 @@
     "name": "Charlie Allen",
     "role": "youth_coach",
     "clubId": 5,
-    "ability": 67,
-    "wage": 6900,
+    "ability": 14,
+    "wage": 1400,
     "contractEnd": 2027
   },
   {
@@ -184,8 +184,8 @@
     "name": "Ryan Smith",
     "role": "physio",
     "clubId": 5,
-    "ability": 59,
-    "wage": 6800,
+    "ability": 12,
+    "wage": 1400,
     "contractEnd": 2029
   },
   {
@@ -193,8 +193,8 @@
     "name": "Jordan Taylor",
     "role": "scout",
     "clubId": 5,
-    "ability": 59,
-    "wage": 6300,
+    "ability": 12,
+    "wage": 1300,
     "contractEnd": 2027
   },
   {
@@ -202,8 +202,8 @@
     "name": "Jack Allen",
     "role": "assistant",
     "clubId": 5,
-    "ability": 72,
-    "wage": 7100,
+    "ability": 16,
+    "wage": 1600,
     "contractEnd": 2027
   },
   {
@@ -211,8 +211,8 @@
     "name": "Christopher Jones",
     "role": "assistant",
     "clubId": 6,
-    "ability": 73,
-    "wage": 7300,
+    "ability": 17,
+    "wage": 1700,
     "contractEnd": 2026
   },
   {
@@ -220,8 +220,8 @@
     "name": "Benjamin Wright",
     "role": "physio",
     "clubId": 6,
-    "ability": 58,
-    "wage": 6600,
+    "ability": 12,
+    "wage": 1400,
     "contractEnd": 2026
   },
   {
@@ -229,8 +229,8 @@
     "name": "Jordan Walker",
     "role": "fitness_coach",
     "clubId": 6,
-    "ability": 73,
-    "wage": 6500,
+    "ability": 17,
+    "wage": 1500,
     "contractEnd": 2026
   },
   {
@@ -238,8 +238,8 @@
     "name": "Joe Wright",
     "role": "fitness_coach",
     "clubId": 7,
-    "ability": 67,
-    "wage": 7200,
+    "ability": 15,
+    "wage": 1600,
     "contractEnd": 2026
   },
   {
@@ -247,8 +247,8 @@
     "name": "George Wilson",
     "role": "youth_coach",
     "clubId": 7,
-    "ability": 65,
-    "wage": 5200,
+    "ability": 15,
+    "wage": 1200,
     "contractEnd": 2026
   },
   {
@@ -256,8 +256,8 @@
     "name": "Roberto Rinaldi",
     "role": "assistant",
     "clubId": 7,
-    "ability": 51,
-    "wage": 5900,
+    "ability": 10,
+    "wage": 1200,
     "contractEnd": 2027
   },
   {
@@ -265,8 +265,8 @@
     "name": "James Wright",
     "role": "physio",
     "clubId": 7,
-    "ability": 56,
-    "wage": 6200,
+    "ability": 12,
+    "wage": 1300,
     "contractEnd": 2028
   },
   {
@@ -274,8 +274,8 @@
     "name": "Oliver Baker",
     "role": "scout",
     "clubId": 7,
-    "ability": 62,
-    "wage": 5800,
+    "ability": 14,
+    "wage": 1300,
     "contractEnd": 2028
   },
   {
@@ -283,8 +283,8 @@
     "name": "Daniel Walker",
     "role": "fitness_coach",
     "clubId": 8,
-    "ability": 61,
-    "wage": 6400,
+    "ability": 14,
+    "wage": 1500,
     "contractEnd": 2027
   },
   {
@@ -292,8 +292,8 @@
     "name": "Felix Weber",
     "role": "scout",
     "clubId": 8,
-    "ability": 48,
-    "wage": 5400,
+    "ability": 10,
+    "wage": 1100,
     "contractEnd": 2028
   },
   {
@@ -301,8 +301,8 @@
     "name": "Christopher Lewis",
     "role": "assistant",
     "clubId": 8,
-    "ability": 46,
-    "wage": 5200,
+    "ability": 9,
+    "wage": 1000,
     "contractEnd": 2027
   },
   {
@@ -310,8 +310,8 @@
     "name": "Nathan Lewis",
     "role": "youth_coach",
     "clubId": 8,
-    "ability": 48,
-    "wage": 4500,
+    "ability": 10,
+    "wage": 900,
     "contractEnd": 2028
   },
   {
@@ -319,8 +319,8 @@
     "name": "Jordan Thomas",
     "role": "youth_coach",
     "clubId": 9,
-    "ability": 59,
-    "wage": 5800,
+    "ability": 13,
+    "wage": 1300,
     "contractEnd": 2028
   },
   {
@@ -328,8 +328,8 @@
     "name": "Michael Harris",
     "role": "scout",
     "clubId": 9,
-    "ability": 49,
-    "wage": 4100,
+    "ability": 10,
+    "wage": 800,
     "contractEnd": 2027
   },
   {
@@ -337,8 +337,8 @@
     "name": "Jonas Hoffmann",
     "role": "physio",
     "clubId": 9,
-    "ability": 58,
-    "wage": 5900,
+    "ability": 13,
+    "wage": 1300,
     "contractEnd": 2027
   },
   {
@@ -346,8 +346,8 @@
     "name": "Lukas Schaefer",
     "role": "assistant",
     "clubId": 9,
-    "ability": 62,
-    "wage": 5700,
+    "ability": 14,
+    "wage": 1300,
     "contractEnd": 2027
   },
   {
@@ -355,8 +355,8 @@
     "name": "Lewis Thomas",
     "role": "assistant",
     "clubId": 10,
-    "ability": 54,
-    "wage": 5500,
+    "ability": 12,
+    "wage": 1200,
     "contractEnd": 2028
   },
   {
@@ -364,8 +364,8 @@
     "name": "Marco Romero",
     "role": "scout",
     "clubId": 10,
-    "ability": 46,
-    "wage": 4900,
+    "ability": 9,
+    "wage": 1000,
     "contractEnd": 2026
   },
   {
@@ -373,8 +373,8 @@
     "name": "Nathan Lewis",
     "role": "youth_coach",
     "clubId": 10,
-    "ability": 44,
-    "wage": 3800,
+    "ability": 8,
+    "wage": 700,
     "contractEnd": 2027
   },
   {
@@ -382,8 +382,8 @@
     "name": "Miguel Castillo",
     "role": "fitness_coach",
     "clubId": 10,
-    "ability": 46,
-    "wage": 5200,
+    "ability": 9,
+    "wage": 1000,
     "contractEnd": 2026
   },
   {
@@ -391,8 +391,8 @@
     "name": "Tyler Brown",
     "role": "assistant",
     "clubId": 11,
-    "ability": 49,
-    "wage": 4400,
+    "ability": 11,
+    "wage": 1000,
     "contractEnd": 2028
   },
   {
@@ -400,8 +400,8 @@
     "name": "Antonio Leone",
     "role": "scout",
     "clubId": 11,
-    "ability": 41,
-    "wage": 4400,
+    "ability": 8,
+    "wage": 900,
     "contractEnd": 2027
   },
   {
@@ -409,8 +409,8 @@
     "name": "Lewis Turner",
     "role": "fitness_coach",
     "clubId": 11,
-    "ability": 44,
-    "wage": 3600,
+    "ability": 9,
+    "wage": 700,
     "contractEnd": 2027
   },
   {
@@ -418,8 +418,8 @@
     "name": "Jordan Wright",
     "role": "youth_coach",
     "clubId": 11,
-    "ability": 42,
-    "wage": 5000,
+    "ability": 9,
+    "wage": 1100,
     "contractEnd": 2029
   },
   {
@@ -427,8 +427,8 @@
     "name": "Adam Anderson",
     "role": "youth_coach",
     "clubId": 12,
-    "ability": 37,
-    "wage": 4100,
+    "ability": 7,
+    "wage": 800,
     "contractEnd": 2028
   },
   {
@@ -436,8 +436,8 @@
     "name": "Benjamin Scott",
     "role": "assistant",
     "clubId": 12,
-    "ability": 52,
-    "wage": 6200,
+    "ability": 12,
+    "wage": 1400,
     "contractEnd": 2026
   },
   {
@@ -445,8 +445,8 @@
     "name": "Alvaro Vega",
     "role": "physio",
     "clubId": 12,
-    "ability": 51,
-    "wage": 5700,
+    "ability": 12,
+    "wage": 1300,
     "contractEnd": 2029
   },
   {
@@ -454,8 +454,8 @@
     "name": "Samuel Thompson",
     "role": "fitness_coach",
     "clubId": 12,
-    "ability": 48,
-    "wage": 4400,
+    "ability": 11,
+    "wage": 1000,
     "contractEnd": 2026
   },
   {
@@ -463,8 +463,8 @@
     "name": "Jan Zimmermann",
     "role": "scout",
     "clubId": 12,
-    "ability": 50,
-    "wage": 5100,
+    "ability": 11,
+    "wage": 1100,
     "contractEnd": 2028
   },
   {
@@ -472,8 +472,8 @@
     "name": "Samuel Davis",
     "role": "physio",
     "clubId": 13,
-    "ability": 49,
-    "wage": 4400,
+    "ability": 11,
+    "wage": 1000,
     "contractEnd": 2027
   },
   {
@@ -481,8 +481,8 @@
     "name": "Oliver Evans",
     "role": "fitness_coach",
     "clubId": 13,
-    "ability": 59,
-    "wage": 5000,
+    "ability": 14,
+    "wage": 1200,
     "contractEnd": 2029
   },
   {
@@ -490,8 +490,8 @@
     "name": "Christopher Ramirez",
     "role": "assistant",
     "clubId": 13,
-    "ability": 47,
-    "wage": 4400,
+    "ability": 10,
+    "wage": 900,
     "contractEnd": 2027
   },
   {
@@ -499,8 +499,8 @@
     "name": "Ryan Scott",
     "role": "scout",
     "clubId": 13,
-    "ability": 47,
-    "wage": 4300,
+    "ability": 10,
+    "wage": 900,
     "contractEnd": 2026
   },
   {
@@ -508,8 +508,8 @@
     "name": "Jake Turner",
     "role": "assistant",
     "clubId": 14,
-    "ability": 50,
-    "wage": 4400,
+    "ability": 12,
+    "wage": 1000,
     "contractEnd": 2027
   },
   {
@@ -517,8 +517,8 @@
     "name": "Stefan Zimmermann",
     "role": "fitness_coach",
     "clubId": 14,
-    "ability": 44,
-    "wage": 5300,
+    "ability": 10,
+    "wage": 1200,
     "contractEnd": 2029
   },
   {
@@ -526,8 +526,8 @@
     "name": "Joshua Anderson",
     "role": "scout",
     "clubId": 14,
-    "ability": 42,
-    "wage": 3900,
+    "ability": 9,
+    "wage": 800,
     "contractEnd": 2029
   },
   {
@@ -535,8 +535,8 @@
     "name": "Adam Johnson",
     "role": "physio",
     "clubId": 14,
-    "ability": 49,
-    "wage": 4700,
+    "ability": 11,
+    "wage": 1100,
     "contractEnd": 2029
   },
   {
@@ -544,8 +544,8 @@
     "name": "Nathan Miller",
     "role": "youth_coach",
     "clubId": 14,
-    "ability": 40,
-    "wage": 3600,
+    "ability": 8,
+    "wage": 700,
     "contractEnd": 2029
   },
   {
@@ -553,8 +553,8 @@
     "name": "Noah Wilson",
     "role": "scout",
     "clubId": 15,
-    "ability": 44,
-    "wage": 3700,
+    "ability": 10,
+    "wage": 800,
     "contractEnd": 2026
   },
   {
@@ -562,8 +562,8 @@
     "name": "Tyler Mitchell",
     "role": "physio",
     "clubId": 15,
-    "ability": 38,
-    "wage": 3600,
+    "ability": 8,
+    "wage": 800,
     "contractEnd": 2026
   },
   {
@@ -571,8 +571,8 @@
     "name": "Tyler Hill",
     "role": "assistant",
     "clubId": 15,
-    "ability": 58,
-    "wage": 5500,
+    "ability": 14,
+    "wage": 1300,
     "contractEnd": 2028
   },
   {
@@ -580,8 +580,8 @@
     "name": "Ethan Harris",
     "role": "scout",
     "clubId": 16,
-    "ability": 59,
-    "wage": 6200,
+    "ability": 14,
+    "wage": 1500,
     "contractEnd": 2029
   },
   {
@@ -589,8 +589,8 @@
     "name": "Fabio Gallo",
     "role": "physio",
     "clubId": 16,
-    "ability": 48,
-    "wage": 4100,
+    "ability": 10,
+    "wage": 900,
     "contractEnd": 2029
   },
   {
@@ -598,8 +598,8 @@
     "name": "Alex Robinson",
     "role": "fitness_coach",
     "clubId": 16,
-    "ability": 46,
-    "wage": 4800,
+    "ability": 9,
+    "wage": 900,
     "contractEnd": 2028
   },
   {
@@ -607,8 +607,8 @@
     "name": "Benjamin Schwarz",
     "role": "assistant",
     "clubId": 16,
-    "ability": 48,
-    "wage": 5300,
+    "ability": 10,
+    "wage": 1100,
     "contractEnd": 2028
   },
   {
@@ -616,8 +616,8 @@
     "name": "Thomas Lee",
     "role": "youth_coach",
     "clubId": 16,
-    "ability": 61,
-    "wage": 5000,
+    "ability": 14,
+    "wage": 1100,
     "contractEnd": 2028
   },
   {
@@ -625,8 +625,8 @@
     "name": "Adam Martin",
     "role": "physio",
     "clubId": 17,
-    "ability": 43,
-    "wage": 4800,
+    "ability": 9,
+    "wage": 1000,
     "contractEnd": 2027
   },
   {
@@ -634,8 +634,8 @@
     "name": "Jake King",
     "role": "fitness_coach",
     "clubId": 17,
-    "ability": 38,
-    "wage": 4100,
+    "ability": 8,
+    "wage": 900,
     "contractEnd": 2028
   },
   {
@@ -643,8 +643,8 @@
     "name": "Noah Brown",
     "role": "assistant",
     "clubId": 17,
-    "ability": 49,
-    "wage": 5500,
+    "ability": 11,
+    "wage": 1200,
     "contractEnd": 2026
   },
   {
@@ -652,8 +652,8 @@
     "name": "Vincenzo Lombardi",
     "role": "youth_coach",
     "clubId": 17,
-    "ability": 37,
-    "wage": 3500,
+    "ability": 7,
+    "wage": 700,
     "contractEnd": 2029
   },
   {
@@ -661,8 +661,8 @@
     "name": "Andrea Martini",
     "role": "youth_coach",
     "clubId": 18,
-    "ability": 35,
-    "wage": 3200,
+    "ability": 8,
+    "wage": 700,
     "contractEnd": 2026
   },
   {
@@ -670,8 +670,8 @@
     "name": "Luca Greco",
     "role": "assistant",
     "clubId": 18,
-    "ability": 38,
-    "wage": 4300,
+    "ability": 9,
+    "wage": 1000,
     "contractEnd": 2029
   },
   {
@@ -679,8 +679,8 @@
     "name": "Thomas Taylor",
     "role": "physio",
     "clubId": 18,
-    "ability": 47,
-    "wage": 4400,
+    "ability": 12,
+    "wage": 1100,
     "contractEnd": 2029
   },
   {
@@ -688,8 +688,8 @@
     "name": "Christopher Campbell",
     "role": "scout",
     "clubId": 19,
-    "ability": 43,
-    "wage": 5000,
+    "ability": 10,
+    "wage": 1200,
     "contractEnd": 2026
   },
   {
@@ -697,8 +697,8 @@
     "name": "Andres Castro",
     "role": "fitness_coach",
     "clubId": 19,
-    "ability": 38,
-    "wage": 4500,
+    "ability": 8,
+    "wage": 1000,
     "contractEnd": 2026
   },
   {
@@ -706,8 +706,8 @@
     "name": "Lewis Harris",
     "role": "physio",
     "clubId": 19,
-    "ability": 49,
-    "wage": 5700,
+    "ability": 12,
+    "wage": 1400,
     "contractEnd": 2028
   },
   {
@@ -715,8 +715,8 @@
     "name": "Michael Smith",
     "role": "assistant",
     "clubId": 19,
-    "ability": 47,
-    "wage": 5600,
+    "ability": 11,
+    "wage": 1300,
     "contractEnd": 2027
   },
   {
@@ -724,8 +724,8 @@
     "name": "Luis Iglesias",
     "role": "fitness_coach",
     "clubId": 20,
-    "ability": 45,
-    "wage": 3800,
+    "ability": 11,
+    "wage": 900,
     "contractEnd": 2026
   },
   {
@@ -733,8 +733,8 @@
     "name": "George Ramirez",
     "role": "scout",
     "clubId": 20,
-    "ability": 39,
-    "wage": 3700,
+    "ability": 9,
+    "wage": 800,
     "contractEnd": 2029
   },
   {
@@ -742,8 +742,8 @@
     "name": "Kyle Moore",
     "role": "youth_coach",
     "clubId": 20,
-    "ability": 35,
-    "wage": 4000,
+    "ability": 7,
+    "wage": 800,
     "contractEnd": 2029
   },
   {
@@ -751,8 +751,8 @@
     "name": "Kylian Moreau",
     "role": "physio",
     "clubId": 20,
-    "ability": 32,
-    "wage": 3000,
+    "ability": 6,
+    "wage": 600,
     "contractEnd": 2028
   },
   {
@@ -760,8 +760,8 @@
     "name": "Eduardo Gonzalez",
     "role": "assistant",
     "clubId": 21,
-    "ability": 70,
-    "wage": 7900,
+    "ability": 14,
+    "wage": 1600,
     "contractEnd": 2029
   },
   {
@@ -769,8 +769,8 @@
     "name": "Clement Leroy",
     "role": "physio",
     "clubId": 21,
-    "ability": 77,
-    "wage": 9000,
+    "ability": 16,
+    "wage": 1900,
     "contractEnd": 2029
   },
   {
@@ -778,8 +778,8 @@
     "name": "Baptiste Andre",
     "role": "fitness_coach",
     "clubId": 21,
-    "ability": 80,
-    "wage": 7400,
+    "ability": 17,
+    "wage": 1600,
     "contractEnd": 2028
   },
   {
@@ -787,8 +787,8 @@
     "name": "Javier Cruz",
     "role": "physio",
     "clubId": 22,
-    "ability": 81,
-    "wage": 6800,
+    "ability": 18,
+    "wage": 1500,
     "contractEnd": 2027
   },
   {
@@ -796,8 +796,8 @@
     "name": "Alejandro Martinez",
     "role": "fitness_coach",
     "clubId": 22,
-    "ability": 76,
-    "wage": 7100,
+    "ability": 17,
+    "wage": 1600,
     "contractEnd": 2027
   },
   {
@@ -805,8 +805,8 @@
     "name": "Miguel Rodriguez",
     "role": "youth_coach",
     "clubId": 22,
-    "ability": 74,
-    "wage": 8100,
+    "ability": 16,
+    "wage": 1700,
     "contractEnd": 2029
   },
   {
@@ -814,8 +814,8 @@
     "name": "Victor Gomez",
     "role": "assistant",
     "clubId": 22,
-    "ability": 66,
-    "wage": 5400,
+    "ability": 13,
+    "wage": 1100,
     "contractEnd": 2026
   },
   {
@@ -823,8 +823,8 @@
     "name": "Lewis Mitchell",
     "role": "scout",
     "clubId": 22,
-    "ability": 68,
-    "wage": 6500,
+    "ability": 14,
+    "wage": 1300,
     "contractEnd": 2027
   },
   {
@@ -832,8 +832,8 @@
     "name": "Hugo Delgado",
     "role": "fitness_coach",
     "clubId": 23,
-    "ability": 64,
-    "wage": 6100,
+    "ability": 13,
+    "wage": 1200,
     "contractEnd": 2026
   },
   {
@@ -841,8 +841,8 @@
     "name": "Joshua Garcia",
     "role": "physio",
     "clubId": 23,
-    "ability": 78,
-    "wage": 8700,
+    "ability": 18,
+    "wage": 2000,
     "contractEnd": 2029
   },
   {
@@ -850,8 +850,8 @@
     "name": "Ruben Castro",
     "role": "assistant",
     "clubId": 23,
-    "ability": 62,
-    "wage": 5200,
+    "ability": 13,
+    "wage": 1100,
     "contractEnd": 2028
   },
   {
@@ -859,8 +859,8 @@
     "name": "Pablo Ramos",
     "role": "physio",
     "clubId": 24,
-    "ability": 70,
-    "wage": 5900,
+    "ability": 16,
+    "wage": 1400,
     "contractEnd": 2028
   },
   {
@@ -868,8 +868,8 @@
     "name": "Pablo Jimenez",
     "role": "scout",
     "clubId": 24,
-    "ability": 68,
-    "wage": 5800,
+    "ability": 15,
+    "wage": 1300,
     "contractEnd": 2028
   },
   {
@@ -877,8 +877,8 @@
     "name": "Marco Fuentes",
     "role": "youth_coach",
     "clubId": 24,
-    "ability": 65,
-    "wage": 6700,
+    "ability": 14,
+    "wage": 1400,
     "contractEnd": 2027
   },
   {
@@ -886,8 +886,8 @@
     "name": "Pedro Nunez",
     "role": "assistant",
     "clubId": 24,
-    "ability": 57,
-    "wage": 6300,
+    "ability": 11,
+    "wage": 1200,
     "contractEnd": 2028
   },
   {
@@ -895,8 +895,8 @@
     "name": "Daniel Nelson",
     "role": "fitness_coach",
     "clubId": 24,
-    "ability": 59,
-    "wage": 5400,
+    "ability": 12,
+    "wage": 1100,
     "contractEnd": 2028
   },
   {
@@ -904,8 +904,8 @@
     "name": "Sergio Castillo",
     "role": "scout",
     "clubId": 25,
-    "ability": 60,
-    "wage": 7000,
+    "ability": 14,
+    "wage": 1600,
     "contractEnd": 2029
   },
   {
@@ -913,8 +913,8 @@
     "name": "Pablo Medina",
     "role": "youth_coach",
     "clubId": 25,
-    "ability": 52,
-    "wage": 4200,
+    "ability": 11,
+    "wage": 900,
     "contractEnd": 2029
   },
   {
@@ -922,8 +922,8 @@
     "name": "Diego Rodriguez",
     "role": "physio",
     "clubId": 25,
-    "ability": 55,
-    "wage": 4800,
+    "ability": 12,
+    "wage": 1100,
     "contractEnd": 2028
   },
   {
@@ -931,8 +931,8 @@
     "name": "Victor Vega",
     "role": "fitness_coach",
     "clubId": 25,
-    "ability": 50,
-    "wage": 5500,
+    "ability": 10,
+    "wage": 1100,
     "contractEnd": 2028
   },
   {
@@ -940,8 +940,8 @@
     "name": "Juan Blanco",
     "role": "assistant",
     "clubId": 25,
-    "ability": 56,
-    "wage": 6200,
+    "ability": 12,
+    "wage": 1300,
     "contractEnd": 2026
   },
   {
@@ -949,8 +949,8 @@
     "name": "Florian Richter",
     "role": "assistant",
     "clubId": 26,
-    "ability": 60,
-    "wage": 7100,
+    "ability": 13,
+    "wage": 1500,
     "contractEnd": 2029
   },
   {
@@ -958,8 +958,8 @@
     "name": "Paolo Moretti",
     "role": "physio",
     "clubId": 26,
-    "ability": 61,
-    "wage": 7000,
+    "ability": 13,
+    "wage": 1500,
     "contractEnd": 2028
   },
   {
@@ -967,8 +967,8 @@
     "name": "Rafael Fuentes",
     "role": "youth_coach",
     "clubId": 26,
-    "ability": 65,
-    "wage": 7000,
+    "ability": 15,
+    "wage": 1600,
     "contractEnd": 2026
   },
   {
@@ -976,8 +976,8 @@
     "name": "Miguel Morales",
     "role": "fitness_coach",
     "clubId": 26,
-    "ability": 60,
-    "wage": 6100,
+    "ability": 13,
+    "wage": 1300,
     "contractEnd": 2026
   },
   {
@@ -985,8 +985,8 @@
     "name": "Jordan Hill",
     "role": "scout",
     "clubId": 26,
-    "ability": 54,
-    "wage": 5800,
+    "ability": 11,
+    "wage": 1200,
     "contractEnd": 2026
   },
   {
@@ -994,8 +994,8 @@
     "name": "Alejandro Gutierrez",
     "role": "assistant",
     "clubId": 27,
-    "ability": 49,
-    "wage": 5400,
+    "ability": 10,
+    "wage": 1100,
     "contractEnd": 2029
   },
   {
@@ -1003,8 +1003,8 @@
     "name": "Diego Reyes",
     "role": "scout",
     "clubId": 27,
-    "ability": 65,
-    "wage": 6000,
+    "ability": 15,
+    "wage": 1400,
     "contractEnd": 2028
   },
   {
@@ -1012,8 +1012,8 @@
     "name": "Miguel Diaz",
     "role": "physio",
     "clubId": 27,
-    "ability": 59,
-    "wage": 6300,
+    "ability": 13,
+    "wage": 1400,
     "contractEnd": 2029
   },
   {
@@ -1021,8 +1021,8 @@
     "name": "Hector Aguilar",
     "role": "youth_coach",
     "clubId": 27,
-    "ability": 59,
-    "wage": 5000,
+    "ability": 13,
+    "wage": 1100,
     "contractEnd": 2028
   },
   {
@@ -1030,8 +1030,8 @@
     "name": "Pedro Ramirez",
     "role": "fitness_coach",
     "clubId": 27,
-    "ability": 48,
-    "wage": 5000,
+    "ability": 9,
+    "wage": 900,
     "contractEnd": 2027
   },
   {
@@ -1039,8 +1039,8 @@
     "name": "Ruben Medina",
     "role": "physio",
     "clubId": 28,
-    "ability": 46,
-    "wage": 4700,
+    "ability": 9,
+    "wage": 900,
     "contractEnd": 2028
   },
   {
@@ -1048,8 +1048,8 @@
     "name": "David Fuentes",
     "role": "scout",
     "clubId": 28,
-    "ability": 49,
-    "wage": 4900,
+    "ability": 10,
+    "wage": 1000,
     "contractEnd": 2027
   },
   {
@@ -1057,8 +1057,8 @@
     "name": "Alvaro Vega",
     "role": "fitness_coach",
     "clubId": 28,
-    "ability": 56,
-    "wage": 6500,
+    "ability": 13,
+    "wage": 1500,
     "contractEnd": 2026
   },
   {
@@ -1066,8 +1066,8 @@
     "name": "Rafael Delgado",
     "role": "assistant",
     "clubId": 28,
-    "ability": 50,
-    "wage": 4800,
+    "ability": 11,
+    "wage": 1100,
     "contractEnd": 2029
   },
   {
@@ -1075,8 +1075,8 @@
     "name": "Roberto Alvarez",
     "role": "fitness_coach",
     "clubId": 29,
-    "ability": 55,
-    "wage": 6000,
+    "ability": 13,
+    "wage": 1400,
     "contractEnd": 2027
   },
   {
@@ -1084,8 +1084,8 @@
     "name": "Cristian Mariani",
     "role": "scout",
     "clubId": 29,
-    "ability": 38,
-    "wage": 4000,
+    "ability": 8,
+    "wage": 800,
     "contractEnd": 2026
   },
   {
@@ -1093,8 +1093,8 @@
     "name": "David Castro",
     "role": "physio",
     "clubId": 29,
-    "ability": 44,
-    "wage": 4300,
+    "ability": 10,
+    "wage": 1000,
     "contractEnd": 2026
   },
   {
@@ -1102,8 +1102,8 @@
     "name": "Patrick Schmitt",
     "role": "youth_coach",
     "clubId": 30,
-    "ability": 57,
-    "wage": 6700,
+    "ability": 13,
+    "wage": 1500,
     "contractEnd": 2028
   },
   {
@@ -1111,8 +1111,8 @@
     "name": "Miguel Romero",
     "role": "assistant",
     "clubId": 30,
-    "ability": 46,
-    "wage": 4300,
+    "ability": 9,
+    "wage": 800,
     "contractEnd": 2027
   },
   {
@@ -1120,8 +1120,8 @@
     "name": "Ricardo Diaz",
     "role": "fitness_coach",
     "clubId": 30,
-    "ability": 54,
-    "wage": 6100,
+    "ability": 12,
+    "wage": 1400,
     "contractEnd": 2026
   },
   {
@@ -1129,8 +1129,8 @@
     "name": "Oscar Perez",
     "role": "physio",
     "clubId": 30,
-    "ability": 56,
-    "wage": 4800,
+    "ability": 12,
+    "wage": 1000,
     "contractEnd": 2027
   },
   {
@@ -1138,8 +1138,8 @@
     "name": "Miguel Delgado",
     "role": "scout",
     "clubId": 30,
-    "ability": 53,
-    "wage": 4700,
+    "ability": 11,
+    "wage": 1000,
     "contractEnd": 2027
   },
   {
@@ -1147,8 +1147,8 @@
     "name": "Marco Garcia",
     "role": "fitness_coach",
     "clubId": 31,
-    "ability": 46,
-    "wage": 4500,
+    "ability": 10,
+    "wage": 1000,
     "contractEnd": 2028
   },
   {
@@ -1156,8 +1156,8 @@
     "name": "Manuel Sanchez",
     "role": "scout",
     "clubId": 31,
-    "ability": 41,
-    "wage": 4900,
+    "ability": 8,
+    "wage": 1000,
     "contractEnd": 2028
   },
   {
@@ -1165,8 +1165,8 @@
     "name": "Ricardo Soto",
     "role": "physio",
     "clubId": 31,
-    "ability": 48,
-    "wage": 4000,
+    "ability": 10,
+    "wage": 800,
     "contractEnd": 2026
   },
   {
@@ -1174,8 +1174,8 @@
     "name": "Michael Weber",
     "role": "physio",
     "clubId": 32,
-    "ability": 32,
-    "wage": 3500,
+    "ability": 6,
+    "wage": 600,
     "contractEnd": 2026
   },
   {
@@ -1183,8 +1183,8 @@
     "name": "Alberto Herrera",
     "role": "youth_coach",
     "clubId": 32,
-    "ability": 40,
-    "wage": 3600,
+    "ability": 8,
+    "wage": 700,
     "contractEnd": 2026
   },
   {
@@ -1192,8 +1192,8 @@
     "name": "Hector Flores",
     "role": "fitness_coach",
     "clubId": 32,
-    "ability": 36,
-    "wage": 4000,
+    "ability": 7,
+    "wage": 800,
     "contractEnd": 2027
   },
   {
@@ -1201,8 +1201,8 @@
     "name": "Massimo Mariani",
     "role": "physio",
     "clubId": 33,
-    "ability": 36,
-    "wage": 3200,
+    "ability": 8,
+    "wage": 700,
     "contractEnd": 2026
   },
   {
@@ -1210,8 +1210,8 @@
     "name": "Victor Vargas",
     "role": "assistant",
     "clubId": 33,
-    "ability": 35,
-    "wage": 3000,
+    "ability": 7,
+    "wage": 600,
     "contractEnd": 2029
   },
   {
@@ -1219,8 +1219,8 @@
     "name": "Francisco Torres",
     "role": "scout",
     "clubId": 33,
-    "ability": 47,
-    "wage": 4500,
+    "ability": 11,
+    "wage": 1100,
     "contractEnd": 2027
   },
   {
@@ -1228,8 +1228,8 @@
     "name": "Roberto Aguilar",
     "role": "fitness_coach",
     "clubId": 33,
-    "ability": 50,
-    "wage": 4100,
+    "ability": 12,
+    "wage": 1000,
     "contractEnd": 2027
   },
   {
@@ -1237,8 +1237,8 @@
     "name": "Luke Ramirez",
     "role": "assistant",
     "clubId": 34,
-    "ability": 42,
-    "wage": 5000,
+    "ability": 9,
+    "wage": 1100,
     "contractEnd": 2028
   },
   {
@@ -1246,8 +1246,8 @@
     "name": "Carlos Cruz",
     "role": "fitness_coach",
     "clubId": 34,
-    "ability": 45,
-    "wage": 4100,
+    "ability": 10,
+    "wage": 900,
     "contractEnd": 2028
   },
   {
@@ -1255,8 +1255,8 @@
     "name": "Fernando Perez",
     "role": "youth_coach",
     "clubId": 34,
-    "ability": 48,
-    "wage": 4900,
+    "ability": 11,
+    "wage": 1100,
     "contractEnd": 2026
   },
   {
@@ -1264,8 +1264,8 @@
     "name": "Pietro Gentile",
     "role": "physio",
     "clubId": 34,
-    "ability": 36,
-    "wage": 3200,
+    "ability": 7,
+    "wage": 600,
     "contractEnd": 2026
   },
   {
@@ -1273,8 +1273,8 @@
     "name": "Sergio Diaz",
     "role": "scout",
     "clubId": 34,
-    "ability": 45,
-    "wage": 5300,
+    "ability": 10,
+    "wage": 1200,
     "contractEnd": 2026
   },
   {
@@ -1282,8 +1282,8 @@
     "name": "Diego Delgado",
     "role": "physio",
     "clubId": 35,
-    "ability": 42,
-    "wage": 5000,
+    "ability": 10,
+    "wage": 1200,
     "contractEnd": 2028
   },
   {
@@ -1291,8 +1291,8 @@
     "name": "Sergio Aguilar",
     "role": "fitness_coach",
     "clubId": 35,
-    "ability": 48,
-    "wage": 5100,
+    "ability": 12,
+    "wage": 1300,
     "contractEnd": 2026
   },
   {
@@ -1300,8 +1300,8 @@
     "name": "Rafael Perez",
     "role": "youth_coach",
     "clubId": 35,
-    "ability": 29,
-    "wage": 2600,
+    "ability": 6,
+    "wage": 500,
     "contractEnd": 2028
   },
   {
@@ -1309,8 +1309,8 @@
     "name": "Roberto Aguilar",
     "role": "assistant",
     "clubId": 35,
-    "ability": 36,
-    "wage": 4000,
+    "ability": 8,
+    "wage": 900,
     "contractEnd": 2028
   },
   {
@@ -1318,8 +1318,8 @@
     "name": "Jorge Blanco",
     "role": "scout",
     "clubId": 36,
-    "ability": 38,
-    "wage": 3100,
+    "ability": 9,
+    "wage": 700,
     "contractEnd": 2028
   },
   {
@@ -1327,8 +1327,8 @@
     "name": "Pierre Moreau",
     "role": "assistant",
     "clubId": 36,
-    "ability": 31,
-    "wage": 3100,
+    "ability": 6,
+    "wage": 600,
     "contractEnd": 2027
   },
   {
@@ -1336,8 +1336,8 @@
     "name": "Juan Castro",
     "role": "youth_coach",
     "clubId": 36,
-    "ability": 46,
-    "wage": 4900,
+    "ability": 11,
+    "wage": 1200,
     "contractEnd": 2027
   },
   {
@@ -1345,8 +1345,8 @@
     "name": "Ivan Herrera",
     "role": "physio",
     "clubId": 36,
-    "ability": 30,
-    "wage": 3500,
+    "ability": 6,
+    "wage": 700,
     "contractEnd": 2026
   },
   {
@@ -1354,8 +1354,8 @@
     "name": "Oscar Vargas",
     "role": "physio",
     "clubId": 37,
-    "ability": 35,
-    "wage": 3600,
+    "ability": 7,
+    "wage": 700,
     "contractEnd": 2027
   },
   {
@@ -1363,8 +1363,8 @@
     "name": "Hugo Castillo",
     "role": "assistant",
     "clubId": 37,
-    "ability": 41,
-    "wage": 4600,
+    "ability": 9,
+    "wage": 1000,
     "contractEnd": 2028
   },
   {
@@ -1372,8 +1372,8 @@
     "name": "Daniel Walker",
     "role": "youth_coach",
     "clubId": 37,
-    "ability": 48,
-    "wage": 4300,
+    "ability": 11,
+    "wage": 1000,
     "contractEnd": 2029
   },
   {
@@ -1381,8 +1381,8 @@
     "name": "Samuel Moore",
     "role": "fitness_coach",
     "clubId": 37,
-    "ability": 37,
-    "wage": 3900,
+    "ability": 8,
+    "wage": 800,
     "contractEnd": 2027
   },
   {
@@ -1390,8 +1390,8 @@
     "name": "Andrew Wilson",
     "role": "scout",
     "clubId": 38,
-    "ability": 33,
-    "wage": 2700,
+    "ability": 8,
+    "wage": 600,
     "contractEnd": 2028
   },
   {
@@ -1399,8 +1399,8 @@
     "name": "Pablo Soto",
     "role": "youth_coach",
     "clubId": 38,
-    "ability": 42,
-    "wage": 3500,
+    "ability": 11,
+    "wage": 900,
     "contractEnd": 2026
   },
   {
@@ -1408,8 +1408,8 @@
     "name": "Carlos Hernandez",
     "role": "physio",
     "clubId": 38,
-    "ability": 37,
-    "wage": 4400,
+    "ability": 9,
+    "wage": 1100,
     "contractEnd": 2026
   },
   {
@@ -1417,8 +1417,8 @@
     "name": "Alejandro Garcia",
     "role": "youth_coach",
     "clubId": 39,
-    "ability": 29,
-    "wage": 3200,
+    "ability": 6,
+    "wage": 700,
     "contractEnd": 2029
   },
   {
@@ -1426,8 +1426,8 @@
     "name": "Marco Cruz",
     "role": "scout",
     "clubId": 39,
-    "ability": 34,
-    "wage": 3900,
+    "ability": 8,
+    "wage": 900,
     "contractEnd": 2027
   },
   {
@@ -1435,8 +1435,8 @@
     "name": "Roberto Mendoza",
     "role": "assistant",
     "clubId": 39,
-    "ability": 47,
-    "wage": 5300,
+    "ability": 12,
+    "wage": 1300,
     "contractEnd": 2026
   },
   {
@@ -1444,8 +1444,8 @@
     "name": "Sebastien Moreau",
     "role": "youth_coach",
     "clubId": 40,
-    "ability": 24,
-    "wage": 2100,
+    "ability": 5,
+    "wage": 400,
     "contractEnd": 2029
   },
   {
@@ -1453,8 +1453,8 @@
     "name": "Oliver Campbell",
     "role": "assistant",
     "clubId": 40,
-    "ability": 32,
-    "wage": 2700,
+    "ability": 7,
+    "wage": 600,
     "contractEnd": 2026
   },
   {
@@ -1462,8 +1462,8 @@
     "name": "Juan Lopez",
     "role": "physio",
     "clubId": 40,
-    "ability": 27,
-    "wage": 2400,
+    "ability": 6,
+    "wage": 500,
     "contractEnd": 2029
   },
   {
@@ -1471,8 +1471,8 @@
     "name": "Jake Roberts",
     "role": "fitness_coach",
     "clubId": 40,
-    "ability": 41,
-    "wage": 4300,
+    "ability": 10,
+    "wage": 1100,
     "contractEnd": 2027
   },
   {
@@ -1480,8 +1480,8 @@
     "name": "Nicolo Conti",
     "role": "physio",
     "clubId": 41,
-    "ability": 68,
-    "wage": 6100,
+    "ability": 14,
+    "wage": 1300,
     "contractEnd": 2026
   },
   {
@@ -1489,8 +1489,8 @@
     "name": "Riccardo Galli",
     "role": "scout",
     "clubId": 41,
-    "ability": 60,
-    "wage": 5900,
+    "ability": 12,
+    "wage": 1200,
     "contractEnd": 2029
   },
   {
@@ -1498,8 +1498,8 @@
     "name": "Leonardo Fontana",
     "role": "assistant",
     "clubId": 41,
-    "ability": 66,
-    "wage": 6800,
+    "ability": 14,
+    "wage": 1400,
     "contractEnd": 2026
   },
   {
@@ -1507,8 +1507,8 @@
     "name": "Cristian De Angelis",
     "role": "scout",
     "clubId": 42,
-    "ability": 65,
-    "wage": 6500,
+    "ability": 14,
+    "wage": 1400,
     "contractEnd": 2028
   },
   {
@@ -1516,8 +1516,8 @@
     "name": "Antonio Santoro",
     "role": "youth_coach",
     "clubId": 42,
-    "ability": 63,
-    "wage": 5600,
+    "ability": 13,
+    "wage": 1200,
     "contractEnd": 2028
   },
   {
@@ -1525,8 +1525,8 @@
     "name": "Dario Gallo",
     "role": "fitness_coach",
     "clubId": 42,
-    "ability": 61,
-    "wage": 5300,
+    "ability": 12,
+    "wage": 1000,
     "contractEnd": 2026
   },
   {
@@ -1534,8 +1534,8 @@
     "name": "Luca Barbieri",
     "role": "physio",
     "clubId": 42,
-    "ability": 71,
-    "wage": 8000,
+    "ability": 16,
+    "wage": 1800,
     "contractEnd": 2028
   },
   {
@@ -1543,8 +1543,8 @@
     "name": "Stefano Galli",
     "role": "assistant",
     "clubId": 43,
-    "ability": 69,
-    "wage": 5500,
+    "ability": 15,
+    "wage": 1200,
     "contractEnd": 2027
   },
   {
@@ -1552,8 +1552,8 @@
     "name": "Giorgio Barbieri",
     "role": "physio",
     "clubId": 43,
-    "ability": 61,
-    "wage": 5800,
+    "ability": 12,
+    "wage": 1100,
     "contractEnd": 2027
   },
   {
@@ -1561,8 +1561,8 @@
     "name": "Massimo Moretti",
     "role": "fitness_coach",
     "clubId": 43,
-    "ability": 69,
-    "wage": 7700,
+    "ability": 15,
+    "wage": 1700,
     "contractEnd": 2028
   },
   {
@@ -1570,8 +1570,8 @@
     "name": "Pietro Greco",
     "role": "youth_coach",
     "clubId": 43,
-    "ability": 64,
-    "wage": 5700,
+    "ability": 13,
+    "wage": 1200,
     "contractEnd": 2029
   },
   {
@@ -1579,8 +1579,8 @@
     "name": "Lewis Evans",
     "role": "youth_coach",
     "clubId": 44,
-    "ability": 63,
-    "wage": 5800,
+    "ability": 13,
+    "wage": 1200,
     "contractEnd": 2028
   },
   {
@@ -1588,8 +1588,8 @@
     "name": "Lorenzo Conti",
     "role": "fitness_coach",
     "clubId": 44,
-    "ability": 67,
-    "wage": 5400,
+    "ability": 14,
+    "wage": 1100,
     "contractEnd": 2026
   },
   {
@@ -1597,8 +1597,8 @@
     "name": "Alex Lewis",
     "role": "physio",
     "clubId": 44,
-    "ability": 61,
-    "wage": 6700,
+    "ability": 12,
+    "wage": 1300,
     "contractEnd": 2028
   },
   {
@@ -1606,8 +1606,8 @@
     "name": "Markus Schaefer",
     "role": "scout",
     "clubId": 44,
-    "ability": 70,
-    "wage": 5700,
+    "ability": 15,
+    "wage": 1200,
     "contractEnd": 2028
   },
   {
@@ -1615,8 +1615,8 @@
     "name": "Andrea Ferrara",
     "role": "physio",
     "clubId": 45,
-    "ability": 58,
-    "wage": 6900,
+    "ability": 12,
+    "wage": 1400,
     "contractEnd": 2026
   },
   {
@@ -1624,8 +1624,8 @@
     "name": "Andrea Bianchi",
     "role": "fitness_coach",
     "clubId": 45,
-    "ability": 69,
-    "wage": 6700,
+    "ability": 15,
+    "wage": 1500,
     "contractEnd": 2029
   },
   {
@@ -1633,8 +1633,8 @@
     "name": "Charlie Young",
     "role": "assistant",
     "clubId": 45,
-    "ability": 61,
-    "wage": 6500,
+    "ability": 13,
+    "wage": 1400,
     "contractEnd": 2027
   },
   {
@@ -1642,8 +1642,8 @@
     "name": "Roberto Santoro",
     "role": "youth_coach",
     "clubId": 45,
-    "ability": 66,
-    "wage": 5800,
+    "ability": 14,
+    "wage": 1200,
     "contractEnd": 2026
   },
   {
@@ -1651,8 +1651,8 @@
     "name": "Antonio Mancini",
     "role": "scout",
     "clubId": 45,
-    "ability": 63,
-    "wage": 7300,
+    "ability": 13,
+    "wage": 1500,
     "contractEnd": 2026
   },
   {
@@ -1660,8 +1660,8 @@
     "name": "Leon Fuchs",
     "role": "youth_coach",
     "clubId": 46,
-    "ability": 62,
-    "wage": 7000,
+    "ability": 14,
+    "wage": 1600,
     "contractEnd": 2027
   },
   {
@@ -1669,8 +1669,8 @@
     "name": "Massimo Colombo",
     "role": "scout",
     "clubId": 46,
-    "ability": 58,
-    "wage": 6400,
+    "ability": 13,
+    "wage": 1400,
     "contractEnd": 2028
   },
   {
@@ -1678,8 +1678,8 @@
     "name": "Nicolo Moretti",
     "role": "assistant",
     "clubId": 46,
-    "ability": 57,
-    "wage": 4900,
+    "ability": 12,
+    "wage": 1000,
     "contractEnd": 2027
   },
   {
@@ -1687,8 +1687,8 @@
     "name": "Pietro Bianchi",
     "role": "youth_coach",
     "clubId": 47,
-    "ability": 60,
-    "wage": 6800,
+    "ability": 13,
+    "wage": 1500,
     "contractEnd": 2026
   },
   {
@@ -1696,8 +1696,8 @@
     "name": "Alessandro Esposito",
     "role": "assistant",
     "clubId": 47,
-    "ability": 56,
-    "wage": 5600,
+    "ability": 11,
+    "wage": 1100,
     "contractEnd": 2026
   },
   {
@@ -1705,8 +1705,8 @@
     "name": "Claudio Greco",
     "role": "physio",
     "clubId": 47,
-    "ability": 55,
-    "wage": 4600,
+    "ability": 11,
+    "wage": 900,
     "contractEnd": 2026
   },
   {
@@ -1714,8 +1714,8 @@
     "name": "Pietro Bruno",
     "role": "youth_coach",
     "clubId": 48,
-    "ability": 46,
-    "wage": 4100,
+    "ability": 9,
+    "wage": 800,
     "contractEnd": 2029
   },
   {
@@ -1723,8 +1723,8 @@
     "name": "Luca Costa",
     "role": "fitness_coach",
     "clubId": 48,
-    "ability": 51,
-    "wage": 5400,
+    "ability": 11,
+    "wage": 1200,
     "contractEnd": 2029
   },
   {
@@ -1732,8 +1732,8 @@
     "name": "Antonio Ricci",
     "role": "scout",
     "clubId": 48,
-    "ability": 62,
-    "wage": 7400,
+    "ability": 15,
+    "wage": 1800,
     "contractEnd": 2029
   },
   {
@@ -1741,8 +1741,8 @@
     "name": "Davide Bruno",
     "role": "assistant",
     "clubId": 48,
-    "ability": 51,
-    "wage": 5500,
+    "ability": 11,
+    "wage": 1200,
     "contractEnd": 2028
   },
   {
@@ -1750,8 +1750,8 @@
     "name": "Florian Clement",
     "role": "assistant",
     "clubId": 49,
-    "ability": 50,
-    "wage": 5600,
+    "ability": 10,
+    "wage": 1100,
     "contractEnd": 2026
   },
   {
@@ -1759,8 +1759,8 @@
     "name": "Federico Galli",
     "role": "fitness_coach",
     "clubId": 49,
-    "ability": 53,
-    "wage": 5400,
+    "ability": 11,
+    "wage": 1100,
     "contractEnd": 2029
   },
   {
@@ -1768,8 +1768,8 @@
     "name": "Ruben Rodriguez",
     "role": "youth_coach",
     "clubId": 49,
-    "ability": 62,
-    "wage": 5800,
+    "ability": 14,
+    "wage": 1300,
     "contractEnd": 2027
   },
   {
@@ -1777,8 +1777,8 @@
     "name": "Federico Longo",
     "role": "physio",
     "clubId": 49,
-    "ability": 43,
-    "wage": 4900,
+    "ability": 8,
+    "wage": 900,
     "contractEnd": 2027
   },
   {
@@ -1786,8 +1786,8 @@
     "name": "Dario Barbieri",
     "role": "scout",
     "clubId": 49,
-    "ability": 43,
-    "wage": 4700,
+    "ability": 8,
+    "wage": 900,
     "contractEnd": 2028
   },
   {
@@ -1795,8 +1795,8 @@
     "name": "Fabio Romano",
     "role": "youth_coach",
     "clubId": 50,
-    "ability": 49,
-    "wage": 4500,
+    "ability": 11,
+    "wage": 1000,
     "contractEnd": 2028
   },
   {
@@ -1804,8 +1804,8 @@
     "name": "Daniele Colombo",
     "role": "fitness_coach",
     "clubId": 50,
-    "ability": 51,
-    "wage": 5100,
+    "ability": 12,
+    "wage": 1200,
     "contractEnd": 2027
   },
   {
@@ -1813,8 +1813,8 @@
     "name": "Claudio Serra",
     "role": "scout",
     "clubId": 50,
-    "ability": 47,
-    "wage": 4700,
+    "ability": 11,
+    "wage": 1100,
     "contractEnd": 2027
   },
   {
@@ -1822,8 +1822,8 @@
     "name": "Mathieu Bertrand",
     "role": "assistant",
     "clubId": 50,
-    "ability": 39,
-    "wage": 3500,
+    "ability": 8,
+    "wage": 700,
     "contractEnd": 2027
   },
   {
@@ -1831,8 +1831,8 @@
     "name": "Yoann Morel",
     "role": "fitness_coach",
     "clubId": 51,
-    "ability": 55,
-    "wage": 4600,
+    "ability": 13,
+    "wage": 1100,
     "contractEnd": 2026
   },
   {
@@ -1840,8 +1840,8 @@
     "name": "Gabriele De Luca",
     "role": "assistant",
     "clubId": 51,
-    "ability": 48,
-    "wage": 4800,
+    "ability": 11,
+    "wage": 1100,
     "contractEnd": 2029
   },
   {
@@ -1849,8 +1849,8 @@
     "name": "Patrick Fischer",
     "role": "youth_coach",
     "clubId": 51,
-    "ability": 50,
-    "wage": 5300,
+    "ability": 12,
+    "wage": 1300,
     "contractEnd": 2027
   },
   {
@@ -1858,8 +1858,8 @@
     "name": "Stefano Ferrara",
     "role": "physio",
     "clubId": 51,
-    "ability": 45,
-    "wage": 5300,
+    "ability": 10,
+    "wage": 1200,
     "contractEnd": 2026
   },
   {
@@ -1867,8 +1867,8 @@
     "name": "Alberto Mancini",
     "role": "assistant",
     "clubId": 52,
-    "ability": 35,
-    "wage": 3500,
+    "ability": 7,
+    "wage": 700,
     "contractEnd": 2029
   },
   {
@@ -1876,8 +1876,8 @@
     "name": "Alejandro Chavez",
     "role": "scout",
     "clubId": 52,
-    "ability": 46,
-    "wage": 3700,
+    "ability": 11,
+    "wage": 900,
     "contractEnd": 2027
   },
   {
@@ -1885,8 +1885,8 @@
     "name": "Javier Alvarez",
     "role": "fitness_coach",
     "clubId": 52,
-    "ability": 48,
-    "wage": 5300,
+    "ability": 12,
+    "wage": 1300,
     "contractEnd": 2027
   },
   {
@@ -1894,8 +1894,8 @@
     "name": "Fabio Bianchi",
     "role": "youth_coach",
     "clubId": 52,
-    "ability": 34,
-    "wage": 2900,
+    "ability": 7,
+    "wage": 600,
     "contractEnd": 2028
   },
   {
@@ -1903,8 +1903,8 @@
     "name": "Jordan Campbell",
     "role": "fitness_coach",
     "clubId": 53,
-    "ability": 37,
-    "wage": 3900,
+    "ability": 7,
+    "wage": 700,
     "contractEnd": 2029
   },
   {
@@ -1912,8 +1912,8 @@
     "name": "Gianluca Gentile",
     "role": "physio",
     "clubId": 53,
-    "ability": 36,
-    "wage": 3400,
+    "ability": 7,
+    "wage": 700,
     "contractEnd": 2026
   },
   {
@@ -1921,8 +1921,8 @@
     "name": "Roberto Russo",
     "role": "assistant",
     "clubId": 53,
-    "ability": 33,
-    "wage": 2700,
+    "ability": 6,
+    "wage": 500,
     "contractEnd": 2029
   },
   {
@@ -1930,8 +1930,8 @@
     "name": "Lorenzo Montanari",
     "role": "youth_coach",
     "clubId": 53,
-    "ability": 33,
-    "wage": 3600,
+    "ability": 6,
+    "wage": 700,
     "contractEnd": 2026
   },
   {
@@ -1939,8 +1939,8 @@
     "name": "Nicolo Leone",
     "role": "scout",
     "clubId": 53,
-    "ability": 37,
-    "wage": 4000,
+    "ability": 7,
+    "wage": 800,
     "contractEnd": 2029
   },
   {
@@ -1948,8 +1948,8 @@
     "name": "Fabio Rossi",
     "role": "physio",
     "clubId": 54,
-    "ability": 39,
-    "wage": 4300,
+    "ability": 9,
+    "wage": 1000,
     "contractEnd": 2027
   },
   {
@@ -1957,8 +1957,8 @@
     "name": "Fabio Bianchi",
     "role": "youth_coach",
     "clubId": 54,
-    "ability": 32,
-    "wage": 2800,
+    "ability": 6,
+    "wage": 500,
     "contractEnd": 2028
   },
   {
@@ -1966,8 +1966,8 @@
     "name": "Giorgio Longo",
     "role": "scout",
     "clubId": 54,
-    "ability": 32,
-    "wage": 3400,
+    "ability": 6,
+    "wage": 600,
     "contractEnd": 2028
   },
   {
@@ -1975,8 +1975,8 @@
     "name": "Francois Martin",
     "role": "youth_coach",
     "clubId": 55,
-    "ability": 47,
-    "wage": 3800,
+    "ability": 12,
+    "wage": 1000,
     "contractEnd": 2028
   },
   {
@@ -1984,8 +1984,8 @@
     "name": "Adrien Clement",
     "role": "physio",
     "clubId": 55,
-    "ability": 39,
-    "wage": 4100,
+    "ability": 9,
+    "wage": 900,
     "contractEnd": 2028
   },
   {
@@ -1993,8 +1993,8 @@
     "name": "Gabriele Caruso",
     "role": "assistant",
     "clubId": 55,
-    "ability": 45,
-    "wage": 5100,
+    "ability": 11,
+    "wage": 1300,
     "contractEnd": 2028
   },
   {
@@ -2002,8 +2002,8 @@
     "name": "Nicolo Martinelli",
     "role": "fitness_coach",
     "clubId": 55,
-    "ability": 28,
-    "wage": 3000,
+    "ability": 6,
+    "wage": 600,
     "contractEnd": 2028
   },
   {
@@ -2011,8 +2011,8 @@
     "name": "Federico Vitale",
     "role": "physio",
     "clubId": 56,
-    "ability": 36,
-    "wage": 2900,
+    "ability": 8,
+    "wage": 600,
     "contractEnd": 2027
   },
   {
@@ -2020,8 +2020,8 @@
     "name": "Andrea Lombardi",
     "role": "scout",
     "clubId": 56,
-    "ability": 45,
-    "wage": 4200,
+    "ability": 11,
+    "wage": 1000,
     "contractEnd": 2026
   },
   {
@@ -2029,8 +2029,8 @@
     "name": "Alessandro Gentile",
     "role": "youth_coach",
     "clubId": 56,
-    "ability": 27,
-    "wage": 2700,
+    "ability": 5,
+    "wage": 500,
     "contractEnd": 2026
   },
   {
@@ -2038,8 +2038,8 @@
     "name": "Francesco Rossi",
     "role": "assistant",
     "clubId": 56,
-    "ability": 34,
-    "wage": 3300,
+    "ability": 7,
+    "wage": 700,
     "contractEnd": 2028
   },
   {
@@ -2047,8 +2047,8 @@
     "name": "Jonathan Morel",
     "role": "assistant",
     "clubId": 57,
-    "ability": 31,
-    "wage": 2700,
+    "ability": 7,
+    "wage": 600,
     "contractEnd": 2029
   },
   {
@@ -2056,8 +2056,8 @@
     "name": "Pietro Esposito",
     "role": "scout",
     "clubId": 57,
-    "ability": 36,
-    "wage": 3700,
+    "ability": 8,
+    "wage": 800,
     "contractEnd": 2029
   },
   {
@@ -2065,8 +2065,8 @@
     "name": "Jake Taylor",
     "role": "fitness_coach",
     "clubId": 57,
-    "ability": 37,
-    "wage": 3100,
+    "ability": 9,
+    "wage": 800,
     "contractEnd": 2028
   },
   {
@@ -2074,8 +2074,8 @@
     "name": "Gabriele De Angelis",
     "role": "physio",
     "clubId": 57,
-    "ability": 36,
-    "wage": 4100,
+    "ability": 8,
+    "wage": 900,
     "contractEnd": 2027
   },
   {
@@ -2083,8 +2083,8 @@
     "name": "Vincenzo Lombardo",
     "role": "physio",
     "clubId": 58,
-    "ability": 38,
-    "wage": 3500,
+    "ability": 9,
+    "wage": 800,
     "contractEnd": 2027
   },
   {
@@ -2092,8 +2092,8 @@
     "name": "Moritz Maier",
     "role": "youth_coach",
     "clubId": 58,
-    "ability": 48,
-    "wage": 4500,
+    "ability": 12,
+    "wage": 1100,
     "contractEnd": 2027
   },
   {
@@ -2101,8 +2101,8 @@
     "name": "Massimo Galli",
     "role": "fitness_coach",
     "clubId": 58,
-    "ability": 34,
-    "wage": 3600,
+    "ability": 7,
+    "wage": 700,
     "contractEnd": 2028
   },
   {
@@ -2110,8 +2110,8 @@
     "name": "Pietro Mancini",
     "role": "assistant",
     "clubId": 59,
-    "ability": 34,
-    "wage": 3000,
+    "ability": 7,
+    "wage": 600,
     "contractEnd": 2027
   },
   {
@@ -2119,8 +2119,8 @@
     "name": "Jan Bauer",
     "role": "fitness_coach",
     "clubId": 59,
-    "ability": 51,
-    "wage": 4800,
+    "ability": 12,
+    "wage": 1100,
     "contractEnd": 2028
   },
   {
@@ -2128,8 +2128,8 @@
     "name": "Federico Leone",
     "role": "youth_coach",
     "clubId": 59,
-    "ability": 32,
-    "wage": 3400,
+    "ability": 6,
+    "wage": 600,
     "contractEnd": 2026
   },
   {
@@ -2137,8 +2137,8 @@
     "name": "Riccardo Gallo",
     "role": "physio",
     "clubId": 60,
-    "ability": 44,
-    "wage": 5100,
+    "ability": 11,
+    "wage": 1300,
     "contractEnd": 2027
   },
   {
@@ -2146,8 +2146,8 @@
     "name": "Adrien Simon",
     "role": "youth_coach",
     "clubId": 60,
-    "ability": 38,
-    "wage": 4200,
+    "ability": 9,
+    "wage": 1000,
     "contractEnd": 2027
   },
   {
@@ -2155,8 +2155,8 @@
     "name": "Roberto Rossi",
     "role": "scout",
     "clubId": 60,
-    "ability": 26,
-    "wage": 2900,
+    "ability": 5,
+    "wage": 600,
     "contractEnd": 2026
   },
   {
@@ -2164,8 +2164,8 @@
     "name": "Ryan King",
     "role": "fitness_coach",
     "clubId": 60,
-    "ability": 31,
-    "wage": 3100,
+    "ability": 7,
+    "wage": 700,
     "contractEnd": 2028
   },
   {
@@ -2173,8 +2173,8 @@
     "name": "Simone Greco",
     "role": "assistant",
     "clubId": 60,
-    "ability": 26,
-    "wage": 2200,
+    "ability": 5,
+    "wage": 400,
     "contractEnd": 2029
   },
   {
@@ -2182,8 +2182,8 @@
     "name": "Jake Scott",
     "role": "physio",
     "clubId": 61,
-    "ability": 77,
-    "wage": 8900,
+    "ability": 17,
+    "wage": 2000,
     "contractEnd": 2026
   },
   {
@@ -2191,8 +2191,8 @@
     "name": "Christian Schwarz",
     "role": "assistant",
     "clubId": 61,
-    "ability": 75,
-    "wage": 7500,
+    "ability": 16,
+    "wage": 1600,
     "contractEnd": 2029
   },
   {
@@ -2200,8 +2200,8 @@
     "name": "Dominik Schroeder",
     "role": "fitness_coach",
     "clubId": 61,
-    "ability": 81,
-    "wage": 7600,
+    "ability": 18,
+    "wage": 1700,
     "contractEnd": 2028
   },
   {
@@ -2209,8 +2209,8 @@
     "name": "Francois Morel",
     "role": "fitness_coach",
     "clubId": 62,
-    "ability": 74,
-    "wage": 7300,
+    "ability": 17,
+    "wage": 1700,
     "contractEnd": 2029
   },
   {
@@ -2218,8 +2218,8 @@
     "name": "Alejandro Garcia",
     "role": "scout",
     "clubId": 62,
-    "ability": 59,
-    "wage": 6300,
+    "ability": 12,
+    "wage": 1300,
     "contractEnd": 2026
   },
   {
@@ -2227,8 +2227,8 @@
     "name": "Lukas Walter",
     "role": "youth_coach",
     "clubId": 62,
-    "ability": 59,
-    "wage": 6700,
+    "ability": 12,
+    "wage": 1400,
     "contractEnd": 2029
   },
   {
@@ -2236,8 +2236,8 @@
     "name": "Julian Schmitt",
     "role": "fitness_coach",
     "clubId": 63,
-    "ability": 60,
-    "wage": 6600,
+    "ability": 12,
+    "wage": 1300,
     "contractEnd": 2027
   },
   {
@@ -2245,8 +2245,8 @@
     "name": "Thomas Hahn",
     "role": "scout",
     "clubId": 63,
-    "ability": 56,
-    "wage": 6600,
+    "ability": 11,
+    "wage": 1300,
     "contractEnd": 2028
   },
   {
@@ -2254,8 +2254,8 @@
     "name": "Maximilian Brandt",
     "role": "physio",
     "clubId": 63,
-    "ability": 59,
-    "wage": 6200,
+    "ability": 12,
+    "wage": 1300,
     "contractEnd": 2026
   },
   {
@@ -2263,8 +2263,8 @@
     "name": "Fabio Gentile",
     "role": "assistant",
     "clubId": 63,
-    "ability": 76,
-    "wage": 8000,
+    "ability": 17,
+    "wage": 1800,
     "contractEnd": 2027
   },
   {
@@ -2272,8 +2272,8 @@
     "name": "Tobias Huber",
     "role": "youth_coach",
     "clubId": 63,
-    "ability": 60,
-    "wage": 7000,
+    "ability": 12,
+    "wage": 1400,
     "contractEnd": 2027
   },
   {
@@ -2281,8 +2281,8 @@
     "name": "Jan Fuchs",
     "role": "fitness_coach",
     "clubId": 64,
-    "ability": 61,
-    "wage": 5400,
+    "ability": 13,
+    "wage": 1200,
     "contractEnd": 2029
   },
   {
@@ -2290,8 +2290,8 @@
     "name": "Marc Neumann",
     "role": "youth_coach",
     "clubId": 64,
-    "ability": 54,
-    "wage": 5800,
+    "ability": 11,
+    "wage": 1200,
     "contractEnd": 2028
   },
   {
@@ -2299,8 +2299,8 @@
     "name": "Manuel Mueller",
     "role": "assistant",
     "clubId": 64,
-    "ability": 55,
-    "wage": 5700,
+    "ability": 11,
+    "wage": 1100,
     "contractEnd": 2027
   },
   {
@@ -2308,8 +2308,8 @@
     "name": "David Fischer",
     "role": "physio",
     "clubId": 65,
-    "ability": 68,
-    "wage": 6000,
+    "ability": 16,
+    "wage": 1400,
     "contractEnd": 2029
   },
   {
@@ -2317,8 +2317,8 @@
     "name": "Lars Walter",
     "role": "fitness_coach",
     "clubId": 65,
-    "ability": 67,
-    "wage": 5700,
+    "ability": 16,
+    "wage": 1400,
     "contractEnd": 2028
   },
   {
@@ -2326,8 +2326,8 @@
     "name": "Matteo Rossi",
     "role": "assistant",
     "clubId": 65,
-    "ability": 68,
-    "wage": 6300,
+    "ability": 16,
+    "wage": 1500,
     "contractEnd": 2028
   },
   {
@@ -2335,8 +2335,8 @@
     "name": "Kai Koch",
     "role": "assistant",
     "clubId": 66,
-    "ability": 63,
-    "wage": 7200,
+    "ability": 15,
+    "wage": 1700,
     "contractEnd": 2027
   },
   {
@@ -2344,8 +2344,8 @@
     "name": "Maximilian Krause",
     "role": "youth_coach",
     "clubId": 66,
-    "ability": 66,
-    "wage": 7700,
+    "ability": 16,
+    "wage": 1900,
     "contractEnd": 2029
   },
   {
@@ -2353,8 +2353,8 @@
     "name": "Fabian Kaiser",
     "role": "physio",
     "clubId": 66,
-    "ability": 60,
-    "wage": 6500,
+    "ability": 14,
+    "wage": 1500,
     "contractEnd": 2029
   },
   {
@@ -2362,8 +2362,8 @@
     "name": "Michael Braun",
     "role": "scout",
     "clubId": 66,
-    "ability": 59,
-    "wage": 5500,
+    "ability": 13,
+    "wage": 1200,
     "contractEnd": 2029
   },
   {
@@ -2371,8 +2371,8 @@
     "name": "Ricardo Medina",
     "role": "fitness_coach",
     "clubId": 66,
-    "ability": 51,
-    "wage": 4100,
+    "ability": 11,
+    "wage": 900,
     "contractEnd": 2028
   },
   {
@@ -2380,8 +2380,8 @@
     "name": "Tim Wolf",
     "role": "physio",
     "clubId": 67,
-    "ability": 45,
-    "wage": 4300,
+    "ability": 9,
+    "wage": 900,
     "contractEnd": 2027
   },
   {
@@ -2389,8 +2389,8 @@
     "name": "Nicolo Vitale",
     "role": "fitness_coach",
     "clubId": 67,
-    "ability": 55,
-    "wage": 6000,
+    "ability": 12,
+    "wage": 1300,
     "contractEnd": 2027
   },
   {
@@ -2398,8 +2398,8 @@
     "name": "Hugo Fuentes",
     "role": "youth_coach",
     "clubId": 67,
-    "ability": 47,
-    "wage": 4700,
+    "ability": 9,
+    "wage": 900,
     "contractEnd": 2026
   },
   {
@@ -2407,8 +2407,8 @@
     "name": "Maximilian Becker",
     "role": "assistant",
     "clubId": 67,
-    "ability": 60,
-    "wage": 7100,
+    "ability": 14,
+    "wage": 1700,
     "contractEnd": 2027
   },
   {
@@ -2416,8 +2416,8 @@
     "name": "Francesco Ferretti",
     "role": "scout",
     "clubId": 67,
-    "ability": 55,
-    "wage": 4500,
+    "ability": 12,
+    "wage": 1000,
     "contractEnd": 2029
   },
   {
@@ -2425,8 +2425,8 @@
     "name": "Philipp Fuchs",
     "role": "scout",
     "clubId": 68,
-    "ability": 45,
-    "wage": 3900,
+    "ability": 9,
+    "wage": 800,
     "contractEnd": 2029
   },
   {
@@ -2434,8 +2434,8 @@
     "name": "Marc Maier",
     "role": "assistant",
     "clubId": 68,
-    "ability": 55,
-    "wage": 4600,
+    "ability": 12,
+    "wage": 1000,
     "contractEnd": 2028
   },
   {
@@ -2443,8 +2443,8 @@
     "name": "Christoph Brandt",
     "role": "physio",
     "clubId": 68,
-    "ability": 46,
-    "wage": 4400,
+    "ability": 9,
+    "wage": 900,
     "contractEnd": 2029
   },
   {
@@ -2452,8 +2452,8 @@
     "name": "Florian Klein",
     "role": "fitness_coach",
     "clubId": 68,
-    "ability": 53,
-    "wage": 4800,
+    "ability": 11,
+    "wage": 1000,
     "contractEnd": 2027
   },
   {
@@ -2461,8 +2461,8 @@
     "name": "Kai Roth",
     "role": "youth_coach",
     "clubId": 69,
-    "ability": 51,
-    "wage": 5300,
+    "ability": 11,
+    "wage": 1200,
     "contractEnd": 2028
   },
   {
@@ -2470,8 +2470,8 @@
     "name": "Andrew Mitchell",
     "role": "physio",
     "clubId": 69,
-    "ability": 59,
-    "wage": 4800,
+    "ability": 14,
+    "wage": 1100,
     "contractEnd": 2027
   },
   {
@@ -2479,8 +2479,8 @@
     "name": "Benjamin Laurent",
     "role": "scout",
     "clubId": 69,
-    "ability": 59,
-    "wage": 6100,
+    "ability": 14,
+    "wage": 1400,
     "contractEnd": 2026
   },
   {
@@ -2488,8 +2488,8 @@
     "name": "Dominik Berger",
     "role": "fitness_coach",
     "clubId": 69,
-    "ability": 41,
-    "wage": 3700,
+    "ability": 8,
+    "wage": 700,
     "contractEnd": 2028
   },
   {
@@ -2497,8 +2497,8 @@
     "name": "Tobias Schaefer",
     "role": "assistant",
     "clubId": 69,
-    "ability": 57,
-    "wage": 6700,
+    "ability": 13,
+    "wage": 1500,
     "contractEnd": 2029
   },
   {
@@ -2506,8 +2506,8 @@
     "name": "Kevin Schmidt",
     "role": "youth_coach",
     "clubId": 70,
-    "ability": 44,
-    "wage": 3700,
+    "ability": 9,
+    "wage": 800,
     "contractEnd": 2028
   },
   {
@@ -2515,8 +2515,8 @@
     "name": "Fabio Bianchi",
     "role": "physio",
     "clubId": 70,
-    "ability": 49,
-    "wage": 4700,
+    "ability": 11,
+    "wage": 1000,
     "contractEnd": 2026
   },
   {
@@ -2524,8 +2524,8 @@
     "name": "Tom Harris",
     "role": "fitness_coach",
     "clubId": 70,
-    "ability": 45,
-    "wage": 4800,
+    "ability": 10,
+    "wage": 1100,
     "contractEnd": 2028
   },
   {
@@ -2533,8 +2533,8 @@
     "name": "Patrick Frank",
     "role": "fitness_coach",
     "clubId": 71,
-    "ability": 43,
-    "wage": 3900,
+    "ability": 9,
+    "wage": 800,
     "contractEnd": 2028
   },
   {
@@ -2542,8 +2542,8 @@
     "name": "Adrian Perez",
     "role": "assistant",
     "clubId": 71,
-    "ability": 58,
-    "wage": 6500,
+    "ability": 14,
+    "wage": 1600,
     "contractEnd": 2028
   },
   {
@@ -2551,8 +2551,8 @@
     "name": "Philipp Schaefer",
     "role": "scout",
     "clubId": 71,
-    "ability": 41,
-    "wage": 4300,
+    "ability": 9,
+    "wage": 900,
     "contractEnd": 2028
   },
   {
@@ -2560,8 +2560,8 @@
     "name": "Kevin Maier",
     "role": "youth_coach",
     "clubId": 71,
-    "ability": 50,
-    "wage": 5200,
+    "ability": 12,
+    "wage": 1200,
     "contractEnd": 2027
   },
   {
@@ -2569,8 +2569,8 @@
     "name": "Manuel Schneider",
     "role": "physio",
     "clubId": 71,
-    "ability": 38,
-    "wage": 4300,
+    "ability": 8,
+    "wage": 900,
     "contractEnd": 2028
   },
   {
@@ -2578,8 +2578,8 @@
     "name": "Adam King",
     "role": "assistant",
     "clubId": 72,
-    "ability": 49,
-    "wage": 4400,
+    "ability": 11,
+    "wage": 1000,
     "contractEnd": 2029
   },
   {
@@ -2587,8 +2587,8 @@
     "name": "Dario Coppola",
     "role": "youth_coach",
     "clubId": 72,
-    "ability": 41,
-    "wage": 3700,
+    "ability": 9,
+    "wage": 800,
     "contractEnd": 2029
   },
   {
@@ -2596,8 +2596,8 @@
     "name": "Tobias Maier",
     "role": "physio",
     "clubId": 72,
-    "ability": 39,
-    "wage": 4100,
+    "ability": 8,
+    "wage": 800,
     "contractEnd": 2027
   },
   {
@@ -2605,8 +2605,8 @@
     "name": "Benjamin Laurent",
     "role": "scout",
     "clubId": 72,
-    "ability": 33,
-    "wage": 3300,
+    "ability": 6,
+    "wage": 600,
     "contractEnd": 2029
   },
   {
@@ -2614,8 +2614,8 @@
     "name": "Lars Roth",
     "role": "fitness_coach",
     "clubId": 72,
-    "ability": 42,
-    "wage": 4700,
+    "ability": 9,
+    "wage": 1000,
     "contractEnd": 2027
   },
   {
@@ -2623,8 +2623,8 @@
     "name": "Florian Meyer",
     "role": "fitness_coach",
     "clubId": 73,
-    "ability": 59,
-    "wage": 6700,
+    "ability": 14,
+    "wage": 1600,
     "contractEnd": 2027
   },
   {
@@ -2632,8 +2632,8 @@
     "name": "Giorgio Ferrari",
     "role": "scout",
     "clubId": 73,
-    "ability": 53,
-    "wage": 4700,
+    "ability": 12,
+    "wage": 1100,
     "contractEnd": 2026
   },
   {
@@ -2641,8 +2641,8 @@
     "name": "David Krause",
     "role": "youth_coach",
     "clubId": 73,
-    "ability": 47,
-    "wage": 4500,
+    "ability": 10,
+    "wage": 1000,
     "contractEnd": 2027
   },
   {
@@ -2650,8 +2650,8 @@
     "name": "Mathieu Fontaine",
     "role": "physio",
     "clubId": 73,
-    "ability": 53,
-    "wage": 4800,
+    "ability": 12,
+    "wage": 1100,
     "contractEnd": 2028
   },
   {
@@ -2659,8 +2659,8 @@
     "name": "Leon Krause",
     "role": "scout",
     "clubId": 74,
-    "ability": 37,
-    "wage": 3400,
+    "ability": 8,
+    "wage": 700,
     "contractEnd": 2027
   },
   {
@@ -2668,8 +2668,8 @@
     "name": "Stefan Peters",
     "role": "assistant",
     "clubId": 74,
-    "ability": 42,
-    "wage": 4500,
+    "ability": 9,
+    "wage": 1000,
     "contractEnd": 2027
   },
   {
@@ -2677,8 +2677,8 @@
     "name": "Kai Zimmermann",
     "role": "physio",
     "clubId": 74,
-    "ability": 47,
-    "wage": 3800,
+    "ability": 11,
+    "wage": 900,
     "contractEnd": 2028
   },
   {
@@ -2686,8 +2686,8 @@
     "name": "Javier Ramos",
     "role": "fitness_coach",
     "clubId": 74,
-    "ability": 40,
-    "wage": 4300,
+    "ability": 9,
+    "wage": 1000,
     "contractEnd": 2029
   },
   {
@@ -2695,8 +2695,8 @@
     "name": "David Roth",
     "role": "youth_coach",
     "clubId": 74,
-    "ability": 40,
-    "wage": 4300,
+    "ability": 9,
+    "wage": 1000,
     "contractEnd": 2026
   },
   {
@@ -2704,8 +2704,8 @@
     "name": "Dominik Richter",
     "role": "physio",
     "clubId": 75,
-    "ability": 42,
-    "wage": 4400,
+    "ability": 10,
+    "wage": 1100,
     "contractEnd": 2027
   },
   {
@@ -2713,8 +2713,8 @@
     "name": "Benjamin Krause",
     "role": "fitness_coach",
     "clubId": 75,
-    "ability": 28,
-    "wage": 2800,
+    "ability": 5,
+    "wage": 500,
     "contractEnd": 2028
   },
   {
@@ -2722,8 +2722,8 @@
     "name": "Kai Roth",
     "role": "scout",
     "clubId": 75,
-    "ability": 39,
-    "wage": 3900,
+    "ability": 9,
+    "wage": 900,
     "contractEnd": 2027
   },
   {
@@ -2731,8 +2731,8 @@
     "name": "Steven Henry",
     "role": "scout",
     "clubId": 76,
-    "ability": 42,
-    "wage": 4900,
+    "ability": 11,
+    "wage": 1300,
     "contractEnd": 2028
   },
   {
@@ -2740,8 +2740,8 @@
     "name": "Julian Krause",
     "role": "youth_coach",
     "clubId": 76,
-    "ability": 34,
-    "wage": 3000,
+    "ability": 8,
+    "wage": 700,
     "contractEnd": 2027
   },
   {
@@ -2749,8 +2749,8 @@
     "name": "Christian Lange",
     "role": "physio",
     "clubId": 76,
-    "ability": 38,
-    "wage": 3600,
+    "ability": 9,
+    "wage": 900,
     "contractEnd": 2027
   },
   {
@@ -2758,8 +2758,8 @@
     "name": "Maximilian Huber",
     "role": "assistant",
     "clubId": 76,
-    "ability": 37,
-    "wage": 4100,
+    "ability": 9,
+    "wage": 1000,
     "contractEnd": 2027
   },
   {
@@ -2767,8 +2767,8 @@
     "name": "Patrick Schroeder",
     "role": "fitness_coach",
     "clubId": 76,
-    "ability": 28,
-    "wage": 3100,
+    "ability": 6,
+    "wage": 700,
     "contractEnd": 2029
   },
   {
@@ -2776,8 +2776,8 @@
     "name": "Alejandro Gonzalez",
     "role": "physio",
     "clubId": 77,
-    "ability": 34,
-    "wage": 2900,
+    "ability": 8,
+    "wage": 700,
     "contractEnd": 2029
   },
   {
@@ -2785,8 +2785,8 @@
     "name": "Michael Schaefer",
     "role": "scout",
     "clubId": 77,
-    "ability": 43,
-    "wage": 3800,
+    "ability": 11,
+    "wage": 1000,
     "contractEnd": 2028
   },
   {
@@ -2794,8 +2794,8 @@
     "name": "Roberto Costa",
     "role": "fitness_coach",
     "clubId": 77,
-    "ability": 28,
-    "wage": 2700,
+    "ability": 6,
+    "wage": 600,
     "contractEnd": 2028
   },
   {
@@ -2803,8 +2803,8 @@
     "name": "Roberto Coppola",
     "role": "youth_coach",
     "clubId": 77,
-    "ability": 29,
-    "wage": 3400,
+    "ability": 6,
+    "wage": 700,
     "contractEnd": 2029
   },
   {
@@ -2812,8 +2812,8 @@
     "name": "Benjamin Bonnet",
     "role": "assistant",
     "clubId": 77,
-    "ability": 37,
-    "wage": 3200,
+    "ability": 9,
+    "wage": 800,
     "contractEnd": 2029
   },
   {
@@ -2821,8 +2821,8 @@
     "name": "Jan Wagner",
     "role": "scout",
     "clubId": 78,
-    "ability": 34,
-    "wage": 2800,
+    "ability": 7,
+    "wage": 600,
     "contractEnd": 2026
   },
   {
@@ -2830,8 +2830,8 @@
     "name": "Sebastian Wolf",
     "role": "fitness_coach",
     "clubId": 78,
-    "ability": 39,
-    "wage": 3700,
+    "ability": 9,
+    "wage": 900,
     "contractEnd": 2028
   },
   {
@@ -2839,8 +2839,8 @@
     "name": "Benjamin Walter",
     "role": "physio",
     "clubId": 78,
-    "ability": 36,
-    "wage": 4000,
+    "ability": 8,
+    "wage": 900,
     "contractEnd": 2026
   },
   {
@@ -2848,8 +2848,8 @@
     "name": "Jan Becker",
     "role": "assistant",
     "clubId": 78,
-    "ability": 30,
-    "wage": 3200,
+    "ability": 6,
+    "wage": 600,
     "contractEnd": 2029
   },
   {
@@ -2857,8 +2857,8 @@
     "name": "Andres Chavez",
     "role": "youth_coach",
     "clubId": 79,
-    "ability": 65,
-    "wage": 5900,
+    "ability": 13,
+    "wage": 1200,
     "contractEnd": 2026
   },
   {
@@ -2866,8 +2866,8 @@
     "name": "Francois Lefebvre",
     "role": "physio",
     "clubId": 79,
-    "ability": 68,
-    "wage": 5600,
+    "ability": 14,
+    "wage": 1200,
     "contractEnd": 2028
   },
   {
@@ -2875,8 +2875,8 @@
     "name": "Florian Muller",
     "role": "fitness_coach",
     "clubId": 79,
-    "ability": 71,
-    "wage": 7900,
+    "ability": 15,
+    "wage": 1700,
     "contractEnd": 2027
   },
   {
@@ -2884,8 +2884,8 @@
     "name": "Ousmane Muller",
     "role": "assistant",
     "clubId": 80,
-    "ability": 54,
-    "wage": 5800,
+    "ability": 11,
+    "wage": 1200,
     "contractEnd": 2026
   },
   {
@@ -2893,8 +2893,8 @@
     "name": "Loris Roussel",
     "role": "physio",
     "clubId": 80,
-    "ability": 54,
-    "wage": 5700,
+    "ability": 11,
+    "wage": 1200,
     "contractEnd": 2028
   },
   {
@@ -2902,8 +2902,8 @@
     "name": "Lucas Roussel",
     "role": "scout",
     "clubId": 80,
-    "ability": 63,
-    "wage": 6600,
+    "ability": 14,
+    "wage": 1500,
     "contractEnd": 2028
   },
   {
@@ -2911,8 +2911,8 @@
     "name": "Alexis Girard",
     "role": "physio",
     "clubId": 81,
-    "ability": 60,
-    "wage": 5300,
+    "ability": 13,
+    "wage": 1100,
     "contractEnd": 2027
   },
   {
@@ -2920,8 +2920,8 @@
     "name": "Jonathan Fontaine",
     "role": "fitness_coach",
     "clubId": 81,
-    "ability": 63,
-    "wage": 6900,
+    "ability": 14,
+    "wage": 1500,
     "contractEnd": 2029
   },
   {
@@ -2929,8 +2929,8 @@
     "name": "Francois Durand",
     "role": "scout",
     "clubId": 81,
-    "ability": 67,
-    "wage": 6000,
+    "ability": 15,
+    "wage": 1300,
     "contractEnd": 2028
   },
   {
@@ -2938,8 +2938,8 @@
     "name": "Loris Lefevre",
     "role": "assistant",
     "clubId": 81,
-    "ability": 73,
-    "wage": 7000,
+    "ability": 17,
+    "wage": 1600,
     "contractEnd": 2029
   },
   {
@@ -2947,8 +2947,8 @@
     "name": "Andres Gomez",
     "role": "youth_coach",
     "clubId": 81,
-    "ability": 61,
-    "wage": 7100,
+    "ability": 13,
+    "wage": 1500,
     "contractEnd": 2029
   },
   {
@@ -2956,8 +2956,8 @@
     "name": "Nicolas Morel",
     "role": "fitness_coach",
     "clubId": 82,
-    "ability": 56,
-    "wage": 6700,
+    "ability": 11,
+    "wage": 1300,
     "contractEnd": 2027
   },
   {
@@ -2965,8 +2965,8 @@
     "name": "Yoann Robert",
     "role": "physio",
     "clubId": 82,
-    "ability": 61,
-    "wage": 5800,
+    "ability": 13,
+    "wage": 1200,
     "contractEnd": 2029
   },
   {
@@ -2974,8 +2974,8 @@
     "name": "Loris Bertrand",
     "role": "assistant",
     "clubId": 82,
-    "ability": 66,
-    "wage": 6800,
+    "ability": 15,
+    "wage": 1600,
     "contractEnd": 2026
   },
   {
@@ -2983,8 +2983,8 @@
     "name": "Benjamin Fournier",
     "role": "scout",
     "clubId": 82,
-    "ability": 59,
-    "wage": 5200,
+    "ability": 12,
+    "wage": 1100,
     "contractEnd": 2028
   },
   {
@@ -2992,8 +2992,8 @@
     "name": "Kevin Laurent",
     "role": "youth_coach",
     "clubId": 83,
-    "ability": 49,
-    "wage": 5400,
+    "ability": 10,
+    "wage": 1100,
     "contractEnd": 2029
   },
   {
@@ -3001,8 +3001,8 @@
     "name": "Luca De Angelis",
     "role": "assistant",
     "clubId": 83,
-    "ability": 49,
-    "wage": 3900,
+    "ability": 10,
+    "wage": 800,
     "contractEnd": 2029
   },
   {
@@ -3010,8 +3010,8 @@
     "name": "Francois David",
     "role": "fitness_coach",
     "clubId": 83,
-    "ability": 53,
-    "wage": 6000,
+    "ability": 11,
+    "wage": 1200,
     "contractEnd": 2026
   },
   {
@@ -3019,8 +3019,8 @@
     "name": "Romain Clement",
     "role": "scout",
     "clubId": 84,
-    "ability": 52,
-    "wage": 5200,
+    "ability": 11,
+    "wage": 1100,
     "contractEnd": 2026
   },
   {
@@ -3028,8 +3028,8 @@
     "name": "Baptiste Simon",
     "role": "physio",
     "clubId": 84,
-    "ability": 49,
-    "wage": 4400,
+    "ability": 10,
+    "wage": 900,
     "contractEnd": 2029
   },
   {
@@ -3037,8 +3037,8 @@
     "name": "Karim Bonnet",
     "role": "youth_coach",
     "clubId": 84,
-    "ability": 48,
-    "wage": 5700,
+    "ability": 10,
+    "wage": 1200,
     "contractEnd": 2028
   },
   {
@@ -3046,8 +3046,8 @@
     "name": "Gael Bertrand",
     "role": "scout",
     "clubId": 85,
-    "ability": 53,
-    "wage": 4700,
+    "ability": 12,
+    "wage": 1100,
     "contractEnd": 2028
   },
   {
@@ -3055,8 +3055,8 @@
     "name": "Baptiste Moreau",
     "role": "physio",
     "clubId": 85,
-    "ability": 47,
-    "wage": 4600,
+    "ability": 10,
+    "wage": 1000,
     "contractEnd": 2027
   },
   {
@@ -3064,8 +3064,8 @@
     "name": "Thomas Bernard",
     "role": "assistant",
     "clubId": 85,
-    "ability": 56,
-    "wage": 5300,
+    "ability": 13,
+    "wage": 1200,
     "contractEnd": 2027
   },
   {
@@ -3073,8 +3073,8 @@
     "name": "Baptiste Laurent",
     "role": "youth_coach",
     "clubId": 85,
-    "ability": 59,
-    "wage": 5700,
+    "ability": 14,
+    "wage": 1400,
     "contractEnd": 2026
   },
   {
@@ -3082,8 +3082,8 @@
     "name": "Jake Thomas",
     "role": "fitness_coach",
     "clubId": 85,
-    "ability": 57,
-    "wage": 6200,
+    "ability": 13,
+    "wage": 1400,
     "contractEnd": 2029
   },
   {
@@ -3091,8 +3091,8 @@
     "name": "Moritz Klein",
     "role": "fitness_coach",
     "clubId": 86,
-    "ability": 53,
-    "wage": 4800,
+    "ability": 11,
+    "wage": 1000,
     "contractEnd": 2028
   },
   {
@@ -3100,8 +3100,8 @@
     "name": "Mathieu David",
     "role": "assistant",
     "clubId": 86,
-    "ability": 47,
-    "wage": 5600,
+    "ability": 9,
+    "wage": 1100,
     "contractEnd": 2029
   },
   {
@@ -3109,8 +3109,8 @@
     "name": "Florian Clement",
     "role": "physio",
     "clubId": 86,
-    "ability": 53,
-    "wage": 6000,
+    "ability": 11,
+    "wage": 1200,
     "contractEnd": 2027
   },
   {
@@ -3118,8 +3118,8 @@
     "name": "Antoine Lambert",
     "role": "scout",
     "clubId": 86,
-    "ability": 58,
-    "wage": 5600,
+    "ability": 13,
+    "wage": 1300,
     "contractEnd": 2026
   },
   {
@@ -3127,8 +3127,8 @@
     "name": "Sergio Gutierrez",
     "role": "youth_coach",
     "clubId": 86,
-    "ability": 54,
-    "wage": 6000,
+    "ability": 12,
+    "wage": 1300,
     "contractEnd": 2029
   },
   {
@@ -3136,8 +3136,8 @@
     "name": "Antoine Girard",
     "role": "fitness_coach",
     "clubId": 87,
-    "ability": 49,
-    "wage": 4000,
+    "ability": 11,
+    "wage": 900,
     "contractEnd": 2027
   },
   {
@@ -3145,8 +3145,8 @@
     "name": "Giorgio Rinaldi",
     "role": "youth_coach",
     "clubId": 87,
-    "ability": 38,
-    "wage": 4400,
+    "ability": 7,
+    "wage": 800,
     "contractEnd": 2028
   },
   {
@@ -3154,8 +3154,8 @@
     "name": "Alexis Laurent",
     "role": "scout",
     "clubId": 87,
-    "ability": 49,
-    "wage": 5800,
+    "ability": 11,
+    "wage": 1300,
     "contractEnd": 2026
   },
   {
@@ -3163,8 +3163,8 @@
     "name": "Julien Roux",
     "role": "assistant",
     "clubId": 88,
-    "ability": 54,
-    "wage": 5700,
+    "ability": 13,
+    "wage": 1400,
     "contractEnd": 2027
   },
   {
@@ -3172,8 +3172,8 @@
     "name": "Julien Petit",
     "role": "scout",
     "clubId": 88,
-    "ability": 53,
-    "wage": 4300,
+    "ability": 13,
+    "wage": 1100,
     "contractEnd": 2026
   },
   {
@@ -3181,8 +3181,8 @@
     "name": "Kevin Blanc",
     "role": "youth_coach",
     "clubId": 88,
-    "ability": 39,
-    "wage": 3700,
+    "ability": 8,
+    "wage": 700,
     "contractEnd": 2028
   },
   {
@@ -3190,8 +3190,8 @@
     "name": "Benjamin Henry",
     "role": "physio",
     "clubId": 88,
-    "ability": 35,
-    "wage": 3100,
+    "ability": 7,
+    "wage": 600,
     "contractEnd": 2027
   },
   {
@@ -3199,8 +3199,8 @@
     "name": "Pierre David",
     "role": "fitness_coach",
     "clubId": 88,
-    "ability": 41,
-    "wage": 3700,
+    "ability": 9,
+    "wage": 800,
     "contractEnd": 2027
   },
   {
@@ -3208,8 +3208,8 @@
     "name": "Mathieu Lambert",
     "role": "scout",
     "clubId": 89,
-    "ability": 52,
-    "wage": 4800,
+    "ability": 12,
+    "wage": 1100,
     "contractEnd": 2026
   },
   {
@@ -3217,8 +3217,8 @@
     "name": "Leon Schmitt",
     "role": "youth_coach",
     "clubId": 89,
-    "ability": 36,
-    "wage": 3500,
+    "ability": 7,
+    "wage": 700,
     "contractEnd": 2026
   },
   {
@@ -3226,8 +3226,8 @@
     "name": "Patrick Wagner",
     "role": "physio",
     "clubId": 89,
-    "ability": 32,
-    "wage": 3200,
+    "ability": 6,
+    "wage": 600,
     "contractEnd": 2029
   },
   {
@@ -3235,8 +3235,8 @@
     "name": "Adrien Leroy",
     "role": "fitness_coach",
     "clubId": 90,
-    "ability": 39,
-    "wage": 4400,
+    "ability": 8,
+    "wage": 900,
     "contractEnd": 2028
   },
   {
@@ -3244,8 +3244,8 @@
     "name": "Steven Mathieu",
     "role": "scout",
     "clubId": 90,
-    "ability": 52,
-    "wage": 4600,
+    "ability": 12,
+    "wage": 1100,
     "contractEnd": 2027
   },
   {
@@ -3253,8 +3253,8 @@
     "name": "Alexandre Petit",
     "role": "physio",
     "clubId": 90,
-    "ability": 37,
-    "wage": 3300,
+    "ability": 7,
+    "wage": 600,
     "contractEnd": 2029
   },
   {
@@ -3262,8 +3262,8 @@
     "name": "Michael Wilson",
     "role": "fitness_coach",
     "clubId": 91,
-    "ability": 33,
-    "wage": 3400,
+    "ability": 6,
+    "wage": 600,
     "contractEnd": 2028
   },
   {
@@ -3271,8 +3271,8 @@
     "name": "Alexis Morel",
     "role": "physio",
     "clubId": 91,
-    "ability": 32,
-    "wage": 3200,
+    "ability": 6,
+    "wage": 600,
     "contractEnd": 2028
   },
   {
@@ -3280,8 +3280,8 @@
     "name": "Pietro Marino",
     "role": "scout",
     "clubId": 91,
-    "ability": 47,
-    "wage": 4900,
+    "ability": 11,
+    "wage": 1100,
     "contractEnd": 2028
   },
   {
@@ -3289,8 +3289,8 @@
     "name": "Antonio Martinelli",
     "role": "assistant",
     "clubId": 91,
-    "ability": 42,
-    "wage": 3900,
+    "ability": 9,
+    "wage": 800,
     "contractEnd": 2027
   },
   {
@@ -3298,8 +3298,8 @@
     "name": "Clement Michel",
     "role": "assistant",
     "clubId": 92,
-    "ability": 50,
-    "wage": 5700,
+    "ability": 11,
+    "wage": 1300,
     "contractEnd": 2029
   },
   {
@@ -3307,8 +3307,8 @@
     "name": "Kevin Laurent",
     "role": "youth_coach",
     "clubId": 92,
-    "ability": 55,
-    "wage": 6200,
+    "ability": 13,
+    "wage": 1500,
     "contractEnd": 2028
   },
   {
@@ -3316,8 +3316,8 @@
     "name": "Kylian Bernard",
     "role": "fitness_coach",
     "clubId": 92,
-    "ability": 53,
-    "wage": 6200,
+    "ability": 12,
+    "wage": 1400,
     "contractEnd": 2029
   },
   {
@@ -3325,8 +3325,8 @@
     "name": "Emanuele Moretti",
     "role": "scout",
     "clubId": 92,
-    "ability": 41,
-    "wage": 4600,
+    "ability": 8,
+    "wage": 900,
     "contractEnd": 2027
   },
   {
@@ -3334,8 +3334,8 @@
     "name": "Sebastien Roux",
     "role": "fitness_coach",
     "clubId": 93,
-    "ability": 38,
-    "wage": 3100,
+    "ability": 8,
+    "wage": 700,
     "contractEnd": 2026
   },
   {
@@ -3343,8 +3343,8 @@
     "name": "Samuel Brown",
     "role": "assistant",
     "clubId": 93,
-    "ability": 36,
-    "wage": 3000,
+    "ability": 8,
+    "wage": 700,
     "contractEnd": 2027
   },
   {
@@ -3352,8 +3352,8 @@
     "name": "Clement Lambert",
     "role": "physio",
     "clubId": 93,
-    "ability": 32,
-    "wage": 2600,
+    "ability": 6,
+    "wage": 500,
     "contractEnd": 2028
   },
   {
@@ -3361,8 +3361,8 @@
     "name": "Steven David",
     "role": "youth_coach",
     "clubId": 93,
-    "ability": 29,
-    "wage": 2700,
+    "ability": 5,
+    "wage": 500,
     "contractEnd": 2027
   },
   {
@@ -3370,8 +3370,8 @@
     "name": "Karim Muller",
     "role": "scout",
     "clubId": 93,
-    "ability": 30,
-    "wage": 2600,
+    "ability": 6,
+    "wage": 500,
     "contractEnd": 2027
   },
   {
@@ -3379,8 +3379,8 @@
     "name": "Romain Garcia",
     "role": "fitness_coach",
     "clubId": 94,
-    "ability": 31,
-    "wage": 3500,
+    "ability": 7,
+    "wage": 800,
     "contractEnd": 2029
   },
   {
@@ -3388,8 +3388,8 @@
     "name": "Alex White",
     "role": "scout",
     "clubId": 94,
-    "ability": 33,
-    "wage": 3700,
+    "ability": 7,
+    "wage": 800,
     "contractEnd": 2027
   },
   {
@@ -3397,8 +3397,8 @@
     "name": "Tyler Ramirez",
     "role": "physio",
     "clubId": 94,
-    "ability": 42,
-    "wage": 3800,
+    "ability": 10,
+    "wage": 900,
     "contractEnd": 2029
   },
   {
@@ -3406,8 +3406,8 @@
     "name": "Ethan Turner",
     "role": "assistant",
     "clubId": 94,
-    "ability": 36,
-    "wage": 3700,
+    "ability": 8,
+    "wage": 800,
     "contractEnd": 2028
   },
   {
@@ -3415,8 +3415,8 @@
     "name": "Gael Mathieu",
     "role": "assistant",
     "clubId": 95,
-    "ability": 42,
-    "wage": 4200,
+    "ability": 10,
+    "wage": 1000,
     "contractEnd": 2027
   },
   {
@@ -3424,8 +3424,8 @@
     "name": "Mathieu Roussel",
     "role": "youth_coach",
     "clubId": 95,
-    "ability": 44,
-    "wage": 4700,
+    "ability": 11,
+    "wage": 1200,
     "contractEnd": 2027
   },
   {
@@ -3433,8 +3433,8 @@
     "name": "Kylian Andre",
     "role": "physio",
     "clubId": 95,
-    "ability": 26,
-    "wage": 2900,
+    "ability": 5,
+    "wage": 600,
     "contractEnd": 2029
   },
   {
@@ -3442,8 +3442,8 @@
     "name": "Marco Ortiz",
     "role": "scout",
     "clubId": 96,
-    "ability": 49,
-    "wage": 5600,
+    "ability": 12,
+    "wage": 1400,
     "contractEnd": 2027
   },
   {
@@ -3451,8 +3451,8 @@
     "name": "Karim Simon",
     "role": "youth_coach",
     "clubId": 96,
-    "ability": 33,
-    "wage": 4000,
+    "ability": 7,
+    "wage": 800,
     "contractEnd": 2029
   },
   {
@@ -3460,8 +3460,8 @@
     "name": "Thomas Moreau",
     "role": "assistant",
     "clubId": 96,
-    "ability": 32,
-    "wage": 3200,
+    "ability": 6,
+    "wage": 600,
     "contractEnd": 2028
   },
   {
@@ -3469,8 +3469,8 @@
     "name": "Maxime Bernard",
     "role": "fitness_coach",
     "clubId": 96,
-    "ability": 46,
-    "wage": 3900,
+    "ability": 11,
+    "wage": 900,
     "contractEnd": 2028
   }
 ]
