@@ -25,6 +25,10 @@ import { getSeasonBalance } from '@/database/queries/finances';
 import { calculateStandings } from '@/engine/competition/standings';
 import { generateSeasonCalendar } from '@/engine/competition/calendar';
 import { Fixture } from '@/types';
+import { recalculatePotential } from '@/engine/training/potential';
+import { getPlayersByClub } from '@/database/queries/players';
+import { generateYouthPlayers } from '@/engine/youth/youth-academy';
+import { SeededRng } from '@/engine/rng';
 
 type NavProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -144,11 +148,81 @@ export function EndOfSeasonScreen() {
   }, [dbHandle, playerClub, playerClubId, season]);
 
   async function handleContinue() {
-    if (!dbHandle || starting) return;
+    if (!dbHandle || starting || !playerClubId) return;
     setStarting(true);
 
     try {
       const newSeason = season + 1;
+
+      // 1. Age all players
+      dbHandle.prepare('UPDATE players SET age = age + 1').run();
+
+      // 2. Contract expiry — mark players whose contract ends this season as free agents
+      dbHandle.prepare('UPDATE players SET is_free_agent = 1 WHERE contract_end <= ?').run(season);
+
+      // 3. Dynamic potential recalculation for player's club squad
+      if (playerClubId) {
+        const squad = getPlayersByClub(dbHandle, playerClubId);
+        for (const player of squad) {
+          const seasonStats = dbHandle.prepare(
+            'SELECT avg_rating, minutes_played FROM player_stats WHERE player_id = ? AND season = ?',
+          ).get(player.id, season) as { avg_rating: number; minutes_played: number } | undefined;
+
+          if (!seasonStats) continue;
+
+          const minutesPercent = Math.min(100, (seasonStats.minutes_played / (38 * 90)) * 100);
+
+          const result = recalculatePotential({
+            basePotential: player.basePotential,
+            effectivePotential: player.effectivePotential,
+            currentOverall: 70, // simplified — use average of attributes
+            seasonRatings: [{ avgRating: seasonStats.avg_rating, minutesPercent }],
+          });
+
+          if (result.newEffectivePotential !== player.effectivePotential) {
+            dbHandle.prepare('UPDATE players SET effective_potential = ? WHERE id = ?').run(
+              result.newEffectivePotential,
+              player.id,
+            );
+          }
+        }
+      }
+
+      // 4. Youth academy generation
+      if (playerClubId) {
+        const youth = generateYouthPlayers({
+          clubId: playerClubId,
+          academyLevel: playerClub?.youthAcademy ?? 3,
+          youthCoachBonus: 5, // simplified
+          countryCode: 'EN', // simplified
+          rng: new SeededRng(newSeason * 7777),
+        });
+
+        const maxIdRow = dbHandle.prepare('SELECT MAX(id) as maxId FROM players').get() as { maxId: number };
+        let nextId = (maxIdRow?.maxId ?? 0) + 1;
+
+        for (const y of youth) {
+          dbHandle.prepare(
+            'INSERT INTO players (id, name, nationality, age, position, secondary_position, club_id, wage, contract_end, market_value, base_potential, effective_potential, morale, fitness, injury_weeks_left, is_free_agent) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+          ).run(
+            nextId, y.name, 'Local', y.age, y.position, null,
+            playerClubId, 5000, newSeason + 3, 100000,
+            y.basePotential, y.basePotential, 70, 100, 0, 0,
+          );
+
+          const a = y.attributes;
+          dbHandle.prepare(
+            'INSERT INTO player_attributes (player_id, finishing, passing, crossing, dribbling, heading, long_shots, free_kicks, vision, composure, decisions, positioning, aggression, leadership, pace, stamina, strength, agility, jumping) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+          ).run(
+            nextId, a.finishing, a.passing, a.crossing, a.dribbling, a.heading,
+            a.longShots, a.freeKicks, a.vision, a.composure, a.decisions,
+            a.positioning, a.aggression, a.leadership, a.pace, a.stamina,
+            a.strength, a.agility, a.jumping,
+          );
+
+          nextId++;
+        }
+      }
 
       // Generate calendar for the new season
       const leagues = getAllLeagues(dbHandle);
