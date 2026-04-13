@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { Platform } from 'react-native';
 import * as SQLite from 'expo-sqlite';
 import { createAllTables } from '@/database/schema';
 import { DbHandle } from '@/database/queries/players';
@@ -7,6 +8,7 @@ interface DatabaseState {
   db: SQLite.SQLiteDatabase | null;
   dbHandle: DbHandle | null;
   isReady: boolean;
+  isWebMock: boolean;
   error: string | null;
 }
 
@@ -38,17 +40,32 @@ export const useDatabaseStore = create<DatabaseStore>((set) => ({
   db: null,
   dbHandle: null,
   isReady: false,
+  isWebMock: false,
   error: null,
   initialize: async () => {
+    // expo-sqlite doesn't work on web without COOP/COEP headers.
+    // On web, skip DB init and render screens in "preview" mode.
+    if (Platform.OS === 'web') {
+      console.log('[DB] Web platform detected — running in preview mode (no database)');
+      set({ isReady: true, isWebMock: true, error: null });
+      return;
+    }
+
     try {
+      console.log('[DB] Opening database...');
       const db = await SQLite.openDatabaseAsync('football-manager.db');
+      console.log('[DB] Database opened, setting pragmas...');
       await db.execAsync('PRAGMA journal_mode = WAL;');
       await db.execAsync('PRAGMA foreign_keys = ON;');
+      console.log('[DB] Creating tables...');
       const handle = wrapExpoDb(db);
       createAllTables({ exec: (sql: string) => db.execSync(sql) });
+      console.log('[DB] Database ready!');
       set({ db, dbHandle: handle, isReady: true, error: null });
     } catch (err) {
-      set({ error: (err as Error).message });
+      const msg = (err as Error).message || 'Unknown database error';
+      console.error('[DB] Initialization failed:', msg);
+      set({ error: msg, isReady: false });
     }
   },
 }));
