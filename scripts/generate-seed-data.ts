@@ -186,12 +186,13 @@ function pickAge(rng: SeededRng): number {
 
 function targetOverallForClub(reputation: number, rng: SeededRng, isStar: boolean): number {
   if (isStar) {
-    if (reputation >= 85) return rng.nextInt(72, 80);
-    return rng.nextInt(65, 74);
+    if (reputation >= 85) return rng.nextInt(80, 88);
+    if (reputation >= 60) return rng.nextInt(74, 82);
+    return rng.nextInt(68, 75);
   }
-  if (reputation >= 85) return rng.nextInt(60, 75);
-  if (reputation >= 60) return rng.nextInt(52, 68);
-  return rng.nextInt(44, 60);
+  if (reputation >= 85) return rng.nextInt(70, 78);
+  if (reputation >= 60) return rng.nextInt(63, 72);
+  return rng.nextInt(55, 66);
 }
 
 /** Generate attributes for a player given target overall and position */
