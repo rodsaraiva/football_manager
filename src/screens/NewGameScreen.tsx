@@ -1,10 +1,414 @@
-import { View, Text } from 'react-native';
-import { commonStyles, colors, fontSize } from '@/theme';
+import React, { useEffect, useState } from 'react';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  FlatList,
+  StyleSheet,
+  ActivityIndicator,
+  Alert,
+} from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { colors, spacing, fontSize, commonStyles } from '@/theme';
+import { useDatabaseStore } from '@/store/database-store';
+import { useGameStore } from '@/store/game-store';
+import { getAllLeagues } from '@/database/queries/leagues';
+import { getAllCountries } from '@/database/queries/leagues';
+import { getClubsByLeague, getClubById } from '@/database/queries/clubs';
+import { createSave } from '@/database/queries/saves';
+import { seedDatabase } from '@/database/seed';
+import { generateSeedData } from '../../scripts/generate-seed-data';
+import { RootStackParamList } from '@/navigation/types';
+import { League, Club, Difficulty } from '@/types';
+
+type NavProp = NativeStackNavigationProp<RootStackParamList, 'NewGame'>;
+
+type Step = 'league' | 'team' | 'confirm';
 
 export function NewGameScreen() {
+  const navigation = useNavigation<NavProp>();
+  const { dbHandle, isReady } = useDatabaseStore();
+  const { startNewGame, setPlayerClub } = useGameStore();
+
+  const [step, setStep] = useState<Step>('league');
+  const [leagues, setLeagues] = useState<League[]>([]);
+  const [clubs, setClubs] = useState<Club[]>([]);
+  const [selectedLeague, setSelectedLeague] = useState<League | null>(null);
+  const [selectedClub, setSelectedClub] = useState<Club | null>(null);
+  const [difficulty, setDifficulty] = useState<Difficulty>('normal');
+  const [loading, setLoading] = useState(true);
+  const [starting, setStarting] = useState(false);
+
+  useEffect(() => {
+    if (!isReady || !dbHandle) return;
+    try {
+      const leagueRows = getAllLeagues(dbHandle);
+      setLeagues(leagueRows.slice(0, 5));
+    } catch {
+      setLeagues([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [isReady, dbHandle]);
+
+  function handleSelectLeague(league: League) {
+    if (!dbHandle) return;
+    setSelectedLeague(league);
+    try {
+      const teamList = getClubsByLeague(dbHandle, league.id);
+      setClubs(teamList);
+    } catch {
+      setClubs([]);
+    }
+    setStep('team');
+  }
+
+  function handleSelectClub(club: Club) {
+    setSelectedClub(club);
+    setStep('confirm');
+  }
+
+  async function handleStartGame() {
+    if (!dbHandle || !selectedClub) return;
+    setStarting(true);
+    try {
+      // Seed DB if needed — check countries exist
+      const countries = getAllCountries(dbHandle);
+      if (countries.length === 0) {
+        const db = useDatabaseStore.getState().db;
+        if (!db) throw new Error('Database not available');
+        const seedHandle = {
+          prepare: dbHandle.prepare.bind(dbHandle),
+          exec: (sql: string) => db.execSync(sql),
+        };
+        seedDatabase(seedHandle, generateSeedData(2026));
+      }
+
+      const managerName = 'Manager';
+      const saveId = createSave(dbHandle, {
+        name: `${managerName} at ${selectedClub.name}`,
+        playerClubId: selectedClub.id,
+        difficulty,
+        currentSeason: 1,
+        currentWeek: 1,
+      });
+
+      startNewGame(saveId, selectedClub.id, 1, 1);
+
+      const club = getClubById(dbHandle, selectedClub.id);
+      if (club) setPlayerClub(club);
+
+      navigation.navigate('Game');
+    } catch (err) {
+      Alert.alert('Error', (err as Error).message);
+    } finally {
+      setStarting(false);
+    }
+  }
+
+  if (loading) {
+    return (
+      <View style={[commonStyles.screen, styles.centered]}>
+        <ActivityIndicator color={colors.primary} size="large" />
+        <Text style={styles.loadingText}>Loading...</Text>
+      </View>
+    );
+  }
+
+  if (step === 'league') {
+    return (
+      <View style={commonStyles.screen}>
+        <Text style={styles.stepTitle}>Select League</Text>
+        <Text style={styles.stepSubtitle}>Choose the league you want to manage in</Text>
+        {leagues.length === 0 ? (
+          <View style={styles.centered}>
+            <Text style={styles.emptyText}>No leagues available. Database may need seeding.</Text>
+          </View>
+        ) : (
+          leagues.map((league) => (
+            <TouchableOpacity
+              key={league.id}
+              style={styles.leagueCard}
+              onPress={() => handleSelectLeague(league)}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.leagueName}>{league.name}</Text>
+              <Text style={styles.leagueMeta}>Division {league.divisionLevel} · {league.numTeams} teams</Text>
+            </TouchableOpacity>
+          ))
+        )}
+      </View>
+    );
+  }
+
+  if (step === 'team') {
+    return (
+      <View style={commonStyles.screen}>
+        <TouchableOpacity style={styles.backButton} onPress={() => setStep('league')}>
+          <Text style={styles.backButtonText}>← Back</Text>
+        </TouchableOpacity>
+        <Text style={styles.stepTitle}>{selectedLeague?.name}</Text>
+        <Text style={styles.stepSubtitle}>Select your club</Text>
+        <FlatList
+          data={clubs}
+          keyExtractor={(item) => String(item.id)}
+          contentContainerStyle={styles.listContent}
+          ListEmptyComponent={
+            <Text style={styles.emptyText}>No clubs found in this league.</Text>
+          }
+          renderItem={({ item }) => (
+            <TouchableOpacity
+              style={styles.clubCard}
+              onPress={() => handleSelectClub(item)}
+              activeOpacity={0.8}
+            >
+              <View style={styles.clubCardHeader}>
+                <Text style={styles.clubName}>{item.name}</Text>
+                <Text style={styles.clubRep}>{item.reputation}</Text>
+              </View>
+              <View style={styles.reputationBarContainer}>
+                <View
+                  style={[
+                    styles.reputationBarFill,
+                    { width: `${item.reputation}%` as `${number}%` },
+                  ]}
+                />
+              </View>
+              <Text style={styles.clubStadium}>{item.stadiumName}</Text>
+            </TouchableOpacity>
+          )}
+        />
+      </View>
+    );
+  }
+
+  // Step: confirm
   return (
-    <View style={[commonStyles.screen, { alignItems: 'center', justifyContent: 'center' }]}>
-      <Text style={{ color: colors.text, fontSize: fontSize.xl }}>New Game</Text>
+    <View style={commonStyles.screen}>
+      <TouchableOpacity style={styles.backButton} onPress={() => setStep('team')}>
+        <Text style={styles.backButtonText}>← Back</Text>
+      </TouchableOpacity>
+      <Text style={styles.stepTitle}>Confirm Selection</Text>
+
+      <View style={styles.confirmCard}>
+        <Text style={styles.confirmLabel}>CLUB</Text>
+        <Text style={styles.confirmValue}>{selectedClub?.name}</Text>
+        <Text style={styles.confirmMeta}>{selectedLeague?.name}</Text>
+      </View>
+
+      <View style={styles.confirmCard}>
+        <Text style={styles.confirmLabel}>DIFFICULTY</Text>
+        <View style={styles.difficultyRow}>
+          {(['easy', 'normal', 'hard'] as Difficulty[]).map((d) => (
+            <TouchableOpacity
+              key={d}
+              style={[styles.difficultyButton, difficulty === d && styles.difficultyButtonActive]}
+              onPress={() => setDifficulty(d)}
+              activeOpacity={0.8}
+            >
+              <Text
+                style={[
+                  styles.difficultyButtonText,
+                  difficulty === d && styles.difficultyButtonTextActive,
+                ]}
+              >
+                {d.charAt(0).toUpperCase() + d.slice(1)}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </View>
+
+      <TouchableOpacity
+        style={[styles.startButton, starting && styles.startButtonDisabled]}
+        onPress={handleStartGame}
+        disabled={starting}
+        activeOpacity={0.8}
+      >
+        {starting ? (
+          <ActivityIndicator color={colors.text} />
+        ) : (
+          <Text style={styles.startButtonText}>START GAME</Text>
+        )}
+      </TouchableOpacity>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  centered: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loadingText: {
+    color: colors.textSecondary,
+    fontSize: fontSize.md,
+    marginTop: spacing.md,
+  },
+  stepTitle: {
+    color: colors.text,
+    fontSize: fontSize.xxl,
+    fontWeight: 'bold',
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.xs,
+  },
+  stepSubtitle: {
+    color: colors.textSecondary,
+    fontSize: fontSize.sm,
+    paddingHorizontal: spacing.lg,
+    marginBottom: spacing.md,
+  },
+  listContent: {
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.xl,
+  },
+  emptyText: {
+    color: colors.textMuted,
+    fontSize: fontSize.md,
+    textAlign: 'center',
+    marginTop: spacing.xl,
+    paddingHorizontal: spacing.lg,
+  },
+  leagueCard: {
+    backgroundColor: colors.surface,
+    borderRadius: 8,
+    padding: spacing.md,
+    marginHorizontal: spacing.md,
+    marginBottom: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  leagueName: {
+    color: colors.text,
+    fontSize: fontSize.lg,
+    fontWeight: '600',
+  },
+  leagueMeta: {
+    color: colors.textSecondary,
+    fontSize: fontSize.sm,
+    marginTop: 2,
+  },
+  backButton: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.xs,
+  },
+  backButtonText: {
+    color: colors.primary,
+    fontSize: fontSize.md,
+  },
+  clubCard: {
+    backgroundColor: colors.surface,
+    borderRadius: 8,
+    padding: spacing.md,
+    marginBottom: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  clubCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  clubName: {
+    color: colors.text,
+    fontSize: fontSize.md,
+    fontWeight: '600',
+    flex: 1,
+  },
+  clubRep: {
+    color: colors.primary,
+    fontSize: fontSize.sm,
+    fontWeight: '600',
+  },
+  reputationBarContainer: {
+    height: 4,
+    backgroundColor: colors.border,
+    borderRadius: 2,
+    overflow: 'hidden',
+    marginTop: spacing.xs,
+    marginBottom: spacing.xs,
+  },
+  reputationBarFill: {
+    height: '100%',
+    backgroundColor: colors.primary,
+    borderRadius: 2,
+  },
+  clubStadium: {
+    color: colors.textMuted,
+    fontSize: fontSize.xs,
+  },
+  confirmCard: {
+    backgroundColor: colors.surface,
+    borderRadius: 8,
+    padding: spacing.md,
+    marginHorizontal: spacing.md,
+    marginBottom: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  confirmLabel: {
+    color: colors.textMuted,
+    fontSize: fontSize.xs,
+    fontWeight: '600',
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+    marginBottom: spacing.xs,
+  },
+  confirmValue: {
+    color: colors.text,
+    fontSize: fontSize.xl,
+    fontWeight: 'bold',
+  },
+  confirmMeta: {
+    color: colors.textSecondary,
+    fontSize: fontSize.sm,
+    marginTop: 2,
+  },
+  difficultyRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginTop: spacing.xs,
+  },
+  difficultyButton: {
+    flex: 1,
+    paddingVertical: spacing.sm,
+    borderRadius: 6,
+    alignItems: 'center',
+    backgroundColor: colors.surfaceLight,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  difficultyButtonActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  difficultyButtonText: {
+    color: colors.textSecondary,
+    fontSize: fontSize.sm,
+    fontWeight: '600',
+  },
+  difficultyButtonTextActive: {
+    color: colors.text,
+  },
+  startButton: {
+    backgroundColor: colors.primary,
+    borderRadius: 8,
+    paddingVertical: 16,
+    marginHorizontal: spacing.md,
+    alignItems: 'center',
+    marginTop: spacing.sm,
+  },
+  startButtonDisabled: {
+    opacity: 0.6,
+  },
+  startButtonText: {
+    color: colors.text,
+    fontSize: fontSize.lg,
+    fontWeight: 'bold',
+    letterSpacing: 1,
+  },
+});
