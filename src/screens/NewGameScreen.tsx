@@ -42,7 +42,10 @@ export function NewGameScreen() {
   const [starting, setStarting] = useState(false);
 
   useEffect(() => {
-    if (!isReady || !dbHandle) return;
+    if (!isReady || !dbHandle) {
+      if (isReady) setLoading(false);
+      return;
+    }
     try {
       const leagueRows = getAllLeagues(dbHandle);
       setLeagues(leagueRows.slice(0, 5));
