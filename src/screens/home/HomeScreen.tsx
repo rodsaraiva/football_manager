@@ -16,11 +16,9 @@ import { useDatabaseStore } from '@/store/database-store';
 import { Fixture } from '@/types';
 import { RootStackParamList } from '@/navigation/types';
 import { SeededRng } from '@/engine/rng';
-import { getFixturesByWeek, getFixturesByClub, updateFixtureResult } from '@/database/queries/fixtures';
-import { getClubById, updateClubBudget } from '@/database/queries/clubs';
-import { calculateWeeklyIncome, calculateWeeklyExpenses } from '@/engine/finance/finance-engine';
-import { addFinanceEntry } from '@/database/queries/finances';
-import { updateSaveWeek } from '@/database/queries/saves';
+import { getFixturesByClub } from '@/database/queries/fixtures';
+import { getClubById } from '@/database/queries/clubs';
+import { advanceGameWeek } from '@/engine/game-loop';
 
 type NavProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -55,153 +53,32 @@ export function HomeScreen() {
   }, [isNewSeason, navigation]);
 
   const handleAdvanceWeek = useCallback(async () => {
-    if (isAdvancing || !dbHandle || !playerClubId) return;
-
+    if (isAdvancing || !dbHandle || !playerClubId || !currentSave) return;
     setAdvancing(true);
-
     try {
-      // 1. Get fixtures for this week
-      const weekFixtures = getFixturesByWeek(dbHandle, season, week);
-
-      // 2. Simulate each unplayed fixture with reputation-weighted random results
       const rng = new SeededRng(season * 1000 + week);
-
-      for (const fixture of weekFixtures) {
-        if (fixture.played) continue;
-
-        const homeClub = getClubById(dbHandle, fixture.homeClubId);
-        const awayClub = getClubById(dbHandle, fixture.awayClubId);
-        if (!homeClub || !awayClub) continue;
-
-        const homeStrength = homeClub.reputation * 1.07; // home advantage
-        const awayStrength = awayClub.reputation;
-        const total = homeStrength + awayStrength;
-
-        const homeExpected = (homeStrength / total) * 3;
-        const awayExpected = (awayStrength / total) * 3;
-
-        const homeGoals = Math.round(rng.nextFloat(0, homeExpected * 1.5));
-        const awayGoals = Math.round(rng.nextFloat(0, awayExpected * 1.5));
-        const attendance = Math.round(homeClub.stadiumCapacity * 0.75);
-
-        updateFixtureResult(dbHandle, fixture.id, homeGoals, awayGoals, attendance);
-
-        // If this is the player's match, store a MatchResult for display
-        if (fixture.homeClubId === playerClubId || fixture.awayClubId === playerClubId) {
-          const homePossession = Math.round((homeStrength / total) * 100);
-          setLastMatchResult({
-            homeGoals,
-            awayGoals,
-            events: [],
-            homeRatings: [],
-            awayRatings: [],
-            stats: {
-              homePossession,
-              awayPossession: 100 - homePossession,
-              homeShots: rng.nextInt(5, 15),
-              awayShots: rng.nextInt(5, 15),
-              homeFouls: rng.nextInt(8, 16),
-              awayFouls: rng.nextInt(8, 16),
-              homeCorners: rng.nextInt(3, 10),
-              awayCorners: rng.nextInt(3, 10),
-            },
-            attendance,
-          });
-        }
-      }
-
-      // 3. Process finances for player's club
-      const hasHomeMatch = weekFixtures.some((f) => f.homeClubId === playerClubId);
-      const income = calculateWeeklyIncome({
-        clubReputation: playerClub?.reputation ?? 70,
-        stadiumCapacity: playerClub?.stadiumCapacity ?? 30000,
-        hasHomeMatch,
-        leaguePosition: 1,
+      const result = advanceGameWeek({
+        dbHandle,
         season,
         week,
-      });
-      const expenses = calculateWeeklyExpenses({
-        totalPlayerWages: playerClub?.wageBudget ?? 500000,
-        totalStaffWages: 100000,
-        stadiumCapacity: playerClub?.stadiumCapacity ?? 30000,
-        trainingFacilities: playerClub?.trainingFacilities ?? 3,
-        youthAcademy: playerClub?.youthAcademy ?? 3,
-        medicalDepartment: playerClub?.medicalDepartment ?? 3,
+        playerClubId,
+        saveId: currentSave.id,
+        rng,
       });
 
-      if (income.tv > 0) {
-        addFinanceEntry(dbHandle, {
-          clubId: playerClubId,
-          season,
-          week,
-          type: 'tv',
-          amount: income.tv,
-          description: 'TV Revenue',
-        });
-      }
-      if (income.sponsor > 0) {
-        addFinanceEntry(dbHandle, {
-          clubId: playerClubId,
-          season,
-          week,
-          type: 'sponsor',
-          amount: income.sponsor,
-          description: 'Sponsor Revenue',
-        });
-      }
-      if (income.ticket > 0) {
-        addFinanceEntry(dbHandle, {
-          clubId: playerClubId,
-          season,
-          week,
-          type: 'ticket',
-          amount: income.ticket,
-          description: 'Matchday Revenue',
-        });
-      }
-      addFinanceEntry(dbHandle, {
-        clubId: playerClubId,
-        season,
-        week,
-        type: 'wages',
-        amount: -expenses.wages,
-        description: 'Weekly Wages',
-      });
-      addFinanceEntry(dbHandle, {
-        clubId: playerClubId,
-        season,
-        week,
-        type: 'maintenance',
-        amount: -expenses.maintenance,
-        description: 'Maintenance',
-      });
+      updateWeek(result.newSeason, result.newWeek);
+      if (result.playerMatchResult) setLastMatchResult(result.playerMatchResult);
 
-      const netChange =
-        income.tv + income.sponsor + income.ticket - expenses.wages - expenses.maintenance;
-      updateClubBudget(dbHandle, playerClubId, (playerClub?.budget ?? 0) + netChange);
-
-      // 4. Advance week / season
-      const newWeek = week >= 46 ? 1 : week + 1;
-      const newSeason = week >= 46 ? season + 1 : season;
-
-      if (currentSave) {
-        updateSaveWeek(dbHandle, currentSave.id, newSeason, newWeek);
-      }
-
-      updateWeek(newSeason, newWeek);
-
-      // Reload club data (budget changed)
+      // Reload club data
       const updatedClub = getClubById(dbHandle, playerClubId);
       if (updatedClub) setPlayerClub(updatedClub);
 
       // Reload recent results
-      const allClubFixtures = getFixturesByClub(dbHandle, playerClubId, season);
-      const played = allClubFixtures.filter((f) => f.played);
+      const allFixtures = getFixturesByClub(dbHandle, playerClubId, result.isSeasonEnd ? season : result.newSeason);
+      const played = allFixtures.filter(f => f.played);
       setRecentResults(played.slice(-5));
 
-      if (week >= 46) {
-        setNewSeason(true);
-      }
+      if (result.isSeasonEnd) setNewSeason(true);
     } finally {
       setAdvancing(false);
     }
@@ -209,10 +86,9 @@ export function HomeScreen() {
     isAdvancing,
     dbHandle,
     playerClubId,
-    playerClub,
+    currentSave,
     season,
     week,
-    currentSave,
     setAdvancing,
     updateWeek,
     setLastMatchResult,

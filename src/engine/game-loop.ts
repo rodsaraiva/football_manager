@@ -1,5 +1,6 @@
 import { DbHandle } from '@/database/queries/players';
 import { getPlayersByClub, getPlayerById } from '@/database/queries/players';
+import { generateAiTransfer } from './transfer/transfer-ai';
 import {
   getFixturesByWeek,
   updateFixtureResult,
@@ -159,6 +160,78 @@ function loadSquadWithAttributes(db: DbHandle, clubId: number): PlayerForPick[] 
     }
   }
   return result;
+}
+
+// ─── Transfer window helpers ──────────────────────────────────────────────────
+
+function isTransferWindow(week: number): boolean {
+  return (week >= 1 && week <= 6) || (week >= 23 && week <= 26);
+}
+
+function processAiTransfers(db: DbHandle, _season: number, week: number, rng: SeededRng): void {
+  if (!isTransferWindow(week)) return;
+
+  const clubs = db.prepare(
+    'SELECT id, reputation, budget FROM clubs ORDER BY RANDOM() LIMIT 5',
+  ).all() as Array<{ id: number; reputation: number; budget: number }>;
+
+  for (const club of clubs) {
+    const squadRows = db.prepare(
+      'SELECT position FROM players WHERE club_id = ?',
+    ).all(club.id) as Array<{ position: string }>;
+
+    const available = db.prepare(
+      `SELECT p.id, p.position, p.market_value, p.wage, p.club_id as from_club_id, c.reputation as club_reputation
+       FROM players p JOIN clubs c ON p.club_id = c.id
+       WHERE p.club_id != ? AND p.is_free_agent = 0
+       ORDER BY RANDOM() LIMIT 20`,
+    ).all(club.id) as Array<{
+      id: number;
+      position: string;
+      market_value: number;
+      wage: number;
+      from_club_id: number;
+      club_reputation: number;
+    }>;
+
+    const result = generateAiTransfer({
+      clubId: club.id,
+      clubBudget: club.budget,
+      clubReputation: club.reputation,
+      squadPositions: squadRows.map(r => r.position),
+      availablePlayers: available.map(p => ({
+        id: p.id,
+        position: p.position,
+        overall: 70, // simplified
+        marketValue: p.market_value,
+        wage: p.wage,
+        clubReputation: p.club_reputation,
+      })),
+      rng,
+    });
+
+    if (result) {
+      const player = available.find(p => p.id === result.targetPlayerId);
+      if (!player) continue;
+
+      // Move player to buying club
+      db.prepare('UPDATE players SET club_id = ?, wage = ? WHERE id = ?').run(
+        club.id,
+        result.offeredWage,
+        result.targetPlayerId,
+      );
+      // Deduct fee from buyer
+      db.prepare('UPDATE clubs SET budget = budget - ? WHERE id = ?').run(
+        result.offeredFee,
+        club.id,
+      );
+      // Add fee to seller
+      db.prepare('UPDATE clubs SET budget = budget + ? WHERE id = ?').run(
+        result.offeredFee,
+        player.from_club_id,
+      );
+    }
+  }
 }
 
 // ─── Main function ────────────────────────────────────────────────────────────
@@ -323,6 +396,9 @@ export function advanceGameWeek(params: AdvanceWeekParams): AdvanceWeekResult {
     const { homeGoals, awayGoals } = simulateAiMatch(fixture, rng, db);
     updateFixtureResult(db, fixture.id, homeGoals, awayGoals);
   }
+
+  // 3b. Process AI transfers during transfer windows
+  processAiTransfers(db, season, week, rng);
 
   // 4. Process weekly finances for player's club
   const playerClub = getClubById(db, playerClubId);
