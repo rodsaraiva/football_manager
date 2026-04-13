@@ -43,6 +43,14 @@ export const useDatabaseStore = create<DatabaseStore>((set) => ({
   isWebMock: false,
   error: null,
   initialize: async () => {
+    // expo-sqlite doesn't work on web without COOP/COEP headers.
+    // On web, skip DB init and render screens in "preview" mode.
+    if (Platform.OS === 'web') {
+      console.log('[DB] Web platform detected — running in preview mode (no database)');
+      set({ isReady: true, isWebMock: true, error: null });
+      return;
+    }
+
     try {
       console.log('[DB] Opening database...');
       const db = await SQLite.openDatabaseAsync('football-manager.db');
