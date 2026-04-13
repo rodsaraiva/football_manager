@@ -4,6 +4,7 @@ export type RootStackParamList = {
   Game: undefined;
   MatchResult: { fixtureId: number };
   PlayerDetail: { playerId: number };
+  EndOfSeason: undefined;
 };
 
 export type TabParamList = {

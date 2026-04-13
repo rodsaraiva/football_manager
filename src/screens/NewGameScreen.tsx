@@ -13,12 +13,13 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { colors, spacing, fontSize, commonStyles } from '@/theme';
 import { useDatabaseStore } from '@/store/database-store';
 import { useGameStore } from '@/store/game-store';
-import { getAllLeagues } from '@/database/queries/leagues';
-import { getAllCountries } from '@/database/queries/leagues';
+import { getAllLeagues, getAllCountries, createCompetition, addCompetitionEntry } from '@/database/queries/leagues';
 import { getClubsByLeague, getClubById } from '@/database/queries/clubs';
 import { createSave } from '@/database/queries/saves';
+import { createFixture } from '@/database/queries/fixtures';
 import { seedDatabase } from '@/database/seed';
 import { generateSeedData } from '../../scripts/generate-seed-data';
+import { generateSeasonCalendar } from '@/engine/competition/calendar';
 import { RootStackParamList } from '@/navigation/types';
 import { League, Club, Difficulty } from '@/types';
 
@@ -98,6 +99,79 @@ export function NewGameScreen() {
 
       const club = getClubById(dbHandle, selectedClub.id);
       if (club) setPlayerClub(club);
+
+      // Generate season 1 calendar
+      try {
+        const allLeagues = getAllLeagues(dbHandle);
+        const clubsByLeague: Record<number, number[]> = {};
+        const championsLeagueClubs: number[] = [];
+
+        for (const league of allLeagues) {
+          const leagueClubs = getClubsByLeague(dbHandle, league.id);
+          const sorted = [...leagueClubs].sort((a, b) => b.reputation - a.reputation);
+          clubsByLeague[league.id] = leagueClubs.map((c) => c.id);
+          // Top 2 per league → Champions League (max 8 total)
+          for (const c of sorted.slice(0, 2)) {
+            if (championsLeagueClubs.length < 8) {
+              championsLeagueClubs.push(c.id);
+            }
+          }
+        }
+
+        // Fill CL to 8 if needed
+        if (championsLeagueClubs.length < 8) {
+          const allIds = Object.values(clubsByLeague).flat();
+          for (const id of allIds) {
+            if (!championsLeagueClubs.includes(id) && championsLeagueClubs.length < 8) {
+              championsLeagueClubs.push(id);
+            }
+          }
+        }
+
+        const calendar = generateSeasonCalendar({
+          season: 1,
+          leagues: allLeagues,
+          clubsByLeague,
+          championsLeagueClubs,
+        });
+
+        // Persist competitions
+        for (const comp of calendar.competitions) {
+          createCompetition(dbHandle, {
+            id: comp.id,
+            name: comp.name,
+            type: comp.type,
+            format: comp.format,
+            season: 1,
+            leagueId: comp.leagueId,
+          });
+        }
+
+        // Persist competition entries
+        for (const entry of calendar.entries) {
+          addCompetitionEntry(dbHandle, {
+            competitionId: entry.competitionId,
+            clubId: entry.clubId,
+            groupName: entry.groupName,
+            seed: entry.seed,
+          });
+        }
+
+        // Persist fixtures
+        for (const fixture of calendar.fixtures) {
+          createFixture(dbHandle, {
+            id: fixture.id,
+            competitionId: fixture.competitionId,
+            season: 1,
+            week: fixture.week,
+            round: fixture.round !== null ? String(fixture.round) : null,
+            homeClubId: fixture.homeClubId,
+            awayClubId: fixture.awayClubId,
+          });
+        }
+      } catch {
+        // Calendar generation failure is non-fatal — game can still start
+      }
 
       navigation.navigate('Game');
     } catch (err) {
