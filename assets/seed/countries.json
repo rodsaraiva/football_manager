@@ -1,0 +1,32 @@
+[
+  {
+    "id": 1,
+    "name": "England",
+    "code": "EN",
+    "continent": "Europe"
+  },
+  {
+    "id": 2,
+    "name": "Spain",
+    "code": "ES",
+    "continent": "Europe"
+  },
+  {
+    "id": 3,
+    "name": "Italy",
+    "code": "IT",
+    "continent": "Europe"
+  },
+  {
+    "id": 4,
+    "name": "Germany",
+    "code": "DE",
+    "continent": "Europe"
+  },
+  {
+    "id": 5,
+    "name": "France",
+    "code": "FR",
+    "continent": "Europe"
+  }
+]

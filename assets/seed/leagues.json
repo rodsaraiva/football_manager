@@ -1,0 +1,47 @@
+[
+  {
+    "id": 1,
+    "name": "Premier League",
+    "countryId": 1,
+    "divisionLevel": 1,
+    "numTeams": 20,
+    "promotionSpots": 0,
+    "relegationSpots": 3
+  },
+  {
+    "id": 2,
+    "name": "La Liga",
+    "countryId": 2,
+    "divisionLevel": 1,
+    "numTeams": 20,
+    "promotionSpots": 0,
+    "relegationSpots": 3
+  },
+  {
+    "id": 3,
+    "name": "Serie A",
+    "countryId": 3,
+    "divisionLevel": 1,
+    "numTeams": 20,
+    "promotionSpots": 0,
+    "relegationSpots": 3
+  },
+  {
+    "id": 4,
+    "name": "Bundesliga",
+    "countryId": 4,
+    "divisionLevel": 1,
+    "numTeams": 18,
+    "promotionSpots": 0,
+    "relegationSpots": 3
+  },
+  {
+    "id": 5,
+    "name": "Ligue 1",
+    "countryId": 5,
+    "divisionLevel": 1,
+    "numTeams": 18,
+    "promotionSpots": 0,
+    "relegationSpots": 3
+  }
+]

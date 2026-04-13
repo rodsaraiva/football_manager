@@ -1,0 +1,150 @@
+export interface TeamDef {
+  name: string;
+  shortName: string;
+  reputation: number; // 1-100
+  stadiumName: string;
+  stadiumCapacity: number;
+  primaryColor: string;
+  secondaryColor: string;
+}
+
+export interface LeagueDef {
+  name: string;
+  country: string;
+  countryCode: string;
+  teams: TeamDef[];
+}
+
+export const LEAGUES: LeagueDef[] = [
+  {
+    name: 'Premier League',
+    country: 'England',
+    countryCode: 'EN',
+    teams: [
+      { name: 'Manchester Red', shortName: 'MAN RED', reputation: 88, stadiumName: 'Old Trafford Park', stadiumCapacity: 74000, primaryColor: '#DA291C', secondaryColor: '#FFE500' },
+      { name: 'Manchester Sky', shortName: 'MAN SKY', reputation: 92, stadiumName: 'Etihad Stadium', stadiumCapacity: 53400, primaryColor: '#6CABDD', secondaryColor: '#1C2C5B' },
+      { name: 'Liverpool Reds', shortName: 'LIV', reputation: 90, stadiumName: 'Anfield Road', stadiumCapacity: 61000, primaryColor: '#C8102E', secondaryColor: '#00B2A9' },
+      { name: 'London Arsenal', shortName: 'ARS', reputation: 85, stadiumName: 'Emirates Park', stadiumCapacity: 60704, primaryColor: '#EF0107', secondaryColor: '#063672' },
+      { name: 'London Chelsea', shortName: 'CHE', reputation: 83, stadiumName: 'Stamford Bridge', stadiumCapacity: 40853, primaryColor: '#034694', secondaryColor: '#DBA111' },
+      { name: 'North London Spurs', shortName: 'SPURS', reputation: 79, stadiumName: 'Tottenham Stadium', stadiumCapacity: 62850, primaryColor: '#132257', secondaryColor: '#FFFFFF' },
+      { name: 'Newcastle Eagles', shortName: 'NEW', reputation: 75, stadiumName: "St James' Park", stadiumCapacity: 52305, primaryColor: '#241F20', secondaryColor: '#FFFFFF' },
+      { name: 'West Ham Hammers', shortName: 'WHU', reputation: 68, stadiumName: 'London Stadium', stadiumCapacity: 62500, primaryColor: '#7A263A', secondaryColor: '#1BB1E7' },
+      { name: 'Aston Lions', shortName: 'AVL', reputation: 72, stadiumName: 'Villa Park', stadiumCapacity: 42682, primaryColor: '#95BFE5', secondaryColor: '#670E36' },
+      { name: 'Brighton Seagulls', shortName: 'BHA', reputation: 65, stadiumName: 'AMEX Stadium', stadiumCapacity: 31876, primaryColor: '#0057B8', secondaryColor: '#FFCD00' },
+      { name: 'Brentford Bees', shortName: 'BRE', reputation: 57, stadiumName: 'Gtech Stadium', stadiumCapacity: 17250, primaryColor: '#E30613', secondaryColor: '#FFFFFF' },
+      { name: 'Fulham Cottagers', shortName: 'FUL', reputation: 58, stadiumName: 'Craven Cottage', stadiumCapacity: 25700, primaryColor: '#FFFFFF', secondaryColor: '#000000' },
+      { name: 'Wolves FC', shortName: 'WOL', reputation: 62, stadiumName: 'Molineux Park', stadiumCapacity: 31750, primaryColor: '#FDB913', secondaryColor: '#231F20' },
+      { name: 'Crystal Eagles', shortName: 'CRY', reputation: 56, stadiumName: 'Selhurst Park', stadiumCapacity: 25486, primaryColor: '#1B458F', secondaryColor: '#C4122E' },
+      { name: 'Everton Toffees', shortName: 'EVE', reputation: 60, stadiumName: 'Goodison Park', stadiumCapacity: 39572, primaryColor: '#003399', secondaryColor: '#FFFFFF' },
+      { name: 'Leicester Foxes', shortName: 'LEI', reputation: 64, stadiumName: 'King Power Stadium', stadiumCapacity: 32261, primaryColor: '#003090', secondaryColor: '#FDBE11' },
+      { name: 'Southampton Saints', shortName: 'SOU', reputation: 52, stadiumName: "St Mary's Stadium", stadiumCapacity: 32505, primaryColor: '#D71920', secondaryColor: '#211E1E' },
+      { name: 'Ipswich Town Blues', shortName: 'IPS', reputation: 48, stadiumName: 'Portman Road', stadiumCapacity: 30311, primaryColor: '#0044A9', secondaryColor: '#FFFFFF' },
+      { name: 'Nottingham Reds', shortName: 'NFO', reputation: 55, stadiumName: 'City Ground', stadiumCapacity: 30445, primaryColor: '#DD0000', secondaryColor: '#FFFFFF' },
+      { name: 'Bournemouth Cherries', shortName: 'BOU', reputation: 50, stadiumName: 'Vitality Stadium', stadiumCapacity: 11307, primaryColor: '#DA291C', secondaryColor: '#000000' },
+    ],
+  },
+  {
+    name: 'La Liga',
+    country: 'Spain',
+    countryCode: 'ES',
+    teams: [
+      { name: 'Real Madrid FC', shortName: 'RMA', reputation: 95, stadiumName: 'Estadio Santiago', stadiumCapacity: 81044, primaryColor: '#FFFFFF', secondaryColor: '#00529F' },
+      { name: 'Barcelona FC', shortName: 'BAR', reputation: 93, stadiumName: 'Camp Nou Stadium', stadiumCapacity: 99354, primaryColor: '#A50044', secondaryColor: '#004D98' },
+      { name: 'Atletico de Madrid', shortName: 'ATM', reputation: 86, stadiumName: 'Metropolitano Arena', stadiumCapacity: 68456, primaryColor: '#CB3524', secondaryColor: '#FFFFFF' },
+      { name: 'Sevilla FC', shortName: 'SEV', reputation: 78, stadiumName: 'Estadio Ramon', stadiumCapacity: 43883, primaryColor: '#FFFFFF', secondaryColor: '#D71920' },
+      { name: 'Real Sociedad', shortName: 'RSO', reputation: 73, stadiumName: 'Reale Arena', stadiumCapacity: 39500, primaryColor: '#0063A6', secondaryColor: '#FFFFFF' },
+      { name: 'Villarreal Yellow', shortName: 'VIL', reputation: 75, stadiumName: 'Estadio Madrigal', stadiumCapacity: 23500, primaryColor: '#FFD700', secondaryColor: '#012360' },
+      { name: 'Athletic Bilbao', shortName: 'ATH', reputation: 70, stadiumName: 'Estadio San Mames', stadiumCapacity: 53289, primaryColor: '#EE2523', secondaryColor: '#FFFFFF' },
+      { name: 'Real Betis', shortName: 'BET', reputation: 68, stadiumName: 'Estadio Benito', stadiumCapacity: 60721, primaryColor: '#00954C', secondaryColor: '#FFFFFF' },
+      { name: 'Celta Vigo', shortName: 'CEL', reputation: 60, stadiumName: 'Balaidos Stadium', stadiumCapacity: 29000, primaryColor: '#83CFDF', secondaryColor: '#FFFFFF' },
+      { name: 'Valencia CF', shortName: 'VAL', reputation: 65, stadiumName: 'Mestalla Park', stadiumCapacity: 49430, primaryColor: '#FFFFFF', secondaryColor: '#EE8100' },
+      { name: 'Girona FC', shortName: 'GIR', reputation: 62, stadiumName: 'Montilivi Stadium', stadiumCapacity: 13500, primaryColor: '#D01317', secondaryColor: '#FFFFFF' },
+      { name: 'Getafe CF', shortName: 'GET', reputation: 52, stadiumName: 'Coliseum Alfonso', stadiumCapacity: 17700, primaryColor: '#005AA7', secondaryColor: '#FFFFFF' },
+      { name: 'Rayo Vallecano', shortName: 'RAY', reputation: 50, stadiumName: 'Campo Vallecas', stadiumCapacity: 14708, primaryColor: '#EE2523', secondaryColor: '#FFFFFF' },
+      { name: 'Osasuna FC', shortName: 'OSA', reputation: 53, stadiumName: 'El Sadar Stadium', stadiumCapacity: 23576, primaryColor: '#D5001C', secondaryColor: '#001489' },
+      { name: 'Alaves FC', shortName: 'ALA', reputation: 47, stadiumName: 'Mendizorroza Park', stadiumCapacity: 19840, primaryColor: '#0046AD', secondaryColor: '#FFFFFF' },
+      { name: 'Las Palmas', shortName: 'LPA', reputation: 45, stadiumName: 'Gran Canaria Stadium', stadiumCapacity: 32392, primaryColor: '#FFCB00', secondaryColor: '#1E3A8A' },
+      { name: 'Espanyol FC', shortName: 'ESP', reputation: 55, stadiumName: 'RCDE Stadium', stadiumCapacity: 40000, primaryColor: '#003C8F', secondaryColor: '#FFFFFF' },
+      { name: 'Valladolid Real', shortName: 'VLL', reputation: 43, stadiumName: 'Estadio Zorrilla', stadiumCapacity: 26512, primaryColor: '#65007E', secondaryColor: '#FFFFFF' },
+      { name: 'Mallorca RCD', shortName: 'MAL', reputation: 48, stadiumName: 'Son Moix Arena', stadiumCapacity: 23142, primaryColor: '#D80021', secondaryColor: '#1A1A1A' },
+      { name: 'Leganes CD', shortName: 'LEG', reputation: 42, stadiumName: 'Estadio Municipal', stadiumCapacity: 11454, primaryColor: '#007BC4', secondaryColor: '#FFFFFF' },
+    ],
+  },
+  {
+    name: 'Serie A',
+    country: 'Italy',
+    countryCode: 'IT',
+    teams: [
+      { name: 'Inter Milano', shortName: 'INT', reputation: 88, stadiumName: 'Stadio San Siro', stadiumCapacity: 80018, primaryColor: '#010E80', secondaryColor: '#000000' },
+      { name: 'Juventus FC', shortName: 'JUV', reputation: 86, stadiumName: 'Allianz Arena', stadiumCapacity: 41507, primaryColor: '#000000', secondaryColor: '#FFFFFF' },
+      { name: 'AC Milan Rossoneri', shortName: 'MIL', reputation: 84, stadiumName: 'Stadio San Siro', stadiumCapacity: 80018, primaryColor: '#FB090B', secondaryColor: '#000000' },
+      { name: 'Napoli SSC', shortName: 'NAP', reputation: 82, stadiumName: 'Stadio Maradona', stadiumCapacity: 54726, primaryColor: '#087DC3', secondaryColor: '#FFFFFF' },
+      { name: 'AS Roma', shortName: 'ROM', reputation: 78, stadiumName: 'Stadio Olimpico', stadiumCapacity: 72698, primaryColor: '#8B1A1A', secondaryColor: '#F5C518' },
+      { name: 'SS Lazio', shortName: 'LAZ', reputation: 74, stadiumName: 'Stadio Olimpico', stadiumCapacity: 72698, primaryColor: '#87CEEB', secondaryColor: '#FFFFFF' },
+      { name: 'Atalanta BC', shortName: 'ATA', reputation: 76, stadiumName: 'Gewiss Stadium', stadiumCapacity: 24747, primaryColor: '#1C2B5E', secondaryColor: '#000000' },
+      { name: 'Fiorentina ACF', shortName: 'FIO', reputation: 68, stadiumName: 'Stadio Franchi', stadiumCapacity: 43147, primaryColor: '#7B2D8B', secondaryColor: '#FFFFFF' },
+      { name: 'Bologna FC', shortName: 'BOL', reputation: 65, stadiumName: 'Stadio Dall Ara', stadiumCapacity: 38279, primaryColor: '#E00D24', secondaryColor: '#1C1B1A' },
+      { name: 'Torino FC', shortName: 'TOR', reputation: 60, stadiumName: 'Stadio Olimpico', stadiumCapacity: 28140, primaryColor: '#8B2500', secondaryColor: '#FFFFFF' },
+      { name: 'Udinese Calcio', shortName: 'UDI', reputation: 56, stadiumName: 'Stadio Friuli', stadiumCapacity: 25144, primaryColor: '#000000', secondaryColor: '#FFFFFF' },
+      { name: 'Genoa CFC', shortName: 'GEN', reputation: 54, stadiumName: 'Stadio Luigi Ferraris', stadiumCapacity: 36536, primaryColor: '#C8102E', secondaryColor: '#00205B' },
+      { name: 'Hellas Verona', shortName: 'VER', reputation: 52, stadiumName: 'Marcantonio Bentegodi', stadiumCapacity: 39211, primaryColor: '#0032A0', secondaryColor: '#F5C518' },
+      { name: 'Cagliari Calcio', shortName: 'CAG', reputation: 50, stadiumName: 'Unipol Domus', stadiumCapacity: 16416, primaryColor: '#D4A600', secondaryColor: '#0047A0' },
+      { name: 'Parma Calcio', shortName: 'PAR', reputation: 48, stadiumName: 'Stadio Ennio Tardini', stadiumCapacity: 22352, primaryColor: '#FFCB00', secondaryColor: '#0047AB' },
+      { name: 'Como 1907', shortName: 'COM', reputation: 45, stadiumName: 'Stadio Giuseppe Sinigaglia', stadiumCapacity: 13602, primaryColor: '#003087', secondaryColor: '#FFFFFF' },
+      { name: 'Lecce US', shortName: 'LEC', reputation: 47, stadiumName: 'Stadio Via del Mare', stadiumCapacity: 33876, primaryColor: '#F5D400', secondaryColor: '#B22222' },
+      { name: 'Empoli FC', shortName: 'EMP', reputation: 49, stadiumName: 'Stadio Carlo Castellani', stadiumCapacity: 16284, primaryColor: '#0047A0', secondaryColor: '#FFFFFF' },
+      { name: 'Monza AC', shortName: 'MON', reputation: 51, stadiumName: 'Stadio Brianteo', stadiumCapacity: 18568, primaryColor: '#FFFFFF', secondaryColor: '#FF0000' },
+      { name: 'Venezia FC', shortName: 'VEN', reputation: 44, stadiumName: 'Stadio Pier Luigi Penzo', stadiumCapacity: 11150, primaryColor: '#F97D1C', secondaryColor: '#000000' },
+    ],
+  },
+  {
+    name: 'Bundesliga',
+    country: 'Germany',
+    countryCode: 'DE',
+    teams: [
+      { name: 'Bayern Munich', shortName: 'BAY', reputation: 93, stadiumName: 'Allianz Arena', stadiumCapacity: 75000, primaryColor: '#DC052D', secondaryColor: '#FFFFFF' },
+      { name: 'Borussia Dortmund', shortName: 'BVB', reputation: 85, stadiumName: 'Signal Iduna Park', stadiumCapacity: 81365, primaryColor: '#FDE100', secondaryColor: '#000000' },
+      { name: 'Bayer Leverkusen', shortName: 'B04', reputation: 82, stadiumName: 'BayArena', stadiumCapacity: 30210, primaryColor: '#E32221', secondaryColor: '#000000' },
+      { name: 'RB Leipzig', shortName: 'RBL', reputation: 80, stadiumName: 'Red Bull Arena', stadiumCapacity: 47069, primaryColor: '#DD0741', secondaryColor: '#FFFFFF' },
+      { name: 'Eintracht Frankfurt', shortName: 'SGE', reputation: 74, stadiumName: 'Deutsche Bank Park', stadiumCapacity: 51500, primaryColor: '#000000', secondaryColor: '#E1000F' },
+      { name: 'Borussia Gladbach', shortName: 'BMG', reputation: 72, stadiumName: 'Borussia Park', stadiumCapacity: 54057, primaryColor: '#FFFFFF', secondaryColor: '#000000' },
+      { name: 'Union Berlin', shortName: 'FCU', reputation: 65, stadiumName: 'Stadion An der alten Forsterei', stadiumCapacity: 22012, primaryColor: '#EB1923', secondaryColor: '#FFFFFF' },
+      { name: 'VfB Stuttgart', shortName: 'VFB', reputation: 69, stadiumName: 'MHPArena', stadiumCapacity: 60449, primaryColor: '#FFFFFF', secondaryColor: '#E32221' },
+      { name: 'SC Freiburg', shortName: 'SCF', reputation: 63, stadiumName: 'Europa-Park Stadion', stadiumCapacity: 34700, primaryColor: '#C8102E', secondaryColor: '#000000' },
+      { name: 'TSG Hoffenheim', shortName: 'TSG', reputation: 61, stadiumName: 'PreZero Arena', stadiumCapacity: 30150, primaryColor: '#1C63B7', secondaryColor: '#FFFFFF' },
+      { name: 'Werder Bremen', shortName: 'SVW', reputation: 60, stadiumName: 'Weserstadion', stadiumCapacity: 42100, primaryColor: '#1D7A3D', secondaryColor: '#FFFFFF' },
+      { name: 'Augsburg FC', shortName: 'FCA', reputation: 52, stadiumName: 'WWK Arena', stadiumCapacity: 30660, primaryColor: '#BA3733', secondaryColor: '#006E51' },
+      { name: 'Wolfsburg VfL', shortName: 'WOB', reputation: 64, stadiumName: 'Volkswagen Arena', stadiumCapacity: 30000, primaryColor: '#65B32E', secondaryColor: '#009999' },
+      { name: 'Mainz 05', shortName: 'M05', reputation: 55, stadiumName: 'MEWA Arena', stadiumCapacity: 33305, primaryColor: '#C3141E', secondaryColor: '#FFFFFF' },
+      { name: 'Heidenheim FC', shortName: 'HEI', reputation: 45, stadiumName: 'Voith Arena', stadiumCapacity: 15000, primaryColor: '#CC0000', secondaryColor: '#FFFFFF' },
+      { name: 'Holstein Kiel', shortName: 'KIE', reputation: 43, stadiumName: 'Holstein Stadion', stadiumCapacity: 15034, primaryColor: '#0052A0', secondaryColor: '#FFFFFF' },
+      { name: 'St. Pauli FC', shortName: 'STP', reputation: 48, stadiumName: 'Millerntor Stadion', stadiumCapacity: 29546, primaryColor: '#8B4513', secondaryColor: '#000000' },
+      { name: 'Bochum VfL', shortName: 'BOC', reputation: 46, stadiumName: 'Vonovia Ruhrstadion', stadiumCapacity: 27599, primaryColor: '#005CA9', secondaryColor: '#FFFFFF' },
+    ],
+  },
+  {
+    name: 'Ligue 1',
+    country: 'France',
+    countryCode: 'FR',
+    teams: [
+      { name: 'Paris Saint-Germain', shortName: 'PSG', reputation: 91, stadiumName: 'Parc des Princes', stadiumCapacity: 47929, primaryColor: '#004170', secondaryColor: '#DA291C' },
+      { name: 'Olympique de Marseille', shortName: 'OM', reputation: 80, stadiumName: 'Orange Velodrome', stadiumCapacity: 67394, primaryColor: '#009BDE', secondaryColor: '#FFFFFF' },
+      { name: 'AS Monaco', shortName: 'ASM', reputation: 79, stadiumName: 'Stade Louis II', stadiumCapacity: 18523, primaryColor: '#DA291C', secondaryColor: '#FFFFFF' },
+      { name: 'Olympique Lyonnais', shortName: 'OL', reputation: 76, stadiumName: 'Groupama Stadium', stadiumCapacity: 59186, primaryColor: '#FFFFFF', secondaryColor: '#232323' },
+      { name: 'Lille OSC', shortName: 'LIL', reputation: 73, stadiumName: 'Stade Pierre-Mauroy', stadiumCapacity: 50157, primaryColor: '#E4003A', secondaryColor: '#FFFFFF' },
+      { name: 'Nice OGC', shortName: 'NIC', reputation: 69, stadiumName: 'Allianz Riviera', stadiumCapacity: 35624, primaryColor: '#000000', secondaryColor: '#E20714' },
+      { name: 'Lens RC', shortName: 'RCL', reputation: 67, stadiumName: 'Stade Bollaert-Delelis', stadiumCapacity: 38223, primaryColor: '#EE2A1E', secondaryColor: '#F5C518' },
+      { name: 'Rennes Stade', shortName: 'REN', reputation: 65, stadiumName: 'Roazhon Park', stadiumCapacity: 29778, primaryColor: '#E10600', secondaryColor: '#1C1C1C' },
+      { name: 'Nantes FC', shortName: 'NAN', reputation: 57, stadiumName: 'Stade de la Beaujoire', stadiumCapacity: 37473, primaryColor: '#F5C518', secondaryColor: '#007A4D' },
+      { name: 'Montpellier HSC', shortName: 'MHC', reputation: 55, stadiumName: 'Stade de la Mosson', stadiumCapacity: 32939, primaryColor: '#F77F00', secondaryColor: '#0C0C72' },
+      { name: 'Toulouse FC', shortName: 'TOU', reputation: 53, stadiumName: 'Stadium de Toulouse', stadiumCapacity: 35472, primaryColor: '#581E82', secondaryColor: '#FFFFFF' },
+      { name: 'Stade Reims', shortName: 'SDR', reputation: 56, stadiumName: 'Stade Auguste-Delaune', stadiumCapacity: 20000, primaryColor: '#CF2027', secondaryColor: '#FFFFFF' },
+      { name: 'Strasbourg RC', shortName: 'RCS', reputation: 52, stadiumName: 'Stade de la Meinau', stadiumCapacity: 26109, primaryColor: '#003399', secondaryColor: '#FFFFFF' },
+      { name: 'Brest SB29', shortName: 'SB29', reputation: 58, stadiumName: 'Stade Francis-Le Ble', stadiumCapacity: 15097, primaryColor: '#C9022D', secondaryColor: '#FFFFFF' },
+      { name: 'Havre AC', shortName: 'HAC', reputation: 46, stadiumName: 'Stade Oceane', stadiumCapacity: 25000, primaryColor: '#003399', secondaryColor: '#FFFFFF' },
+      { name: 'Angers SCO', shortName: 'SCO', reputation: 48, stadiumName: 'Stade Raymond Kopa', stadiumCapacity: 18655, primaryColor: '#1A1A1A', secondaryColor: '#FFFFFF' },
+      { name: 'Auxerre AJ', shortName: 'AJA', reputation: 44, stadiumName: 'Stade Abbe-Deschamps', stadiumCapacity: 18711, primaryColor: '#003399', secondaryColor: '#FFFFFF' },
+      { name: 'Saint-Etienne ASSE', shortName: 'ASSE', reputation: 50, stadiumName: 'Stade Geoffroy-Guichard', stadiumCapacity: 42000, primaryColor: '#007236', secondaryColor: '#FFFFFF' },
+    ],
+  },
+];
