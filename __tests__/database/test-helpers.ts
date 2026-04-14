@@ -1,11 +1,30 @@
 import Database from 'better-sqlite3';
 import { createAllTables } from '@/database/schema';
 import { generateSeedData } from '../../scripts/generate-seed-data';
+import { DbHandle } from '@/database/queries/players';
 
 export function createTestDb(): Database.Database {
   const db = new Database(':memory:');
+  // Disable FK enforcement so individual query tests don't need to seed every
+  // referenced table. Tests that explicitly need FK enforcement (schema.test.ts,
+  // seed.test.ts) call db.pragma('foreign_keys = ON') themselves.
+  db.pragma('foreign_keys = OFF');
   createAllTables(db);
   return db;
+}
+
+/**
+ * Wraps a better-sqlite3 Database into a DbHandle whose .all()/.get()/.run()
+ * return Promises, matching the async query-layer interface.
+ */
+export function createTestDbHandle(db: Database.Database): DbHandle {
+  return {
+    prepare: (sql: string) => ({
+      all: async (...params: unknown[]) => db.prepare(sql).all(...params),
+      get: async (...params: unknown[]) => db.prepare(sql).get(...params),
+      run: async (...params: unknown[]) => db.prepare(sql).run(...params),
+    }),
+  };
 }
 
 export function seedTestDb(db: Database.Database): void {
