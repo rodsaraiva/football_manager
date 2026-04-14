@@ -265,6 +265,26 @@ async function insertRelegatedIgnore(
     .run(season, leagueId, clubId, finalPosition);
 }
 
+async function snapshotChampionSquad(
+  db: DbHandle,
+  season: number,
+  competitionId: number,
+  championClubId: number,
+): Promise<void> {
+  const players = (await db
+    .prepare('SELECT id FROM players WHERE club_id = ?')
+    .all(championClubId)) as Array<{ id: number }>;
+  for (const p of players) {
+    await db
+      .prepare(
+        `INSERT OR IGNORE INTO season_player_titles
+           (season, competition_id, club_id, player_id)
+         VALUES (?, ?, ?, ?)`,
+      )
+      .run(season, competitionId, championClubId, p.id);
+  }
+}
+
 async function archiveKnockout(
   db: DbHandle,
   competition: CompetitionRow,
@@ -303,6 +323,7 @@ async function archiveKnockout(
   }
 
   await insertResultIgnore(db, season, competition.id, championClubId, runnerUpClubId);
+  await snapshotChampionSquad(db, season, competition.id, championClubId);
 }
 
 async function archiveLeague(
@@ -323,6 +344,7 @@ async function archiveLeague(
   const champion = standings[0].clubId;
   const runnerUp = standings.length > 1 ? standings[1].clubId : null;
   await insertResultIgnore(db, season, competition.id, champion, runnerUp);
+  await snapshotChampionSquad(db, season, competition.id, champion);
 
   const relegatedCount = league.relegation_spots ?? 0;
   if (relegatedCount > 0 && standings.length >= relegatedCount) {

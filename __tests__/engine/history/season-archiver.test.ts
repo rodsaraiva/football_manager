@@ -336,3 +336,56 @@ describe('archiveSeason — MVP & breakthrough', () => {
     expect(mvp).toBeUndefined();
   });
 });
+
+describe('archiveSeason — champion squad snapshot', () => {
+  let rawDb: Database.Database;
+  let db: DbHandle;
+
+  beforeEach(() => {
+    rawDb = createTestDb();
+    seedTestDb(rawDb);
+    rawDb.prepare(
+      `INSERT INTO competitions (id, name, type, format, season, league_id)
+       VALUES (1, 'Test League', 'league', 'round_robin', 1, 1)`,
+    ).run();
+    const clubs = rawDb.prepare('SELECT id FROM clubs WHERE league_id = 1').all() as Array<{ id: number }>;
+    let fid = 1;
+    for (let i = 0; i < clubs.length; i++) {
+      for (let j = 0; j < clubs.length; j++) {
+        if (i === j) continue;
+        rawDb.prepare(
+          `INSERT INTO fixtures (id, competition_id, season, week, round, home_club_id, away_club_id, played)
+           VALUES (?, 1, 1, 1, NULL, ?, ?, 0)`,
+        ).run(fid++, clubs[i].id, clubs[j].id);
+      }
+    }
+    db = createTestDbHandle(rawDb);
+  });
+
+  afterEach(() => {
+    rawDb.close();
+  });
+
+  it('records every player of the champion club', async () => {
+    // Make club 1 win every fixture; others draw.
+    const rows = rawDb
+      .prepare('SELECT id, home_club_id, away_club_id FROM fixtures WHERE competition_id = 1 AND season = 1')
+      .all() as Array<{ id: number; home_club_id: number; away_club_id: number }>;
+    for (const r of rows) {
+      const [h, a] = r.home_club_id === 1 ? [3, 0] : r.away_club_id === 1 ? [0, 3] : [1, 1];
+      rawDb.prepare('UPDATE fixtures SET home_goals = ?, away_goals = ?, played = 1 WHERE id = ?').run(h, a, r.id);
+    }
+
+    await archiveSeason(db, 1);
+
+    const squadIds = (rawDb
+      .prepare('SELECT id FROM players WHERE club_id = 1')
+      .all() as Array<{ id: number }>).map((x) => x.id);
+    const titleIds = (rawDb
+      .prepare('SELECT player_id FROM season_player_titles WHERE season = 1 AND competition_id = 1 AND club_id = 1')
+      .all() as Array<{ player_id: number }>).map((x) => x.player_id);
+
+    expect(titleIds.length).toBe(squadIds.length);
+    expect(titleIds.sort()).toEqual(squadIds.sort());
+  });
+});
