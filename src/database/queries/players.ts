@@ -112,6 +112,23 @@ export async function getPlayersByClub(db: DbHandle, clubId: number): Promise<Pl
   return rows.map(rowToPlayer);
 }
 
+export async function getPlayersWithAttributesByClub(
+  db: DbHandle,
+  clubId: number,
+): Promise<(Player & { attributes: PlayerAttributes })[]> {
+  const playerRows = await db
+    .prepare('SELECT * FROM players WHERE club_id = ?')
+    .all(clubId) as PlayerRow[];
+  if (playerRows.length === 0) return [];
+  const attrRows = await db
+    .prepare('SELECT * FROM player_attributes WHERE player_id IN (' + playerRows.map(() => '?').join(',') + ')')
+    .all(...playerRows.map((p) => p.id)) as PlayerAttributesRow[];
+  const attrsById = new Map(attrRows.map((a) => [a.player_id, rowToAttributes(a)]));
+  return playerRows
+    .filter((p) => attrsById.has(p.id))
+    .map((p) => ({ ...rowToPlayer(p), attributes: attrsById.get(p.id)! }));
+}
+
 export async function getPlayerById(
   db: DbHandle,
   playerId: number,

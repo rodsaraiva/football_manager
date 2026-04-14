@@ -1,21 +1,44 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator, RefreshControl, Pressable } from 'react-native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { colors, fontSize, spacing, commonStyles } from '@/theme';
 import { useGameStore } from '@/store/game-store';
 import { useDatabaseStore } from '@/store/database-store';
-import { getPlayersByClub, getPlayerById } from '@/database/queries/players';
+import { getPlayersWithAttributesByClub } from '@/database/queries/players';
 import { getFixturesByClub, getMatchEvents } from '@/database/queries/fixtures';
 import { calculateOverall } from '@/utils/overall';
 import { buildYouthReport, YouthReport, YouthListItem, U21_AGE_LIMIT } from '@/engine/reports/youth-report';
 import { FORM_WINDOW, SquadPlayer } from '@/engine/reports/technical-report';
-import { MatchEvent } from '@/types';
+import { MatchEvent, Position } from '@/types';
+import { RootStackParamList } from '@/navigation/types';
+
+type NavProp = NativeStackNavigationProp<RootStackParamList>;
+type PositionFilter = 'ALL' | 'GK' | 'DEF' | 'MID' | 'ATT';
+
+const POSITION_GROUPS: Record<Exclude<PositionFilter, 'ALL'>, Position[]> = {
+  GK: ['GK'],
+  DEF: ['CB', 'LB', 'RB'],
+  MID: ['CDM', 'CM', 'CAM', 'LM', 'RM'],
+  ATT: ['LW', 'RW', 'ST'],
+};
+const FILTER_LABELS: Record<PositionFilter, string> = {
+  ALL: 'Todos',
+  GK: 'GK',
+  DEF: 'DEF',
+  MID: 'MEI',
+  ATT: 'ATA',
+};
 
 export function ReportsYouthScreen() {
+  const navigation = useNavigation<NavProp>();
   const { playerClubId, season, week } = useGameStore();
   const { dbHandle } = useDatabaseStore();
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [report, setReport] = useState<YouthReport | null>(null);
+  const [squadAvgStarter, setSquadAvgStarter] = useState(0);
+  const [filter, setFilter] = useState<PositionFilter>('ALL');
 
   const load = React.useCallback(async () => {
     if (!dbHandle || !playerClubId) {
@@ -24,22 +47,26 @@ export function ReportsYouthScreen() {
     }
     setLoading(true);
     try {
-      const basePlayers = await getPlayersByClub(dbHandle, playerClubId);
-      const squad: SquadPlayer[] = [];
-      for (const p of basePlayers) {
-        const full = await getPlayerById(dbHandle, p.id);
-        if (!full) continue;
-        squad.push({
-          id: full.id,
-          name: full.name,
-          age: full.age,
-          position: full.position,
-          overall: calculateOverall(full.attributes, full.position),
-          basePotential: full.basePotential,
-          effectivePotential: full.effectivePotential,
-          injuryWeeksLeft: full.injuryWeeksLeft,
-        });
-      }
+      const fullPlayers = await getPlayersWithAttributesByClub(dbHandle, playerClubId);
+      const squad: SquadPlayer[] = fullPlayers.map((full) => ({
+        id: full.id,
+        name: full.name,
+        age: full.age,
+        position: full.position,
+        overall: calculateOverall(full.attributes, full.position),
+        basePotential: full.basePotential,
+        effectivePotential: full.effectivePotential,
+        injuryWeeksLeft: full.injuryWeeksLeft,
+      }));
+
+      // Avg overall of the top 11 players (rough "starter overall benchmark")
+      const top11 = [...squad]
+        .sort((a, b) => b.overall - a.overall)
+        .slice(0, 11);
+      const starterAvg = top11.length === 0
+        ? 0
+        : top11.reduce((s, p) => s + p.overall, 0) / top11.length;
+      setSquadAvgStarter(starterAvg);
 
       const allFixtures = await getFixturesByClub(dbHandle, playerClubId, season);
       const recent = allFixtures
@@ -64,6 +91,11 @@ export function ReportsYouthScreen() {
     }
   }, [dbHandle, playerClubId, season, week]);
 
+  const onRefresh = React.useCallback(async () => {
+    setRefreshing(true);
+    try { await load(); } finally { setRefreshing(false); }
+  }, [load]);
+
   useFocusEffect(React.useCallback(() => { load(); }, [load]));
   useEffect(() => { load(); }, [load]);
 
@@ -85,30 +117,87 @@ export function ReportsYouthScreen() {
     );
   }
 
+  const matchesFilter = (item: YouthListItem) => {
+    if (filter === 'ALL') return true;
+    return POSITION_GROUPS[filter].includes(item.player.position);
+  };
+  const filteredTop = report.topProspects.filter(matchesFilter);
+  const filteredUnderused = report.mostUnderused.filter(matchesFilter);
+  const filteredGaps = report.biggestGaps.filter(matchesFilter);
+  const isReady = (item: YouthListItem) =>
+    squadAvgStarter > 0 && item.player.overall >= squadAvgStarter - 2;
+
   return (
-    <ScrollView style={commonStyles.screen} contentContainerStyle={styles.container}>
+    <ScrollView
+      style={commonStyles.screen}
+      contentContainerStyle={styles.container}
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
+      }
+    >
       <View style={styles.header}>
         <Text style={styles.headerIntro}>
           Análise detalhada dos atletas com até {U21_AGE_LIMIT} anos.
         </Text>
+        <View style={styles.filterRow}>
+          {(Object.keys(FILTER_LABELS) as PositionFilter[]).map((opt) => (
+            <Pressable
+              key={opt}
+              onPress={() => setFilter(opt)}
+              style={[styles.filterChip, filter === opt && styles.filterChipActive]}
+            >
+              <Text
+                style={[styles.filterChipText, filter === opt && styles.filterChipTextActive]}
+              >
+                {FILTER_LABELS[opt]}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
       </View>
 
-      <Section title="⭐ Principais promessas" subtitle="Mistura de overall atual e potencial">
-        {report.topProspects.map((it) => <YouthCard key={it.player.id} item={it} />)}
-      </Section>
+      {filteredTop.length > 0 ? (
+        <Section title="⭐ Principais promessas" subtitle="Mistura de overall atual e potencial">
+          {filteredTop.map((it) => (
+            <Pressable
+              key={it.player.id}
+              onPress={() => navigation.navigate('PlayerDetail', { playerId: it.player.id })}
+              style={({ pressed }) => pressed && { opacity: 0.6 }}
+            >
+              <YouthCard item={it} ready={isReady(it)} />
+            </Pressable>
+          ))}
+        </Section>
+      ) : (
+        <View style={styles.section}>
+          <Text style={styles.sectionSub}>Nenhum jovem nesta posição.</Text>
+        </View>
+      )}
 
-      {report.mostUnderused.length > 0 && (
+      {filteredUnderused.length > 0 && (
         <Section title="⏱️ Subutilizados" subtitle="Bom overall, nenhum minuto recente">
-          {report.mostUnderused.map((it) => (
-            <CompactRow key={it.player.id} item={it} />
+          {filteredUnderused.map((it) => (
+            <Pressable
+              key={it.player.id}
+              onPress={() => navigation.navigate('PlayerDetail', { playerId: it.player.id })}
+              style={({ pressed }) => pressed && { opacity: 0.6 }}
+            >
+              <CompactRow item={it} />
+            </Pressable>
           ))}
         </Section>
       )}
 
-      {report.biggestGaps.length > 0 && (
+      {filteredGaps.length > 0 && (
         <Section title="📈 Maior espaço para crescer" subtitle="Maior gap de potencial não atingido">
-          {report.biggestGaps.map((it) => (
-            <CompactRow key={it.player.id} item={it} showGap />
+          {filteredGaps.map((it) => (
+            <Pressable
+              key={it.player.id}
+              onPress={() => navigation.navigate('PlayerDetail', { playerId: it.player.id })}
+              style={({ pressed }) => pressed && { opacity: 0.6 }}
+            >
+              <CompactRow item={it} showGap />
+            </Pressable>
           ))}
         </Section>
       )}
@@ -134,13 +223,24 @@ function Section({
   );
 }
 
-function YouthCard({ item }: { item: YouthListItem }) {
+function YouthCard({ item, ready = false }: { item: YouthListItem; ready?: boolean }) {
   const { player, form, potentialGap, starterComparison, insight } = item;
   return (
     <View style={styles.youthCard}>
       <View style={styles.youthHeader}>
         <View style={styles.youthHeaderLeft}>
-          <Text style={styles.youthName}>{player.name}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs }}>
+            <Text style={styles.youthName}>{player.name}</Text>
+            {ready ? (
+              <View style={styles.readyBadge}>
+                <Text style={styles.readyBadgeText}>PRONTO</Text>
+              </View>
+            ) : (
+              <View style={styles.promiseBadge}>
+                <Text style={styles.promiseBadgeText}>PROMESSA</Text>
+              </View>
+            )}
+          </View>
           <Text style={styles.youthMeta}>
             {player.position} · {player.age}a
           </Text>
@@ -337,5 +437,57 @@ const styles = StyleSheet.create({
   gapText: {
     fontSize: fontSize.sm,
     fontWeight: '700',
+  },
+  filterRow: {
+    flexDirection: 'row',
+    gap: spacing.xs,
+    marginTop: spacing.sm,
+    flexWrap: 'wrap',
+  },
+  filterChip: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+  },
+  filterChipActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  filterChipText: {
+    color: colors.textSecondary,
+    fontSize: fontSize.xs,
+    fontWeight: '600',
+  },
+  filterChipTextActive: {
+    color: colors.text,
+  },
+  readyBadge: {
+    backgroundColor: colors.success,
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 4,
+  },
+  readyBadgeText: {
+    color: colors.text,
+    fontSize: 9,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+  },
+  promiseBadge: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.gold,
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 4,
+  },
+  promiseBadgeText: {
+    color: colors.gold,
+    fontSize: 9,
+    fontWeight: '700',
+    letterSpacing: 0.5,
   },
 });

@@ -6,6 +6,13 @@
  */
 import { Fixture } from '@/types';
 
+export interface PositionGroupOveralls {
+  attack: number;   // avg overall of ST/LW/RW
+  midfield: number; // avg overall of CM/CDM/CAM
+  defense: number;  // avg overall of CB/LB/RB
+  goalkeeper: number;
+}
+
 export interface ClubSample {
   clubId: number;
   name: string;
@@ -18,6 +25,8 @@ export interface ClubSample {
   matchesPlayed: number;
   goalsFor: number;
   goalsAgainst: number;
+  /** Optional per-position averages for richer rankings. */
+  byGroup?: PositionGroupOveralls;
 }
 
 export interface RankLine {
@@ -134,6 +143,35 @@ export function buildAnalyticsReport(input: AnalyticsInput): AnalyticsReport {
     (rank, value) =>
       `Aproveitamento de ${value.toFixed(0)}% dos pontos disputados — ${ordinal(rank)} na liga.`,
   );
+
+  // Per-position rankings — only emit when at least one club provides byGroup
+  const hasGroups = samples.some((s) => s.byGroup);
+  if (hasGroups && player.byGroup) {
+    push(
+      'Linha de ataque',
+      (s) => s.byGroup?.attack ?? 0,
+      true,
+      (rank, value) => `Ataque com overall médio ${value.toFixed(1)} — ${ordinal(rank)} da liga.`,
+    );
+    push(
+      'Meio-campo',
+      (s) => s.byGroup?.midfield ?? 0,
+      true,
+      (rank, value) => `Meio-campo com overall médio ${value.toFixed(1)} — ${ordinal(rank)} da liga.`,
+    );
+    push(
+      'Linha defensiva',
+      (s) => s.byGroup?.defense ?? 0,
+      true,
+      (rank, value) => `Defesa com overall médio ${value.toFixed(1)} — ${ordinal(rank)} da liga.`,
+    );
+    push(
+      'Goleiro',
+      (s) => s.byGroup?.goalkeeper ?? 0,
+      true,
+      (rank, value) => `Goleiro overall ${value.toFixed(0)} — ${ordinal(rank)} da liga.`,
+    );
+  }
 
   return { playerClubId, lines };
 }

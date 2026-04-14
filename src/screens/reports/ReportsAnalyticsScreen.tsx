@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator, RefreshControl } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { colors, fontSize, spacing, commonStyles } from '@/theme';
 import { useGameStore } from '@/store/game-store';
@@ -7,21 +7,28 @@ import { useDatabaseStore } from '@/store/database-store';
 import { getClubsByLeague } from '@/database/queries/clubs';
 import { getCompetitionsBySeason } from '@/database/queries/leagues';
 import { getFixturesByClub } from '@/database/queries/fixtures';
-import { getPlayersByClub, getPlayerById } from '@/database/queries/players';
+import { getPlayersWithAttributesByClub } from '@/database/queries/players';
 import { calculateOverall } from '@/utils/overall';
 import { calculateStandings } from '@/engine/competition/standings';
 import {
   buildAnalyticsReport,
   AnalyticsReport,
   ClubSample,
+  PositionGroupOveralls,
   RankLine,
 } from '@/engine/reports/analytics-report';
-import { Fixture } from '@/types';
+import { Fixture, Position } from '@/types';
+
+const ATTACK_POS: Position[] = ['ST', 'LW', 'RW'];
+const MID_POS: Position[] = ['CM', 'CDM', 'CAM', 'LM', 'RM'];
+const DEF_POS: Position[] = ['CB', 'LB', 'RB'];
+const avg = (xs: number[]) => (xs.length === 0 ? 0 : xs.reduce((s, v) => s + v, 0) / xs.length);
 
 export function ReportsAnalyticsScreen() {
   const { playerClub, playerClubId, season, week } = useGameStore();
   const { dbHandle } = useDatabaseStore();
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [report, setReport] = useState<AnalyticsReport | null>(null);
 
   const load = React.useCallback(async () => {
@@ -54,33 +61,46 @@ export function ReportsAnalyticsScreen() {
       const standings = calculateStandings(allFixtures, clubIds);
       const standingByClub = new Map(standings.map((s) => [s.clubId, s]));
 
-      // Compute squad overall per club (can be expensive — limit to modest squad sizes)
-      const samples: ClubSample[] = [];
-      for (const c of leagueClubs) {
-        const squadBase = await getPlayersByClub(dbHandle, c.id);
-        const overalls: number[] = [];
-        let best = 0;
-        for (const p of squadBase) {
-          if (p.injuryWeeksLeft > 0) continue;
-          const full = await getPlayerById(dbHandle, p.id);
-          if (!full) continue;
-          const o = calculateOverall(full.attributes, full.position);
-          overalls.push(o);
-          if (o > best) best = o;
-        }
-        const avgOverall = overalls.length > 0 ? overalls.reduce((s, v) => s + v, 0) / overalls.length : 0;
-        const st = standingByClub.get(c.id);
-        samples.push({
-          clubId: c.id,
-          name: c.shortName,
-          squadOverall: avgOverall,
-          bestOverall: best,
-          points: st?.points ?? 0,
-          matchesPlayed: st?.played ?? 0,
-          goalsFor: st?.goalsFor ?? 0,
-          goalsAgainst: st?.goalsAgainst ?? 0,
-        });
-      }
+      // Compute squad overall per club using a single batch query per club.
+      const samples: ClubSample[] = await Promise.all(
+        leagueClubs.map(async (c) => {
+          const squad = await getPlayersWithAttributesByClub(dbHandle, c.id);
+          const overalls: number[] = [];
+          const attackOv: number[] = [];
+          const midOv: number[] = [];
+          const defOv: number[] = [];
+          const gkOv: number[] = [];
+          let best = 0;
+          for (const p of squad) {
+            if (p.injuryWeeksLeft > 0) continue;
+            const o = calculateOverall(p.attributes, p.position);
+            overalls.push(o);
+            if (o > best) best = o;
+            if (ATTACK_POS.includes(p.position)) attackOv.push(o);
+            else if (MID_POS.includes(p.position)) midOv.push(o);
+            else if (DEF_POS.includes(p.position)) defOv.push(o);
+            else if (p.position === 'GK') gkOv.push(o);
+          }
+          const byGroup: PositionGroupOveralls = {
+            attack: avg(attackOv),
+            midfield: avg(midOv),
+            defense: avg(defOv),
+            goalkeeper: avg(gkOv),
+          };
+          const st = standingByClub.get(c.id);
+          return {
+            clubId: c.id,
+            name: c.shortName,
+            squadOverall: avg(overalls),
+            bestOverall: best,
+            points: st?.points ?? 0,
+            matchesPlayed: st?.played ?? 0,
+            goalsFor: st?.goalsFor ?? 0,
+            goalsAgainst: st?.goalsAgainst ?? 0,
+            byGroup,
+          };
+        }),
+      );
 
       const r = buildAnalyticsReport({ playerClubId, samples });
       setReport(r);
@@ -88,6 +108,11 @@ export function ReportsAnalyticsScreen() {
       setLoading(false);
     }
   }, [dbHandle, playerClub, playerClubId, season, week]);
+
+  const onRefresh = React.useCallback(async () => {
+    setRefreshing(true);
+    try { await load(); } finally { setRefreshing(false); }
+  }, [load]);
 
   useFocusEffect(React.useCallback(() => { load(); }, [load]));
   useEffect(() => { load(); }, [load]);
@@ -111,7 +136,13 @@ export function ReportsAnalyticsScreen() {
   }
 
   return (
-    <ScrollView style={commonStyles.screen} contentContainerStyle={styles.container}>
+    <ScrollView
+      style={commonStyles.screen}
+      contentContainerStyle={styles.container}
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
+      }
+    >
       <View style={styles.header}>
         <Text style={styles.headerIntro}>
           Comparação da sua equipa vs. os outros {report.lines[0].total - 1} clubes da liga.
@@ -133,6 +164,9 @@ function RankCard({ line }: { line: RankLine }) {
     : line.rank <= (line.total * 3) / 4 ? colors.warning
     : colors.danger;
 
+  // Position bar: 0% = worst (last), 100% = best (1st)
+  const positionPct = line.total > 1 ? ((line.total - line.rank) / (line.total - 1)) * 100 : 100;
+
   return (
     <View style={styles.card}>
       <View style={styles.cardHeader}>
@@ -143,6 +177,18 @@ function RankCard({ line }: { line: RankLine }) {
           </Text>
           <Text style={styles.rankTotal}>/{line.total}</Text>
         </View>
+      </View>
+      <View style={styles.barTrack}>
+        <View
+          style={[
+            styles.barMarker,
+            { left: `${Math.max(0, Math.min(100, positionPct))}%`, backgroundColor: rankColor },
+          ]}
+        />
+      </View>
+      <View style={styles.barLegend}>
+        <Text style={styles.barLegendText}>pior</Text>
+        <Text style={styles.barLegendText}>melhor</Text>
       </View>
       <Text style={styles.description}>{line.description}</Text>
     </View>
@@ -204,5 +250,30 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontSize: fontSize.sm,
     lineHeight: 20,
+    marginTop: spacing.sm,
+  },
+  barTrack: {
+    height: 6,
+    backgroundColor: colors.surfaceLight,
+    borderRadius: 3,
+    position: 'relative',
+    marginTop: spacing.xs,
+  },
+  barMarker: {
+    position: 'absolute',
+    top: -3,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    marginLeft: -6,
+  },
+  barLegend: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 2,
+  },
+  barLegendText: {
+    color: colors.textMuted,
+    fontSize: 10,
   },
 });

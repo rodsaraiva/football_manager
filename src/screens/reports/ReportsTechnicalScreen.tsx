@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator, RefreshControl, Pressable } from 'react-native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { colors, fontSize, spacing, commonStyles } from '@/theme';
 import { useGameStore } from '@/store/game-store';
 import { useDatabaseStore } from '@/store/database-store';
-import { getPlayersByClub, getPlayerById } from '@/database/queries/players';
+import { getPlayersWithAttributesByClub } from '@/database/queries/players';
 import { getFixturesByClub, getMatchEvents } from '@/database/queries/fixtures';
 import { calculateOverall } from '@/utils/overall';
 import {
@@ -13,14 +14,21 @@ import {
   FormListItem,
   ReplacementSuggestion,
   TechnicalReport,
-  FORM_WINDOW,
 } from '@/engine/reports/technical-report';
 import { MatchEvent } from '@/types';
+import { RootStackParamList } from '@/navigation/types';
+
+const WINDOW_OPTIONS = [3, 5, 10] as const;
+type WindowOption = (typeof WINDOW_OPTIONS)[number];
+type NavProp = NativeStackNavigationProp<RootStackParamList>;
 
 export function ReportsTechnicalScreen() {
+  const navigation = useNavigation<NavProp>();
   const { playerClubId, season, week } = useGameStore();
   const { dbHandle } = useDatabaseStore();
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [windowSize, setWindowSize] = useState<WindowOption>(5);
   const [report, setReport] = useState<TechnicalReport | null>(null);
 
   const load = React.useCallback(async () => {
@@ -30,30 +38,25 @@ export function ReportsTechnicalScreen() {
     }
     setLoading(true);
     try {
-      // Squad
-      const basePlayers = await getPlayersByClub(dbHandle, playerClubId);
-      const squad: SquadPlayer[] = [];
-      for (const p of basePlayers) {
-        const full = await getPlayerById(dbHandle, p.id);
-        if (!full) continue;
-        squad.push({
-          id: full.id,
-          name: full.name,
-          age: full.age,
-          position: full.position,
-          overall: calculateOverall(full.attributes, full.position),
-          basePotential: full.basePotential,
-          effectivePotential: full.effectivePotential,
-          injuryWeeksLeft: full.injuryWeeksLeft,
-        });
-      }
+      // Squad (single batch query)
+      const fullPlayers = await getPlayersWithAttributesByClub(dbHandle, playerClubId);
+      const squad: SquadPlayer[] = fullPlayers.map((full) => ({
+        id: full.id,
+        name: full.name,
+        age: full.age,
+        position: full.position,
+        overall: calculateOverall(full.attributes, full.position),
+        basePotential: full.basePotential,
+        effectivePotential: full.effectivePotential,
+        injuryWeeksLeft: full.injuryWeeksLeft,
+      }));
 
-      // Recent fixtures (window = FORM_WINDOW)
+      // Recent fixtures (configurable window)
       const allFixtures = await getFixturesByClub(dbHandle, playerClubId, season);
       const recent = allFixtures
         .filter((f) => f.played && f.week < week)
         .sort((a, b) => b.week - a.week)
-        .slice(0, FORM_WINDOW);
+        .slice(0, windowSize);
 
       // Events by fixture
       const eventsByFixture = new Map<number, MatchEvent[]>();
@@ -73,7 +76,12 @@ export function ReportsTechnicalScreen() {
     } finally {
       setLoading(false);
     }
-  }, [dbHandle, playerClubId, season, week]);
+  }, [dbHandle, playerClubId, season, week, windowSize]);
+
+  const onRefresh = React.useCallback(async () => {
+    setRefreshing(true);
+    try { await load(); } finally { setRefreshing(false); }
+  }, [load]);
 
   useFocusEffect(React.useCallback(() => { load(); }, [load]));
   useEffect(() => { load(); }, [load]);
@@ -95,11 +103,31 @@ export function ReportsTechnicalScreen() {
   }
 
   return (
-    <ScrollView style={commonStyles.screen} contentContainerStyle={styles.container}>
+    <ScrollView
+      style={commonStyles.screen}
+      contentContainerStyle={styles.container}
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
+      }
+    >
       <View style={styles.header}>
-        <Text style={styles.headerIntro}>
-          Analisando as últimas {FORM_WINDOW} partidas.
+        <Text style={styles.headerSummary}>
+          {report.inForm.length} em alta · {report.outOfForm.length} em baixa · {report.replacementSuggestions.length} merecem chance
         </Text>
+        <View style={styles.windowPicker}>
+          <Text style={styles.headerIntro}>Janela:</Text>
+          {WINDOW_OPTIONS.map((opt) => (
+            <Pressable
+              key={opt}
+              onPress={() => setWindowSize(opt)}
+              style={[styles.windowChip, windowSize === opt && styles.windowChipActive]}
+            >
+              <Text style={[styles.windowChipText, windowSize === opt && styles.windowChipTextActive]}>
+                {opt}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
       </View>
 
       <Section title="🔥 Em grande fase" subtitle="Maior rating médio recente">
@@ -107,7 +135,12 @@ export function ReportsTechnicalScreen() {
           <EmptyLine />
         ) : (
           report.inForm.map((item) => (
-            <FormLine key={item.player.id} item={item} tone="good" />
+            <FormLine
+              key={item.player.id}
+              item={item}
+              tone="good"
+              onPress={() => navigation.navigate('PlayerDetail', { playerId: item.player.id })}
+            />
           ))
         )}
       </Section>
@@ -117,7 +150,12 @@ export function ReportsTechnicalScreen() {
           <EmptyLine label="Nenhum jogador em má fase — bom sinal." />
         ) : (
           report.outOfForm.map((item) => (
-            <FormLine key={item.player.id} item={item} tone="bad" />
+            <FormLine
+              key={item.player.id}
+              item={item}
+              tone="bad"
+              onPress={() => navigation.navigate('PlayerDetail', { playerId: item.player.id })}
+            />
           ))
         )}
       </Section>
@@ -127,7 +165,11 @@ export function ReportsTechnicalScreen() {
           <EmptyLine />
         ) : (
           report.rising.map((p) => (
-            <View key={p.id} style={styles.risingRow}>
+            <Pressable
+              key={p.id}
+              onPress={() => navigation.navigate('PlayerDetail', { playerId: p.id })}
+              style={({ pressed }) => [styles.risingRow, pressed && styles.rowPressed]}
+            >
               <View style={styles.risingLeft}>
                 <Text style={styles.playerName}>{p.name}</Text>
                 <Text style={styles.playerMeta}>
@@ -139,7 +181,7 @@ export function ReportsTechnicalScreen() {
                   +{p.effectivePotential - p.overall}
                 </Text>
               </View>
-            </View>
+            </Pressable>
           ))
         )}
       </Section>
@@ -148,7 +190,15 @@ export function ReportsTechnicalScreen() {
         {report.replacementSuggestions.length === 0 ? (
           <EmptyLine label="Ninguém no banco em posição de superar os titulares." />
         ) : (
-          report.replacementSuggestions.map((s) => <SuggestionLine key={s.benchPlayer.id} item={s} />)
+          report.replacementSuggestions.map((s) => (
+            <Pressable
+              key={s.benchPlayer.id}
+              onPress={() => navigation.navigate('PlayerDetail', { playerId: s.benchPlayer.id })}
+              style={({ pressed }) => [styles.suggestionRow, pressed && styles.rowPressed]}
+            >
+              <SuggestionInner item={s} />
+            </Pressable>
+          ))
         )}
       </Section>
 
@@ -157,12 +207,16 @@ export function ReportsTechnicalScreen() {
           <EmptyLine label="Todo mundo apto está sendo usado." />
         ) : (
           report.benchedButDeservesMinutes.map((p) => (
-            <View key={p.id} style={styles.benchedRow}>
+            <Pressable
+              key={p.id}
+              onPress={() => navigation.navigate('PlayerDetail', { playerId: p.id })}
+              style={({ pressed }) => [styles.benchedRow, pressed && styles.rowPressed]}
+            >
               <Text style={styles.playerName}>{p.name}</Text>
               <Text style={styles.playerMeta}>
-                {p.position} · {p.age}a · OVR {p.overall} — 0 jogos nas últimas {FORM_WINDOW}
+                {p.position} · {p.age}a · OVR {p.overall} — 0 jogos nas últimas {windowSize}
               </Text>
-            </View>
+            </Pressable>
           ))
         )}
       </Section>
@@ -190,10 +244,25 @@ function Section({
   );
 }
 
-function FormLine({ item, tone }: { item: FormListItem; tone: 'good' | 'bad' }) {
+function FormLine({
+  item,
+  tone,
+  onPress,
+}: {
+  item: FormListItem;
+  tone: 'good' | 'bad';
+  onPress?: () => void;
+}) {
   const accent = tone === 'good' ? colors.success : colors.danger;
   return (
-    <View style={[styles.formRow, { borderLeftColor: accent }]}>
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.formRow,
+        { borderLeftColor: accent },
+        pressed && styles.rowPressed,
+      ]}
+    >
       <View style={styles.formLeft}>
         <Text style={styles.playerName}>{item.player.name}</Text>
         <Text style={styles.playerMeta}>
@@ -203,18 +272,18 @@ function FormLine({ item, tone }: { item: FormListItem; tone: 'good' | 'bad' }) 
       <View style={[styles.ratingBadge, { borderColor: accent }]}>
         <Text style={[styles.ratingText, { color: accent }]}>{item.form.avgRating.toFixed(1)}</Text>
       </View>
-    </View>
+    </Pressable>
   );
 }
 
-function SuggestionLine({ item }: { item: ReplacementSuggestion }) {
+function SuggestionInner({ item }: { item: ReplacementSuggestion }) {
   return (
-    <View style={styles.suggestionRow}>
+    <>
       <Text style={styles.playerName}>{item.benchPlayer.name}</Text>
       <Text style={styles.playerMeta}>
         {item.benchPlayer.position} · OVR {item.benchPlayer.overall} — concorre com {item.starter.name} (OVR {item.starter.overall})
       </Text>
-    </View>
+    </>
   );
 }
 
@@ -236,6 +305,40 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     fontSize: fontSize.sm,
     fontStyle: 'italic',
+  },
+  headerSummary: {
+    color: colors.text,
+    fontSize: fontSize.sm,
+    fontWeight: '600',
+    marginBottom: spacing.xs,
+  },
+  windowPicker: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  windowChip: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+  },
+  windowChipActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  windowChipText: {
+    color: colors.textSecondary,
+    fontSize: fontSize.xs,
+    fontWeight: '600',
+  },
+  windowChipTextActive: {
+    color: colors.text,
+  },
+  rowPressed: {
+    opacity: 0.6,
   },
   subtitle: {
     color: colors.textMuted,
