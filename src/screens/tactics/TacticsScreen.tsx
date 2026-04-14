@@ -21,6 +21,7 @@ import { getPlayersByClub, getPlayerById } from '@/database/queries/players';
 import { calculateOverall } from '@/utils/overall';
 import { Formation, Tactic, AttackFocus, SubstitutionStrategy } from '@/types';
 import { Player, PlayerAttributes, Position } from '@/types';
+import { FORMATION_ROWS } from '@/engine/formations';
 
 const ATTACK_FOCUS_OPTIONS: { value: AttackFocus; label: string }[] = [
   { value: 'balanced', label: 'Balanced' },
@@ -44,15 +45,12 @@ function labelFor<T extends string>(opts: { value: T; label: string }[], v: T): 
 
 type PlayerWithOvr = Player & { attributes: PlayerAttributes; overall: number };
 
-const FORMATIONS: Formation[] = ['4-4-2', '4-3-3', '4-2-3-1', '3-5-2', '4-5-1'];
-
-const FORMATION_ROWS: Record<string, string[][]> = {
-  '4-4-2':   [['ST', 'ST'], ['LM', 'CM', 'CM', 'RM'], ['LB', 'CB', 'CB', 'RB'], ['GK']],
-  '4-3-3':   [['LW', 'ST', 'RW'], ['CM', 'CDM', 'CM'], ['LB', 'CB', 'CB', 'RB'], ['GK']],
-  '4-2-3-1': [['ST'], ['LM', 'CAM', 'RM'], ['CDM', 'CDM'], ['LB', 'CB', 'CB', 'RB'], ['GK']],
-  '3-5-2':   [['ST', 'ST'], ['LM', 'CM', 'CDM', 'CM', 'RM'], ['CB', 'CB', 'CB'], ['GK']],
-  '4-5-1':   [['ST'], ['LM', 'CM', 'CDM', 'CM', 'RM'], ['LB', 'CB', 'CB', 'RB'], ['GK']],
-};
+const FORMATIONS: Formation[] = [
+  '4-4-2', '4-3-3', '4-2-3-1', '3-5-2', '3-4-3',
+  '4-5-1', '4-1-4-1', '5-3-2', '5-4-1',
+  '4-4-1-1', '4-1-2-1-2', '4-2-2-2', '3-4-2-1',
+  '4-3-1-2', '3-4-1-2', '4-2-4',
+];
 
 const POSITION_GROUP: Record<string, string> = {
   GK: 'GK', CB: 'DEF', LB: 'DEF', RB: 'DEF',
@@ -100,7 +98,7 @@ function bestPlayerForPosition(
 }
 
 function buildLineup(formation: string, squad: PlayerWithOvr[]): SlotAssignment[][] {
-  const rows = FORMATION_ROWS[formation] ?? FORMATION_ROWS['4-4-2'];
+  const rows = FORMATION_ROWS[formation as Formation] ?? FORMATION_ROWS['4-4-2'];
   const usedIds = new Set<number>();
   return rows.map((row) =>
     row.map((role) => {

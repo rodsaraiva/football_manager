@@ -22,6 +22,7 @@ import { getClubById } from '@/database/queries/clubs';
 import { getPlayerById, getPlayersByClub } from '@/database/queries/players';
 import { getActiveTactic } from '@/database/queries/tactics';
 import { advanceGameWeek } from '@/engine/game-loop';
+import { FORMATION_ROWS } from '@/engine/formations';
 import { calculateOverall } from '@/utils/overall';
 import { Player, PlayerAttributes, Position } from '@/types';
 
@@ -557,20 +558,13 @@ export function HomeScreen() {
             {loadingOpponent ? (
               <ActivityIndicator color={colors.primary} style={{ marginVertical: spacing.lg }} />
             ) : (() => {
-              // Build starting XI using formation layout (same as TacticsScreen)
-              const FORMATION_ROWS: Record<string, string[][]> = {
-                '4-4-2':   [['ST', 'ST'], ['LM', 'CM', 'CM', 'RM'], ['LB', 'CB', 'CB', 'RB'], ['GK']],
-                '4-3-3':   [['LW', 'ST', 'RW'], ['CM', 'CDM', 'CM'], ['LB', 'CB', 'CB', 'RB'], ['GK']],
-                '4-2-3-1': [['ST'], ['LM', 'CAM', 'RM'], ['CDM', 'CDM'], ['LB', 'CB', 'CB', 'RB'], ['GK']],
-                '3-5-2':   [['ST', 'ST'], ['LM', 'CM', 'CDM', 'CM', 'RM'], ['CB', 'CB', 'CB'], ['GK']],
-                '4-5-1':   [['ST'], ['LM', 'CM', 'CDM', 'CM', 'RM'], ['LB', 'CB', 'CB', 'RB'], ['GK']],
-              };
+              // Build starting XI using formation layout (shared module)
               const POS_GROUP: Record<string, string> = {
                 GK:'GK', CB:'DEF', LB:'DEF', RB:'DEF',
                 CDM:'MID', CM:'MID', CAM:'MID', LM:'MID', RM:'MID',
                 LW:'FWD', RW:'FWD', ST:'FWD',
               };
-              const rows = FORMATION_ROWS[opponentFormation] ?? FORMATION_ROWS['4-4-2'];
+              const rows = FORMATION_ROWS[opponentFormation as keyof typeof FORMATION_ROWS] ?? FORMATION_ROWS['4-4-2'];
               const usedIds = new Set<number>();
               const startingXI = rows.map(row =>
                 row.map(role => {

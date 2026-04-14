@@ -4,6 +4,7 @@ import { generateAiTransfer } from './transfer/transfer-ai';
 import { processPendingOffers } from './transfer/offer-processor';
 import { generateAiOffersForPlayerClub } from './transfer/ai-offer-generator';
 import { expireStaleOffers, prunExpiredBlocks } from './transfer/negotiation';
+import { formationToSlots } from './formations';
 import {
   getFixturesByWeek,
   updateFixtureResult,
@@ -40,40 +41,7 @@ export interface AdvanceWeekResult {
   updatedBudget: number;
 }
 
-// ─── Formation helpers ────────────────────────────────────────────────────────
-
-function formationToSlots(formation: string): Position[] {
-  const parts = formation.split('-').map(Number);
-  const slots: Position[] = ['GK'];
-
-  if (parts.length === 3) {
-    const [def, mid, fwd] = parts;
-    // Defenders
-    if (def === 3) slots.push('CB', 'CB', 'CB');
-    else if (def === 4) slots.push('CB', 'CB', 'LB', 'RB');
-    else if (def === 5) slots.push('CB', 'CB', 'CB', 'LB', 'RB');
-    // Midfielders
-    if (mid === 3) slots.push('CM', 'CM', 'CM');
-    else if (mid === 4) slots.push('CM', 'CM', 'LM', 'RM');
-    else if (mid === 5) slots.push('CDM', 'CM', 'CM', 'LM', 'RM');
-    // Forwards
-    if (fwd === 1) slots.push('ST');
-    else if (fwd === 2) slots.push('ST', 'ST');
-    else if (fwd === 3) slots.push('LW', 'ST', 'RW');
-  } else if (parts.length === 4) {
-    const [def, dmid, amid, fwd] = parts;
-    if (def === 4) slots.push('CB', 'CB', 'LB', 'RB');
-    else if (def === 3) slots.push('CB', 'CB', 'CB');
-    slots.push(...Array(dmid).fill('CDM') as Position[]);
-    if (amid === 3) slots.push('CAM', 'LM', 'RM');
-    else if (amid === 4) slots.push('CAM', 'CM', 'LM', 'RM');
-    if (fwd === 1) slots.push('ST');
-    else if (fwd === 2) slots.push('ST', 'ST');
-  }
-
-  while (slots.length < 11) slots.push('CM');
-  return slots.slice(0, 11);
-}
+// Formation slot layout + helpers live in ./formations.ts
 
 interface PlayerForPick {
   id: number;

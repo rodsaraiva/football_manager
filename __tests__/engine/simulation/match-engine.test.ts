@@ -142,6 +142,53 @@ describe('simulateMatch', () => {
     expect(heavySubs).toBeGreaterThan(minimalSubs);
   });
 
+  it('attacking formations produce more goals than defensive formations over many runs', () => {
+    let attackingGoals = 0;
+    let defensiveGoals = 0;
+    for (let seed = 0; seed < 40; seed++) {
+      const base = makeInput(75, 70);
+      const attackingTactic: Tactic = { ...defaultTactic, formation: '4-2-4' };
+      const defensiveTactic: Tactic = { ...defaultTactic, formation: '5-4-1' };
+
+      const a = simulateMatch({
+        ...base,
+        homeTactic: attackingTactic,
+        awayTactic: defaultTactic,
+        rng: new SeededRng(seed + 20_000),
+      });
+      attackingGoals += a.homeGoals;
+
+      const d = simulateMatch({
+        ...base,
+        homeTactic: defensiveTactic,
+        awayTactic: defaultTactic,
+        rng: new SeededRng(seed + 20_000),
+      });
+      defensiveGoals += d.homeGoals;
+    }
+    expect(attackingGoals).toBeGreaterThan(defensiveGoals);
+  });
+
+  it('diamond formation raises possession vs a neutral opponent', () => {
+    let totalHomePoss = 0;
+    let runs = 0;
+    for (let seed = 0; seed < 20; seed++) {
+      const base = makeInput(75, 75);
+      const diamond: Tactic = { ...defaultTactic, formation: '4-1-2-1-2' };
+      const r = simulateMatch({
+        ...base,
+        homeTactic: diamond,
+        awayTactic: defaultTactic,
+        rng: new SeededRng(seed + 30_000),
+      });
+      totalHomePoss += r.stats.homePossession;
+      runs++;
+    }
+    const avg = totalHomePoss / runs;
+    // With +5 possessionDelta, avg should sit clearly above 50 across home advantage+diamond
+    expect(avg).toBeGreaterThan(54);
+  });
+
   it('counter_attack and possession focuses both reduce total shots vs balanced', () => {
     let counterShots = 0;
     let balancedShots = 0;

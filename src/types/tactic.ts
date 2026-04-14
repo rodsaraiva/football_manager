@@ -1,4 +1,22 @@
-export type Formation = '4-4-2' | '4-3-3' | '4-2-3-1' | '3-5-2' | '3-4-3' | '4-5-1' | '4-1-4-1' | '5-3-2' | '5-4-1';
+export type Formation =
+  // Defensive / balanced
+  | '4-4-2'
+  | '4-3-3'
+  | '4-2-3-1'
+  | '3-5-2'
+  | '3-4-3'
+  | '4-5-1'
+  | '4-1-4-1'
+  | '5-3-2'
+  | '5-4-1'
+  // New additions
+  | '4-4-1-1'       // 4-4-2 with a withdrawn striker / #10
+  | '4-1-2-1-2'     // midfield diamond (narrow)
+  | '4-2-2-2'       // quadrado mágico: 2 DM + 2 AM + 2 ST
+  | '3-4-2-1'       // 3 at the back, two #10s behind a lone striker
+  | '4-3-1-2'       // two strikers with a classic #10
+  | '3-4-1-2'       // three at the back with a #10 and two strikers
+  | '4-2-4';        // ultra-offensive: 2 wingers + 2 strikers
 export type Mentality = 'defensive' | 'balanced' | 'attacking';
 export type Pressing = 'low' | 'medium' | 'high';
 export type PassingStyle = 'short' | 'mixed' | 'direct';

@@ -4,6 +4,7 @@ import { SeededRng } from '@/engine/rng';
 import { PlayerForStrength, TeamStrength, calculateTeamStrength } from './team-strength';
 import { PlayerRating, PlayerMatchInput, calculatePlayerRatings } from './player-rating';
 import { calculateOverall } from '@/utils/overall';
+import { formationModifiers } from '../formations';
 
 export interface MatchInput {
   fixtureId: number;
@@ -211,7 +212,12 @@ export function simulateMatch(input: MatchInput): MatchResult {
   const totalMid = home.strength.midfield + away.strength.midfield;
   const possBase = totalMid > 0 ? (home.strength.midfield / totalMid) * 100 : 50;
   const passBonus = (home.strength.passingControl - away.strength.passingControl) * 100;
-  const homePoss = Math.round(Math.max(25, Math.min(75, possBase + passBonus + rng.nextFloat(-4, 4))));
+  const homeFormMods = formationModifiers(home.tactic.formation);
+  const awayFormMods = formationModifiers(away.tactic.formation);
+  const formPossDelta = homeFormMods.possessionDelta - awayFormMods.possessionDelta;
+  const homePoss = Math.round(
+    Math.max(25, Math.min(75, possBase + passBonus + formPossDelta + rng.nextFloat(-4, 4))),
+  );
 
   const stats: MatchStats = {
     homePossession: homePoss,
@@ -251,14 +257,20 @@ function runBlock(
   const tempo = team.strength.tempo;
   const minute = blockToMinute(block, rng, usedMinutes);
   const focus = attackFocusModifiers(team.tactic);
+  const form = formationModifiers(team.tactic.formation);
+  const oppForm = formationModifiers(opp.tactic.formation);
 
   // ── Open play goal ─────────────────────────────────────────────────────
+  // Team attack is boosted/hurt by its own formation attackMult AND by the
+  // opponent's formation defenseMult (a low block makes you shoot less).
   const goalP =
     GOAL_BASE_PROB *
     tempo *
     (team.strength.attack / Math.max(opp.strength.defense, 1)) *
     focus.openPlayGoalMult *
-    focus.finishingConversion;
+    focus.finishingConversion *
+    form.attackMult /
+    Math.max(0.5, oppForm.defenseMult);
   if (rng.next() < goalP) {
     const scorer = pickScorer(team.squad, rng);
     team.goals++; team.shots++; team.shotsOnTarget++;
@@ -267,15 +279,15 @@ function runBlock(
       const a = pickAssister(team.squad, scorer.id, rng);
       if (a) events.push({ fixtureId, minute, type: 'assist', playerId: a.id, secondaryPlayerId: scorer.id });
     }
-  } else if (rng.next() < SHOT_ON_TARGET_PROB * tempo) {
+  } else if (rng.next() < SHOT_ON_TARGET_PROB * tempo * form.attackMult) {
     team.shots++; team.shotsOnTarget++;
-  } else if (rng.next() < SHOT_OFF_TARGET_PROB * tempo * focus.shotOffTargetMult) {
+  } else if (rng.next() < SHOT_OFF_TARGET_PROB * tempo * focus.shotOffTargetMult * form.attackMult) {
     team.shots++;
     if (rng.next() < 0.35) team.corners++;
   }
 
   // ── Corner goal (heading) ──────────────────────────────────────────────
-  if (team.corners > 0 && rng.next() < CORNER_GOAL_PROB * team.strength.width * focus.cornerGoalMult) {
+  if (team.corners > 0 && rng.next() < CORNER_GOAL_PROB * team.strength.width * focus.cornerGoalMult * form.wingPlayMult) {
     const scorer = pickHeaderScorer(team.squad, rng);
     team.goals++; team.shots++; team.shotsOnTarget++; team.corners--;
     events.push({ fixtureId, minute, type: 'goal', playerId: scorer.id, secondaryPlayerId: null });
