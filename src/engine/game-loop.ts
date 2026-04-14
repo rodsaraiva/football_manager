@@ -422,6 +422,9 @@ export async function advanceGameWeek(params: AdvanceWeekParams): Promise<Advanc
     const totalStaffWages = staffList.reduce((sum, s) => sum + s.wage, 0);
 
     const hasHomeMatch = playerFixture?.homeClubId === playerClubId;
+    // Use the persisted attendance from the played fixture when available so
+    // ticket revenue reflects the real crowd, not just a rep-based estimate.
+    const actualAttendance = hasHomeMatch ? (playerMatchResult?.attendance ?? playerFixture?.attendance ?? null) : null;
 
     const income = calculateWeeklyIncome({
       clubReputation: playerClub.reputation,
@@ -430,6 +433,7 @@ export async function advanceGameWeek(params: AdvanceWeekParams): Promise<Advanc
       leaguePosition: 1,
       season,
       week,
+      actualAttendance,
     });
 
     const expenses = calculateWeeklyExpenses({

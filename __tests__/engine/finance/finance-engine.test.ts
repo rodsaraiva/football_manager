@@ -45,6 +45,51 @@ describe('calculateWeeklyIncome', () => {
     const income = calculateWeeklyIncome(baseInput);
     expect(income.sponsor).toBeGreaterThan(0);
   });
+
+  describe('actualAttendance', () => {
+    const rep65Input: WeeklyIncomeInput = {
+      clubReputation: 65,
+      stadiumCapacity: 40000,
+      hasHomeMatch: true,
+      leaguePosition: 5,
+      season: 1,
+      week: 10,
+    };
+
+    it('uses actualAttendance when provided instead of the formula', () => {
+      const attendance = 20000;
+      const avgTicketPrice = 30 + (65 / 100) * 40; // = 56
+      const expected = Math.round(attendance * avgTicketPrice);
+
+      const incomeWithAttendance = calculateWeeklyIncome({ ...rep65Input, actualAttendance: attendance });
+      expect(incomeWithAttendance.ticket).toBe(expected);
+    });
+
+    it('falls back to formula when actualAttendance is undefined', () => {
+      const formula = calculateWeeklyIncome(rep65Input);
+      const withUndefined = calculateWeeklyIncome({ ...rep65Input, actualAttendance: undefined });
+      expect(withUndefined.ticket).toBe(formula.ticket);
+    });
+
+    it('falls back to formula when actualAttendance is null (old save)', () => {
+      const formula = calculateWeeklyIncome(rep65Input);
+      const withNull = calculateWeeklyIncome({ ...rep65Input, actualAttendance: null });
+      expect(withNull.ticket).toBe(formula.ticket);
+    });
+
+    it('returns 0 ticket when hasHomeMatch is false even with actualAttendance', () => {
+      const incomeAway = calculateWeeklyIncome({ ...rep65Input, hasHomeMatch: false, actualAttendance: 30000 });
+      expect(incomeAway.ticket).toBe(0);
+    });
+
+    it('actual attendance differs from formula for non-capacity crowd', () => {
+      // 20k actual crowd with 40k capacity should give a different result than formula
+      const incomeFormula = calculateWeeklyIncome(rep65Input);
+      const incomeActual = calculateWeeklyIncome({ ...rep65Input, actualAttendance: 20000 });
+      // Sanity check: 20k * price vs formula(40k * occupancy * price)
+      expect(incomeActual.ticket).not.toBe(incomeFormula.ticket);
+    });
+  });
 });
 
 describe('calculateWeeklyExpenses', () => {

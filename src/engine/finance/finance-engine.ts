@@ -5,6 +5,10 @@ export interface WeeklyIncomeInput {
   leaguePosition: number;
   season: number;
   week: number;
+  /** Actual attendance from the persisted fixture. When provided, ticket
+   *  revenue is computed from this figure instead of the rep-based estimate.
+   *  Falls back to the formula when undefined or null (e.g. old saves). */
+  actualAttendance?: number | null;
 }
 
 export interface WeeklyIncome {
@@ -35,9 +39,18 @@ export interface UpgradeCost {
 export type FacilityType = 'stadium' | 'training' | 'youth' | 'medical';
 
 export function calculateWeeklyIncome(input: WeeklyIncomeInput): WeeklyIncome {
-  const occupancy = Math.min(0.95, 0.4 + (input.clubReputation / 100) * 0.55);
   const avgTicketPrice = 30 + (input.clubReputation / 100) * 40;
-  const ticket = input.hasHomeMatch ? Math.round(input.stadiumCapacity * occupancy * avgTicketPrice) : 0;
+  let ticket = 0;
+  if (input.hasHomeMatch) {
+    if (input.actualAttendance != null) {
+      // Use the real persisted attendance for accuracy
+      ticket = Math.round(input.actualAttendance * avgTicketPrice);
+    } else {
+      // Fallback: estimate from reputation + capacity (pre-match or old saves)
+      const occupancy = Math.min(0.95, 0.4 + (input.clubReputation / 100) * 0.55);
+      ticket = Math.round(input.stadiumCapacity * occupancy * avgTicketPrice);
+    }
+  }
   const annualTvBase = 50_000_000;
   const tvShare = 0.3 + (input.clubReputation / 100) * 0.7;
   const tv = Math.round((annualTvBase * tvShare) / 46);
