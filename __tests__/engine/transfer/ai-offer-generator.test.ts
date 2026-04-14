@@ -116,6 +116,133 @@ describe('generateAiOffersForPlayerClub', () => {
   });
 });
 
+describe('generateAiOffersForPlayerClub – listing behaviour', () => {
+  function insertPlayerWithListing(
+    db: import('better-sqlite3').Database,
+    id: number,
+    clubId: number,
+    overallValue: number,
+    opts: {
+      isTransferListed?: boolean;
+      isLoanListed?: boolean;
+      askingPrice?: number | null;
+      loanWageShare?: number | null;
+    } = {},
+  ): void {
+    db.prepare(
+      `INSERT INTO players (id, name, nationality, age, position, secondary_position, club_id, wage,
+        contract_end, market_value, base_potential, effective_potential, morale, fitness,
+        injury_weeks_left, is_free_agent, is_transfer_listed, is_loan_listed, asking_price, loan_wage_share)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    ).run(
+      id, `Player ${id}`, 'X', 25, 'ST', null, clubId, 50_000, 3, 15_000_000, 85, 85, 70, 90, 0, 0,
+      opts.isTransferListed ? 1 : 0,
+      opts.isLoanListed ? 1 : 0,
+      opts.askingPrice ?? null,
+      opts.loanWageShare ?? null,
+    );
+
+    db.prepare(
+      `INSERT INTO player_attributes (player_id, finishing, passing, crossing, dribbling, heading,
+        long_shots, free_kicks, vision, composure, decisions, positioning, aggression, leadership,
+        pace, stamina, strength, agility, jumping)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    ).run(
+      id, overallValue, overallValue, overallValue, overallValue, overallValue,
+      overallValue, overallValue, overallValue, overallValue, overallValue, overallValue,
+      overallValue, overallValue, overallValue, overallValue, overallValue, overallValue, overallValue,
+    );
+  }
+
+  it('listed players receive offers at a higher rate than unlisted players', async () => {
+    const N = 60; // seeds to try
+    let listedOffers = 0;
+    let unlistedOffers = 0;
+
+    for (let s = 0; s < N; s++) {
+      // Listed player run
+      const db1 = createTestDb();
+      const h1 = createTestDbHandle(db1);
+      seed_(db1);
+      insertPlayerWithListing(db1, 1, 1, 80, { isTransferListed: true });
+      await generateAiOffersForPlayerClub(h1, 1, new SeededRng(s));
+      const listed = await getOffersBySellingClub(h1, 1);
+      listedOffers += listed.filter(o => o.offerType !== 'loan').length;
+
+      // Unlisted player run — identical seed, same overall
+      const db2 = createTestDb();
+      const h2 = createTestDbHandle(db2);
+      seed_(db2);
+      insertPlayerWithListing(db2, 1, 1, 80);
+      await generateAiOffersForPlayerClub(h2, 1, new SeededRng(s));
+      const unlisted = await getOffersBySellingClub(h2, 1);
+      unlistedOffers += unlisted.filter(o => o.offerType !== 'loan').length;
+    }
+
+    // Listed rate should be at least 1.5× the unlisted rate over N runs
+    expect(listedOffers).toBeGreaterThan(unlistedOffers * 1.5);
+  });
+
+  it('bids for transfer-listed players with an asking price fall within [0.7, 1.0] × askingPrice', async () => {
+    const askingPrice = 10_000_000;
+    const allFees: number[] = [];
+
+    for (let s = 0; s < 80; s++) {
+      const db = createTestDb();
+      const h = createTestDbHandle(db);
+      seed_(db);
+      insertPlayerWithListing(db, 1, 1, 80, {
+        isTransferListed: true,
+        askingPrice,
+      });
+      // Make all rivals very wealthy so budget gating is never the limiter
+      db.prepare('UPDATE clubs SET budget = 100_000_000 WHERE id != 1').run();
+      await generateAiOffersForPlayerClub(h, 1, new SeededRng(s));
+      const offers = await getOffersBySellingClub(h, 1);
+      for (const o of offers) {
+        if (o.offerType !== 'loan') allFees.push(o.feeOffered);
+      }
+    }
+
+    // We should have seen at least some offers
+    expect(allFees.length).toBeGreaterThan(0);
+    const low = Math.round(askingPrice * 0.7);
+    const high = askingPrice; // 1.0 × asking price
+    for (const fee of allFees) {
+      expect(fee).toBeGreaterThanOrEqual(low);
+      expect(fee).toBeLessThanOrEqual(high);
+    }
+  });
+
+  it('loan-listed players receive loan offers; equivalent unlisted players do not', async () => {
+    let loanOffersForListed = 0;
+    let loanOffersForUnlisted = 0;
+
+    for (let s = 0; s < 80; s++) {
+      // Loan-listed player
+      const db1 = createTestDb();
+      const h1 = createTestDbHandle(db1);
+      seed_(db1);
+      insertPlayerWithListing(db1, 1, 1, 80, { isLoanListed: true, loanWageShare: 0.5 });
+      await generateAiOffersForPlayerClub(h1, 1, new SeededRng(s));
+      const offers1 = await getOffersBySellingClub(h1, 1);
+      loanOffersForListed += offers1.filter(o => o.offerType === 'loan').length;
+
+      // Unlisted player — same seed, same overall
+      const db2 = createTestDb();
+      const h2 = createTestDbHandle(db2);
+      seed_(db2);
+      insertPlayerWithListing(db2, 1, 1, 80);
+      await generateAiOffersForPlayerClub(h2, 1, new SeededRng(s));
+      const offers2 = await getOffersBySellingClub(h2, 1);
+      loanOffersForUnlisted += offers2.filter(o => o.offerType === 'loan').length;
+    }
+
+    expect(loanOffersForListed).toBeGreaterThan(0);
+    expect(loanOffersForUnlisted).toBe(0);
+  });
+});
+
 // Renamed to avoid clash with imported `seed` helper in other files
 function seed_(db: import('better-sqlite3').Database) {
   seed(db);
