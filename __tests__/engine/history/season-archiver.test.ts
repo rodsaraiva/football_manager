@@ -246,3 +246,93 @@ describe('archiveSeason — top scorers / assisters', () => {
     expect(scorers.length).toBe(5);
   });
 });
+
+describe('archiveSeason — MVP & breakthrough', () => {
+  let rawDb: Database.Database;
+  let db: DbHandle;
+
+  beforeEach(() => {
+    rawDb = createTestDb();
+    seedTestDb(rawDb);
+    rawDb.prepare(
+      `INSERT INTO competitions (id, name, type, format, season, league_id)
+       VALUES (1, 'Test League', 'league', 'round_robin', 1, 1)`,
+    ).run();
+    const clubs = rawDb.prepare('SELECT id FROM clubs WHERE league_id = 1').all() as Array<{ id: number }>;
+    let fid = 1;
+    for (let i = 0; i < clubs.length; i++) {
+      for (let j = 0; j < clubs.length; j++) {
+        if (i === j) continue;
+        rawDb.prepare(
+          `INSERT INTO fixtures (id, competition_id, season, week, round, home_club_id, away_club_id, home_goals, away_goals, played)
+           VALUES (?, 1, 1, 1, NULL, ?, ?, 1, 0, 1)`,
+        ).run(fid++, clubs[i].id, clubs[j].id);
+      }
+    }
+    db = createTestDbHandle(rawDb);
+  });
+
+  afterEach(() => {
+    rawDb.close();
+  });
+
+  it('writes MVP as highest avg_rating meeting the minimum games threshold', async () => {
+    const numClubs = (rawDb.prepare('SELECT COUNT(*) AS c FROM clubs WHERE league_id = 1').get() as { c: number }).c;
+    const maxPossible = (numClubs - 1) * 2;
+    const threshold = Math.ceil(maxPossible / 2);
+
+    // Player 10 clears the threshold with rating 8.2; Player 11 has higher rating 9.5 but only 1 appearance.
+    rawDb.prepare(
+      `INSERT INTO player_stats (player_id, season, competition_id, appearances, goals, assists, yellow_cards, red_cards, avg_rating, minutes_played)
+       VALUES (10, 1, 1, ?, 0, 0, 0, 0, 8.2, ?)`,
+    ).run(threshold, threshold * 90);
+    rawDb.prepare(
+      `INSERT INTO player_stats (player_id, season, competition_id, appearances, goals, assists, yellow_cards, red_cards, avg_rating, minutes_played)
+       VALUES (11, 1, 1, 1, 0, 0, 0, 0, 9.5, 90)`,
+    ).run();
+
+    await archiveSeason(db, 1);
+
+    const mvp = rawDb.prepare(
+      `SELECT player_id, club_id, value FROM season_awards
+       WHERE season = 1 AND competition_id = 1 AND award_type = 'mvp'`,
+    ).get() as { player_id: number; club_id: number; value: number } | undefined;
+    expect(mvp).toBeDefined();
+    expect(mvp!.player_id).toBe(10);
+    expect(mvp!.value).toBeCloseTo(8.2);
+  });
+
+  it('writes breakthrough only for players aged <= 21', async () => {
+    const numClubs = (rawDb.prepare('SELECT COUNT(*) AS c FROM clubs WHERE league_id = 1').get() as { c: number }).c;
+    const threshold = Math.ceil(((numClubs - 1) * 2) / 2);
+
+    rawDb.prepare('UPDATE players SET age = 20 WHERE id = 10').run();
+    rawDb.prepare('UPDATE players SET age = 28 WHERE id = 11').run();
+    rawDb.prepare(
+      `INSERT INTO player_stats (player_id, season, competition_id, appearances, goals, assists, yellow_cards, red_cards, avg_rating, minutes_played)
+       VALUES (10, 1, 1, ?, 0, 0, 0, 0, 8.0, ?)`,
+    ).run(threshold, threshold * 90);
+    rawDb.prepare(
+      `INSERT INTO player_stats (player_id, season, competition_id, appearances, goals, assists, yellow_cards, red_cards, avg_rating, minutes_played)
+       VALUES (11, 1, 1, ?, 0, 0, 0, 0, 9.0, ?)`,
+    ).run(threshold, threshold * 90);
+
+    await archiveSeason(db, 1);
+
+    const breakthrough = rawDb.prepare(
+      `SELECT player_id FROM season_awards
+       WHERE season = 1 AND competition_id = 1 AND award_type = 'breakthrough'`,
+    ).get() as { player_id: number } | undefined;
+    expect(breakthrough).toBeDefined();
+    expect(breakthrough!.player_id).toBe(10);
+  });
+
+  it('does not write MVP if nobody meets the minimum games threshold', async () => {
+    // player_stats left empty for competition 1 — nobody eligible.
+    await archiveSeason(db, 1);
+    const mvp = rawDb.prepare(
+      `SELECT * FROM season_awards WHERE season = 1 AND competition_id = 1 AND award_type = 'mvp'`,
+    ).get();
+    expect(mvp).toBeUndefined();
+  });
+});

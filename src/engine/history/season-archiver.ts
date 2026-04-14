@@ -85,6 +85,96 @@ function computeStandings(fixtures: FixtureRow[]): LeagueStanding[] {
 interface ScorerRow { player_id: number; club_id: number; goals: number; }
 interface AssisterRow { secondary_player_id: number; club_id: number; assists: number; }
 
+interface MvpCandidateRow {
+  player_id: number;
+  club_id: number;
+  avg_rating: number;
+  appearances: number;
+  age: number;
+}
+
+async function getLeagueClubCount(db: DbHandle, leagueId: number): Promise<number> {
+  const row = await db
+    .prepare('SELECT COUNT(*) AS c FROM clubs WHERE league_id = ?')
+    .get(leagueId) as { c: number };
+  return row.c;
+}
+
+async function getClubFixturesPlayed(
+  db: DbHandle,
+  competitionId: number,
+  season: number,
+  clubId: number,
+): Promise<number> {
+  const row = await db
+    .prepare(
+      `SELECT COUNT(*) AS c FROM fixtures
+       WHERE competition_id = ? AND season = ? AND played = 1
+         AND (home_club_id = ? OR away_club_id = ?)`,
+    )
+    .get(competitionId, season, clubId, clubId) as { c: number };
+  return row.c;
+}
+
+async function getCandidates(
+  db: DbHandle,
+  competitionId: number,
+  season: number,
+): Promise<MvpCandidateRow[]> {
+  return (await db
+    .prepare(
+      `SELECT ps.player_id AS player_id, p.club_id AS club_id,
+              ps.avg_rating AS avg_rating, ps.appearances AS appearances, p.age AS age
+       FROM player_stats ps
+       JOIN players p ON p.id = ps.player_id
+       WHERE ps.competition_id = ? AND ps.season = ?
+       ORDER BY ps.avg_rating DESC, ps.player_id ASC`,
+    )
+    .all(competitionId, season)) as MvpCandidateRow[];
+}
+
+async function minGamesForCompetition(
+  db: DbHandle,
+  competition: CompetitionRow,
+  season: number,
+  clubId: number,
+): Promise<number> {
+  if (competition.type === 'league' && competition.league_id != null) {
+    const n = await getLeagueClubCount(db, competition.league_id);
+    if (n < 2) return 0;
+    return Math.ceil(((n - 1) * 2) / 2);
+  }
+  const clubGames = await getClubFixturesPlayed(db, competition.id, season, clubId);
+  return Math.ceil(clubGames / 2);
+}
+
+async function archiveMvpAndBreakthrough(
+  db: DbHandle,
+  competition: CompetitionRow,
+  season: number,
+): Promise<void> {
+  const candidates = await getCandidates(db, competition.id, season);
+  if (candidates.length === 0) return;
+
+  let mvp: MvpCandidateRow | null = null;
+  let breakthrough: MvpCandidateRow | null = null;
+
+  for (const c of candidates) {
+    const minGames = await minGamesForCompetition(db, competition, season, c.club_id);
+    if (c.appearances < minGames) continue;
+    if (!mvp) mvp = c;
+    if (!breakthrough && c.age <= 21) breakthrough = c;
+    if (mvp && breakthrough) break;
+  }
+
+  if (mvp) {
+    await insertAwardIgnore(db, season, competition.id, 'mvp', 1, mvp.player_id, mvp.club_id, mvp.avg_rating);
+  }
+  if (breakthrough) {
+    await insertAwardIgnore(db, season, competition.id, 'breakthrough', 1, breakthrough.player_id, breakthrough.club_id, breakthrough.avg_rating);
+  }
+}
+
 async function insertAwardIgnore(
   db: DbHandle,
   season: number,
@@ -254,5 +344,6 @@ export async function archiveSeason(db: DbHandle, season: number): Promise<void>
     }
     await archiveTopScorers(db, competition.id, season);
     await archiveTopAssisters(db, competition.id, season);
+    await archiveMvpAndBreakthrough(db, competition, season);
   }
 }
