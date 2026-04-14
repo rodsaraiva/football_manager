@@ -151,7 +151,7 @@ function isTransferWindow(week: number): boolean {
   return (week >= 1 && week <= 6) || (week >= 23 && week <= 26);
 }
 
-async function processAiTransfers(db: DbHandle, _season: number, week: number, rng: SeededRng): Promise<void> {
+export async function processAiTransfers(db: DbHandle, season: number, week: number, rng: SeededRng): Promise<void> {
   if (!isTransferWindow(week)) return;
 
   const clubs = await db.prepare(
@@ -213,6 +213,23 @@ async function processAiTransfers(db: DbHandle, _season: number, week: number, r
         result.offeredFee,
         player.from_club_id,
       );
+      // Write finance ledger entries for both clubs
+      await addFinanceEntry(db, {
+        clubId: club.id,
+        season,
+        week,
+        type: 'transfer_out',
+        amount: -result.offeredFee,
+        description: `Transfer fee paid for player #${result.targetPlayerId}`,
+      });
+      await addFinanceEntry(db, {
+        clubId: player.from_club_id,
+        season,
+        week,
+        type: 'transfer_in',
+        amount: result.offeredFee,
+        description: `Transfer fee received for player #${result.targetPlayerId}`,
+      });
     }
   }
 }
