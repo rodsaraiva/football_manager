@@ -3,7 +3,9 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 import { colors, commonStyles, fontSize, spacing } from '@/theme';
@@ -11,7 +13,9 @@ import StatBar from '@/components/StatBar';
 import { calculateOverall } from '@/utils/overall';
 import { Player, PlayerAttributes, Position } from '@/types';
 import { useDatabaseStore } from '@/store/database-store';
+import { useGameStore } from '@/store/game-store';
 import { getPlayerAwards, getPlayerTitles, SeasonAward, PlayerTitle } from '../../database/queries/history';
+import { setTransferListing, setLoanListing } from '../../database/queries/players';
 
 interface PlayerWithAttributes extends Player {
   attributes: PlayerAttributes;
@@ -81,6 +85,7 @@ function awardLabel(a: SeasonAward): string {
 
 export default function PlayerDetailScreen({ player, onBack }: PlayerDetailScreenProps) {
   const { dbHandle } = useDatabaseStore();
+  const playerClubId = useGameStore((s) => s.playerClubId);
   const [awards, setAwards] = useState<SeasonAward[]>([]);
   const [titles, setTitles] = useState<PlayerTitle[]>([]);
   useEffect(() => {
@@ -95,6 +100,43 @@ export default function PlayerDetailScreen({ player, onBack }: PlayerDetailScree
     })();
     return () => { cancelled = true; };
   }, [dbHandle, player?.id]);
+
+  const [isTransferListed, setIsTransferListedLocal] = useState<boolean>(player?.isTransferListed ?? false);
+  const [askingPriceText, setAskingPriceText] = useState<string>(
+    player?.askingPrice != null ? String(player.askingPrice) : '',
+  );
+  const [isLoanListed, setIsLoanListedLocal] = useState<boolean>(player?.isLoanListed ?? false);
+  const [loanShareText, setLoanShareText] = useState<string>(
+    player?.loanWageShare != null ? String(Math.round(player.loanWageShare * 100)) : '50',
+  );
+
+  async function handleToggleTransferListing(next: boolean) {
+    setIsTransferListedLocal(next);
+    if (!dbHandle || !player) return;
+    const price = askingPriceText.trim() ? parseInt(askingPriceText.replace(/\D/g, ''), 10) : null;
+    await setTransferListing(dbHandle, player.id, next, Number.isFinite(price) ? price : null);
+  }
+
+  async function handleBlurAskingPrice() {
+    if (!dbHandle || !player || !isTransferListed) return;
+    const price = askingPriceText.trim() ? parseInt(askingPriceText.replace(/\D/g, ''), 10) : null;
+    await setTransferListing(dbHandle, player.id, true, Number.isFinite(price) ? price : null);
+  }
+
+  async function handleToggleLoanListing(next: boolean) {
+    setIsLoanListedLocal(next);
+    if (!dbHandle || !player) return;
+    const sharePct = loanShareText.trim() ? parseInt(loanShareText.replace(/\D/g, ''), 10) : 50;
+    const clamped = Math.max(0, Math.min(100, Number.isFinite(sharePct) ? sharePct : 50));
+    await setLoanListing(dbHandle, player.id, next, next ? clamped / 100 : null);
+  }
+
+  async function handleBlurLoanShare() {
+    if (!dbHandle || !player || !isLoanListed) return;
+    const sharePct = loanShareText.trim() ? parseInt(loanShareText.replace(/\D/g, ''), 10) : 50;
+    const clamped = Math.max(0, Math.min(100, Number.isFinite(sharePct) ? sharePct : 50));
+    await setLoanListing(dbHandle, player.id, true, clamped / 100);
+  }
 
   if (!player) {
     return (
@@ -222,6 +264,56 @@ export default function PlayerDetailScreen({ player, onBack }: PlayerDetailScree
             </Text>
           ))}
         </View>
+
+        {player.clubId === playerClubId && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Transfer Status</Text>
+
+            <View style={styles.listingRow}>
+              <Text style={styles.listingLabel}>Listed for transfer</Text>
+              <Switch
+                value={isTransferListed}
+                onValueChange={handleToggleTransferListing}
+              />
+            </View>
+            {isTransferListed && (
+              <View style={styles.listingRow}>
+                <Text style={styles.listingLabel}>Asking price</Text>
+                <TextInput
+                  style={styles.listingInput}
+                  value={askingPriceText}
+                  onChangeText={setAskingPriceText}
+                  onBlur={handleBlurAskingPrice}
+                  keyboardType="numeric"
+                  placeholder="Open to offers"
+                  placeholderTextColor={colors.textMuted}
+                />
+              </View>
+            )}
+
+            <View style={styles.listingRow}>
+              <Text style={styles.listingLabel}>Listed for loan</Text>
+              <Switch
+                value={isLoanListed}
+                onValueChange={handleToggleLoanListing}
+              />
+            </View>
+            {isLoanListed && (
+              <View style={styles.listingRow}>
+                <Text style={styles.listingLabel}>Borrower pays (%)</Text>
+                <TextInput
+                  style={styles.listingInput}
+                  value={loanShareText}
+                  onChangeText={setLoanShareText}
+                  onBlur={handleBlurLoanShare}
+                  keyboardType="numeric"
+                  placeholder="50"
+                  placeholderTextColor={colors.textMuted}
+                />
+              </View>
+            )}
+          </View>
+        )}
       </ScrollView>
     </View>
   );
@@ -383,5 +475,28 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontSize: fontSize.sm,
     marginBottom: spacing.xs,
+  },
+  listingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: spacing.xs,
+  },
+  listingLabel: {
+    color: colors.text,
+    fontSize: fontSize.sm,
+    flex: 1,
+  },
+  listingInput: {
+    color: colors.text,
+    fontSize: fontSize.sm,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 6,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    minWidth: 120,
+    textAlign: 'right',
   },
 });
