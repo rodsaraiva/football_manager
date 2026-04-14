@@ -130,6 +130,13 @@ export function ClubOverviewScreen() {
         onPress={() => navigation.navigate('OffersReceived')}
       />
       <HubCard
+        icon="🏷️"
+        title="My Listings"
+        subtitle="Liste seu plantel para venda ou empréstimo"
+        accent={colors.warning}
+        onPress={() => navigation.navigate('MyListings')}
+      />
+      <HubCard
         icon="🆓"
         title="Free Agents"
         subtitle="Sign unattached players"

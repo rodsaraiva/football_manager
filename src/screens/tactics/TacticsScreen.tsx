@@ -5,7 +5,9 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
+  TextInput,
   View,
   Platform,
 } from 'react-native';
@@ -17,7 +19,7 @@ import {
   getActiveTactic,
   updateTactic,
 } from '@/database/queries/tactics';
-import { getPlayersByClub, getPlayerById } from '@/database/queries/players';
+import { getPlayersByClub, getPlayerById, setTransferListing, setLoanListing } from '@/database/queries/players';
 import { calculateOverall } from '@/utils/overall';
 import { Formation, Tactic, AttackFocus, SubstitutionStrategy } from '@/types';
 import { Player, PlayerAttributes, Position } from '@/types';
@@ -157,6 +159,51 @@ export function TacticsScreen() {
   const [bench, setBench] = useState<PlayerWithOvr[]>([]);
   const [dropTarget, setDropTarget] = useState<string | null>(null);
   const [detailPlayer, setDetailPlayer] = useState<PlayerWithOvr | null>(null);
+
+  // Transfer listing state for modal
+  const [isTransferListed, setIsTransferListedLocal] = useState<boolean>(false);
+  const [askingPriceText, setAskingPriceText] = useState<string>('');
+  const [isLoanListed, setIsLoanListedLocal] = useState<boolean>(false);
+  const [loanShareText, setLoanShareText] = useState<string>('50');
+
+  useEffect(() => {
+    setIsTransferListedLocal(detailPlayer?.isTransferListed ?? false);
+    setAskingPriceText(detailPlayer?.askingPrice != null ? String(detailPlayer.askingPrice) : '');
+    setIsLoanListedLocal(detailPlayer?.isLoanListed ?? false);
+    setLoanShareText(detailPlayer?.loanWageShare != null ? String(Math.round(detailPlayer.loanWageShare * 100)) : '50');
+  }, [detailPlayer?.id]);
+
+  async function handleToggleTransferListing(next: boolean) {
+    setIsTransferListedLocal(next);
+    if (!dbHandle || !detailPlayer) return;
+    const price = askingPriceText.trim() ? parseInt(askingPriceText.replace(/\D/g, ''), 10) : null;
+    await setTransferListing(dbHandle, detailPlayer.id, next, Number.isFinite(price) ? price : null);
+    const updated = await getPlayerById(dbHandle, detailPlayer.id);
+    if (updated) setDetailPlayer({ ...updated, overall: calculateOverall(updated.attributes, updated.position) });
+  }
+
+  async function handleBlurAskingPrice() {
+    if (!dbHandle || !detailPlayer || !isTransferListed) return;
+    const price = askingPriceText.trim() ? parseInt(askingPriceText.replace(/\D/g, ''), 10) : null;
+    await setTransferListing(dbHandle, detailPlayer.id, true, Number.isFinite(price) ? price : null);
+  }
+
+  async function handleToggleLoanListing(next: boolean) {
+    setIsLoanListedLocal(next);
+    if (!dbHandle || !detailPlayer) return;
+    const sharePct = loanShareText.trim() ? parseInt(loanShareText.replace(/\D/g, ''), 10) : 50;
+    const clamped = Math.max(0, Math.min(100, Number.isFinite(sharePct) ? sharePct : 50));
+    await setLoanListing(dbHandle, detailPlayer.id, next, next ? clamped / 100 : null);
+    const updated = await getPlayerById(dbHandle, detailPlayer.id);
+    if (updated) setDetailPlayer({ ...updated, overall: calculateOverall(updated.attributes, updated.position) });
+  }
+
+  async function handleBlurLoanShare() {
+    if (!dbHandle || !detailPlayer || !isLoanListed) return;
+    const sharePct = loanShareText.trim() ? parseInt(loanShareText.replace(/\D/g, ''), 10) : 50;
+    const clamped = Math.max(0, Math.min(100, Number.isFinite(sharePct) ? sharePct : 50));
+    await setLoanListing(dbHandle, detailPlayer.id, true, clamped / 100);
+  }
 
   // Refs for latest state (needed by DOM drag event handlers to avoid stale closures)
   const lineupRef = useRef(lineup);
@@ -564,6 +611,47 @@ export function TacticsScreen() {
                   {mentalAttrs.map(attr => <StatBar key={attr.label} label={attr.label} value={attr.val} max={99} />)}
                   <Text style={styles.detailSectionTitle}>Physical</Text>
                   {physAttrs.map(attr => <StatBar key={attr.label} label={attr.label} value={attr.val} max={99} />)}
+                  {p.clubId === playerClubId && (
+                    <>
+                      <Text style={styles.detailSectionTitle}>Status de Transferência</Text>
+                      <View style={styles.listingRow}>
+                        <Text style={styles.listingLabel}>Listar para venda</Text>
+                        <Switch value={isTransferListed} onValueChange={handleToggleTransferListing} />
+                      </View>
+                      {isTransferListed && (
+                        <View style={styles.listingRow}>
+                          <Text style={styles.listingLabel}>Preço pedido</Text>
+                          <TextInput
+                            style={styles.listingInput}
+                            value={askingPriceText}
+                            onChangeText={setAskingPriceText}
+                            onBlur={handleBlurAskingPrice}
+                            keyboardType="numeric"
+                            placeholder="Aberto a propostas"
+                            placeholderTextColor={colors.textMuted}
+                          />
+                        </View>
+                      )}
+                      <View style={styles.listingRow}>
+                        <Text style={styles.listingLabel}>Listar para empréstimo</Text>
+                        <Switch value={isLoanListed} onValueChange={handleToggleLoanListing} />
+                      </View>
+                      {isLoanListed && (
+                        <View style={styles.listingRow}>
+                          <Text style={styles.listingLabel}>Tomador paga (%)</Text>
+                          <TextInput
+                            style={styles.listingInput}
+                            value={loanShareText}
+                            onChangeText={setLoanShareText}
+                            onBlur={handleBlurLoanShare}
+                            keyboardType="numeric"
+                            placeholder="50"
+                            placeholderTextColor={colors.textMuted}
+                          />
+                        </View>
+                      )}
+                    </>
+                  )}
                 </ScrollView>
               );
             })()}
@@ -742,4 +830,29 @@ const styles = StyleSheet.create({
   detailStatVal: { color: colors.text, fontSize: fontSize.lg, fontWeight: 'bold' },
   detailStatLabel: { color: colors.textMuted, fontSize: fontSize.xs, marginTop: 2 },
   detailSectionTitle: { color: colors.textMuted, fontSize: fontSize.xs, fontWeight: '700', letterSpacing: 1, marginTop: spacing.md, marginBottom: spacing.sm },
+
+  // Listing toggles in modal
+  listingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: spacing.xs,
+  },
+  listingLabel: {
+    color: colors.text,
+    fontSize: fontSize.sm,
+    flex: 1,
+  },
+  listingInput: {
+    color: colors.text,
+    fontSize: fontSize.sm,
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 6,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    minWidth: 120,
+    textAlign: 'right',
+  },
 });

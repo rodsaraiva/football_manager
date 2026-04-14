@@ -10,6 +10,7 @@ import { TransferMarketScreen } from '@/screens/club/transfers/TransferMarketScr
 import { OffersSentScreen } from '@/screens/club/transfers/OffersSentScreen';
 import { OffersReceivedScreen } from '@/screens/club/transfers/OffersReceivedScreen';
 import { FreeAgentsScreen } from '@/screens/club/transfers/FreeAgentsScreen';
+import { MyListingsScreen } from '@/screens/club/transfers/MyListingsScreen';
 import { StandingsScreen } from '@/screens/league/StandingsScreen';
 import { ReportsTechnicalScreen } from '@/screens/reports/ReportsTechnicalScreen';
 import { ReportsFinancialScreen } from '@/screens/reports/ReportsFinancialScreen';
@@ -45,6 +46,7 @@ export function RootNavigator() {
       <Stack.Screen name="OffersSent" component={OffersSentScreen} options={{ title: 'Offers Sent' }} />
       <Stack.Screen name="OffersReceived" component={OffersReceivedScreen} options={{ title: 'Offers Received' }} />
       <Stack.Screen name="FreeAgents" component={FreeAgentsScreen} options={{ title: 'Free Agents' }} />
+      <Stack.Screen name="MyListings" component={MyListingsScreen} options={{ title: 'Listagens' }} />
       {/* League table as a pushable screen */}
       <Stack.Screen name="LeagueStandings" component={StandingsScreen} options={{ title: 'League Table' }} />
       {/* Reports sub-screens */}
