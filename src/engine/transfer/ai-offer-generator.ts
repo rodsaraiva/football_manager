@@ -2,6 +2,7 @@ import { DbHandle } from '@/database/queries/players';
 import { createOffer } from '@/database/queries/transfers';
 import { SeededRng } from '@/engine/rng';
 import { calculateOverall } from '@/utils/overall';
+import { isClubBlocked } from './negotiation';
 
 /**
  * Chance per eligible interested club per week to submit an offer for a given
@@ -34,6 +35,8 @@ export async function generateAiOffersForPlayerClub(
   db: DbHandle,
   playerClubId: number,
   rng: SeededRng,
+  season: number = 0,
+  week: number = 0,
 ): Promise<number> {
   // Load player club's squad with attributes to compute overall
   const squadRows = (await db
@@ -144,6 +147,9 @@ export async function generateAiOffersForPlayerClub(
         .get(player.id, suitor.id)) as { id: number } | undefined;
       if (existing) continue;
 
+      // Respect rejection blocks
+      if (await isClubBlocked(db, player.id, suitor.id, season, week)) continue;
+
       // Fee: 85-120% of market value depending on suitor reputation & budget
       const aggression = Math.min(1.2, 0.85 + (suitor.reputation / 100) * 0.3 + rng.nextFloat(-0.05, 0.1));
       const feeOffered = Math.round(player.marketValue * aggression);
@@ -157,6 +163,8 @@ export async function generateAiOffersForPlayerClub(
         sellingClubId: playerClubId,
         feeOffered,
         wageOffered,
+        createdSeason: season,
+        createdWeek: week,
       });
       created++;
     }

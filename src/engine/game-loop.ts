@@ -3,6 +3,7 @@ import { getPlayersByClub, getPlayerById } from '@/database/queries/players';
 import { generateAiTransfer } from './transfer/transfer-ai';
 import { processPendingOffers } from './transfer/offer-processor';
 import { generateAiOffersForPlayerClub } from './transfer/ai-offer-generator';
+import { expireStaleOffers, prunExpiredBlocks } from './transfer/negotiation';
 import {
   getFixturesByWeek,
   updateFixtureResult,
@@ -412,11 +413,15 @@ export async function advanceGameWeek(params: AdvanceWeekParams): Promise<Advanc
 
   // 3c. AI clubs submit offers for the player's squad (in-window only)
   if (isTransferWindow(week)) {
-    await generateAiOffersForPlayerClub(db, playerClubId, rng);
+    await generateAiOffersForPlayerClub(db, playerClubId, rng, season, week);
   }
 
   // 3d. Process pending offers submitted by the player (always, not gated by window)
   await processPendingOffers(db, season, week, playerClubId);
+
+  // 3e. Expire stale offers (no response within 2 weeks) and prune old blocks
+  await expireStaleOffers(db, season, week);
+  await prunExpiredBlocks(db, season, week);
 
   // 4. Process weekly finances for player's club
   const playerClub = await getClubById(db, playerClubId);

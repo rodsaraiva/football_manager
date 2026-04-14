@@ -100,6 +100,8 @@ export interface CreateOfferInput {
   wageOffered: number;
   offerType?: TransferType; // defaults to 'transfer'
   loanEnd?: number | null;
+  createdSeason?: number | null;
+  createdWeek?: number | null;
 }
 
 export async function createOffer(db: DbHandle, input: CreateOfferInput): Promise<number> {
@@ -107,8 +109,9 @@ export async function createOffer(db: DbHandle, input: CreateOfferInput): Promis
   const result = await db
     .prepare(
       `INSERT INTO transfer_offers
-         (player_id, offering_club_id, selling_club_id, fee_offered, wage_offered, status, offer_type, loan_end)
-       VALUES (?, ?, ?, ?, ?, 'pending', ?, ?)`,
+         (player_id, offering_club_id, selling_club_id, fee_offered, wage_offered, status,
+          offer_type, loan_end, created_season, created_week, round_count)
+       VALUES (?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?, 0)`,
     )
     .run(
       input.playerId,
@@ -118,6 +121,8 @@ export async function createOffer(db: DbHandle, input: CreateOfferInput): Promis
       input.wageOffered,
       type,
       input.loanEnd ?? null,
+      input.createdSeason ?? null,
+      input.createdWeek ?? null,
     ) as { lastInsertRowid: number | bigint };
   return Number(result.lastInsertRowid);
 }

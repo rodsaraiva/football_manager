@@ -69,6 +69,19 @@ export const useDatabaseStore = create<DatabaseStore>((set) => ({
       // Idempotent migrations — add columns that may be missing from older DBs
       await addColumnIfMissing(db, 'transfer_offers', 'offer_type', "TEXT NOT NULL DEFAULT 'transfer'");
       await addColumnIfMissing(db, 'transfer_offers', 'loan_end', 'INTEGER');
+      await addColumnIfMissing(db, 'transfer_offers', 'created_week', 'INTEGER');
+      await addColumnIfMissing(db, 'transfer_offers', 'created_season', 'INTEGER');
+      await addColumnIfMissing(db, 'transfer_offers', 'round_count', 'INTEGER NOT NULL DEFAULT 0');
+      // Ensure transfer_blocks exists (was added after the first shipped schema)
+      await db.execAsync(`
+        CREATE TABLE IF NOT EXISTS transfer_blocks (
+          id                INTEGER PRIMARY KEY AUTOINCREMENT,
+          player_id         INTEGER NOT NULL,
+          offering_club_id  INTEGER NOT NULL,
+          blocked_until_season INTEGER NOT NULL,
+          blocked_until_week   INTEGER NOT NULL
+        );
+      `);
 
       // Seed if DB is missing data (check both countries and clubs to catch partial seeds)
       const countryCount = await db.getFirstAsync<{ cnt: number }>('SELECT COUNT(*) as cnt FROM countries');

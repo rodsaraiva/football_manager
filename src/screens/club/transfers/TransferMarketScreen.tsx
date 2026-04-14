@@ -52,6 +52,7 @@ function getOverallColor(overall: number): string {
 export function TransferMarketScreen() {
   const playerClubId = useGameStore((s) => s.playerClubId);
   const season = useGameStore((s) => s.season);
+  const week = useGameStore((s) => s.week);
   const dbHandle = useDatabaseStore((s) => s.dbHandle);
 
   const [players, setPlayers] = useState<PlayerWithOverall[]>([]);
@@ -130,6 +131,8 @@ export function TransferMarketScreen() {
             kind === 'loan' && loanDurationSeasons
               ? season + loanDurationSeasons
               : null,
+          createdSeason: season,
+          createdWeek: week,
         });
         setSelectedPlayer(null);
         Alert.alert(
@@ -141,7 +144,7 @@ export function TransferMarketScreen() {
         Alert.alert('Error', `Failed to submit offer: ${(e as Error).message}`);
       }
     },
-    [dbHandle, playerClubId, selectedPlayer, season],
+    [dbHandle, playerClubId, selectedPlayer, season, week],
   );
 
   return (

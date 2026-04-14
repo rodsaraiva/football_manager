@@ -2,6 +2,11 @@ import { DbHandle } from '@/database/queries/players';
 import { getPendingOffers, updateOfferStatus, createTransfer } from '@/database/queries/transfers';
 import { addFinanceEntry } from '@/database/queries/finances';
 import { evaluateOffer } from './transfer-ai';
+import {
+  blockClubFromPlayer,
+  incrementOfferRound,
+  hasExceededMaxRounds,
+} from './negotiation';
 import { TransferType } from '@/types';
 
 /**
@@ -140,6 +145,8 @@ export async function processPendingOffers(
       // Buyer walks away if the demand is excessive (>140% of market) or unaffordable
       if (!canAfford || ratio > 1.4) {
         await updateOfferStatus(db, counter.id, 'rejected', week);
+        // Block this (buyer, player) pairing temporarily to avoid instant re-bidding
+        await blockClubFromPlayer(db, counter.player_id, counter.offering_club_id, season, week);
         continue;
       }
 
@@ -227,6 +234,10 @@ export async function processPendingOffers(
       contractYearsLeft,
     });
 
+    // Track round: if we've hit the cap, collapse to accept/reject (no more counters)
+    await incrementOfferRound(db, offer.id);
+    const maxedOut = await hasExceededMaxRounds(db, offer.id);
+
     if (result.decision === 'accept') {
       // Execute immediately
       await executeAcceptedTransfer(db, {
@@ -241,10 +252,12 @@ export async function processPendingOffers(
         offerType: offer.offerType,
         loanEnd: offer.loanEnd,
       });
-    } else if (result.decision === 'reject') {
+    } else if (result.decision === 'reject' || (maxedOut && result.decision === 'counter')) {
+      // Firm rejection: block this club from bidding on this player for a while
       await updateOfferStatus(db, offer.id, 'rejected', week);
+      await blockClubFromPlayer(db, offer.playerId, offer.offeringClubId, season, week);
     } else {
-      // counter
+      // counter — still in negotiation window
       await db
         .prepare(
           "UPDATE transfer_offers SET status = 'countered', response_week = ?, fee_offered = ? WHERE id = ?",

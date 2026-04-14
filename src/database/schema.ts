@@ -13,6 +13,7 @@ export const TABLE_NAMES: string[] = [
   'match_events',
   'transfers',
   'transfer_offers',
+  'transfer_blocks',
   'tactics',
   'tactic_positions',
   'save_games',
@@ -193,7 +194,18 @@ CREATE TABLE IF NOT EXISTS transfer_offers (
   status          TEXT    NOT NULL DEFAULT 'pending',
   response_week   INTEGER,
   offer_type      TEXT    NOT NULL DEFAULT 'transfer',
-  loan_end        INTEGER
+  loan_end        INTEGER,
+  created_week    INTEGER,
+  created_season  INTEGER,
+  round_count     INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS transfer_blocks (
+  id                INTEGER PRIMARY KEY AUTOINCREMENT,
+  player_id         INTEGER NOT NULL REFERENCES players(id),
+  offering_club_id  INTEGER NOT NULL REFERENCES clubs(id),
+  blocked_until_season INTEGER NOT NULL,
+  blocked_until_week   INTEGER NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS tactics (
