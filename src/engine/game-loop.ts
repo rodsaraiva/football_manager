@@ -24,6 +24,7 @@ import { calculateOverall } from '@/utils/overall';
 import { Position, PlayerAttributes } from '@/types';
 import { Fixture } from '@/types';
 import { upsertPlayerStats } from '@/database/queries/player-stats';
+import { archiveSeason } from './history/season-archiver';
 
 // ─── Persist per-match player stats ──────────────────────────────────────────
 
@@ -546,6 +547,9 @@ export async function advanceGameWeek(params: AdvanceWeekParams): Promise<Advanc
 
   // 8. Advance week
   const isSeasonEnd = week >= 46;
+  if (isSeasonEnd) {
+    await archiveSeason(db, season);
+  }
   const newWeek = isSeasonEnd ? 1 : week + 1;
   const newSeason = isSeasonEnd ? season + 1 : season;
 

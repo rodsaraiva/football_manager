@@ -132,6 +132,36 @@ describe('advanceGameWeek', () => {
     expect(result.isSeasonEnd).toBe(true);
   });
 
+  it('archives the season automatically when advancing past week 46', async () => {
+    // The beforeEach has already seeded a full calendar for season 1.
+    // League fixtures run from week 7 to week 44 (20-team double round-robin).
+    // Pre-mark one league fixture from week 7 as played so the archiver has
+    // standings data to record when advanceGameWeek triggers it at week 46.
+    rawDb
+      .prepare(
+        `UPDATE fixtures SET home_goals = 3, away_goals = 0, played = 1
+         WHERE season = 1 AND week = 7
+         LIMIT 1`,
+      )
+      .run();
+
+    await advanceGameWeek({
+      dbHandle: db,
+      season: 1,
+      week: 46,
+      playerClubId: 1,
+      saveId: -1,
+      rng: new SeededRng(42),
+    });
+
+    const archived = rawDb
+      .prepare(
+        'SELECT COUNT(*) AS c FROM season_competition_results WHERE season = 1',
+      )
+      .get() as { c: number };
+    expect(archived.c).toBeGreaterThan(0);
+  });
+
   it('persists player_stats rows for the real-engine match', async () => {
     const result = await advanceGameWeek({
       dbHandle: db,
