@@ -21,6 +21,8 @@ export type RootStackParamList = {
   ReportsFinancial: undefined;
   ReportsAnalytics: undefined;
   ReportsYouth: undefined;
+  // History hub
+  SeasonHistory: undefined;
 };
 
 export type TabParamList = {

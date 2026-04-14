@@ -24,6 +24,12 @@ const DEF_POSITIONS: Position[] = ['CB', 'LB', 'RB'];
 const MID_POSITIONS: Position[] = ['CDM', 'CM', 'CAM', 'LM', 'RM'];
 const FWD_POSITIONS: Position[] = ['LW', 'RW', 'ST'];
 
+const POSITION_ORDER: Record<string, number> = {
+  GK: 0, CB: 1, LB: 2, RB: 3,
+  CDM: 4, CM: 5, CAM: 6, LM: 7, RM: 8,
+  LW: 9, RW: 10, ST: 11,
+};
+
 interface PlayerWithAttributes extends Player {
   attributes: PlayerAttributes;
   overall: number;
@@ -53,23 +59,30 @@ export function SquadListScreen() {
       return;
     }
     setLoading(true);
-    try {
-      const basePlayers = getPlayersByClub(dbHandle, playerClubId);
-      const withAttributes: PlayerWithAttributes[] = [];
-      for (const p of basePlayers) {
-        const full = getPlayerById(dbHandle, p.id);
-        if (full) {
-          withAttributes.push({
-            ...full,
-            overall: calculateOverall(full.attributes, full.position),
-          });
+    (async () => {
+      try {
+        const basePlayers = await getPlayersByClub(dbHandle, playerClubId);
+        const withAttributes: PlayerWithAttributes[] = [];
+        for (const p of basePlayers) {
+          const full = await getPlayerById(dbHandle, p.id);
+          if (full) {
+            withAttributes.push({
+              ...full,
+              overall: calculateOverall(full.attributes, full.position),
+            });
+          }
         }
+        withAttributes.sort((a, b) => {
+          const posA = POSITION_ORDER[a.position] ?? 99;
+          const posB = POSITION_ORDER[b.position] ?? 99;
+          if (posA !== posB) return posA - posB;
+          return b.overall - a.overall;
+        });
+        setPlayers(withAttributes);
+      } finally {
+        setLoading(false);
       }
-      withAttributes.sort((a, b) => b.overall - a.overall);
-      setPlayers(withAttributes);
-    } finally {
-      setLoading(false);
-    }
+    })();
   }, [dbHandle, playerClubId]);
 
   const filtered = players.filter((p) => matchesFilter(p.position, filter));
@@ -122,15 +135,23 @@ export function SquadListScreen() {
           data={filtered}
           keyExtractor={(item) => String(item.id)}
           renderItem={({ item }) => (
-            <PlayerCard
-              name={item.name}
-              position={item.position}
-              overall={item.overall}
-              age={item.age}
-              morale={item.morale}
-              fitness={item.fitness}
-              onPress={() => handleSelectPlayer(item.id)}
-            />
+            <View>
+              <PlayerCard
+                name={item.name}
+                position={item.position}
+                overall={item.overall}
+                age={item.age}
+                morale={item.morale}
+                fitness={item.fitness}
+                onPress={() => handleSelectPlayer(item.id)}
+              />
+              {(item.isTransferListed || item.isLoanListed) && (
+                <View style={styles.listingBadges}>
+                  {item.isTransferListed && <Text style={styles.listingBadge}>💰</Text>}
+                  {item.isLoanListed && <Text style={styles.listingBadge}>🔁</Text>}
+                </View>
+              )}
+            </View>
           )}
           contentContainerStyle={styles.listContent}
         />
@@ -177,5 +198,16 @@ const styles = StyleSheet.create({
   emptyText: {
     color: colors.textMuted,
     fontSize: fontSize.md,
+  },
+  listingBadges: {
+    flexDirection: 'row',
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.xs,
+    marginTop: -spacing.sm,
+    gap: spacing.xs,
+  },
+  listingBadge: {
+    fontSize: fontSize.xs,
+    marginLeft: spacing.xs,
   },
 });

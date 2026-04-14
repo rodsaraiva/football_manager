@@ -15,6 +15,7 @@ import { ReportsTechnicalScreen } from '@/screens/reports/ReportsTechnicalScreen
 import { ReportsFinancialScreen } from '@/screens/reports/ReportsFinancialScreen';
 import { ReportsAnalyticsScreen } from '@/screens/reports/ReportsAnalyticsScreen';
 import { ReportsYouthScreen } from '@/screens/reports/ReportsYouthScreen';
+import { HistoryScreen } from '@/screens/history/HistoryScreen';
 import { TabNavigator } from './TabNavigator';
 import { RootStackParamList } from './types';
 
@@ -51,6 +52,8 @@ export function RootNavigator() {
       <Stack.Screen name="ReportsFinancial" component={ReportsFinancialScreen} options={{ title: 'Assistente Financeiro' }} />
       <Stack.Screen name="ReportsAnalytics" component={ReportsAnalyticsScreen} options={{ title: 'Analista de Dados' }} />
       <Stack.Screen name="ReportsYouth" component={ReportsYouthScreen} options={{ title: 'Analista Sub-21' }} />
+      {/* History hub */}
+      <Stack.Screen name="SeasonHistory" component={HistoryScreen} options={{ title: 'History' }} />
     </Stack.Navigator>
   );
 }

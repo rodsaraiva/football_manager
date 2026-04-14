@@ -82,6 +82,13 @@ export function ReportsHubScreen() {
           accent={colors.primaryLight}
           onPress={() => navigation.navigate('LeagueStandings')}
         />
+        <HubCard
+          icon="📜"
+          title="History"
+          subtitle="Past champions, awards & records"
+          accent={colors.gold}
+          onPress={() => navigation.navigate('SeasonHistory')}
+        />
       </View>
     </ScrollView>
   );

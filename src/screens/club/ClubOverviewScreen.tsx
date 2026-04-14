@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { View, Text, ScrollView, StyleSheet, Pressable } from 'react-native';
+import { getClubTrophies, ClubTrophySummary } from '../../database/queries/history';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { colors, spacing, fontSize, commonStyles } from '@/theme';
@@ -50,6 +51,17 @@ export function ClubOverviewScreen() {
   const { dbHandle } = useDatabaseStore();
   const navigation = useNavigation<NavProp>();
   const [club, setClub] = useState<Club | null>(null);
+  const [trophies, setTrophies] = useState<ClubTrophySummary[]>([]);
+
+  useEffect(() => {
+    if (!dbHandle || playerClubId == null) return;
+    let cancelled = false;
+    (async () => {
+      const t = await getClubTrophies(dbHandle, playerClubId);
+      if (!cancelled) setTrophies(t);
+    })();
+    return () => { cancelled = true; };
+  }, [dbHandle, playerClubId]);
 
   const load = useCallback(async () => {
     if (!dbHandle || playerClubId == null) return;
@@ -148,6 +160,24 @@ export function ClubOverviewScreen() {
         accent={colors.gold}
         onPress={() => navigation.navigate('ClubUpgrades')}
       />
+
+      {/* Trophy Cabinet */}
+      <Text style={styles.sectionTitle}>TROPHY CABINET</Text>
+      <View style={styles.trophyCard}>
+        {trophies.length === 0 && <Text style={styles.empty}>No trophies yet.</Text>}
+        {trophies.map((t) => (
+          <View key={t.competitionId} style={styles.trophyRow}>
+            <Text style={styles.trophyComp}>{t.competitionName}</Text>
+            <Text style={styles.trophyCount}>
+              {t.titles} {t.titles === 1 ? 'title' : 'titles'}
+              {t.runnerUps > 0 ? ` · ${t.runnerUps} runner-up` : ''}
+            </Text>
+            {t.titleYears.length > 0 && (
+              <Text style={styles.trophyYears}>Years: {t.titleYears.join(', ')}</Text>
+            )}
+          </View>
+        ))}
+      </View>
     </ScrollView>
   );
 }
@@ -255,5 +285,41 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     fontSize: fontSize.xxl,
     marginLeft: spacing.sm,
+  },
+  trophyCard: {
+    backgroundColor: colors.surface,
+    borderRadius: 12,
+    marginHorizontal: spacing.md,
+    marginVertical: spacing.xs,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  trophyRow: {
+    paddingVertical: spacing.xs,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  trophyComp: {
+    color: colors.text,
+    fontSize: fontSize.md,
+    fontWeight: '600',
+  },
+  trophyCount: {
+    color: colors.gold,
+    fontSize: fontSize.sm,
+    marginTop: 2,
+  },
+  trophyYears: {
+    color: colors.textMuted,
+    fontSize: fontSize.xs,
+    marginTop: 2,
+  },
+  empty: {
+    color: colors.textMuted,
+    fontSize: fontSize.sm,
+    textAlign: 'center',
+    paddingVertical: spacing.xs,
   },
 });

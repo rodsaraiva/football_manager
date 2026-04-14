@@ -86,6 +86,62 @@ export const useDatabaseStore = create<DatabaseStore>((set) => ({
       await addColumnIfMissing(db, 'tactics', 'attack_focus', "TEXT NOT NULL DEFAULT 'balanced'");
       await addColumnIfMissing(db, 'tactics', 'sub_strategy', "TEXT NOT NULL DEFAULT 'balanced'");
 
+      // Transfer/loan listing flags
+      await addColumnIfMissing(db, 'players', 'is_transfer_listed', 'INTEGER NOT NULL DEFAULT 0');
+      await addColumnIfMissing(db, 'players', 'is_loan_listed',     'INTEGER NOT NULL DEFAULT 0');
+      await addColumnIfMissing(db, 'players', 'asking_price',       'INTEGER');
+      await addColumnIfMissing(db, 'players', 'loan_wage_share',    'REAL');
+
+      // Season history tables (added post-initial-schema)
+      await db.execAsync(`
+        CREATE TABLE IF NOT EXISTS season_competition_results (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          season INTEGER NOT NULL,
+          competition_id INTEGER NOT NULL,
+          champion_club_id INTEGER NOT NULL,
+          runner_up_club_id INTEGER,
+          UNIQUE(season, competition_id)
+        );
+      `);
+      await db.execAsync(`
+        CREATE TABLE IF NOT EXISTS season_relegated (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          season INTEGER NOT NULL,
+          league_id INTEGER NOT NULL,
+          club_id INTEGER NOT NULL,
+          final_position INTEGER NOT NULL,
+          UNIQUE(season, league_id, club_id)
+        );
+      `);
+      await db.execAsync(`
+        CREATE TABLE IF NOT EXISTS season_awards (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          season INTEGER NOT NULL,
+          competition_id INTEGER NOT NULL,
+          award_type TEXT NOT NULL CHECK(award_type IN ('top_scorer','top_assister','mvp','breakthrough')),
+          rank INTEGER NOT NULL DEFAULT 1,
+          player_id INTEGER NOT NULL,
+          club_id INTEGER NOT NULL,
+          value REAL NOT NULL,
+          UNIQUE(season, competition_id, award_type, rank)
+        );
+      `);
+      await db.execAsync(`
+        CREATE TABLE IF NOT EXISTS season_player_titles (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          season INTEGER NOT NULL,
+          competition_id INTEGER NOT NULL,
+          club_id INTEGER NOT NULL,
+          player_id INTEGER NOT NULL,
+          UNIQUE(season, competition_id, player_id)
+        );
+      `);
+      await db.execAsync(`CREATE INDEX IF NOT EXISTS idx_awards_player ON season_awards(player_id);`);
+      await db.execAsync(`CREATE INDEX IF NOT EXISTS idx_awards_season_comp ON season_awards(season, competition_id);`);
+      await db.execAsync(`CREATE INDEX IF NOT EXISTS idx_results_season ON season_competition_results(season);`);
+      await db.execAsync(`CREATE INDEX IF NOT EXISTS idx_relegated_season ON season_relegated(season);`);
+      await db.execAsync(`CREATE INDEX IF NOT EXISTS idx_player_titles_player ON season_player_titles(player_id);`);
+
       // Seed if DB is missing data (check both countries and clubs to catch partial seeds)
       const countryCount = await db.getFirstAsync<{ cnt: number }>('SELECT COUNT(*) as cnt FROM countries');
       const clubCount = await db.getFirstAsync<{ cnt: number }>('SELECT COUNT(*) as cnt FROM clubs');

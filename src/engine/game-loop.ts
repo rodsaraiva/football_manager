@@ -23,6 +23,69 @@ import { calculateWeeklyProgression } from './training/progression';
 import { calculateOverall } from '@/utils/overall';
 import { Position, PlayerAttributes } from '@/types';
 import { Fixture } from '@/types';
+import { upsertPlayerStats } from '@/database/queries/player-stats';
+import { archiveSeason } from './history/season-archiver';
+
+// ─── Persist per-match player stats ──────────────────────────────────────────
+
+async function persistMatchStats(
+  db: DbHandle,
+  fixture: Fixture,
+  result: MatchResult,
+): Promise<void> {
+  // Derive per-player tallies from the match events (PlayerRating only carries
+  // playerId + rating; goals/assists/cards must be counted from events).
+  const tallyFor = (playerId: number) => {
+    let goals = 0;
+    let assists = 0;
+    let yellowCards = 0;
+    let redCards = 0;
+    let minutesPlayed = 90; // default; subtract from red-card minute if red
+    for (const e of result.events) {
+      if (e.playerId === playerId) {
+        switch (e.type) {
+          case 'goal':
+          case 'penalty_scored':
+          case 'free_kick_scored':
+            goals++;
+            break;
+          case 'assist':
+            assists++;
+            break;
+          case 'yellow':
+            yellowCards++;
+            break;
+          case 'red':
+            redCards++;
+            minutesPlayed = Math.min(minutesPlayed, e.minute);
+            break;
+          case 'substitution':
+            // player subbed off — use event minute as minutes played
+            minutesPlayed = Math.min(minutesPlayed, e.minute);
+            break;
+        }
+      }
+    }
+    return { goals, assists, yellowCards, redCards, minutesPlayed };
+  };
+
+  const allRatings = [...result.homeRatings, ...result.awayRatings];
+  for (const r of allRatings) {
+    const tally = tallyFor(r.playerId);
+    await upsertPlayerStats(db, {
+      playerId: r.playerId,
+      season: fixture.season,
+      competitionId: fixture.competitionId,
+      appearances: 1,
+      goals: tally.goals,
+      assists: tally.assists,
+      yellowCards: tally.yellowCards,
+      redCards: tally.redCards,
+      rating: r.rating,
+      minutesPlayed: tally.minutesPlayed,
+    });
+  }
+}
 
 export interface AdvanceWeekParams {
   dbHandle: DbHandle;
@@ -311,6 +374,9 @@ export async function advanceGameWeek(params: AdvanceWeekParams): Promise<Advanc
 
     playerMatchResult = matchResult;
 
+    // Persist per-player stats for this real-engine match
+    await persistMatchStats(db, playerFixture, matchResult);
+
     // 5. Apply player progression for player's squad (home or away)
     const playerSquadRaw =
       playerFixture.homeClubId === playerClubId ? homeSquadRaw : awaySquadRaw;
@@ -502,6 +568,9 @@ export async function advanceGameWeek(params: AdvanceWeekParams): Promise<Advanc
 
   // 8. Advance week
   const isSeasonEnd = week >= 46;
+  if (isSeasonEnd) {
+    await archiveSeason(db, season);
+  }
   const newWeek = isSeasonEnd ? 1 : week + 1;
   const newSeason = isSeasonEnd ? season + 1 : season;
 

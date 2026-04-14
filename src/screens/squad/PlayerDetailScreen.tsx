@@ -1,15 +1,21 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Pressable,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 import { colors, commonStyles, fontSize, spacing } from '@/theme';
 import StatBar from '@/components/StatBar';
 import { calculateOverall } from '@/utils/overall';
 import { Player, PlayerAttributes, Position } from '@/types';
+import { useDatabaseStore } from '@/store/database-store';
+import { useGameStore } from '@/store/game-store';
+import { getPlayerAwards, getPlayerTitles, SeasonAward, PlayerTitle } from '../../database/queries/history';
+import { setTransferListing, setLoanListing } from '../../database/queries/players';
 
 interface PlayerWithAttributes extends Player {
   attributes: PlayerAttributes;
@@ -68,7 +74,70 @@ const PHYSICAL_ATTRS: { key: keyof PlayerAttributes; label: string }[] = [
   { key: 'jumping', label: 'Jumping' },
 ];
 
+function awardLabel(a: SeasonAward): string {
+  switch (a.awardType) {
+    case 'top_scorer': return `Top Scorer (rank ${a.rank})`;
+    case 'top_assister': return `Top Assister (rank ${a.rank})`;
+    case 'mvp': return 'MVP';
+    case 'breakthrough': return 'Breakthrough Player';
+  }
+}
+
 export default function PlayerDetailScreen({ player, onBack }: PlayerDetailScreenProps) {
+  const { dbHandle } = useDatabaseStore();
+  const playerClubId = useGameStore((s) => s.playerClubId);
+  const [awards, setAwards] = useState<SeasonAward[]>([]);
+  const [titles, setTitles] = useState<PlayerTitle[]>([]);
+  useEffect(() => {
+    if (!dbHandle || !player) return;
+    let cancelled = false;
+    (async () => {
+      const [a, t] = await Promise.all([
+        getPlayerAwards(dbHandle, player.id),
+        getPlayerTitles(dbHandle, player.id),
+      ]);
+      if (!cancelled) { setAwards(a); setTitles(t); }
+    })();
+    return () => { cancelled = true; };
+  }, [dbHandle, player?.id]);
+
+  const [isTransferListed, setIsTransferListedLocal] = useState<boolean>(player?.isTransferListed ?? false);
+  const [askingPriceText, setAskingPriceText] = useState<string>(
+    player?.askingPrice != null ? String(player.askingPrice) : '',
+  );
+  const [isLoanListed, setIsLoanListedLocal] = useState<boolean>(player?.isLoanListed ?? false);
+  const [loanShareText, setLoanShareText] = useState<string>(
+    player?.loanWageShare != null ? String(Math.round(player.loanWageShare * 100)) : '50',
+  );
+
+  async function handleToggleTransferListing(next: boolean) {
+    setIsTransferListedLocal(next);
+    if (!dbHandle || !player) return;
+    const price = askingPriceText.trim() ? parseInt(askingPriceText.replace(/\D/g, ''), 10) : null;
+    await setTransferListing(dbHandle, player.id, next, Number.isFinite(price) ? price : null);
+  }
+
+  async function handleBlurAskingPrice() {
+    if (!dbHandle || !player || !isTransferListed) return;
+    const price = askingPriceText.trim() ? parseInt(askingPriceText.replace(/\D/g, ''), 10) : null;
+    await setTransferListing(dbHandle, player.id, true, Number.isFinite(price) ? price : null);
+  }
+
+  async function handleToggleLoanListing(next: boolean) {
+    setIsLoanListedLocal(next);
+    if (!dbHandle || !player) return;
+    const sharePct = loanShareText.trim() ? parseInt(loanShareText.replace(/\D/g, ''), 10) : 50;
+    const clamped = Math.max(0, Math.min(100, Number.isFinite(sharePct) ? sharePct : 50));
+    await setLoanListing(dbHandle, player.id, next, next ? clamped / 100 : null);
+  }
+
+  async function handleBlurLoanShare() {
+    if (!dbHandle || !player || !isLoanListed) return;
+    const sharePct = loanShareText.trim() ? parseInt(loanShareText.replace(/\D/g, ''), 10) : 50;
+    const clamped = Math.max(0, Math.min(100, Number.isFinite(sharePct) ? sharePct : 50));
+    await setLoanListing(dbHandle, player.id, true, clamped / 100);
+  }
+
   if (!player) {
     return (
       <View style={commonStyles.screen}>
@@ -119,6 +188,18 @@ export default function PlayerDetailScreen({ player, onBack }: PlayerDetailScree
             <StatBar label="Morale" value={player.morale} maxValue={100} />
             <StatBar label="Fitness" value={player.fitness} maxValue={100} />
           </View>
+
+          {/* Foot info */}
+          <View style={styles.footRow}>
+            <View style={styles.footItem}>
+              <Text style={styles.footLabel}>Pé Preferido</Text>
+              <Text style={styles.footValue}>{player.preferredFoot === 'left' ? 'Esquerdo' : 'Direito'}</Text>
+            </View>
+            <View style={styles.footItem}>
+              <Text style={styles.footLabel}>Pé Ruim</Text>
+              <Text style={styles.footStars}>{'★'.repeat(player.weakFootAbility)}{'☆'.repeat(5 - player.weakFootAbility)}</Text>
+            </View>
+          </View>
         </View>
 
         {/* Attributes */}
@@ -161,6 +242,78 @@ export default function PlayerDetailScreen({ player, onBack }: PlayerDetailScree
             </View>
           </View>
         </View>
+
+        {/* Career */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Career</Text>
+
+          <Text style={styles.careerSubHeading}>Titles</Text>
+          {titles.length === 0 && <Text style={styles.careerEmpty}>No titles yet.</Text>}
+          {titles.map((t, i) => (
+            <Text key={`title-${i}`} style={styles.careerRow}>
+              {t.competitionName} — Season {t.season}
+            </Text>
+          ))}
+
+          <Text style={styles.careerSubHeading}>Individual Awards</Text>
+          {awards.length === 0 && <Text style={styles.careerEmpty}>No awards yet.</Text>}
+          {awards.map((a, i) => (
+            <Text key={`award-${i}`} style={styles.careerRow}>
+              {awardLabel(a)} — {a.competitionName} ({a.season})
+              {a.awardType === 'top_scorer' || a.awardType === 'top_assister' ? ` · ${a.value}` : ''}
+            </Text>
+          ))}
+        </View>
+
+        {player.clubId === playerClubId && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Transfer Status</Text>
+
+            <View style={styles.listingRow}>
+              <Text style={styles.listingLabel}>Listed for transfer</Text>
+              <Switch
+                value={isTransferListed}
+                onValueChange={handleToggleTransferListing}
+              />
+            </View>
+            {isTransferListed && (
+              <View style={styles.listingRow}>
+                <Text style={styles.listingLabel}>Asking price</Text>
+                <TextInput
+                  style={styles.listingInput}
+                  value={askingPriceText}
+                  onChangeText={setAskingPriceText}
+                  onBlur={handleBlurAskingPrice}
+                  keyboardType="numeric"
+                  placeholder="Open to offers"
+                  placeholderTextColor={colors.textMuted}
+                />
+              </View>
+            )}
+
+            <View style={styles.listingRow}>
+              <Text style={styles.listingLabel}>Listed for loan</Text>
+              <Switch
+                value={isLoanListed}
+                onValueChange={handleToggleLoanListing}
+              />
+            </View>
+            {isLoanListed && (
+              <View style={styles.listingRow}>
+                <Text style={styles.listingLabel}>Borrower pays (%)</Text>
+                <TextInput
+                  style={styles.listingInput}
+                  value={loanShareText}
+                  onChangeText={setLoanShareText}
+                  onBlur={handleBlurLoanShare}
+                  keyboardType="numeric"
+                  placeholder="50"
+                  placeholderTextColor={colors.textMuted}
+                />
+              </View>
+            )}
+          </View>
+        )}
       </ScrollView>
     </View>
   );
@@ -241,6 +394,34 @@ const styles = StyleSheet.create({
   barsSection: {
     marginTop: spacing.md,
   },
+  footRow: {
+    flexDirection: 'row',
+    marginTop: spacing.md,
+    gap: spacing.md,
+  },
+  footItem: {
+    flex: 1,
+    backgroundColor: colors.background,
+    borderRadius: 8,
+    padding: spacing.sm,
+    alignItems: 'center',
+  },
+  footLabel: {
+    color: colors.textMuted,
+    fontSize: fontSize.xs,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 4,
+  },
+  footValue: {
+    color: colors.text,
+    fontSize: fontSize.sm,
+    fontWeight: '600',
+  },
+  footStars: {
+    color: colors.gold,
+    fontSize: fontSize.md,
+  },
   section: {
     backgroundColor: colors.surface,
     borderRadius: 12,
@@ -274,5 +455,48 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  careerSubHeading: {
+    color: colors.textMuted,
+    fontSize: fontSize.xs,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginTop: spacing.sm,
+    marginBottom: spacing.xs,
+  },
+  careerEmpty: {
+    color: colors.textMuted,
+    fontSize: fontSize.sm,
+    fontStyle: 'italic',
+    marginBottom: spacing.xs,
+  },
+  careerRow: {
+    color: colors.text,
+    fontSize: fontSize.sm,
+    marginBottom: spacing.xs,
+  },
+  listingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: spacing.xs,
+  },
+  listingLabel: {
+    color: colors.text,
+    fontSize: fontSize.sm,
+    flex: 1,
+  },
+  listingInput: {
+    color: colors.text,
+    fontSize: fontSize.sm,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 6,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    minWidth: 120,
+    textAlign: 'right',
   },
 });

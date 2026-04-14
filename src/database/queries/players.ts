@@ -1,10 +1,10 @@
-import { Player, PlayerAttributes, Position } from '@/types';
+import { Player, PlayerAttributes, Position, Foot } from '@/types';
 
 export interface DbHandle {
   prepare(sql: string): {
-    all(...params: unknown[]): unknown[];
-    get(...params: unknown[]): unknown;
-    run(...params: unknown[]): { lastInsertRowid: number | bigint } | void;
+    all(...params: unknown[]): Promise<unknown[]>;
+    get(...params: unknown[]): Promise<unknown>;
+    run(...params: unknown[]): Promise<{ lastInsertRowid: number | bigint } | void>;
   };
 }
 
@@ -25,6 +25,12 @@ interface PlayerRow {
   fitness: number;
   injury_weeks_left: number;
   is_free_agent: number;
+  preferred_foot: string;
+  weak_foot_ability: number;
+  is_transfer_listed: number;
+  is_loan_listed: number;
+  asking_price: number | null;
+  loan_wage_share: number | null;
 }
 
 interface PlayerAttributesRow {
@@ -67,6 +73,12 @@ function rowToPlayer(row: PlayerRow): Player {
     fitness: row.fitness,
     injuryWeeksLeft: row.injury_weeks_left,
     isFreeAgent: row.is_free_agent === 1,
+    preferredFoot: (row.preferred_foot === 'left' ? 'left' : 'right') as Foot,
+    weakFootAbility: row.weak_foot_ability ?? 3,
+    isTransferListed: row.is_transfer_listed === 1,
+    isLoanListed: row.is_loan_listed === 1,
+    askingPrice: row.asking_price ?? null,
+    loanWageShare: row.loan_wage_share ?? null,
   };
 }
 
@@ -93,24 +105,24 @@ function rowToAttributes(row: PlayerAttributesRow): PlayerAttributes {
   };
 }
 
-export function getPlayersByClub(db: DbHandle, clubId: number): Player[] {
-  const rows = db
+export async function getPlayersByClub(db: DbHandle, clubId: number): Promise<Player[]> {
+  const rows = await db
     .prepare('SELECT * FROM players WHERE club_id = ?')
     .all(clubId) as PlayerRow[];
   return rows.map(rowToPlayer);
 }
 
-export function getPlayerById(
+export async function getPlayerById(
   db: DbHandle,
   playerId: number,
-): (Player & { attributes: PlayerAttributes }) | null {
-  const playerRow = db
+): Promise<(Player & { attributes: PlayerAttributes }) | null> {
+  const playerRow = await db
     .prepare('SELECT * FROM players WHERE id = ?')
     .get(playerId) as PlayerRow | undefined;
 
   if (!playerRow) return null;
 
-  const attrRow = db
+  const attrRow = await db
     .prepare('SELECT * FROM player_attributes WHERE player_id = ?')
     .get(playerId) as PlayerAttributesRow | undefined;
 
@@ -130,7 +142,7 @@ export interface SearchPlayersFilters {
   maxWage?: number;
 }
 
-export function searchPlayers(db: DbHandle, filters: SearchPlayersFilters): Player[] {
+export async function searchPlayers(db: DbHandle, filters: SearchPlayersFilters): Promise<Player[]> {
   const conditions: string[] = [];
   const params: unknown[] = [];
 
@@ -157,17 +169,53 @@ export function searchPlayers(db: DbHandle, filters: SearchPlayersFilters): Play
 
   const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
   const sql = `SELECT * FROM players ${where}`;
-  const rows = db.prepare(sql).all(...params) as PlayerRow[];
+  const rows = await db.prepare(sql).all(...params) as PlayerRow[];
   return rows.map(rowToPlayer);
 }
 
-export function updatePlayerMorale(db: DbHandle, playerId: number, morale: number): void {
-  db.prepare('UPDATE players SET morale = ? WHERE id = ?').run(morale, playerId);
+export async function updatePlayerMorale(db: DbHandle, playerId: number, morale: number): Promise<void> {
+  await db.prepare('UPDATE players SET morale = ? WHERE id = ?').run(morale, playerId);
 }
 
-export function getFreeAgents(db: DbHandle): Player[] {
-  const rows = db
+export async function getFreeAgents(db: DbHandle): Promise<Player[]> {
+  const rows = await db
     .prepare('SELECT * FROM players WHERE is_free_agent = 1')
+    .all() as PlayerRow[];
+  return rows.map(rowToPlayer);
+}
+
+export async function setTransferListing(
+  db: DbHandle,
+  playerId: number,
+  listed: boolean,
+  askingPrice: number | null,
+): Promise<void> {
+  await db
+    .prepare('UPDATE players SET is_transfer_listed = ?, asking_price = ? WHERE id = ?')
+    .run(listed ? 1 : 0, listed ? askingPrice : null, playerId);
+}
+
+export async function setLoanListing(
+  db: DbHandle,
+  playerId: number,
+  listed: boolean,
+  loanWageShare: number | null,
+): Promise<void> {
+  await db
+    .prepare('UPDATE players SET is_loan_listed = ?, loan_wage_share = ? WHERE id = ?')
+    .run(listed ? 1 : 0, listed ? loanWageShare : null, playerId);
+}
+
+export async function getListedPlayers(
+  db: DbHandle,
+  mode: 'transfer' | 'loan' | 'any',
+): Promise<Player[]> {
+  const where =
+    mode === 'transfer' ? 'is_transfer_listed = 1' :
+    mode === 'loan'     ? 'is_loan_listed = 1' :
+    '(is_transfer_listed = 1 OR is_loan_listed = 1)';
+  const rows = await db
+    .prepare(`SELECT * FROM players WHERE ${where}`)
     .all() as PlayerRow[];
   return rows.map(rowToPlayer);
 }

@@ -17,6 +17,10 @@ export const TABLE_NAMES: string[] = [
   'tactics',
   'tactic_positions',
   'save_games',
+  'season_competition_results',
+  'season_relegated',
+  'season_awards',
+  'season_player_titles',
 ];
 
 export const SCHEMA_SQL = `
@@ -73,7 +77,11 @@ CREATE TABLE IF NOT EXISTS players (
   injury_weeks_left  INTEGER NOT NULL DEFAULT 0,
   is_free_agent      INTEGER NOT NULL DEFAULT 0,
   preferred_foot     TEXT    NOT NULL DEFAULT 'right',
-  weak_foot_ability  INTEGER NOT NULL DEFAULT 3 CHECK (weak_foot_ability BETWEEN 1 AND 5)
+  weak_foot_ability  INTEGER NOT NULL DEFAULT 3 CHECK (weak_foot_ability BETWEEN 1 AND 5),
+  is_transfer_listed INTEGER NOT NULL DEFAULT 0,
+  is_loan_listed     INTEGER NOT NULL DEFAULT 0,
+  asking_price       INTEGER,
+  loan_wage_share    REAL
 );
 
 CREATE TABLE IF NOT EXISTS player_attributes (
@@ -242,6 +250,51 @@ CREATE TABLE IF NOT EXISTS save_games (
   created_at      TEXT    NOT NULL,
   updated_at      TEXT    NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS season_competition_results (
+  id                INTEGER PRIMARY KEY AUTOINCREMENT,
+  season            INTEGER NOT NULL,
+  competition_id    INTEGER NOT NULL REFERENCES competitions(id),
+  champion_club_id  INTEGER NOT NULL REFERENCES clubs(id),
+  runner_up_club_id INTEGER REFERENCES clubs(id),
+  UNIQUE(season, competition_id)
+);
+
+CREATE TABLE IF NOT EXISTS season_relegated (
+  id             INTEGER PRIMARY KEY AUTOINCREMENT,
+  season         INTEGER NOT NULL,
+  league_id      INTEGER NOT NULL REFERENCES leagues(id),
+  club_id        INTEGER NOT NULL REFERENCES clubs(id),
+  final_position INTEGER NOT NULL,
+  UNIQUE(season, league_id, club_id)
+);
+
+CREATE TABLE IF NOT EXISTS season_awards (
+  id             INTEGER PRIMARY KEY AUTOINCREMENT,
+  season         INTEGER NOT NULL,
+  competition_id INTEGER NOT NULL REFERENCES competitions(id),
+  award_type     TEXT    NOT NULL CHECK(award_type IN ('top_scorer','top_assister','mvp','breakthrough')),
+  rank           INTEGER NOT NULL DEFAULT 1,
+  player_id      INTEGER NOT NULL REFERENCES players(id),
+  club_id        INTEGER NOT NULL REFERENCES clubs(id),
+  value          REAL    NOT NULL,
+  UNIQUE(season, competition_id, award_type, rank)
+);
+
+CREATE TABLE IF NOT EXISTS season_player_titles (
+  id             INTEGER PRIMARY KEY AUTOINCREMENT,
+  season         INTEGER NOT NULL,
+  competition_id INTEGER NOT NULL REFERENCES competitions(id),
+  club_id        INTEGER NOT NULL REFERENCES clubs(id),
+  player_id      INTEGER NOT NULL REFERENCES players(id),
+  UNIQUE(season, competition_id, player_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_awards_player       ON season_awards(player_id);
+CREATE INDEX IF NOT EXISTS idx_awards_season_comp  ON season_awards(season, competition_id);
+CREATE INDEX IF NOT EXISTS idx_results_season      ON season_competition_results(season);
+CREATE INDEX IF NOT EXISTS idx_relegated_season    ON season_relegated(season);
+CREATE INDEX IF NOT EXISTS idx_player_titles_player ON season_player_titles(player_id);
 `;
 
 export interface DbExec {
