@@ -126,7 +126,7 @@ function getRatingColor(rating: number): string {
 
 export function MatchResultScreen() {
   const navigation = useNavigation<NavProp>();
-  const { lastMatchResult, playerClub } = useGameStore();
+  const { lastMatchResult, playerClub, lastMatchIsHome, lastMatchOpponentName } = useGameStore();
 
   if (!lastMatchResult) {
     return (
@@ -140,10 +140,14 @@ export function MatchResultScreen() {
   }
 
   const { homeGoals, awayGoals, events, homeRatings, awayRatings, stats } = lastMatchResult;
-  const homeTeam = playerClub?.name ?? 'Home';
-  const awayTeam = 'Away';
+  // Determine home/away names from the stored match context. When the player
+  // was the away team, their club goes on the right.
+  const opponentName = lastMatchOpponentName ?? 'Opponent';
+  const playerName = playerClub?.name ?? 'Home';
+  const homeTeam = lastMatchIsHome === false ? opponentName : playerName;
+  const awayTeam = lastMatchIsHome === false ? playerName : opponentName;
 
-  const goalEvents = events.filter((e: MatchEvent) => e.type === 'goal' || e.type === 'penalty_scored');
+  const goalEvents = events.filter((e: MatchEvent) => e.type === 'goal' || e.type === 'penalty_scored' || e.type === 'free_kick_scored');
   const allRatings: PlayerRating[] = [...homeRatings, ...awayRatings].sort(
     (a, b) => b.rating - a.rating,
   );

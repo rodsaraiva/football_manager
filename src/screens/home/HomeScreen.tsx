@@ -1,4 +1,4 @@
-import React, { useEffect, useCallback } from 'react';
+import React, { useEffect, useCallback, useState } from 'react';
 import {
   View,
   Text,
@@ -7,18 +7,23 @@ import {
   FlatList,
   StyleSheet,
   ActivityIndicator,
+  Modal,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { colors, spacing, fontSize, commonStyles } from '@/theme';
 import { useGameStore } from '@/store/game-store';
 import { useDatabaseStore } from '@/store/database-store';
-import { Fixture } from '@/types';
+import { Fixture, Club, MatchEvent } from '@/types';
 import { RootStackParamList } from '@/navigation/types';
 import { SeededRng } from '@/engine/rng';
-import { getFixturesByClub } from '@/database/queries/fixtures';
+import { getFixturesByWeek, getFixturesByClub } from '@/database/queries/fixtures';
 import { getClubById } from '@/database/queries/clubs';
+import { getPlayerById, getPlayersByClub } from '@/database/queries/players';
+import { getActiveTactic } from '@/database/queries/tactics';
 import { advanceGameWeek } from '@/engine/game-loop';
+import { calculateOverall } from '@/utils/overall';
+import { Player, PlayerAttributes, Position } from '@/types';
 
 type NavProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -38,12 +43,73 @@ export function HomeScreen() {
     setAdvancing,
     updateWeek,
     setLastMatchResult,
+    setLastMatchContext,
+    lastMatchIsHome,
     setNewSeason,
     setPlayerClub,
     setRecentResults,
   } = useGameStore();
 
   const { dbHandle } = useDatabaseStore();
+
+  const [nextOpponent, setNextOpponent] = useState<{ club: Club; isHome: boolean } | null>(null);
+  const [showMatchModal, setShowMatchModal] = useState(false);
+  const [playerNames, setPlayerNames] = useState<Record<number, string>>({});
+  const [matchOpponentName, setMatchOpponentName] = useState<string>('Opponent');
+  const [showOpponentModal, setShowOpponentModal] = useState(false);
+  const [opponentSquad, setOpponentSquad] = useState<Array<{ name: string; position: Position; overall: number }>>([]);
+  const [opponentFormation, setOpponentFormation] = useState('4-4-2');
+  const [loadingOpponent, setLoadingOpponent] = useState(false);
+
+  // Load club data, reset stale fixtures, and load recent results on save load
+  useEffect(() => {
+    if (!dbHandle || !playerClubId) return;
+    (async () => {
+      // Load player club if not set
+      if (!playerClub) {
+        const club = await getClubById(dbHandle, playerClubId);
+        if (club) setPlayerClub(club);
+      }
+
+      // Reset fixtures that were played by a different save (week >= current save week)
+      // This prevents results from other saves leaking into this one.
+      try {
+        await dbHandle.prepare(
+          'UPDATE fixtures SET played = 0, home_goals = NULL, away_goals = NULL, attendance = NULL WHERE season = ? AND week >= ? AND played = 1',
+        ).run(season, week);
+      } catch { /* ignore */ }
+
+      // Load recent results for current save (only weeks before current)
+      try {
+        const allFixtures = await getFixturesByClub(dbHandle, playerClubId, season);
+        const played = allFixtures.filter(f => f.played && f.week < week);
+        setRecentResults(played.slice(-5));
+      } catch { /* ignore */ }
+    })();
+  }, [dbHandle, playerClubId, season, week]);
+
+  // Load next match opponent
+  useEffect(() => {
+    if (!dbHandle || !playerClubId) return;
+    (async () => {
+      try {
+        const weekFixtures = await getFixturesByWeek(dbHandle, season, week);
+        const myFixture = weekFixtures.find(
+          f => !f.played && (f.homeClubId === playerClubId || f.awayClubId === playerClubId),
+        );
+        if (myFixture) {
+          const isHome = myFixture.homeClubId === playerClubId;
+          const oppId = isHome ? myFixture.awayClubId : myFixture.homeClubId;
+          const oppClub = await getClubById(dbHandle, oppId);
+          if (oppClub) setNextOpponent({ club: oppClub, isHome });
+        } else {
+          setNextOpponent(null);
+        }
+      } catch {
+        setNextOpponent(null);
+      }
+    })();
+  }, [dbHandle, playerClubId, season, week]);
 
   // Navigate to EndOfSeason when flag is set
   useEffect(() => {
@@ -52,12 +118,48 @@ export function HomeScreen() {
     }
   }, [isNewSeason, navigation]);
 
+  // Load player names and show modal after match
+  useEffect(() => {
+    if (!lastMatchResult || !dbHandle) return;
+    (async () => {
+      const ids = new Set<number>();
+      for (const evt of lastMatchResult.events) {
+        ids.add(evt.playerId);
+        if (evt.secondaryPlayerId) ids.add(evt.secondaryPlayerId);
+      }
+      const names: Record<number, string> = {};
+      for (const id of ids) {
+        try {
+          const p = await getPlayerById(dbHandle, id);
+          if (p) names[id] = p.name;
+        } catch { /* ignore */ }
+      }
+      setPlayerNames(names);
+      setShowMatchModal(true);
+    })();
+  }, [lastMatchResult, dbHandle]);
+
   const handleAdvanceWeek = useCallback(async () => {
     if (isAdvancing || !dbHandle || !playerClubId || !currentSave) return;
     setAdvancing(true);
     try {
+      // Resolve opponent name from fixture before simulating
+      const weekFixtures = await getFixturesByWeek(dbHandle, season, week);
+      const myFixture = weekFixtures.find(
+        f => !f.played && (f.homeClubId === playerClubId || f.awayClubId === playerClubId),
+      );
+      if (myFixture) {
+        const isHome = myFixture.homeClubId === playerClubId;
+        const oppId = isHome ? myFixture.awayClubId : myFixture.homeClubId;
+        const oppClub = await getClubById(dbHandle, oppId);
+        if (oppClub) {
+          setMatchOpponentName(oppClub.name);
+          setLastMatchContext(isHome, oppClub.name);
+        }
+      }
+
       const rng = new SeededRng(season * 1000 + week);
-      const result = advanceGameWeek({
+      const result = await advanceGameWeek({
         dbHandle,
         season,
         week,
@@ -70,11 +172,11 @@ export function HomeScreen() {
       if (result.playerMatchResult) setLastMatchResult(result.playerMatchResult);
 
       // Reload club data
-      const updatedClub = getClubById(dbHandle, playerClubId);
+      const updatedClub = await getClubById(dbHandle, playerClubId);
       if (updatedClub) setPlayerClub(updatedClub);
 
       // Reload recent results
-      const allFixtures = getFixturesByClub(dbHandle, playerClubId, result.isSeasonEnd ? season : result.newSeason);
+      const allFixtures = await getFixturesByClub(dbHandle, playerClubId, result.isSeasonEnd ? season : result.newSeason);
       const played = allFixtures.filter(f => f.played);
       setRecentResults(played.slice(-5));
 
@@ -143,7 +245,7 @@ export function HomeScreen() {
       {lastMatchResult !== null && (
         <TouchableOpacity
           style={styles.matchResultBanner}
-          onPress={() => navigation.navigate('MatchResult', { fixtureId: -1 })}
+          onPress={() => setShowMatchModal(true)}
           activeOpacity={0.8}
         >
           <Text style={styles.matchResultLabel}>LAST RESULT</Text>
@@ -155,10 +257,72 @@ export function HomeScreen() {
       )}
 
       {/* Next Match Card */}
-      <View style={styles.card}>
-        <Text style={styles.cardLabel}>NEXT MATCH</Text>
-        <Text style={styles.nextMatchText}>No upcoming matches</Text>
-      </View>
+      {nextOpponent ? (
+        <View style={styles.nextMatchCard}>
+          <View style={styles.nextMatchHeader}>
+            <Text style={styles.cardLabel}>NEXT MATCH</Text>
+            <View style={[styles.nextMatchBadge, { backgroundColor: nextOpponent.isHome ? colors.success : colors.accent }]}>
+              <Text style={styles.nextMatchBadgeText}>{nextOpponent.isHome ? 'HOME' : 'AWAY'}</Text>
+            </View>
+          </View>
+          <View style={styles.nextMatchTeams}>
+            {(() => {
+              const homeTeam = nextOpponent.isHome
+                ? { name: playerClub?.name ?? '—', reputation: playerClub?.reputation ?? 0 }
+                : { name: nextOpponent.club.name, reputation: nextOpponent.club.reputation };
+              const awayTeam = nextOpponent.isHome
+                ? { name: nextOpponent.club.name, reputation: nextOpponent.club.reputation }
+                : { name: playerClub?.name ?? '—', reputation: playerClub?.reputation ?? 0 };
+              return (
+                <>
+                  <View style={styles.nextMatchTeamBlock}>
+                    <Text style={styles.nextMatchTeamName} numberOfLines={1}>{homeTeam.name}</Text>
+                    <Text style={styles.nextMatchTeamRep}>{homeTeam.reputation}</Text>
+                  </View>
+                  <Text style={styles.nextMatchVs}>VS</Text>
+                  <View style={styles.nextMatchTeamBlock}>
+                    <Text style={styles.nextMatchTeamName} numberOfLines={1}>{awayTeam.name}</Text>
+                    <Text style={styles.nextMatchTeamRep}>{awayTeam.reputation}</Text>
+                  </View>
+                </>
+              );
+            })()}
+          </View>
+          <Text style={styles.nextMatchVenue}>
+            {nextOpponent.isHome ? (playerClub?.stadiumName ?? 'Home Stadium') : nextOpponent.club.stadiumName}
+          </Text>
+          <TouchableOpacity
+            style={styles.scoutButton}
+            activeOpacity={0.7}
+            onPress={async () => {
+              if (!dbHandle || !nextOpponent) return;
+              setLoadingOpponent(true);
+              setShowOpponentModal(true);
+              try {
+                const players = await getPlayersByClub(dbHandle, nextOpponent.club.id);
+                const squad: Array<{ name: string; position: Position; overall: number }> = [];
+                for (const p of players) {
+                  const full = await getPlayerById(dbHandle, p.id);
+                  if (full) {
+                    squad.push({ name: full.name, position: full.position, overall: calculateOverall(full.attributes, full.position) });
+                  }
+                }
+                setOpponentSquad(squad);
+                const tactic = await getActiveTactic(dbHandle, nextOpponent.club.id);
+                setOpponentFormation(tactic?.formation ?? '4-4-2');
+              } catch { /* ignore */ }
+              setLoadingOpponent(false);
+            }}
+          >
+            <Text style={styles.scoutButtonText}>Relatório do Adversário</Text>
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <View style={styles.card}>
+          <Text style={styles.cardLabel}>NEXT MATCH</Text>
+          <Text style={styles.nextMatchText}>No upcoming matches this week</Text>
+        </View>
+      )}
 
       {/* Advance Week Button */}
       <TouchableOpacity
@@ -197,6 +361,295 @@ export function HomeScreen() {
           contentContainerStyle={styles.resultsList}
         />
       )}
+
+      {/* Match Result Modal */}
+      <Modal
+        visible={showMatchModal && lastMatchResult !== null}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowMatchModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Match Result</Text>
+
+            {lastMatchResult && (
+              <>
+                <View style={styles.modalScoreRow}>
+                  <Text style={styles.modalTeamName}>
+                    {lastMatchIsHome === false ? matchOpponentName : (playerClub?.name ?? 'Home')}
+                  </Text>
+                  <View style={styles.modalScoreBox}>
+                    <Text style={styles.modalScore}>
+                      {lastMatchResult.homeGoals} - {lastMatchResult.awayGoals}
+                    </Text>
+                  </View>
+                  <Text style={[styles.modalTeamName, { textAlign: 'right' }]}>
+                    {lastMatchIsHome === false ? (playerClub?.name ?? 'Home') : matchOpponentName}
+                  </Text>
+                </View>
+
+                {lastMatchResult.stats && (
+                  <View style={styles.modalStatsRow}>
+                    <Text style={styles.modalStat}>Poss: {lastMatchResult.stats.homePossession}%-{lastMatchResult.stats.awayPossession}%</Text>
+                    <Text style={styles.modalStat}>Shots: {lastMatchResult.stats.homeShots}({lastMatchResult.stats.homeShotsOnTarget ?? 0})-{lastMatchResult.stats.awayShots}({lastMatchResult.stats.awayShotsOnTarget ?? 0})</Text>
+                  </View>
+                )}
+
+                {lastMatchResult.events.length > 0 && (() => {
+                  const homeIds = new Set(lastMatchResult.homeRatings.map(r => r.playerId));
+                  const getName = (id: number) => {
+                    const full = playerNames[id];
+                    if (!full) return `#${id}`;
+                    const parts = full.split(' ');
+                    return parts[parts.length - 1];
+                  };
+                  const getIcon = (type: MatchEvent['type']) => {
+                    if (type === 'goal') return '⚽';
+                    if (type === 'penalty_scored') return '⚽(P)';
+                    if (type === 'penalty_missed') return '❌(P)';
+                    if (type === 'free_kick_scored') return '⚽(FK)';
+                    if (type === 'free_kick_missed') return '❌(FK)';
+                    if (type === 'yellow') return '🟨';
+                    if (type === 'red') return '🟥';
+                    if (type === 'injury') return '🏥';
+                    if (type === 'substitution') return '🔄';
+                    if (type === 'assist') return '🅰️';
+                    return '';
+                  };
+                  // Filter out assists (shown inline with goals)
+                  const visible = lastMatchResult.events.filter(
+                    e => e.type !== 'assist',
+                  );
+                  // Build assist lookup: goalPlayerId -> assisterName
+                  const assistMap = new Map<number, string>();
+                  for (const evt of lastMatchResult.events) {
+                    if (evt.type === 'assist' && evt.secondaryPlayerId) {
+                      assistMap.set(evt.secondaryPlayerId, getName(evt.playerId));
+                    }
+                  }
+
+                  return (
+                    <View style={styles.modalEvents}>
+                      <Text style={styles.modalEventsTitle}>Match Events</Text>
+                      <ScrollView style={styles.modalEventsList} nestedScrollEnabled>
+                        {visible.map((evt, idx) => {
+                          const isHome = homeIds.has(evt.playerId);
+                          const icon = getIcon(evt.type);
+                          const name = getName(evt.playerId);
+                          const assist = (evt.type === 'goal' || evt.type === 'penalty_scored' || evt.type === 'free_kick_scored')
+                            ? assistMap.get(evt.playerId) : null;
+                          const isSub = evt.type === 'substitution';
+                          const subIn = isSub && evt.secondaryPlayerId ? getName(evt.secondaryPlayerId) : null;
+
+                          const renderContent = (side: 'home' | 'away') => {
+                            if (isSub) {
+                              return (
+                                <View style={styles.modalSubRow}>
+                                  {side === 'home' ? (
+                                    <>
+                                      {subIn && <Text style={styles.modalEventSubIn}>{subIn}</Text>}
+                                      {subIn && <Text style={styles.modalSubArrowUp}> ▲ </Text>}
+                                      <Text style={styles.modalSubArrowDown}> ▼ </Text>
+                                      <Text style={styles.modalEventSubOut}>{name}</Text>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Text style={styles.modalEventSubOut}>{name}</Text>
+                                      <Text style={styles.modalSubArrowDown}> ▼ </Text>
+                                      {subIn && <Text style={styles.modalSubArrowUp}> ▲ </Text>}
+                                      {subIn && <Text style={styles.modalEventSubIn}>{subIn}</Text>}
+                                    </>
+                                  )}
+                                </View>
+                              );
+                            }
+                            return (
+                              <>
+                                <Text style={styles.modalEventName} numberOfLines={1}>
+                                  {side === 'home' ? `${name} ${icon}` : `${icon} ${name}`}
+                                </Text>
+                                {assist && (
+                                  <Text style={styles.modalEventAssist}>
+                                    {side === 'home' ? `${assist} 🅰️` : `🅰️ ${assist}`}
+                                  </Text>
+                                )}
+                              </>
+                            );
+                          };
+
+                          return (
+                            <View key={idx} style={styles.modalEventRow}>
+                              {/* Home side (left, aligned right → toward minute) */}
+                              <View style={[styles.modalEventSide, styles.modalEventSideHome]}>
+                                {isHome && (
+                                  <View style={styles.modalEventHome}>
+                                    {renderContent('home')}
+                                  </View>
+                                )}
+                              </View>
+                              {/* Minute (center) */}
+                              <Text style={styles.modalEventMinute}>{evt.minute}'</Text>
+                              {/* Away side (right, aligned left → toward minute) */}
+                              <View style={[styles.modalEventSide, styles.modalEventSideAway]}>
+                                {!isHome && (
+                                  <View style={styles.modalEventAway}>
+                                    {renderContent('away')}
+                                  </View>
+                                )}
+                              </View>
+                            </View>
+                          );
+                        })}
+                      </ScrollView>
+                    </View>
+                  );
+                })()}
+
+                {lastMatchResult.attendance > 0 && (
+                  <Text style={styles.modalAttendance}>
+                    Attendance: {lastMatchResult.attendance.toLocaleString()}
+                  </Text>
+                )}
+              </>
+            )}
+
+            <TouchableOpacity
+              style={styles.modalCloseButton}
+              onPress={() => setShowMatchModal(false)}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.modalCloseText}>Close</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Opponent Scout Modal */}
+      <Modal
+        visible={showOpponentModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowOpponentModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>{nextOpponent?.club.name ?? 'Opponent'}</Text>
+            <View style={styles.oppInfoRow}>
+              <Text style={styles.oppInfoLabel}>Formation: {opponentFormation}</Text>
+              <Text style={styles.oppInfoLabel}>Rep: {nextOpponent?.club.reputation}</Text>
+            </View>
+
+            {loadingOpponent ? (
+              <ActivityIndicator color={colors.primary} style={{ marginVertical: spacing.lg }} />
+            ) : (() => {
+              // Build starting XI using formation layout (same as TacticsScreen)
+              const FORMATION_ROWS: Record<string, string[][]> = {
+                '4-4-2':   [['ST', 'ST'], ['LM', 'CM', 'CM', 'RM'], ['LB', 'CB', 'CB', 'RB'], ['GK']],
+                '4-3-3':   [['LW', 'ST', 'RW'], ['CM', 'CDM', 'CM'], ['LB', 'CB', 'CB', 'RB'], ['GK']],
+                '4-2-3-1': [['ST'], ['LM', 'CAM', 'RM'], ['CDM', 'CDM'], ['LB', 'CB', 'CB', 'RB'], ['GK']],
+                '3-5-2':   [['ST', 'ST'], ['LM', 'CM', 'CDM', 'CM', 'RM'], ['CB', 'CB', 'CB'], ['GK']],
+                '4-5-1':   [['ST'], ['LM', 'CM', 'CDM', 'CM', 'RM'], ['LB', 'CB', 'CB', 'RB'], ['GK']],
+              };
+              const POS_GROUP: Record<string, string> = {
+                GK:'GK', CB:'DEF', LB:'DEF', RB:'DEF',
+                CDM:'MID', CM:'MID', CAM:'MID', LM:'MID', RM:'MID',
+                LW:'FWD', RW:'FWD', ST:'FWD',
+              };
+              const rows = FORMATION_ROWS[opponentFormation] ?? FORMATION_ROWS['4-4-2'];
+              const usedIds = new Set<number>();
+              const startingXI = rows.map(row =>
+                row.map(role => {
+                  const targetGroup = POS_GROUP[role] ?? 'MID';
+                  const best = opponentSquad
+                    .filter((_, i) => !usedIds.has(i))
+                    .map((p, origIdx) => {
+                      const realIdx = opponentSquad.indexOf(p);
+                      let bonus = 0;
+                      if (p.position === role) bonus = 15;
+                      else if (POS_GROUP[p.position] === targetGroup) bonus = 3;
+                      else if (role === 'GK' && p.position !== 'GK') bonus = -30;
+                      else if (p.position === 'GK' && role !== 'GK') bonus = -30;
+                      else bonus = -10;
+                      return { p, idx: realIdx, score: p.overall + bonus };
+                    })
+                    .sort((a, b) => b.score - a.score)[0];
+                  if (best) {
+                    usedIds.add(best.idx);
+                    return { role, name: best.p.name, overall: best.p.overall };
+                  }
+                  return { role, name: '—', overall: 0 };
+                })
+              );
+              // Build a realistic bench: 1 GK + 6 best outfield (prioritize position variety)
+              const available = opponentSquad
+                .map((p, i) => ({ ...p, idx: i }))
+                .filter(p => !usedIds.has(p.idx));
+              const subs: typeof available = [];
+              // 1 reserve GK
+              const gk = available.find(p => p.position === 'GK');
+              if (gk) subs.push(gk);
+              // 6 outfield: pick best by position group to cover DEF, MID, FWD
+              const outfield = available.filter(p => p.position !== 'GK' && !subs.includes(p));
+              outfield.sort((a, b) => b.overall - a.overall);
+              for (const p of outfield) {
+                if (subs.length >= 8) break;
+                subs.push(p);
+              }
+
+              return (
+                <ScrollView style={styles.oppSquadList} nestedScrollEnabled>
+                  <Text style={styles.oppSectionLabel}>STARTING XI</Text>
+                  <View style={styles.oppPitchView}>
+                    {startingXI.map((row, ri) => (
+                      <View key={ri} style={styles.oppPitchRow}>
+                        {row.map((slot, si) => {
+                          const ovrColor = slot.overall >= 75 ? colors.success : slot.overall >= 60 ? colors.warning : colors.danger;
+                          return (
+                            <View key={si} style={styles.oppPitchSlot}>
+                              <Text style={styles.oppPitchRole}>{slot.role}</Text>
+                              <Text style={styles.oppPitchName} numberOfLines={1}>
+                                {slot.name.split(' ').pop()}
+                              </Text>
+                              {slot.overall > 0 && (
+                                <Text style={[styles.oppPitchOvr, { color: ovrColor }]}>{slot.overall}</Text>
+                              )}
+                            </View>
+                          );
+                        })}
+                      </View>
+                    ))}
+                  </View>
+
+                  {subs.length > 0 && (
+                    <>
+                      <Text style={styles.oppSectionLabel}>SUBSTITUTES</Text>
+                      {subs.map((p, idx) => {
+                        const ovrColor = p.overall >= 75 ? colors.success : p.overall >= 60 ? colors.warning : colors.danger;
+                        return (
+                          <View key={idx} style={styles.oppPlayerRow}>
+                            <Text style={styles.oppPlayerPos}>{p.position}</Text>
+                            <Text style={styles.oppPlayerName} numberOfLines={1}>{p.name}</Text>
+                            <Text style={[styles.oppPlayerOvr, { color: ovrColor }]}>{p.overall}</Text>
+                          </View>
+                        );
+                      })}
+                    </>
+                  )}
+                </ScrollView>
+              );
+            })()}
+
+            <TouchableOpacity
+              style={styles.modalCloseButton}
+              onPress={() => setShowOpponentModal(false)}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.modalCloseText}>Close</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 }
@@ -354,5 +807,305 @@ const styles = StyleSheet.create({
   emptyText: {
     color: colors.textMuted,
     fontSize: fontSize.md,
+  },
+  nextMatchCard: {
+    backgroundColor: colors.surface,
+    borderRadius: 12,
+    padding: spacing.md,
+    marginHorizontal: spacing.md,
+    marginBottom: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.primary,
+  },
+  nextMatchHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.md,
+  },
+  nextMatchTeams: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.md,
+    marginBottom: spacing.sm,
+  },
+  nextMatchTeamBlock: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  nextMatchTeamName: {
+    color: colors.text,
+    fontSize: fontSize.md,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  scoutButton: {
+    backgroundColor: colors.surfaceLight,
+    borderRadius: 8,
+    paddingVertical: 8,
+    marginTop: spacing.sm,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  scoutButtonText: {
+    color: colors.primary,
+    fontSize: fontSize.sm,
+    fontWeight: '600',
+  },
+  nextMatchTeamRep: {
+    color: colors.textMuted,
+    fontSize: fontSize.xs,
+    marginTop: 2,
+  },
+  nextMatchVs: {
+    color: colors.textMuted,
+    fontSize: fontSize.lg,
+    fontWeight: 'bold',
+  },
+  nextMatchBadge: {
+    borderRadius: 6,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 3,
+  },
+  nextMatchBadgeText: {
+    color: colors.text,
+    fontSize: fontSize.xs,
+    fontWeight: 'bold',
+    letterSpacing: 1,
+  },
+  nextMatchVenue: {
+    color: colors.textMuted,
+    fontSize: fontSize.xs,
+    textAlign: 'center',
+    marginTop: spacing.xs,
+  },
+  oppInfoRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginBottom: spacing.md,
+    paddingVertical: spacing.sm,
+    backgroundColor: colors.background,
+    borderRadius: 8,
+  },
+  oppInfoLabel: {
+    color: colors.textSecondary,
+    fontSize: fontSize.sm,
+  },
+  oppSquadList: {
+    maxHeight: 400,
+    marginBottom: spacing.md,
+  },
+  oppSectionLabel: {
+    color: colors.textMuted,
+    fontSize: fontSize.xs,
+    fontWeight: '700',
+    letterSpacing: 1,
+    marginBottom: spacing.sm,
+    marginTop: spacing.sm,
+  },
+  oppPitchView: {
+    backgroundColor: colors.background,
+    borderRadius: 8,
+    padding: spacing.sm,
+    gap: spacing.sm,
+    marginBottom: spacing.sm,
+  },
+  oppPitchRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+  },
+  oppPitchSlot: {
+    alignItems: 'center',
+    minWidth: 54,
+    backgroundColor: colors.surfaceLight,
+    borderRadius: 8,
+    padding: 4,
+  },
+  oppPitchRole: {
+    fontSize: 10,
+    fontWeight: 'bold',
+    color: colors.textMuted,
+    letterSpacing: 0.5,
+  },
+  oppPitchName: {
+    color: colors.text,
+    fontSize: 11,
+    fontWeight: '600',
+    marginTop: 1,
+    textAlign: 'center',
+  },
+  oppPitchOvr: {
+    fontSize: 10,
+    fontWeight: 'bold',
+    marginTop: 1,
+  },
+  oppPlayerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  oppPlayerPos: {
+    color: colors.primary,
+    fontSize: fontSize.xs,
+    fontWeight: 'bold',
+    width: 36,
+  },
+  oppPlayerName: {
+    color: colors.text,
+    fontSize: fontSize.sm,
+    flex: 1,
+  },
+  oppPlayerOvr: {
+    fontSize: fontSize.sm,
+    fontWeight: 'bold',
+    width: 30,
+    textAlign: 'right',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    justifyContent: 'center',
+    paddingHorizontal: spacing.md,
+  },
+  modalContent: {
+    backgroundColor: colors.surface,
+    borderRadius: 16,
+    padding: spacing.lg,
+    maxHeight: '80%',
+  },
+  modalTitle: {
+    color: colors.textMuted,
+    fontSize: fontSize.xs,
+    fontWeight: '700',
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+    textAlign: 'center',
+    marginBottom: spacing.md,
+  },
+  modalScoreRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.md,
+  },
+  modalTeamName: {
+    color: colors.text,
+    fontSize: fontSize.sm,
+    fontWeight: '600',
+    flex: 1,
+  },
+  modalScoreBox: {
+    paddingHorizontal: spacing.md,
+  },
+  modalScore: {
+    color: colors.text,
+    fontSize: fontSize.xxl,
+    fontWeight: 'bold',
+  },
+  modalStatsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginBottom: spacing.md,
+    paddingVertical: spacing.sm,
+    backgroundColor: colors.background,
+    borderRadius: 8,
+  },
+  modalStat: {
+    color: colors.textSecondary,
+    fontSize: fontSize.sm,
+  },
+  modalEvents: {
+    marginBottom: spacing.md,
+  },
+  modalEventsTitle: {
+    color: colors.textMuted,
+    fontSize: fontSize.xs,
+    fontWeight: '700',
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+    marginBottom: spacing.sm,
+  },
+  modalEventsList: {
+    maxHeight: 200,
+  },
+  modalEventRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  modalEventSide: {
+    flex: 1,
+  },
+  modalEventSideHome: {
+    alignItems: 'flex-end',
+  },
+  modalEventSideAway: {
+    alignItems: 'flex-start',
+  },
+  modalEventHome: {
+    alignItems: 'flex-end',
+  },
+  modalEventAway: {
+    alignItems: 'flex-start',
+  },
+  modalEventMinute: {
+    color: colors.primary,
+    fontSize: fontSize.sm,
+    fontWeight: 'bold',
+    width: 36,
+    textAlign: 'center',
+  },
+  modalEventName: {
+    color: colors.text,
+    fontSize: fontSize.sm,
+  },
+  modalEventAssist: {
+    color: colors.textMuted,
+    fontSize: 11,
+    marginTop: 1,
+  },
+  modalSubRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  modalEventSubOut: {
+    color: colors.danger,
+    fontSize: fontSize.sm,
+  },
+  modalEventSubIn: {
+    color: colors.success,
+    fontSize: fontSize.sm,
+  },
+  modalSubArrowDown: {
+    color: colors.danger,
+    fontSize: fontSize.sm,
+    fontWeight: 'bold',
+  },
+  modalSubArrowUp: {
+    color: colors.success,
+    fontSize: fontSize.sm,
+    fontWeight: 'bold',
+  },
+  modalAttendance: {
+    color: colors.textMuted,
+    fontSize: fontSize.xs,
+    textAlign: 'center',
+    marginBottom: spacing.md,
+  },
+  modalCloseButton: {
+    backgroundColor: colors.primary,
+    borderRadius: 8,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  modalCloseText: {
+    color: colors.text,
+    fontSize: fontSize.md,
+    fontWeight: '600',
   },
 });

@@ -18,6 +18,8 @@ interface GameState {
   standings: StandingsEntry[];
   recentResults: Fixture[];
   lastMatchResult: MatchResult | null;
+  lastMatchIsHome: boolean | null;
+  lastMatchOpponentName: string | null;
   // UI flags
   isAdvancing: boolean;
   isNewSeason: boolean;
@@ -32,6 +34,7 @@ interface GameActions {
   setAdvancing: (advancing: boolean) => void;
   updateWeek: (season: number, week: number) => void;
   setLastMatchResult: (result: MatchResult | null) => void;
+  setLastMatchContext: (isHome: boolean | null, opponentName: string | null) => void;
   setNewSeason: (isNew: boolean) => void;
   // Data loading
   setSquad: (squad: Player[]) => void;
@@ -54,6 +57,8 @@ const initialState: GameState = {
   standings: [],
   recentResults: [],
   lastMatchResult: null,
+  lastMatchIsHome: null,
+  lastMatchOpponentName: null,
   isAdvancing: false,
   isNewSeason: false,
 };
@@ -82,11 +87,19 @@ export const useGameStore = create<GameStore>((set) => ({
       playerClubId: save.playerClubId,
       season: save.currentSeason,
       week: save.currentWeek,
+      recentResults: [],
+      lastMatchResult: null,
+      lastMatchIsHome: null,
+      lastMatchOpponentName: null,
+      playerClub: null,
+      isNewSeason: false,
     }),
   clearGame: () => set(initialState),
   setAdvancing: (advancing) => set({ isAdvancing: advancing }),
   updateWeek: (season, week) => set({ season, week }),
   setLastMatchResult: (result) => set({ lastMatchResult: result }),
+  setLastMatchContext: (isHome, opponentName) =>
+    set({ lastMatchIsHome: isHome, lastMatchOpponentName: opponentName }),
   setNewSeason: (isNew) => set({ isNewSeason: isNew }),
   setSquad: (squad) => set({ squad }),
   setCompetitions: (competitions) => set({ competitions }),
