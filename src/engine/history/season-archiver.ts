@@ -114,6 +114,46 @@ async function insertRelegatedIgnore(
     .run(season, leagueId, clubId, finalPosition);
 }
 
+async function archiveKnockout(
+  db: DbHandle,
+  competition: CompetitionRow,
+  season: number,
+): Promise<void> {
+  const fixtures = await getPlayedFixtures(db, competition.id, season);
+  if (fixtures.length === 0) return;
+
+  // fixtures.round is TEXT in schema; parse to number for comparison.
+  // Skip fixtures with null/non-numeric round (they can't be the final).
+  const numericFixtures = fixtures
+    .map((f) => ({ f, roundNum: f.round == null ? NaN : Number(f.round) }))
+    .filter((x) => !Number.isNaN(x.roundNum));
+  if (numericFixtures.length === 0) return;
+
+  const maxRound = Math.max(...numericFixtures.map((x) => x.roundNum));
+  const finals = numericFixtures.filter((x) => x.roundNum === maxRound).map((x) => x.f);
+  if (finals.length === 0) return;
+  // Deterministic pick if multiple finals somehow exist.
+  const final = finals.sort((a, b) => b.id - a.id)[0];
+  if (final.home_goals == null || final.away_goals == null) return;
+
+  let championClubId: number;
+  let runnerUpClubId: number | null;
+  if (final.home_goals > final.away_goals) {
+    championClubId = final.home_club_id;
+    runnerUpClubId = final.away_club_id;
+  } else if (final.away_goals > final.home_goals) {
+    championClubId = final.away_club_id;
+    runnerUpClubId = final.home_club_id;
+  } else {
+    // Tie with no shootout modelled — pick home deterministically.
+    // TODO once penalty shootouts exist, read the actual winner from match_events.
+    championClubId = final.home_club_id;
+    runnerUpClubId = final.away_club_id;
+  }
+
+  await insertResultIgnore(db, season, competition.id, championClubId, runnerUpClubId);
+}
+
 async function archiveLeague(
   db: DbHandle,
   competition: CompetitionRow,
@@ -148,7 +188,9 @@ export async function archiveSeason(db: DbHandle, season: number): Promise<void>
   for (const competition of competitions) {
     if (competition.type === 'league') {
       await archiveLeague(db, competition, season);
+    } else if (competition.type === 'cup' || competition.type === 'continental') {
+      await archiveKnockout(db, competition, season);
     }
-    // cup + continental added in Task 5; awards in Tasks 6-7; player_titles in Task 8.
+    // awards in Tasks 6-7; player_titles in Task 8.
   }
 }

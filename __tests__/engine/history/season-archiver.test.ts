@@ -97,3 +97,66 @@ describe('archiveSeason — league titles', () => {
     expect(count).toBe(1);
   });
 });
+
+describe('archiveSeason — cup & continental', () => {
+  let rawDb: Database.Database;
+  let db: DbHandle;
+
+  beforeEach(() => {
+    rawDb = createTestDb();
+    seedTestDb(rawDb);
+    db = createTestDbHandle(rawDb);
+  });
+
+  afterEach(() => {
+    rawDb.close();
+  });
+
+  it('writes champion and runner-up from the cup final (highest round)', async () => {
+    // Seed a cup competition
+    rawDb.prepare(
+      `INSERT INTO competitions (id, name, type, format, season, league_id)
+       VALUES (100, 'Test Cup', 'cup', 'knockout', 1, NULL)`,
+    ).run();
+
+    // Seed two cup fixtures in different rounds
+    rawDb.prepare(
+      `INSERT INTO fixtures (id, competition_id, season, week, round, home_club_id, away_club_id, home_goals, away_goals, played)
+       VALUES (9001, 100, 1, 30, '1', 1, 3, 2, 1, 1)`,
+    ).run(); // earlier round
+    rawDb.prepare(
+      `INSERT INTO fixtures (id, competition_id, season, week, round, home_club_id, away_club_id, home_goals, away_goals, played)
+       VALUES (9002, 100, 1, 40, '2', 1, 2, 3, 1, 1)`,
+    ).run(); // final — highest round value, club 1 wins
+
+    await archiveSeason(db, 1);
+
+    const result = rawDb
+      .prepare('SELECT * FROM season_competition_results WHERE season = 1 AND competition_id = 100')
+      .get() as { champion_club_id: number; runner_up_club_id: number | null } | undefined;
+    expect(result).toBeDefined();
+    expect(result!.champion_club_id).toBe(1);
+    expect(result!.runner_up_club_id).toBe(2);
+  });
+
+  it('handles a continental competition with no clear runner-up (tie-final fallback)', async () => {
+    rawDb.prepare(
+      `INSERT INTO competitions (id, name, type, format, season, league_id)
+       VALUES (200, 'Test Continental', 'continental', 'knockout', 1, NULL)`,
+    ).run();
+    // Only one fixture, and it's a draw — fallback: home as champion
+    rawDb.prepare(
+      `INSERT INTO fixtures (id, competition_id, season, week, round, home_club_id, away_club_id, home_goals, away_goals, played)
+       VALUES (9100, 200, 1, 45, '1', 5, 6, 1, 1, 1)`,
+    ).run();
+
+    await archiveSeason(db, 1);
+
+    const result = rawDb
+      .prepare('SELECT * FROM season_competition_results WHERE season = 1 AND competition_id = 200')
+      .get() as { champion_club_id: number; runner_up_club_id: number | null } | undefined;
+    expect(result).toBeDefined();
+    expect(result!.champion_club_id).toBe(5);
+    expect(result!.runner_up_club_id).toBe(6);
+  });
+});
