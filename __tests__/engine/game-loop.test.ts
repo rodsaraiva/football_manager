@@ -105,11 +105,34 @@ describe('advanceGameWeek', () => {
   });
 
   it('is deterministic', async () => {
-    // Clone DB state
+    // Snapshot player state before r1 so we can restore it for r2
+    const playerSnapshot = rawDb.prepare('SELECT * FROM players').all() as Array<Record<string, unknown>>;
+    const attrSnapshot = rawDb.prepare('SELECT * FROM player_attributes').all() as Array<Record<string, unknown>>;
+
     const r1 = await advanceGameWeek({ dbHandle: db, season: 1, week: 7, playerClubId: 1, saveId: -1, rng: new SeededRng(42) });
-    // Reset fixtures
+
+    // Full reset: fixtures, events, stats, and player attributes/fitness modified by r1
     rawDb.prepare('UPDATE fixtures SET played = 0, home_goals = NULL, away_goals = NULL WHERE season = 1 AND week = 7').run();
     rawDb.prepare('DELETE FROM match_events').run();
+    rawDb.prepare('DELETE FROM player_stats').run();
+    for (const p of playerSnapshot) {
+      rawDb.prepare('UPDATE players SET fitness = ?, injury_weeks_left = ?, morale = ? WHERE id = ?')
+        .run(p.fitness, p.injury_weeks_left, p.morale, p.id);
+    }
+    for (const a of attrSnapshot) {
+      rawDb.prepare(
+        `UPDATE player_attributes SET finishing=?, passing=?, crossing=?, dribbling=?, heading=?,
+         long_shots=?, free_kicks=?, vision=?, composure=?, decisions=?,
+         positioning=?, aggression=?, leadership=?, pace=?, stamina=?,
+         strength=?, agility=?, jumping=? WHERE player_id=?`,
+      ).run(
+        a.finishing, a.passing, a.crossing, a.dribbling, a.heading,
+        a.long_shots, a.free_kicks, a.vision, a.composure, a.decisions,
+        a.positioning, a.aggression, a.leadership, a.pace, a.stamina,
+        a.strength, a.agility, a.jumping, a.player_id,
+      );
+    }
+
     const r2 = await advanceGameWeek({ dbHandle: db, season: 1, week: 7, playerClubId: 1, saveId: -1, rng: new SeededRng(42) });
 
     if (r1.playerMatchResult && r2.playerMatchResult) {
