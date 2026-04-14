@@ -241,6 +241,20 @@ export function HomeScreen() {
         </Text>
       </View>
 
+      {/* League Table shortcut */}
+      <TouchableOpacity
+        style={styles.leagueTableBtn}
+        activeOpacity={0.8}
+        onPress={() => navigation.navigate('LeagueStandings')}
+      >
+        <Text style={styles.leagueTableIcon}>🏆</Text>
+        <View style={styles.leagueTableContent}>
+          <Text style={styles.leagueTableTitle}>Tabela da Liga</Text>
+          <Text style={styles.leagueTableSub}>Ver classificação atualizada</Text>
+        </View>
+        <Text style={styles.leagueTableChevron}>›</Text>
+      </TouchableOpacity>
+
       {/* Last Match Result Banner */}
       {lastMatchResult !== null && (
         <TouchableOpacity
@@ -686,6 +700,42 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.primary,
     alignItems: 'center',
+  },
+  leagueTableBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    borderRadius: 12,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
+    marginHorizontal: spacing.md,
+    marginBottom: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderLeftWidth: 4,
+    borderLeftColor: colors.gold,
+  },
+  leagueTableIcon: {
+    fontSize: 24,
+    width: 36,
+    textAlign: 'center',
+    marginRight: spacing.sm,
+  },
+  leagueTableContent: { flex: 1 },
+  leagueTableTitle: {
+    color: colors.text,
+    fontSize: fontSize.md,
+    fontWeight: '700',
+  },
+  leagueTableSub: {
+    color: colors.textSecondary,
+    fontSize: fontSize.sm,
+    marginTop: 2,
+  },
+  leagueTableChevron: {
+    color: colors.textMuted,
+    fontSize: fontSize.xxl,
+    marginLeft: spacing.sm,
   },
   matchResultLabel: {
     color: colors.textMuted,

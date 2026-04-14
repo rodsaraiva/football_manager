@@ -2,10 +2,10 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Text } from 'react-native';
 import { colors } from '@/theme';
 import { HomeScreen } from '@/screens/home/HomeScreen';
-import { SquadListScreen } from '@/screens/squad/SquadListScreen';
+import { NewsScreen } from '@/screens/news/NewsScreen';
 import { TacticsScreen } from '@/screens/tactics/TacticsScreen';
 import { ClubOverviewScreen } from '@/screens/club/ClubOverviewScreen';
-import { StandingsScreen } from '@/screens/league/StandingsScreen';
+import { ReportsHubScreen } from '@/screens/reports/ReportsHubScreen';
 import { TabParamList } from './types';
 
 const Tab = createBottomTabNavigator<TabParamList>();
@@ -25,9 +25,9 @@ export function TabNavigator() {
         options={{ title: 'Matches', tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 20 }}>⚽</Text> }}
       />
       <Tab.Screen
-        name="SquadTab"
-        component={SquadListScreen}
-        options={{ title: 'Squad', tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 20 }}>👥</Text> }}
+        name="NewsTab"
+        component={NewsScreen}
+        options={{ title: 'News', tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 20 }}>📰</Text> }}
       />
       <Tab.Screen
         name="TacticsTab"
@@ -40,9 +40,9 @@ export function TabNavigator() {
         options={{ title: 'Club', tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 20 }}>💰</Text> }}
       />
       <Tab.Screen
-        name="LeagueTab"
-        component={StandingsScreen}
-        options={{ title: 'League', tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 20 }}>🏆</Text> }}
+        name="ReportsTab"
+        component={ReportsHubScreen}
+        options={{ title: 'Reports', tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 20 }}>📈</Text> }}
       />
     </Tab.Navigator>
   );

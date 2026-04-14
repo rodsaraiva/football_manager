@@ -14,6 +14,13 @@ export type RootStackParamList = {
   OffersSent: undefined;
   OffersReceived: undefined;
   FreeAgents: undefined;
+  // League standings (reachable from Matches and Reports hub)
+  LeagueStandings: undefined;
+  // Reports sub-screens
+  ReportsTechnical: undefined;
+  ReportsFinancial: undefined;
+  ReportsAnalytics: undefined;
+  ReportsYouth: undefined;
 };
 
 export type TabParamList = {
@@ -21,5 +28,5 @@ export type TabParamList = {
   NewsTab: undefined;
   TacticsTab: undefined;
   ClubTab: undefined;
-  LeagueTab: undefined;
+  ReportsTab: undefined;
 };
