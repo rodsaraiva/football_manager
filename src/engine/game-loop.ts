@@ -1,6 +1,7 @@
 import { DbHandle } from '@/database/queries/players';
 import { getPlayersByClub, getPlayerById } from '@/database/queries/players';
 import { generateAiTransfer } from './transfer/transfer-ai';
+import { processPendingOffers } from './transfer/offer-processor';
 import {
   getFixturesByWeek,
   updateFixtureResult,
@@ -82,20 +83,32 @@ interface PlayerForPick {
   injuryWeeksLeft: number;
 }
 
+const POSITION_GROUP: Record<string, string> = {
+  GK: 'GK', CB: 'DEF', LB: 'DEF', RB: 'DEF',
+  CDM: 'MID', CM: 'MID', CAM: 'MID', LM: 'MID', RM: 'MID',
+  LW: 'FWD', RW: 'FWD', ST: 'FWD',
+};
+
 function pickStartingEleven(players: PlayerForPick[], formation: string): PlayerForStrength[] {
   const slots = formationToSlots(formation);
   const selected = new Set<number>();
   const eleven: PlayerForStrength[] = [];
 
   for (const slot of slots) {
+    const targetGroup = POSITION_GROUP[slot] ?? 'MID';
     const candidates = players
       .filter(p => !selected.has(p.id) && p.fitness > 30 && p.injuryWeeksLeft === 0)
-      .map(p => ({
-        player: p,
-        score:
-          calculateOverall(p.attributes, slot) +
-          (p.position === slot ? 5 : p.secondaryPosition === slot ? 2 : 0),
-      }))
+      .map(p => {
+        const base = calculateOverall(p.attributes, slot);
+        let bonus = 0;
+        if (p.position === slot) bonus = 15;
+        else if (p.secondaryPosition === slot) bonus = 8;
+        else if (POSITION_GROUP[p.position] === targetGroup) bonus = 3;
+        else if (slot === 'GK' && p.position !== 'GK') bonus = -30;
+        else if (p.position === 'GK' && slot !== 'GK') bonus = -30;
+        else bonus = -10;
+        return { player: p, score: base + bonus };
+      })
       .sort((a, b) => b.score - a.score);
 
     if (candidates.length > 0) {
@@ -117,13 +130,13 @@ function pickStartingEleven(players: PlayerForPick[], formation: string): Player
 
 // ─── AI match simulation (reputation-based, no full engine) ──────────────────
 
-function simulateAiMatch(
+async function simulateAiMatch(
   fixture: Fixture,
   rng: SeededRng,
   db: DbHandle,
-): { homeGoals: number; awayGoals: number } {
-  const home = getClubById(db, fixture.homeClubId);
-  const away = getClubById(db, fixture.awayClubId);
+): Promise<{ homeGoals: number; awayGoals: number }> {
+  const home = await getClubById(db, fixture.homeClubId);
+  const away = await getClubById(db, fixture.awayClubId);
   const homeRep = home?.reputation ?? 50;
   const awayRep = away?.reputation ?? 50;
 
@@ -142,11 +155,11 @@ function simulateAiMatch(
 
 // ─── Player data helpers ──────────────────────────────────────────────────────
 
-function loadSquadWithAttributes(db: DbHandle, clubId: number): PlayerForPick[] {
-  const players = getPlayersByClub(db, clubId);
+async function loadSquadWithAttributes(db: DbHandle, clubId: number): Promise<PlayerForPick[]> {
+  const players = await getPlayersByClub(db, clubId);
   const result: PlayerForPick[] = [];
   for (const p of players) {
-    const full = getPlayerById(db, p.id);
+    const full = await getPlayerById(db, p.id);
     if (full) {
       result.push({
         id: full.id,
@@ -168,19 +181,19 @@ function isTransferWindow(week: number): boolean {
   return (week >= 1 && week <= 6) || (week >= 23 && week <= 26);
 }
 
-function processAiTransfers(db: DbHandle, _season: number, week: number, rng: SeededRng): void {
+async function processAiTransfers(db: DbHandle, _season: number, week: number, rng: SeededRng): Promise<void> {
   if (!isTransferWindow(week)) return;
 
-  const clubs = db.prepare(
+  const clubs = await db.prepare(
     'SELECT id, reputation, budget FROM clubs ORDER BY RANDOM() LIMIT 5',
   ).all() as Array<{ id: number; reputation: number; budget: number }>;
 
   for (const club of clubs) {
-    const squadRows = db.prepare(
+    const squadRows = await db.prepare(
       'SELECT position FROM players WHERE club_id = ?',
     ).all(club.id) as Array<{ position: string }>;
 
-    const available = db.prepare(
+    const available = await db.prepare(
       `SELECT p.id, p.position, p.market_value, p.wage, p.club_id as from_club_id, c.reputation as club_reputation
        FROM players p JOIN clubs c ON p.club_id = c.id
        WHERE p.club_id != ? AND p.is_free_agent = 0
@@ -215,18 +228,18 @@ function processAiTransfers(db: DbHandle, _season: number, week: number, rng: Se
       if (!player) continue;
 
       // Move player to buying club
-      db.prepare('UPDATE players SET club_id = ?, wage = ? WHERE id = ?').run(
+      await db.prepare('UPDATE players SET club_id = ?, wage = ? WHERE id = ?').run(
         club.id,
         result.offeredWage,
         result.targetPlayerId,
       );
       // Deduct fee from buyer
-      db.prepare('UPDATE clubs SET budget = budget - ? WHERE id = ?').run(
+      await db.prepare('UPDATE clubs SET budget = budget - ? WHERE id = ?').run(
         result.offeredFee,
         club.id,
       );
       // Add fee to seller
-      db.prepare('UPDATE clubs SET budget = budget + ? WHERE id = ?').run(
+      await db.prepare('UPDATE clubs SET budget = budget + ? WHERE id = ?').run(
         result.offeredFee,
         player.from_club_id,
       );
@@ -236,11 +249,11 @@ function processAiTransfers(db: DbHandle, _season: number, week: number, rng: Se
 
 // ─── Main function ────────────────────────────────────────────────────────────
 
-export function advanceGameWeek(params: AdvanceWeekParams): AdvanceWeekResult {
+export async function advanceGameWeek(params: AdvanceWeekParams): Promise<AdvanceWeekResult> {
   const { dbHandle: db, season, week, playerClubId, saveId, rng } = params;
 
   // 1. Get fixtures for this week
-  const fixtures = getFixturesByWeek(db, season, week);
+  const fixtures = await getFixturesByWeek(db, season, week);
 
   // 2. Simulate the player's match with the real engine
   let playerMatchResult: MatchResult | null = null;
@@ -249,11 +262,11 @@ export function advanceGameWeek(params: AdvanceWeekParams): AdvanceWeekResult {
   );
 
   if (playerFixture) {
-    const homeSquadRaw = loadSquadWithAttributes(db, playerFixture.homeClubId);
-    const awaySquadRaw = loadSquadWithAttributes(db, playerFixture.awayClubId);
+    const homeSquadRaw = await loadSquadWithAttributes(db, playerFixture.homeClubId);
+    const awaySquadRaw = await loadSquadWithAttributes(db, playerFixture.awayClubId);
 
-    const homeTactic = getActiveTactic(db, playerFixture.homeClubId);
-    const awayTactic = getActiveTactic(db, playerFixture.awayClubId);
+    const homeTactic = await getActiveTactic(db, playerFixture.homeClubId);
+    const awayTactic = await getActiveTactic(db, playerFixture.awayClubId);
 
     const homeFormation = homeTactic?.formation ?? '4-4-2';
     const awayFormation = awayTactic?.formation ?? '4-4-2';
@@ -261,8 +274,8 @@ export function advanceGameWeek(params: AdvanceWeekParams): AdvanceWeekResult {
     const homeSquad = pickStartingEleven(homeSquadRaw, homeFormation);
     const awaySquad = pickStartingEleven(awaySquadRaw, awayFormation);
 
-    const homeClub = getClubById(db, playerFixture.homeClubId);
-    const awayClub = getClubById(db, playerFixture.awayClubId);
+    const homeClub = await getClubById(db, playerFixture.homeClubId);
+    const awayClub = await getClubById(db, playerFixture.awayClubId);
 
     const defaultTactic = {
       id: 0,
@@ -289,7 +302,7 @@ export function advanceGameWeek(params: AdvanceWeekParams): AdvanceWeekResult {
     });
 
     // Persist result
-    updateFixtureResult(
+    await updateFixtureResult(
       db,
       playerFixture.id,
       matchResult.homeGoals,
@@ -298,7 +311,7 @@ export function advanceGameWeek(params: AdvanceWeekParams): AdvanceWeekResult {
     );
 
     for (const event of matchResult.events) {
-      addMatchEvent(db, {
+      await addMatchEvent(db, {
         fixtureId: playerFixture.id,
         minute: event.minute,
         type: event.type,
@@ -312,20 +325,16 @@ export function advanceGameWeek(params: AdvanceWeekParams): AdvanceWeekResult {
     // 5. Apply player progression for player's squad (home or away)
     const playerSquadRaw =
       playerFixture.homeClubId === playerClubId ? homeSquadRaw : awaySquadRaw;
-    const playerClubData = getClubById(db, playerClubId);
+    const playerClubData = await getClubById(db, playerClubId);
     const trainingFacilityLevel = playerClubData?.trainingFacilities ?? 3;
 
+    const playerClubPlayers = await getPlayersByClub(db, playerClubId);
     for (const p of playerSquadRaw) {
+      const fullPlayer = playerClubPlayers.find(pl => pl.id === p.id);
       const progression = calculateWeeklyProgression({
-        age: (() => {
-          const fullPlayer = getPlayersByClub(db, playerClubId).find(pl => pl.id === p.id);
-          return fullPlayer?.age ?? 25;
-        })(),
+        age: fullPlayer?.age ?? 25,
         attributes: p.attributes,
-        effectivePotential: (() => {
-          const fullPlayer = getPlayersByClub(db, playerClubId).find(pl => pl.id === p.id);
-          return fullPlayer?.effectivePotential ?? 60;
-        })(),
+        effectivePotential: fullPlayer?.effectivePotential ?? 60,
         minutesPlayedRecent: 90,
         totalPossibleMinutes: 90,
         avgRatingRecent: 6.5,
@@ -336,7 +345,7 @@ export function advanceGameWeek(params: AdvanceWeekParams): AdvanceWeekResult {
       // Apply attribute changes to DB
       const changes = progression.attributeChanges;
       const attrs = p.attributes;
-      db.prepare(
+      await db.prepare(
         `UPDATE player_attributes SET
           finishing = ?, passing = ?, crossing = ?, dribbling = ?, heading = ?,
           long_shots = ?, free_kicks = ?, vision = ?, composure = ?, decisions = ?,
@@ -380,12 +389,12 @@ export function advanceGameWeek(params: AdvanceWeekParams): AdvanceWeekResult {
         const gain = rng.nextInt(5, 15);
         newFitness = Math.min(100, p.fitness + gain);
       }
-      db.prepare('UPDATE players SET fitness = ? WHERE id = ?').run(newFitness, p.id);
+      await db.prepare('UPDATE players SET fitness = ? WHERE id = ?').run(newFitness, p.id);
     }
     void playerClubSquadIds; // used above via playerSquadRaw
 
     // 7. Update injuries for player's club
-    db.prepare(
+    await db.prepare(
       'UPDATE players SET injury_weeks_left = MAX(0, injury_weeks_left - 1) WHERE injury_weeks_left > 0 AND club_id = ?',
     ).run(playerClubId);
   }
@@ -393,22 +402,25 @@ export function advanceGameWeek(params: AdvanceWeekParams): AdvanceWeekResult {
   // 3. Simulate other AI vs AI matches
   for (const fixture of fixtures) {
     if (fixture.id === playerFixture?.id) continue;
-    const { homeGoals, awayGoals } = simulateAiMatch(fixture, rng, db);
-    updateFixtureResult(db, fixture.id, homeGoals, awayGoals);
+    const { homeGoals, awayGoals } = await simulateAiMatch(fixture, rng, db);
+    await updateFixtureResult(db, fixture.id, homeGoals, awayGoals);
   }
 
   // 3b. Process AI transfers during transfer windows
-  processAiTransfers(db, season, week, rng);
+  await processAiTransfers(db, season, week, rng);
+
+  // 3c. Process pending offers submitted by the player (always, not gated by window)
+  await processPendingOffers(db, season, week);
 
   // 4. Process weekly finances for player's club
-  const playerClub = getClubById(db, playerClubId);
+  const playerClub = await getClubById(db, playerClubId);
   let updatedBudget = playerClub?.budget ?? 0;
 
   if (playerClub) {
-    const players = getPlayersByClub(db, playerClubId);
+    const players = await getPlayersByClub(db, playerClubId);
     const totalPlayerWages = players.reduce((sum, p) => sum + p.wage, 0);
 
-    const staffList = getStaffByClub(db, playerClubId);
+    const staffList = await getStaffByClub(db, playerClubId);
     const totalStaffWages = staffList.reduce((sum, s) => sum + s.wage, 0);
 
     const hasHomeMatch = playerFixture?.homeClubId === playerClubId;
@@ -432,7 +444,7 @@ export function advanceGameWeek(params: AdvanceWeekParams): AdvanceWeekResult {
     });
 
     // Add finance entries
-    addFinanceEntry(db, {
+    await addFinanceEntry(db, {
       clubId: playerClubId,
       season,
       week,
@@ -441,7 +453,7 @@ export function advanceGameWeek(params: AdvanceWeekParams): AdvanceWeekResult {
       description: 'Weekly TV rights income',
     });
 
-    addFinanceEntry(db, {
+    await addFinanceEntry(db, {
       clubId: playerClubId,
       season,
       week,
@@ -451,7 +463,7 @@ export function advanceGameWeek(params: AdvanceWeekParams): AdvanceWeekResult {
     });
 
     if (hasHomeMatch && income.ticket > 0) {
-      addFinanceEntry(db, {
+      await addFinanceEntry(db, {
         clubId: playerClubId,
         season,
         week,
@@ -461,7 +473,7 @@ export function advanceGameWeek(params: AdvanceWeekParams): AdvanceWeekResult {
       });
     }
 
-    addFinanceEntry(db, {
+    await addFinanceEntry(db, {
       clubId: playerClubId,
       season,
       week,
@@ -470,7 +482,7 @@ export function advanceGameWeek(params: AdvanceWeekParams): AdvanceWeekResult {
       description: 'Weekly wages (players + staff)',
     });
 
-    addFinanceEntry(db, {
+    await addFinanceEntry(db, {
       clubId: playerClubId,
       season,
       week,
@@ -483,7 +495,7 @@ export function advanceGameWeek(params: AdvanceWeekParams): AdvanceWeekResult {
       income.tv + income.sponsor + (hasHomeMatch ? income.ticket : 0);
     const totalExpenses = expenses.wages + expenses.maintenance;
     updatedBudget = playerClub.budget + totalIncome - totalExpenses;
-    updateClubBudget(db, playerClubId, updatedBudget);
+    await updateClubBudget(db, playerClubId, updatedBudget);
   }
 
   // 8. Advance week
@@ -493,7 +505,7 @@ export function advanceGameWeek(params: AdvanceWeekParams): AdvanceWeekResult {
 
   // Update save if valid saveId
   if (saveId >= 0) {
-    updateSaveWeek(db, saveId, newSeason, newWeek);
+    await updateSaveWeek(db, saveId, newSeason, newWeek);
   }
 
   return {

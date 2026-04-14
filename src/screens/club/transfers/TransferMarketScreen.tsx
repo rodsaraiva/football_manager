@@ -11,10 +11,12 @@ import {
 import { colors, commonStyles, fontSize, spacing } from '@/theme';
 import { useGameStore } from '@/store/game-store';
 import { useDatabaseStore } from '@/store/database-store';
-import { searchPlayers } from '@/database/queries/players';
-import { getPlayerById } from '@/database/queries/players';
+import { searchPlayers, getPlayerById } from '@/database/queries/players';
+import { getClubById } from '@/database/queries/clubs';
+import { createOffer } from '@/database/queries/transfers';
 import { calculateOverall } from '@/utils/overall';
-import { Player, PlayerAttributes, Position } from '@/types';
+import { Player, Position } from '@/types';
+import { OfferModal } from './OfferModal';
 
 type PositionFilter = 'All' | Position;
 
@@ -55,6 +57,8 @@ export function TransferMarketScreen() {
   const [loading, setLoading] = useState(true);
   const [positionFilter, setPositionFilter] = useState<PositionFilter>('All');
   const [showDropdown, setShowDropdown] = useState(false);
+  const [selectedPlayer, setSelectedPlayer] = useState<PlayerWithOverall | null>(null);
+  const [buyerBudget, setBuyerBudget] = useState(0);
 
   const loadPlayers = useCallback(async () => {
     if (!dbHandle || playerClubId === null) {
@@ -84,9 +88,50 @@ export function TransferMarketScreen() {
     loadPlayers();
   }, [loadPlayers]);
 
-  const handleMakeOffer = useCallback((player: PlayerWithOverall) => {
-    Alert.alert('Transfer Offer', `Offer submitted for ${player.name}!`, [{ text: 'OK' }]);
+  // Load buyer budget whenever modal opens
+  useEffect(() => {
+    if (!selectedPlayer || !dbHandle || playerClubId === null) return;
+    (async () => {
+      const club = await getClubById(dbHandle, playerClubId);
+      setBuyerBudget(club?.budget ?? 0);
+    })();
+  }, [selectedPlayer, dbHandle, playerClubId]);
+
+  const handleOpenOffer = useCallback((player: PlayerWithOverall) => {
+    setSelectedPlayer(player);
   }, []);
+
+  const handleCloseOffer = useCallback(() => {
+    setSelectedPlayer(null);
+  }, []);
+
+  const handleSubmitOffer = useCallback(
+    async (fee: number, wage: number) => {
+      if (!dbHandle || playerClubId === null || !selectedPlayer) return;
+      if (selectedPlayer.clubId === null) {
+        Alert.alert('Error', 'This player has no club (free agent). Use the Free Agents screen.');
+        return;
+      }
+      try {
+        await createOffer(dbHandle, {
+          playerId: selectedPlayer.id,
+          offeringClubId: playerClubId,
+          sellingClubId: selectedPlayer.clubId,
+          feeOffered: fee,
+          wageOffered: wage,
+        });
+        setSelectedPlayer(null);
+        Alert.alert(
+          'Offer sent',
+          `Your offer for ${selectedPlayer.name} has been submitted. Response will come next week.`,
+          [{ text: 'OK' }],
+        );
+      } catch (e) {
+        Alert.alert('Error', `Failed to submit offer: ${(e as Error).message}`);
+      }
+    },
+    [dbHandle, playerClubId, selectedPlayer],
+  );
 
   return (
     <View style={commonStyles.screen}>
@@ -154,7 +199,7 @@ export function TransferMarketScreen() {
                 </View>
                 <Pressable
                   style={styles.offerButton}
-                  onPress={() => handleMakeOffer(item)}
+                  onPress={() => handleOpenOffer(item)}
                 >
                   <Text style={styles.offerButtonText}>Offer</Text>
                 </Pressable>
@@ -162,6 +207,21 @@ export function TransferMarketScreen() {
             );
           }}
           contentContainerStyle={styles.listContent}
+        />
+      )}
+
+      {selectedPlayer && (
+        <OfferModal
+          visible={selectedPlayer !== null}
+          onClose={handleCloseOffer}
+          onSubmit={handleSubmitOffer}
+          playerName={selectedPlayer.name}
+          playerPosition={selectedPlayer.position}
+          playerAge={selectedPlayer.age}
+          playerOverall={selectedPlayer.overall}
+          marketValue={selectedPlayer.marketValue}
+          currentWage={selectedPlayer.wage}
+          buyerBudget={buyerBudget}
         />
       )}
     </View>
