@@ -21,7 +21,7 @@ import {
   addCompetitionEntry,
 } from '@/database/queries/leagues';
 import { getFixturesByClub, createFixture } from '@/database/queries/fixtures';
-import { getSeasonBalance } from '@/database/queries/finances';
+import { getFinancesBySeason } from '@/database/queries/finances';
 import { calculateStandings } from '@/engine/competition/standings';
 import { generateSeasonCalendar } from '@/engine/competition/calendar';
 import { Fixture } from '@/types';
@@ -118,10 +118,11 @@ export function EndOfSeasonScreen() {
           leaguePosition = idx >= 0 ? idx + 1 : null;
         }
 
-        // Financial summary
-        const balance = await getSeasonBalance(dbHandle, playerClubId, endedSeason);
-        const income = balance > 0 ? balance : 0;
-        const expenses = balance < 0 ? Math.abs(balance) : 0;
+        // Financial summary — sum positive (income) and negative (expenses) entries
+        // separately. getSeasonBalance returns only the net, which hid one side.
+        const finances = await getFinancesBySeason(dbHandle, playerClubId, endedSeason);
+        const income = finances.filter((f) => f.amount > 0).reduce((s, f) => s + f.amount, 0);
+        const expenses = finances.filter((f) => f.amount < 0).reduce((s, f) => s + Math.abs(f.amount), 0);
 
         setStats({
           played: played.length,
