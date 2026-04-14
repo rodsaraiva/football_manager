@@ -160,3 +160,89 @@ describe('archiveSeason — cup & continental', () => {
     expect(result!.runner_up_club_id).toBe(6);
   });
 });
+
+describe('archiveSeason — top scorers / assisters', () => {
+  let rawDb: Database.Database;
+  let db: DbHandle;
+
+  beforeEach(() => {
+    rawDb = createTestDb();
+    seedTestDb(rawDb);
+    // Seed a league competition and round-robin fixtures so archiver sees it.
+    rawDb.prepare(
+      `INSERT INTO competitions (id, name, type, format, season, league_id)
+       VALUES (1, 'Test League', 'league', 'round_robin', 1, 1)`,
+    ).run();
+    const clubs = rawDb.prepare('SELECT id FROM clubs WHERE league_id = 1').all() as Array<{ id: number }>;
+    let fid = 1;
+    for (let i = 0; i < clubs.length; i++) {
+      for (let j = 0; j < clubs.length; j++) {
+        if (i === j) continue;
+        rawDb.prepare(
+          `INSERT INTO fixtures (id, competition_id, season, week, round, home_club_id, away_club_id, home_goals, away_goals, played)
+           VALUES (?, 1, 1, 1, NULL, ?, ?, 1, 0, 1)`,
+        ).run(fid++, clubs[i].id, clubs[j].id);
+      }
+    }
+    db = createTestDbHandle(rawDb);
+  });
+
+  afterEach(() => {
+    rawDb.close();
+  });
+
+  it('writes top 5 scorers and top 5 assisters from match_events', async () => {
+    // Use any fixture id=1 to attach events to.
+    const players = rawDb.prepare('SELECT id, club_id FROM players LIMIT 10').all() as Array<{ id: number; club_id: number }>;
+    // Player[0] scores 5 goals, each with Player[1] as assister.
+    for (let i = 0; i < 5; i++) {
+      rawDb.prepare(
+        `INSERT INTO match_events (fixture_id, minute, type, player_id, secondary_player_id)
+         VALUES (1, ?, 'goal', ?, ?)`,
+      ).run(10 + i, players[0].id, players[1].id);
+    }
+    // Player[2] scores 1 goal, no assist.
+    rawDb.prepare(
+      `INSERT INTO match_events (fixture_id, minute, type, player_id, secondary_player_id)
+       VALUES (1, 80, 'goal', ?, NULL)`,
+    ).run(players[2].id);
+
+    await archiveSeason(db, 1);
+
+    const scorers = rawDb.prepare(
+      `SELECT rank, player_id, value FROM season_awards
+       WHERE season = 1 AND competition_id = 1 AND award_type = 'top_scorer'
+       ORDER BY rank ASC`,
+    ).all() as Array<{ rank: number; player_id: number; value: number }>;
+    expect(scorers.length).toBeGreaterThanOrEqual(2);
+    expect(scorers[0].rank).toBe(1);
+    expect(scorers[0].player_id).toBe(players[0].id);
+    expect(scorers[0].value).toBe(5);
+
+    const assisters = rawDb.prepare(
+      `SELECT rank, player_id, value FROM season_awards
+       WHERE season = 1 AND competition_id = 1 AND award_type = 'top_assister'
+       ORDER BY rank ASC`,
+    ).all() as Array<{ rank: number; player_id: number; value: number }>;
+    expect(assisters.length).toBeGreaterThanOrEqual(1);
+    expect(assisters[0].rank).toBe(1);
+    expect(assisters[0].player_id).toBe(players[1].id);
+    expect(assisters[0].value).toBe(5);
+  });
+
+  it('limits to top 5 even when more candidates exist', async () => {
+    const players = rawDb.prepare('SELECT id FROM players LIMIT 10').all() as Array<{ id: number }>;
+    // 7 different scorers, each with 1 goal. Only top 5 by deterministic tiebreak (lowest player_id) should land.
+    for (let i = 0; i < 7; i++) {
+      rawDb.prepare(
+        `INSERT INTO match_events (fixture_id, minute, type, player_id, secondary_player_id)
+         VALUES (1, ?, 'goal', ?, NULL)`,
+      ).run(10 + i, players[i].id);
+    }
+    await archiveSeason(db, 1);
+    const scorers = rawDb.prepare(
+      `SELECT rank FROM season_awards WHERE season = 1 AND competition_id = 1 AND award_type = 'top_scorer'`,
+    ).all() as Array<{ rank: number }>;
+    expect(scorers.length).toBe(5);
+  });
+});

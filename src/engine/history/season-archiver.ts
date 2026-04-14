@@ -82,6 +82,67 @@ function computeStandings(fixtures: FixtureRow[]): LeagueStanding[] {
   });
 }
 
+interface ScorerRow { player_id: number; club_id: number; goals: number; }
+interface AssisterRow { secondary_player_id: number; club_id: number; assists: number; }
+
+async function insertAwardIgnore(
+  db: DbHandle,
+  season: number,
+  competitionId: number,
+  awardType: 'top_scorer' | 'top_assister' | 'mvp' | 'breakthrough',
+  rank: number,
+  playerId: number,
+  clubId: number,
+  value: number,
+): Promise<void> {
+  await db
+    .prepare(
+      `INSERT OR IGNORE INTO season_awards
+         (season, competition_id, award_type, rank, player_id, club_id, value)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    )
+    .run(season, competitionId, awardType, rank, playerId, clubId, value);
+}
+
+async function archiveTopScorers(db: DbHandle, competitionId: number, season: number): Promise<void> {
+  const rows = (await db
+    .prepare(
+      `SELECT me.player_id AS player_id, p.club_id AS club_id, COUNT(*) AS goals
+       FROM match_events me
+       JOIN fixtures f ON f.id = me.fixture_id
+       JOIN players  p ON p.id = me.player_id
+       WHERE f.competition_id = ? AND f.season = ? AND me.type = 'goal'
+       GROUP BY me.player_id
+       ORDER BY goals DESC, me.player_id ASC
+       LIMIT 5`,
+    )
+    .all(competitionId, season)) as ScorerRow[];
+  for (let i = 0; i < rows.length; i++) {
+    await insertAwardIgnore(db, season, competitionId, 'top_scorer', i + 1, rows[i].player_id, rows[i].club_id, rows[i].goals);
+  }
+}
+
+async function archiveTopAssisters(db: DbHandle, competitionId: number, season: number): Promise<void> {
+  const rows = (await db
+    .prepare(
+      `SELECT me.secondary_player_id AS secondary_player_id, p.club_id AS club_id, COUNT(*) AS assists
+       FROM match_events me
+       JOIN fixtures f ON f.id = me.fixture_id
+       JOIN players  p ON p.id = me.secondary_player_id
+       WHERE f.competition_id = ? AND f.season = ? AND me.type = 'goal' AND me.secondary_player_id IS NOT NULL
+       GROUP BY me.secondary_player_id
+       ORDER BY assists DESC, me.secondary_player_id ASC
+       LIMIT 5`,
+    )
+    .all(competitionId, season)) as AssisterRow[];
+  for (let i = 0; i < rows.length; i++) {
+    await insertAwardIgnore(
+      db, season, competitionId, 'top_assister', i + 1,
+      rows[i].secondary_player_id, rows[i].club_id, rows[i].assists,
+    );
+  }
+}
+
 async function insertResultIgnore(
   db: DbHandle,
   season: number,
@@ -191,6 +252,7 @@ export async function archiveSeason(db: DbHandle, season: number): Promise<void>
     } else if (competition.type === 'cup' || competition.type === 'continental') {
       await archiveKnockout(db, competition, season);
     }
-    // awards in Tasks 6-7; player_titles in Task 8.
+    await archiveTopScorers(db, competition.id, season);
+    await archiveTopAssisters(db, competition.id, season);
   }
 }
