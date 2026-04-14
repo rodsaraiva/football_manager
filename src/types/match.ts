@@ -1,4 +1,4 @@
-export type MatchEventType = 'goal' | 'assist' | 'yellow' | 'red' | 'substitution' | 'injury' | 'penalty_scored' | 'penalty_missed';
+export type MatchEventType = 'goal' | 'assist' | 'yellow' | 'red' | 'substitution' | 'injury' | 'penalty_scored' | 'penalty_missed' | 'free_kick_scored' | 'free_kick_missed' | 'shot_on_target' | 'shot_off_target' | 'save';
 
 export interface Fixture {
   id: number;

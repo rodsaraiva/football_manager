@@ -19,6 +19,11 @@ const EVENT_ICONS: Record<MatchEventType, string> = {
   injury: '🏥',
   penalty_scored: '⚽(P)',
   penalty_missed: '❌(P)',
+  free_kick_scored: '⚽(FK)',
+  free_kick_missed: '❌(FK)',
+  shot_on_target: '🎯',
+  shot_off_target: '💨',
+  save: '🧤',
 };
 
 export default function MatchEventItem({

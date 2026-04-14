@@ -324,6 +324,18 @@ export async function advanceGameWeek(params: AdvanceWeekParams): Promise<Advanc
     const homeSquad = pickStartingEleven(homeSquadRaw, homeFormation);
     const awaySquad = pickStartingEleven(awaySquadRaw, awayFormation);
 
+    // Build benches: available players not in starting XI, not injured
+    const homeStartIds = new Set(homeSquad.map(p => p.id));
+    const awayStartIds = new Set(awaySquad.map(p => p.id));
+    const homeBench: PlayerForStrength[] = homeSquadRaw
+      .filter(p => !homeStartIds.has(p.id) && p.injuryWeeksLeft === 0 && p.fitness > 30)
+      .slice(0, 7)
+      .map(p => ({ id: p.id, position: p.position, secondaryPosition: p.secondaryPosition, attributes: p.attributes, morale: p.morale, fitness: p.fitness }));
+    const awayBench: PlayerForStrength[] = awaySquadRaw
+      .filter(p => !awayStartIds.has(p.id) && p.injuryWeeksLeft === 0 && p.fitness > 30)
+      .slice(0, 7)
+      .map(p => ({ id: p.id, position: p.position, secondaryPosition: p.secondaryPosition, attributes: p.attributes, morale: p.morale, fitness: p.fitness }));
+
     const homeClub = await getClubById(db, playerFixture.homeClubId);
     const awayClub = await getClubById(db, playerFixture.awayClubId);
 
@@ -346,6 +358,8 @@ export async function advanceGameWeek(params: AdvanceWeekParams): Promise<Advanc
       fixtureId: playerFixture.id,
       homeSquad,
       awaySquad,
+      homeBench,
+      awayBench,
       homeTactic: homeTactic ?? defaultTactic,
       awayTactic: awayTactic ?? { ...defaultTactic, id: -1, clubId: playerFixture.awayClubId },
       homeClubReputation: homeClub?.reputation ?? 50,

@@ -127,6 +127,14 @@ export function ratePlayerFromEvents(
         case 'injury':
           rating -= 0.2;
           break;
+        case 'shot_on_target':
+          rating += 0.05;
+          break;
+        case 'save':
+          rating += 0.1;
+          break;
+        case 'shot_off_target':
+          break;
       }
     }
     // Secondary-id assist bonus (old-style "assist credit" on goal events)

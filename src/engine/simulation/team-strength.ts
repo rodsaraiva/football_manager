@@ -1,6 +1,6 @@
 import { calculateOverall } from '@/utils/overall';
 import { PlayerAttributes, Position } from '@/types';
-import { Tactic } from '@/types/tactic';
+import { Tactic, Mentality, Pressing, PassingStyle, Tempo, Width } from '@/types/tactic';
 
 export interface PlayerForStrength {
   id: number;
@@ -15,6 +15,7 @@ export interface TeamStrengthInput {
   players: PlayerForStrength[];
   tactic: Tactic;
   isHome: boolean;
+  homeAdvantageMult?: number; // #9: scaled home advantage, defaults to HOME_ADVANTAGE
 }
 
 export interface TeamStrength {
@@ -22,6 +23,10 @@ export interface TeamStrength {
   attack: number;
   midfield: number;
   defense: number;
+  pressing: number;    // 0-1 scale, affects card rates & ball recovery
+  tempo: number;       // multiplier on event frequency
+  width: number;       // multiplier on crossing/corner chances
+  passingControl: number; // possession modifier
 }
 
 const DEFENSE_POSITIONS = new Set<Position>(['GK', 'CB', 'LB', 'RB']);
@@ -29,6 +34,40 @@ const MIDFIELD_POSITIONS = new Set<Position>(['CDM', 'CM', 'CAM', 'LM', 'RM']);
 const ATTACK_POSITIONS = new Set<Position>(['ST', 'LW', 'RW']);
 
 const HOME_ADVANTAGE = 1.07;
+
+// ─── Tactic modifiers ────────────────────────────────────────────────────────
+
+const MENTALITY_MOD: Record<Mentality, { attack: number; defense: number }> = {
+  defensive: { attack: -0.15, defense: 0.12 },
+  balanced:  { attack: 0,     defense: 0 },
+  attacking: { attack: 0.18,  defense: -0.12 },
+};
+
+const PRESSING_MOD: Record<Pressing, number> = {
+  low: 0.3,
+  medium: 0.5,
+  high: 0.8,
+};
+
+const TEMPO_MOD: Record<Tempo, number> = {
+  slow: 0.85,
+  normal: 1.0,
+  fast: 1.15,
+};
+
+const WIDTH_MOD: Record<Width, number> = {
+  narrow: 0.7,
+  normal: 1.0,
+  wide: 1.3,
+};
+
+const PASSING_MOD: Record<PassingStyle, number> = {
+  short: 0.12,   // +12% possession
+  mixed: 0,
+  direct: -0.08, // -8% possession, but faster transitions
+};
+
+// ─── Core calculations ───────────────────────────────────────────────────────
 
 function effectiveRating(player: PlayerForStrength): number {
   const base = calculateOverall(player.attributes, player.position);
@@ -43,7 +82,8 @@ function average(values: number[]): number {
 }
 
 export function calculateTeamStrength(input: TeamStrengthInput): TeamStrength {
-  const { players, isHome } = input;
+  const { players, tactic, isHome, homeAdvantageMult } = input;
+  const homeAdv = homeAdvantageMult ?? HOME_ADVANTAGE;
 
   const defenseRatings: number[] = [];
   const midfieldRatings: number[] = [];
@@ -60,16 +100,32 @@ export function calculateTeamStrength(input: TeamStrengthInput): TeamStrength {
     }
   }
 
-  const defense = average(defenseRatings);
-  const midfield = average(midfieldRatings);
-  const attack = average(attackRatings);
+  const mentalityMod = MENTALITY_MOD[tactic.mentality];
+  let defense = average(defenseRatings) * (1 + mentalityMod.defense);
+  let midfield = average(midfieldRatings);
+  let attack = average(attackRatings) * (1 + mentalityMod.attack);
 
   const sectors = [defense, midfield, attack].filter((v) => v > 0);
   let overall = average(sectors);
 
   if (isHome) {
-    overall *= HOME_ADVANTAGE;
+    overall *= homeAdv;
   }
 
-  return { overall, attack, midfield, defense };
+  // Reduce strength per missing player (red cards remove players)
+  const playerPenalty = Math.max(0, 11 - players.length) * 0.08;
+  overall *= (1 - playerPenalty);
+  attack *= (1 - playerPenalty);
+  defense *= (1 - playerPenalty * 0.5);
+
+  return {
+    overall,
+    attack,
+    midfield,
+    defense,
+    pressing: PRESSING_MOD[tactic.pressing],
+    tempo: TEMPO_MOD[tactic.tempo],
+    width: WIDTH_MOD[tactic.width],
+    passingControl: PASSING_MOD[tactic.passingStyle],
+  };
 }
