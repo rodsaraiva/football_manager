@@ -56,7 +56,7 @@ export function TransferMarketScreen() {
   const [positionFilter, setPositionFilter] = useState<PositionFilter>('All');
   const [showDropdown, setShowDropdown] = useState(false);
 
-  const loadPlayers = useCallback(() => {
+  const loadPlayers = useCallback(async () => {
     if (!dbHandle || playerClubId === null) {
       setLoading(false);
       return;
@@ -64,14 +64,15 @@ export function TransferMarketScreen() {
     setLoading(true);
     try {
       const filters = positionFilter !== 'All' ? { position: positionFilter as Position } : {};
-      const results = searchPlayers(dbHandle, filters).filter(
+      const results = (await searchPlayers(dbHandle, filters)).filter(
         (p) => p.clubId !== playerClubId && !p.isFreeAgent,
       );
-      const withOverall: PlayerWithOverall[] = results.map((p) => {
-        const full = getPlayerById(dbHandle, p.id);
+      const withOverall: PlayerWithOverall[] = [];
+      for (const p of results) {
+        const full = await getPlayerById(dbHandle, p.id);
         const overall = full ? calculateOverall(full.attributes, full.position) : 50;
-        return { ...p, overall };
-      });
+        withOverall.push({ ...p, overall });
+      }
       withOverall.sort((a, b) => b.overall - a.overall);
       setPlayers(withOverall);
     } finally {

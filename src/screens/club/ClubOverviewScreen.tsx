@@ -1,73 +1,62 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, ScrollView, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, Pressable } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { colors, spacing, fontSize, commonStyles } from '@/theme';
 import { useGameStore } from '@/store/game-store';
 import { useDatabaseStore } from '@/store/database-store';
 import { getClubById } from '@/database/queries/clubs';
 import { Club } from '@/types';
+import { RootStackParamList } from '@/navigation/types';
+
+type NavProp = NativeStackNavigationProp<RootStackParamList>;
 
 function formatCurrency(amount: number): string {
-  if (amount >= 1_000_000) {
-    return `$${(amount / 1_000_000).toFixed(1)}M`;
-  }
-  if (amount >= 1_000) {
-    return `$${(amount / 1_000).toFixed(0)}K`;
-  }
+  if (amount >= 1_000_000) return `$${(amount / 1_000_000).toFixed(1)}M`;
+  if (amount >= 1_000) return `$${(amount / 1_000).toFixed(0)}K`;
   return `$${amount.toLocaleString()}`;
 }
 
-function formatCapacity(n: number): string {
-  return n.toLocaleString();
+interface HubCardProps {
+  icon: string;
+  title: string;
+  subtitle?: string;
+  onPress: () => void;
+  accent?: string;
 }
 
-function FacilityDots({ level, max = 5 }: { level: number; max?: number }) {
+function HubCard({ icon, title, subtitle, onPress, accent }: HubCardProps) {
   return (
-    <View style={styles.dotsRow}>
-      {Array.from({ length: max }).map((_, i) => (
-        <View
-          key={i}
-          style={[
-            styles.dot,
-            i < level ? styles.dotFilled : styles.dotEmpty,
-          ]}
-        />
-      ))}
-    </View>
-  );
-}
-
-function ReputationBar({ value, max = 100 }: { value: number; max?: number }) {
-  const pct = Math.min(1, Math.max(0, value / max));
-  return (
-    <View style={styles.repBarTrack}>
-      <View style={[styles.repBarFill, { width: `${pct * 100}%` }]} />
-    </View>
-  );
-}
-
-interface InfoCardProps {
-  label: string;
-  children: React.ReactNode;
-}
-
-function InfoCard({ label, children }: InfoCardProps) {
-  return (
-    <View style={styles.card}>
-      <Text style={styles.cardLabel}>{label}</Text>
-      {children}
-    </View>
+    <Pressable
+      style={({ pressed }) => [
+        styles.hubCard,
+        accent ? { borderLeftColor: accent, borderLeftWidth: 4 } : null,
+        pressed && styles.hubCardPressed,
+      ]}
+      onPress={onPress}
+    >
+      <Text style={styles.hubIcon}>{icon}</Text>
+      <View style={styles.hubContent}>
+        <Text style={styles.hubTitle}>{title}</Text>
+        {subtitle ? <Text style={styles.hubSubtitle}>{subtitle}</Text> : null}
+      </View>
+      <Text style={styles.chevron}>›</Text>
+    </Pressable>
   );
 }
 
 export function ClubOverviewScreen() {
   const { playerClubId } = useGameStore();
   const { dbHandle } = useDatabaseStore();
+  const navigation = useNavigation<NavProp>();
   const [club, setClub] = useState<Club | null>(null);
 
   useEffect(() => {
     if (!dbHandle || playerClubId == null) return;
-    const loaded = getClubById(dbHandle, playerClubId);
-    setClub(loaded);
+    (async () => {
+      const loaded = await getClubById(dbHandle, playerClubId);
+      setClub(loaded);
+    })();
   }, [dbHandle, playerClubId]);
 
   if (!club) {
@@ -84,50 +73,73 @@ export function ClubOverviewScreen() {
       <View style={styles.header}>
         <Text style={styles.clubName}>{club.name}</Text>
         <Text style={styles.clubShort}>{club.shortName}</Text>
+        <View style={styles.headerStats}>
+          <View style={styles.headerStat}>
+            <Text style={styles.headerStatLabel}>Budget</Text>
+            <Text style={styles.headerStatValue}>{formatCurrency(club.budget)}</Text>
+          </View>
+          <View style={styles.headerStatDivider} />
+          <View style={styles.headerStat}>
+            <Text style={styles.headerStatLabel}>Reputation</Text>
+            <Text style={styles.headerStatValue}>{club.reputation}/100</Text>
+          </View>
+        </View>
       </View>
 
-      {/* Balance */}
-      <InfoCard label="BUDGET">
-        <Text style={styles.balanceAmount}>{formatCurrency(club.budget)}</Text>
-        <Text style={styles.subtext}>Wage budget: {formatCurrency(club.wageBudget)} / wk</Text>
-      </InfoCard>
+      {/* Transfers section */}
+      <Text style={styles.sectionTitle}>TRANSFERS</Text>
+      <HubCard
+        icon="🔄"
+        title="Transfer Market"
+        subtitle="Browse and bid for players"
+        accent={colors.accent}
+        onPress={() => navigation.navigate('TransferMarket')}
+      />
+      <HubCard
+        icon="📤"
+        title="Offers Sent"
+        subtitle="Track your bids"
+        accent={colors.primary}
+        onPress={() => navigation.navigate('OffersSent')}
+      />
+      <HubCard
+        icon="📥"
+        title="Offers Received"
+        subtitle="Bids for your players"
+        accent={colors.warning}
+        onPress={() => navigation.navigate('OffersReceived')}
+      />
+      <HubCard
+        icon="🆓"
+        title="Free Agents"
+        subtitle="Sign unattached players"
+        accent={colors.success}
+        onPress={() => navigation.navigate('FreeAgents')}
+      />
 
-      {/* Stadium */}
-      <InfoCard label="STADIUM">
-        <Text style={styles.value}>{club.stadiumName}</Text>
-        <Text style={styles.subtext}>Capacity: {formatCapacity(club.stadiumCapacity)}</Text>
-      </InfoCard>
-
-      {/* Facilities */}
-      <InfoCard label="FACILITIES">
-        <View style={styles.facilityRow}>
-          <Text style={styles.facilityName}>Training</Text>
-          <View style={styles.facilityRight}>
-            <Text style={styles.facilityLevel}>Lv. {club.trainingFacilities}/5</Text>
-            <FacilityDots level={club.trainingFacilities} />
-          </View>
-        </View>
-        <View style={[styles.facilityRow, styles.facilityRowBorder]}>
-          <Text style={styles.facilityName}>Youth Academy</Text>
-          <View style={styles.facilityRight}>
-            <Text style={styles.facilityLevel}>Lv. {club.youthAcademy}/5</Text>
-            <FacilityDots level={club.youthAcademy} />
-          </View>
-        </View>
-        <View style={styles.facilityRow}>
-          <Text style={styles.facilityName}>Medical</Text>
-          <View style={styles.facilityRight}>
-            <Text style={styles.facilityLevel}>Lv. {club.medicalDepartment}/5</Text>
-            <FacilityDots level={club.medicalDepartment} />
-          </View>
-        </View>
-      </InfoCard>
-
-      {/* Reputation */}
-      <InfoCard label="REPUTATION">
-        <Text style={styles.value}>{club.reputation} / 100</Text>
-        <ReputationBar value={club.reputation} />
-      </InfoCard>
+      {/* Management section */}
+      <Text style={styles.sectionTitle}>MANAGEMENT</Text>
+      <HubCard
+        icon="💰"
+        title="Finances"
+        subtitle="Income & expenses"
+        accent={colors.success}
+        onPress={() => navigation.navigate('ClubFinances')}
+      />
+      <HubCard
+        icon="👔"
+        title="Staff"
+        subtitle="Coaches & scouts"
+        accent={colors.primaryLight}
+        onPress={() => navigation.navigate('ClubStaff')}
+      />
+      <HubCard
+        icon="🏗️"
+        title="Upgrades"
+        subtitle="Facilities & stadium"
+        accent={colors.gold}
+        onPress={() => navigation.navigate('ClubUpgrades')}
+      />
     </ScrollView>
   );
 }
@@ -162,89 +174,78 @@ const styles = StyleSheet.create({
     fontSize: fontSize.md,
     marginTop: spacing.xs,
   },
-  card: {
-    backgroundColor: colors.surface,
-    borderRadius: 12,
-    padding: spacing.md,
-    marginHorizontal: spacing.md,
-    marginBottom: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.border,
+  headerStats: {
+    flexDirection: 'row',
+    marginTop: spacing.md,
+    alignItems: 'center',
   },
-  cardLabel: {
+  headerStat: {
+    flex: 1,
+  },
+  headerStatDivider: {
+    width: 1,
+    height: 30,
+    backgroundColor: colors.border,
+    marginHorizontal: spacing.md,
+  },
+  headerStatLabel: {
+    color: colors.textMuted,
+    fontSize: fontSize.xs,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  headerStatValue: {
+    color: colors.text,
+    fontSize: fontSize.lg,
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  sectionTitle: {
     color: colors.textMuted,
     fontSize: fontSize.xs,
     fontWeight: '600',
     letterSpacing: 1,
     textTransform: 'uppercase',
-    marginBottom: spacing.sm,
+    marginTop: spacing.md,
+    marginHorizontal: spacing.md + 4,
+    marginBottom: spacing.xs,
   },
-  balanceAmount: {
-    color: colors.success,
-    fontSize: fontSize.xxl,
-    fontWeight: 'bold',
-  },
-  value: {
-    color: colors.text,
-    fontSize: fontSize.lg,
-    fontWeight: '600',
-  },
-  subtext: {
-    color: colors.textSecondary,
-    fontSize: fontSize.sm,
-    marginTop: spacing.xs,
-  },
-  facilityRow: {
+  hubCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: spacing.sm,
-  },
-  facilityRowBorder: {
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
+    backgroundColor: colors.surface,
+    borderRadius: 12,
+    padding: spacing.md,
+    marginHorizontal: spacing.md,
+    marginVertical: spacing.xs,
+    borderWidth: 1,
     borderColor: colors.border,
   },
-  facilityName: {
+  hubCardPressed: {
+    backgroundColor: colors.surfaceLight,
+  },
+  hubIcon: {
+    fontSize: 24,
+    width: 36,
+    textAlign: 'center',
+    marginRight: spacing.sm,
+  },
+  hubContent: {
+    flex: 1,
+  },
+  hubTitle: {
     color: colors.text,
     fontSize: fontSize.md,
+    fontWeight: '600',
   },
-  facilityRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  facilityLevel: {
+  hubSubtitle: {
     color: colors.textSecondary,
     fontSize: fontSize.sm,
-    minWidth: 50,
-    textAlign: 'right',
+    marginTop: 2,
   },
-  dotsRow: {
-    flexDirection: 'row',
-    gap: 4,
-  },
-  dot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-  },
-  dotFilled: {
-    backgroundColor: colors.primary,
-  },
-  dotEmpty: {
-    backgroundColor: colors.border,
-  },
-  repBarTrack: {
-    height: 8,
-    backgroundColor: colors.border,
-    borderRadius: 4,
-    marginTop: spacing.sm,
-    overflow: 'hidden',
-  },
-  repBarFill: {
-    height: '100%',
-    backgroundColor: colors.primary,
-    borderRadius: 4,
+  chevron: {
+    color: colors.textMuted,
+    fontSize: fontSize.xxl,
+    marginLeft: spacing.sm,
   },
 });
