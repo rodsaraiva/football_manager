@@ -1,3 +1,6 @@
+import Database from 'better-sqlite3';
+import { DbHandle } from '@/database/queries/players';
+import { createTestDb, seedTestDb } from '../../database/test-helpers';
 import {
   calculateWeeklyIncome,
   calculateWeeklyExpenses,
@@ -5,6 +8,7 @@ import {
   WeeklyIncomeInput,
   WeeklyExpensesInput,
 } from '@/engine/finance/finance-engine';
+import { applyUpgrade } from '@/engine/finance/upgrades';
 
 describe('calculateWeeklyIncome', () => {
   const baseInput: WeeklyIncomeInput = {
@@ -83,5 +87,74 @@ describe('calculateUpgradeCost', () => {
       expect(result.cost).toBeGreaterThan(0);
       expect(result.weeks).toBeGreaterThan(0);
     }
+  });
+});
+
+describe('applyUpgrade', () => {
+  let rawDb: Database.Database;
+  let db: DbHandle;
+
+  beforeEach(() => {
+    rawDb = createTestDb();
+    seedTestDb(rawDb);
+    db = rawDb as unknown as DbHandle;
+  });
+
+  afterEach(() => rawDb.close());
+
+  it('debits the club budget by the upgrade cost', async () => {
+    const clubId = 1;
+    const { cost: expectedCost } = calculateUpgradeCost('training', 1);
+
+    // Set budget high enough and current level to 1
+    rawDb.prepare('UPDATE clubs SET budget = 50000000, training_facilities = 1 WHERE id = ?').run(clubId);
+
+    await applyUpgrade(db, clubId, 'training', 1, 1, 5);
+
+    const after = (rawDb.prepare('SELECT budget FROM clubs WHERE id = ?').get(clubId) as { budget: number }).budget;
+    expect(after).toBe(50000000 - expectedCost);
+  });
+
+  it('increments the facility column', async () => {
+    const clubId = 1;
+    rawDb.prepare('UPDATE clubs SET budget = 50000000, youth_academy = 2 WHERE id = ?').run(clubId);
+
+    await applyUpgrade(db, clubId, 'youth', 2, 1, 5);
+
+    const row = rawDb.prepare('SELECT youth_academy FROM clubs WHERE id = ?').get(clubId) as { youth_academy: number };
+    expect(row.youth_academy).toBe(3);
+  });
+
+  it('writes an upgrade finance entry', async () => {
+    const clubId = 1;
+    rawDb.prepare('UPDATE clubs SET budget = 50000000, medical_department = 1 WHERE id = ?').run(clubId);
+
+    await applyUpgrade(db, clubId, 'medical', 1, 1, 5);
+
+    const entries = rawDb
+      .prepare("SELECT * FROM club_finances WHERE club_id = ? AND type = 'upgrade'")
+      .all(clubId) as Array<{ amount: number; description: string }>;
+    expect(entries.length).toBe(1);
+    expect(entries[0].amount).toBeLessThan(0);
+    expect(entries[0].description).toContain('Medical Department');
+  });
+
+  it('returns failure when budget is insufficient', async () => {
+    const clubId = 1;
+    rawDb.prepare('UPDATE clubs SET budget = 100, training_facilities = 1 WHERE id = ?').run(clubId);
+
+    const result = await applyUpgrade(db, clubId, 'training', 1, 1, 5);
+
+    expect(result.success).toBe(false);
+    expect(result.reason).toMatch(/budget/i);
+  });
+
+  it('returns failure when already at max level', async () => {
+    const clubId = 1;
+    rawDb.prepare('UPDATE clubs SET budget = 50000000, training_facilities = 5 WHERE id = ?').run(clubId);
+
+    const result = await applyUpgrade(db, clubId, 'training', 5, 1, 5);
+
+    expect(result.success).toBe(false);
   });
 });

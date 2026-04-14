@@ -13,6 +13,7 @@ import { useGameStore } from '@/store/game-store';
 import { useDatabaseStore } from '@/store/database-store';
 import { getClubById } from '@/database/queries/clubs';
 import { calculateUpgradeCost, FacilityType } from '@/engine/finance/finance-engine';
+import { applyUpgrade } from '@/engine/finance/upgrades';
 import { Club } from '@/types';
 
 const MAX_LEVEL = 5;
@@ -51,18 +52,33 @@ function LevelBar({ current, max = MAX_LEVEL }: { current: number; max?: number 
 interface UpgradeCardProps {
   config: FacilityConfig;
   budget: number;
+  clubId: number;
+  season: number;
+  week: number;
+  dbHandle: NonNullable<ReturnType<typeof useDatabaseStore>['dbHandle']>;
+  onUpgradeComplete: () => void;
 }
 
-function UpgradeCard({ config, budget }: UpgradeCardProps) {
+function UpgradeCard({ config, budget, clubId, season, week, dbHandle, onUpgradeComplete }: UpgradeCardProps) {
   const isMaxed = config.currentLevel >= MAX_LEVEL;
   const upgradeCost = isMaxed ? null : calculateUpgradeCost(config.type, config.currentLevel);
   const canAfford = !isMaxed && upgradeCost != null && budget >= upgradeCost.cost;
 
-  function handleUpgrade() {
-    if (isMaxed) return;
+  async function handleUpgrade() {
+    if (isMaxed || !upgradeCost) return;
+    if (budget < upgradeCost.cost) {
+      Alert.alert('Insufficient Budget', `You need ${formatCost(upgradeCost.cost)} to upgrade ${config.label}.`);
+      return;
+    }
+    const result = await applyUpgrade(dbHandle, clubId, config.type, config.currentLevel, season, week);
+    if (!result.success) {
+      Alert.alert('Upgrade Failed', result.reason ?? 'Unknown error');
+      return;
+    }
+    onUpgradeComplete();
     Alert.alert(
-      'Upgrade Started!',
-      `${config.label} upgrade will take ${upgradeCost?.weeks} weeks and cost ${upgradeCost ? formatCost(upgradeCost.cost) : '—'}.`,
+      'Upgrade Complete!',
+      `${config.label} upgraded to level ${result.newLevel} for ${formatCost(result.cost ?? 0)}.`,
     );
   }
 
@@ -114,7 +130,7 @@ function UpgradeCard({ config, budget }: UpgradeCardProps) {
 }
 
 export function UpgradesScreen() {
-  const { playerClubId, week } = useGameStore();
+  const { playerClubId, season, week } = useGameStore();
   const { dbHandle } = useDatabaseStore();
   const [club, setClub] = useState<Club | null>(null);
 
@@ -183,7 +199,16 @@ export function UpgradesScreen() {
       </View>
 
       {facilities.map((fac) => (
-        <UpgradeCard key={fac.type} config={fac} budget={club.budget} />
+        <UpgradeCard
+          key={fac.type}
+          config={fac}
+          budget={club.budget}
+          clubId={playerClubId!}
+          season={season}
+          week={week}
+          dbHandle={dbHandle!}
+          onUpgradeComplete={load}
+        />
       ))}
     </ScrollView>
   );
