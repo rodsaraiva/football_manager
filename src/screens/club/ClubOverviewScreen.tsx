@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { View, Text, ScrollView, StyleSheet, Pressable } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { colors, spacing, fontSize, commonStyles } from '@/theme';
 import { useGameStore } from '@/store/game-store';
@@ -46,18 +46,26 @@ function HubCard({ icon, title, subtitle, onPress, accent }: HubCardProps) {
 }
 
 export function ClubOverviewScreen() {
-  const { playerClubId } = useGameStore();
+  const { playerClubId, week } = useGameStore();
   const { dbHandle } = useDatabaseStore();
   const navigation = useNavigation<NavProp>();
   const [club, setClub] = useState<Club | null>(null);
 
-  useEffect(() => {
+  const load = useCallback(async () => {
     if (!dbHandle || playerClubId == null) return;
-    (async () => {
-      const loaded = await getClubById(dbHandle, playerClubId);
-      setClub(loaded);
-    })();
+    const loaded = await getClubById(dbHandle, playerClubId);
+    setClub(loaded);
   }, [dbHandle, playerClubId]);
+
+  useEffect(() => {
+    load();
+  }, [load, week]);
+
+  useFocusEffect(
+    useCallback(() => {
+      load();
+    }, [load]),
+  );
 
   if (!club) {
     return (

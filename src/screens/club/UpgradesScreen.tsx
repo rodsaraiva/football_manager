@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   StyleSheet,
   Alert,
 } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { colors, spacing, fontSize, commonStyles } from '@/theme';
 import { useGameStore } from '@/store/game-store';
 import { useDatabaseStore } from '@/store/database-store';
@@ -113,15 +114,25 @@ function UpgradeCard({ config, budget }: UpgradeCardProps) {
 }
 
 export function UpgradesScreen() {
-  const { playerClubId } = useGameStore();
+  const { playerClubId, week } = useGameStore();
   const { dbHandle } = useDatabaseStore();
   const [club, setClub] = useState<Club | null>(null);
 
-  useEffect(() => {
+  const load = useCallback(async () => {
     if (!dbHandle || playerClubId == null) return;
-    const loaded = getClubById(dbHandle, playerClubId);
+    const loaded = await getClubById(dbHandle, playerClubId);
     setClub(loaded);
   }, [dbHandle, playerClubId]);
+
+  useEffect(() => {
+    load();
+  }, [load, week]);
+
+  useFocusEffect(
+    useCallback(() => {
+      load();
+    }, [load]),
+  );
 
   if (!club) {
     return (

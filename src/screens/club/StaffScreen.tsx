@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   Alert,
   ListRenderItemInfo,
 } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { colors, spacing, fontSize, commonStyles } from '@/theme';
 import { useGameStore } from '@/store/game-store';
 import { useDatabaseStore } from '@/store/database-store';
@@ -64,15 +65,25 @@ function StaffCard({ item }: { item: Staff }) {
 }
 
 export function StaffScreen() {
-  const { playerClubId } = useGameStore();
+  const { playerClubId, week } = useGameStore();
   const { dbHandle } = useDatabaseStore();
   const [staff, setStaff] = useState<Staff[]>([]);
 
-  useEffect(() => {
+  const load = useCallback(async () => {
     if (!dbHandle || playerClubId == null) return;
-    const loaded = getStaffByClub(dbHandle, playerClubId);
+    const loaded = await getStaffByClub(dbHandle, playerClubId);
     setStaff(loaded);
   }, [dbHandle, playerClubId]);
+
+  useEffect(() => {
+    load();
+  }, [load, week]);
+
+  useFocusEffect(
+    useCallback(() => {
+      load();
+    }, [load]),
+  );
 
   function handleHireStaff() {
     Alert.alert('Hire Staff', 'Staff hiring will be available in a future update.');

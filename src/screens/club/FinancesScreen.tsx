@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -6,10 +6,12 @@ import {
   StyleSheet,
   ListRenderItemInfo,
 } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { colors, spacing, fontSize, commonStyles } from '@/theme';
 import { useGameStore } from '@/store/game-store';
 import { useDatabaseStore } from '@/store/database-store';
 import { getFinancesBySeason } from '@/database/queries/finances';
+import { getClubById } from '@/database/queries/clubs';
 import { ClubFinance, FinanceType } from '@/types';
 
 function formatCurrency(amount: number): string {
@@ -82,19 +84,45 @@ function TransactionItem({ item }: { item: ClubFinance }) {
 }
 
 export function FinancesScreen() {
-  const { playerClubId, playerClub, season } = useGameStore();
+  const { playerClubId, playerClub, setPlayerClub, season, week } = useGameStore();
   const { dbHandle } = useDatabaseStore();
   const [finances, setFinances] = useState<ClubFinance[]>([]);
+  const [liveBudget, setLiveBudget] = useState<number | null>(null);
 
-  useEffect(() => {
+  const load = useCallback(async () => {
     if (!dbHandle || playerClubId == null) return;
-    const entries = getFinancesBySeason(dbHandle, playerClubId, season);
+    // Re-fetch the club so the budget figure is always fresh, even if the
+    // user came here without hitting Home (where the store is refreshed).
+    const club = await getClubById(dbHandle, playerClubId);
+    if (club) {
+      setLiveBudget(club.budget);
+      setPlayerClub(club);
+    }
+    const entries = await getFinancesBySeason(dbHandle, playerClubId, season);
+    // Sort ascending by week so the "Transactions" list reads chronologically
+    // when reversed at render time.
+    entries.sort((a, b) => a.week - b.week);
     setFinances(entries);
-  }, [dbHandle, playerClubId, season]);
+  }, [dbHandle, playerClubId, season, setPlayerClub]);
+
+  // Run on mount and whenever any of the inputs change (incl. week, so the
+  // screen refreshes after the user advances time while it was still on the
+  // navigation stack).
+  useEffect(() => {
+    load();
+  }, [load, week]);
+
+  // Also reload whenever the screen regains focus — covers the case where the
+  // user navigates away, advances weeks, and comes back.
+  useFocusEffect(
+    useCallback(() => {
+      load();
+    }, [load]),
+  );
 
   const totalIncome = finances.filter((f) => f.amount > 0).reduce((s, f) => s + f.amount, 0);
   const totalExpenses = finances.filter((f) => f.amount < 0).reduce((s, f) => s + f.amount, 0);
-  const budget = playerClub?.budget ?? 0;
+  const budget = liveBudget ?? playerClub?.budget ?? 0;
 
   function renderItem({ item }: ListRenderItemInfo<ClubFinance>) {
     return <TransactionItem item={item} />;
