@@ -55,6 +55,11 @@ export function EndOfSeasonScreen() {
   const [loading, setLoading] = useState(true);
   const [starting, setStarting] = useState(false);
 
+  // advanceGameWeek already bumped the season pointer to the upcoming year.
+  // The stats/report are about the season that just finished, which is one
+  // behind the store's "current" season.
+  const endedSeason = season - 1;
+
   useEffect(() => {
     if (!dbHandle || !playerClub || !playerClubId) {
       setLoading(false);
@@ -63,8 +68,8 @@ export function EndOfSeasonScreen() {
 
     (async () => {
       try {
-        // Get all club fixtures for the season
-        const allFixtures = await getFixturesByClub(dbHandle, playerClubId, season);
+        // Get all club fixtures for the season that just ended
+        const allFixtures = await getFixturesByClub(dbHandle, playerClubId, endedSeason);
         const played = allFixtures.filter((f) => f.played);
 
         let wins = 0;
@@ -88,7 +93,7 @@ export function EndOfSeasonScreen() {
         const leagueClubs = await getClubsByLeague(dbHandle, playerClub.leagueId);
         const clubIds = leagueClubs.map((c) => c.id);
 
-        const competitions = await getCompetitionsBySeason(dbHandle, season);
+        const competitions = await getCompetitionsBySeason(dbHandle, endedSeason);
         const leagueComp = competitions.find(
           (comp) => comp.leagueId === playerClub.leagueId && comp.type === 'league',
         );
@@ -100,7 +105,7 @@ export function EndOfSeasonScreen() {
           // Collect all played league fixtures across all league clubs
           const fixtureSet = new Map<number, Fixture>();
           for (const clubId of clubIds) {
-            const clubFixtures = await getFixturesByClub(dbHandle, clubId, season);
+            const clubFixtures = await getFixturesByClub(dbHandle, clubId, endedSeason);
             for (const f of clubFixtures) {
               if (f.competitionId === leagueComp.id && f.played && !fixtureSet.has(f.id)) {
                 fixtureSet.set(f.id, f);
@@ -114,7 +119,7 @@ export function EndOfSeasonScreen() {
         }
 
         // Financial summary
-        const balance = await getSeasonBalance(dbHandle, playerClubId, season);
+        const balance = await getSeasonBalance(dbHandle, playerClubId, endedSeason);
         const income = balance > 0 ? balance : 0;
         const expenses = balance < 0 ? Math.abs(balance) : 0;
 
@@ -148,23 +153,26 @@ export function EndOfSeasonScreen() {
         setLoading(false);
       }
     })();
-  }, [dbHandle, playerClub, playerClubId, season]);
+  }, [dbHandle, playerClub, playerClubId, endedSeason]);
 
   async function handleContinue() {
     if (!dbHandle || starting || !playerClubId) return;
     setStarting(true);
 
     try {
-      const newSeason = season + 1;
+      // The store's `season` is already the new season (set by advanceGameWeek).
+      // Use that as the starting point for the new calendar; use endedSeason
+      // for anything referring to the finished year.
+      const newSeason = season;
 
       // 1. Age all players
       await dbHandle.prepare('UPDATE players SET age = age + 1').run();
 
-      // 2. Contract expiry — mark players whose contract ends this season as free agents
-      await dbHandle.prepare('UPDATE players SET is_free_agent = 1 WHERE contract_end <= ?').run(season);
+      // 2. Contract expiry — mark players whose contract ended with this season as free agents
+      await dbHandle.prepare('UPDATE players SET is_free_agent = 1 WHERE contract_end <= ?').run(endedSeason);
 
       // 2b. Return loaned players to their parent clubs
-      await returnExpiredLoans(dbHandle, season);
+      await returnExpiredLoans(dbHandle, endedSeason);
 
       // 3. Dynamic potential recalculation for player's club squad
       if (playerClubId) {
@@ -172,7 +180,7 @@ export function EndOfSeasonScreen() {
         for (const player of squad) {
           const seasonStats = await dbHandle.prepare(
             'SELECT avg_rating, minutes_played FROM player_stats WHERE player_id = ? AND season = ?',
-          ).get(player.id, season) as { avg_rating: number; minutes_played: number } | undefined;
+          ).get(player.id, endedSeason) as { avg_rating: number; minutes_played: number } | undefined;
 
           if (!seasonStats) continue;
 
@@ -316,13 +324,14 @@ export function EndOfSeasonScreen() {
         }
       }
 
-      // Reset to new season
+      // Reset to new season — season pointer is already correct, just flip
+      // the flag and make sure we're on week 1 of the new season.
       setNewSeason(false);
       updateWeek(newSeason, 1);
     } catch (err) {
       // Still proceed even if calendar generation failed
       setNewSeason(false);
-      updateWeek(season + 1, 1);
+      updateWeek(season, 1);
     } finally {
       setStarting(false);
       navigation.navigate('Game');
@@ -343,7 +352,7 @@ export function EndOfSeasonScreen() {
       {/* Title */}
       <View style={styles.titleCard}>
         <Text style={styles.trophy}>SEASON COMPLETE</Text>
-        <Text style={styles.titleText}>Season {season}</Text>
+        <Text style={styles.titleText}>Season {endedSeason}</Text>
         <Text style={styles.clubName}>{playerClub?.name ?? 'Your Club'}</Text>
       </View>
 
@@ -435,7 +444,7 @@ export function EndOfSeasonScreen() {
         {starting ? (
           <ActivityIndicator color={colors.text} />
         ) : (
-          <Text style={styles.continueButtonText}>CONTINUE TO SEASON {season + 1}</Text>
+          <Text style={styles.continueButtonText}>CONTINUE TO SEASON {season}</Text>
         )}
       </TouchableOpacity>
     </ScrollView>

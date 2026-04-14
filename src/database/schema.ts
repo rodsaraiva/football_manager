@@ -218,7 +218,9 @@ CREATE TABLE IF NOT EXISTS tactics (
   pressing      TEXT    NOT NULL DEFAULT 'medium',
   passing_style TEXT    NOT NULL DEFAULT 'mixed',
   tempo         TEXT    NOT NULL DEFAULT 'normal',
-  width         TEXT    NOT NULL DEFAULT 'normal'
+  width         TEXT    NOT NULL DEFAULT 'normal',
+  attack_focus  TEXT    NOT NULL DEFAULT 'balanced',
+  sub_strategy  TEXT    NOT NULL DEFAULT 'balanced'
 );
 
 CREATE TABLE IF NOT EXISTS tactic_positions (

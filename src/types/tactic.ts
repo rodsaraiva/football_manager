@@ -4,6 +4,18 @@ export type Pressing = 'low' | 'medium' | 'high';
 export type PassingStyle = 'short' | 'mixed' | 'direct';
 export type Tempo = 'slow' | 'normal' | 'fast';
 export type Width = 'narrow' | 'normal' | 'wide';
+export type AttackFocus =
+  | 'through_middle'  // verticality through central midfielders
+  | 'down_the_flanks' // exploits wingers, crosses
+  | 'balanced'        // mixes both
+  | 'counter_attack'  // sits back, springs quick transitions
+  | 'possession';     // slow build-up, holds the ball
+export type SubstitutionStrategy =
+  | 'minimal'         // only injuries/exhaustion
+  | 'balanced'        // default behaviour
+  | 'heavy_rotation'  // uses all 5 subs, rotates freely
+  | 'youth_chances'   // prefers youth (<=21) from the bench when possible
+  | 'chase_the_game'; // losing → attack, winning → defend
 
 export interface Tactic {
   id: number;
@@ -16,6 +28,8 @@ export interface Tactic {
   passingStyle: PassingStyle;
   tempo: Tempo;
   width: Width;
+  attackFocus: AttackFocus;
+  subStrategy: SubstitutionStrategy;
 }
 
 export interface TacticPosition {

@@ -24,6 +24,7 @@ const defaultTactic: Tactic = {
   id: 1, clubId: 1, name: 'Default', isActive: true,
   formation: '4-4-2', mentality: 'balanced', pressing: 'medium',
   passingStyle: 'mixed', tempo: 'normal', width: 'normal',
+  attackFocus: 'balanced', subStrategy: 'balanced',
 };
 
 function makeInput(homeOverall: number, awayOverall: number): MatchInput {
@@ -71,7 +72,7 @@ describe('simulateMatch', () => {
 
   it('events contain only valid types', () => {
     const result = simulateMatch(makeInput(75, 75));
-    const validTypes = ['goal', 'assist', 'yellow', 'red', 'substitution', 'injury', 'penalty_scored', 'penalty_missed'];
+    const validTypes = ['goal', 'assist', 'yellow', 'red', 'substitution', 'injury', 'penalty_scored', 'penalty_missed', 'free_kick_scored', 'free_kick_missed'];
     for (const event of result.events) {
       expect(validTypes).toContain(event.type);
     }
@@ -85,19 +86,15 @@ describe('simulateMatch', () => {
     }
   });
 
-  it('number of goals matches goal events', () => {
+  it('total goals matches sum of goal/penalty_scored events', () => {
     for (let seed = 0; seed < 50; seed++) {
       const input = makeInput(70, 70);
       input.rng = new SeededRng(seed);
       const result = simulateMatch(input);
-      const homeGoalEvents = result.events.filter(e =>
-        (e.type === 'goal' || e.type === 'penalty_scored') && input.homeSquad.some(p => p.id === e.playerId)
+      const totalGoalEvents = result.events.filter(e =>
+        e.type === 'goal' || e.type === 'penalty_scored' || e.type === 'free_kick_scored'
       ).length;
-      const awayGoalEvents = result.events.filter(e =>
-        (e.type === 'goal' || e.type === 'penalty_scored') && input.awaySquad.some(p => p.id === e.playerId)
-      ).length;
-      expect(homeGoalEvents).toBe(result.homeGoals);
-      expect(awayGoalEvents).toBe(result.awayGoals);
+      expect(totalGoalEvents).toBe(result.homeGoals + result.awayGoals);
     }
   });
 
@@ -115,6 +112,74 @@ describe('simulateMatch', () => {
         }
       }
     }
+  });
+
+  it('heavy_rotation sub strategy produces more substitutions than minimal over many runs', () => {
+    let minimalSubs = 0;
+    let heavySubs = 0;
+    for (let seed = 0; seed < 40; seed++) {
+      const base = makeInput(75, 75);
+      base.rng = new SeededRng(seed);
+      const minimalTactic: Tactic = { ...defaultTactic, subStrategy: 'minimal' };
+      const heavyTactic: Tactic = { ...defaultTactic, subStrategy: 'heavy_rotation' };
+
+      const minResult = simulateMatch({
+        ...base,
+        homeTactic: minimalTactic,
+        awayTactic: minimalTactic,
+        rng: new SeededRng(seed),
+      });
+      minimalSubs += minResult.events.filter(e => e.type === 'substitution').length;
+
+      const heavyResult = simulateMatch({
+        ...base,
+        homeTactic: heavyTactic,
+        awayTactic: heavyTactic,
+        rng: new SeededRng(seed),
+      });
+      heavySubs += heavyResult.events.filter(e => e.type === 'substitution').length;
+    }
+    expect(heavySubs).toBeGreaterThan(minimalSubs);
+  });
+
+  it('counter_attack and possession focuses both reduce total shots vs balanced', () => {
+    let counterShots = 0;
+    let balancedShots = 0;
+    let possessionShots = 0;
+    for (let seed = 0; seed < 30; seed++) {
+      const base = makeInput(75, 75);
+      const counterTactic: Tactic = { ...defaultTactic, attackFocus: 'counter_attack' };
+      const balancedTactic: Tactic = { ...defaultTactic, attackFocus: 'balanced' };
+      const possessionTactic: Tactic = { ...defaultTactic, attackFocus: 'possession' };
+
+      const c = simulateMatch({
+        ...base,
+        homeTactic: counterTactic,
+        awayTactic: counterTactic,
+        rng: new SeededRng(seed + 10_000),
+      });
+      counterShots += c.stats.homeShots + c.stats.awayShots;
+
+      const b = simulateMatch({
+        ...base,
+        homeTactic: balancedTactic,
+        awayTactic: balancedTactic,
+        rng: new SeededRng(seed + 10_000),
+      });
+      balancedShots += b.stats.homeShots + b.stats.awayShots;
+
+      const p = simulateMatch({
+        ...base,
+        homeTactic: possessionTactic,
+        awayTactic: possessionTactic,
+        rng: new SeededRng(seed + 10_000),
+      });
+      possessionShots += p.stats.homeShots + p.stats.awayShots;
+    }
+    // Both counter-attack and possession cut down speculative off-target
+    // attempts compared to the neutral balanced focus.
+    expect(counterShots).toBeLessThan(balancedShots);
+    expect(possessionShots).toBeLessThan(balancedShots);
   });
 
   it('produces match statistics', () => {

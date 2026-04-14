@@ -18,6 +18,8 @@ import {
   PassingStyle,
   Tempo,
   Width,
+  AttackFocus,
+  SubstitutionStrategy,
   Tactic,
 } from '@/types';
 
@@ -26,6 +28,7 @@ interface SettingRowProps<T extends string> {
   options: readonly T[];
   value: T;
   onSelect: (value: T) => void;
+  labelFor?: (v: T) => string;
 }
 
 function SettingRow<T extends string>({
@@ -33,6 +36,7 @@ function SettingRow<T extends string>({
   options,
   value,
   onSelect,
+  labelFor,
 }: SettingRowProps<T>) {
   return (
     <View style={styles.settingRow}>
@@ -50,7 +54,7 @@ function SettingRow<T extends string>({
                 value === opt && styles.optionButtonTextActive,
               ]}
             >
-              {opt.charAt(0).toUpperCase() + opt.slice(1)}
+              {labelFor ? labelFor(opt) : opt.charAt(0).toUpperCase() + opt.slice(1)}
             </Text>
           </Pressable>
         ))}
@@ -64,6 +68,24 @@ const PRESSING_OPTIONS: Pressing[] = ['low', 'medium', 'high'];
 const PASSING_OPTIONS: PassingStyle[] = ['short', 'mixed', 'direct'];
 const TEMPO_OPTIONS: Tempo[] = ['slow', 'normal', 'fast'];
 const WIDTH_OPTIONS: Width[] = ['narrow', 'normal', 'wide'];
+const ATTACK_FOCUS_OPTIONS: AttackFocus[] = [
+  'balanced',
+  'through_middle',
+  'down_the_flanks',
+  'counter_attack',
+  'possession',
+];
+const SUB_STRATEGY_OPTIONS: SubstitutionStrategy[] = [
+  'balanced',
+  'minimal',
+  'heavy_rotation',
+  'youth_chances',
+  'chase_the_game',
+];
+
+function humanize(s: string): string {
+  return s.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+}
 
 export function TacticsSettingsScreen() {
   const playerClubId = useGameStore((s) => s.playerClubId);
@@ -78,40 +100,48 @@ export function TacticsSettingsScreen() {
   const [passingStyle, setPassingStyle] = useState<PassingStyle>('mixed');
   const [tempo, setTempo] = useState<Tempo>('normal');
   const [width, setWidth] = useState<Width>('normal');
+  const [attackFocus, setAttackFocus] = useState<AttackFocus>('balanced');
+  const [subStrategy, setSubStrategy] = useState<SubstitutionStrategy>('balanced');
 
   useEffect(() => {
     if (!dbHandle || playerClubId === null) {
       setLoading(false);
       return;
     }
-    try {
-      const activeTactic = getActiveTactic(dbHandle, playerClubId);
-      if (activeTactic) {
-        setTactic(activeTactic);
-        setMentality(activeTactic.mentality);
-        setPressing(activeTactic.pressing);
-        setPassingStyle(activeTactic.passingStyle);
-        setTempo(activeTactic.tempo);
-        setWidth(activeTactic.width);
+    (async () => {
+      try {
+        const activeTactic = await getActiveTactic(dbHandle, playerClubId);
+        if (activeTactic) {
+          setTactic(activeTactic);
+          setMentality(activeTactic.mentality);
+          setPressing(activeTactic.pressing);
+          setPassingStyle(activeTactic.passingStyle);
+          setTempo(activeTactic.tempo);
+          setWidth(activeTactic.width);
+          setAttackFocus(activeTactic.attackFocus);
+          setSubStrategy(activeTactic.subStrategy);
+        }
+      } finally {
+        setLoading(false);
       }
-    } finally {
-      setLoading(false);
-    }
+    })();
   }, [dbHandle, playerClubId]);
 
-  const handleSave = useCallback(() => {
+  const handleSave = useCallback(async () => {
     if (!dbHandle || !tactic) {
       Alert.alert('Error', 'No active tactic found.');
       return;
     }
     setSaving(true);
     try {
-      updateTactic(dbHandle, tactic.id, {
+      await updateTactic(dbHandle, tactic.id, {
         mentality,
         pressing,
         passingStyle,
         tempo,
         width,
+        attackFocus,
+        subStrategy,
       });
       Alert.alert('Saved', 'Tactic settings saved successfully!');
     } catch {
@@ -119,7 +149,7 @@ export function TacticsSettingsScreen() {
     } finally {
       setSaving(false);
     }
-  }, [dbHandle, tactic, mentality, pressing, passingStyle, tempo, width]);
+  }, [dbHandle, tactic, mentality, pressing, passingStyle, tempo, width, attackFocus, subStrategy]);
 
   if (loading) {
     return (
@@ -165,6 +195,22 @@ export function TacticsSettingsScreen() {
           options={WIDTH_OPTIONS}
           value={width}
           onSelect={setWidth}
+        />
+        <View style={styles.divider} />
+        <SettingRow
+          label="Attack Focus"
+          options={ATTACK_FOCUS_OPTIONS}
+          value={attackFocus}
+          onSelect={setAttackFocus}
+          labelFor={humanize}
+        />
+        <View style={styles.divider} />
+        <SettingRow
+          label="Substitutions"
+          options={SUB_STRATEGY_OPTIONS}
+          value={subStrategy}
+          onSelect={setSubStrategy}
+          labelFor={humanize}
         />
       </View>
 

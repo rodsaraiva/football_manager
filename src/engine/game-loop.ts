@@ -290,6 +290,8 @@ export async function advanceGameWeek(params: AdvanceWeekParams): Promise<Advanc
       passingStyle: 'mixed' as const,
       tempo: 'normal' as const,
       width: 'normal' as const,
+      attackFocus: 'balanced' as const,
+      subStrategy: 'balanced' as const,
     };
 
     const matchResult = simulateMatch({

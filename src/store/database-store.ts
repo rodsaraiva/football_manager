@@ -82,6 +82,9 @@ export const useDatabaseStore = create<DatabaseStore>((set) => ({
           blocked_until_week   INTEGER NOT NULL
         );
       `);
+      // Tactics: new orientation/substitution fields
+      await addColumnIfMissing(db, 'tactics', 'attack_focus', "TEXT NOT NULL DEFAULT 'balanced'");
+      await addColumnIfMissing(db, 'tactics', 'sub_strategy', "TEXT NOT NULL DEFAULT 'balanced'");
 
       // Seed if DB is missing data (check both countries and clubs to catch partial seeds)
       const countryCount = await db.getFirstAsync<{ cnt: number }>('SELECT COUNT(*) as cnt FROM countries');

@@ -17,6 +17,7 @@ const defaultTactic: Tactic = {
   id: 1, clubId: 1, name: 'Default', isActive: true,
   formation: '4-4-2', mentality: 'balanced', pressing: 'medium',
   passingStyle: 'mixed', tempo: 'normal', width: 'normal',
+  attackFocus: 'balanced', subStrategy: 'balanced',
 };
 
 describe('calculateTeamStrength', () => {

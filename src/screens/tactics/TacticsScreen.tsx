@@ -1,63 +1,105 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
   View,
+  Platform,
 } from 'react-native';
+import StatBar from '@/components/StatBar';
 import { colors, commonStyles, fontSize, spacing } from '@/theme';
 import { useGameStore } from '@/store/game-store';
 import { useDatabaseStore } from '@/store/database-store';
 import {
   getActiveTactic,
-  getTacticPositions,
   updateTactic,
 } from '@/database/queries/tactics';
 import { getPlayersByClub, getPlayerById } from '@/database/queries/players';
 import { calculateOverall } from '@/utils/overall';
-import { Formation, Tactic } from '@/types';
+import { Formation, Tactic, AttackFocus, SubstitutionStrategy } from '@/types';
 import { Player, PlayerAttributes, Position } from '@/types';
+
+const ATTACK_FOCUS_OPTIONS: { value: AttackFocus; label: string }[] = [
+  { value: 'balanced', label: 'Balanced' },
+  { value: 'through_middle', label: 'Through the middle' },
+  { value: 'down_the_flanks', label: 'Down the flanks' },
+  { value: 'counter_attack', label: 'Counter-attack' },
+  { value: 'possession', label: 'Possession' },
+];
+
+const SUB_STRATEGY_OPTIONS: { value: SubstitutionStrategy; label: string }[] = [
+  { value: 'balanced', label: 'Balanced' },
+  { value: 'minimal', label: 'Minimal (injuries only)' },
+  { value: 'heavy_rotation', label: 'Heavy rotation' },
+  { value: 'youth_chances', label: 'Youth chances' },
+  { value: 'chase_the_game', label: 'Chase the game' },
+];
+
+function labelFor<T extends string>(opts: { value: T; label: string }[], v: T): string {
+  return opts.find((o) => o.value === v)?.label ?? v;
+}
 
 type PlayerWithOvr = Player & { attributes: PlayerAttributes; overall: number };
 
 const FORMATIONS: Formation[] = ['4-4-2', '4-3-3', '4-2-3-1', '3-5-2', '4-5-1'];
 
-/** Map each formation to its rows of position roles (GK first, then defensive → midfield → attack) */
 const FORMATION_ROWS: Record<string, string[][]> = {
-  '4-4-2':   [['GK'], ['CB', 'CB', 'LB', 'RB'], ['CM', 'CM', 'LM', 'RM'], ['ST', 'ST']],
-  '4-3-3':   [['GK'], ['CB', 'CB', 'LB', 'RB'], ['CDM', 'CM', 'CM'], ['LW', 'ST', 'RW']],
-  '4-2-3-1': [['GK'], ['CB', 'CB', 'LB', 'RB'], ['CDM', 'CDM'], ['CAM', 'LM', 'RM'], ['ST']],
-  '3-5-2':   [['GK'], ['CB', 'CB', 'CB'], ['CDM', 'CM', 'CM', 'LM', 'RM'], ['ST', 'ST']],
-  '4-5-1':   [['GK'], ['CB', 'CB', 'LB', 'RB'], ['CDM', 'CM', 'CM', 'LM', 'RM'], ['ST']],
+  '4-4-2':   [['ST', 'ST'], ['LM', 'CM', 'CM', 'RM'], ['LB', 'CB', 'CB', 'RB'], ['GK']],
+  '4-3-3':   [['LW', 'ST', 'RW'], ['CM', 'CDM', 'CM'], ['LB', 'CB', 'CB', 'RB'], ['GK']],
+  '4-2-3-1': [['ST'], ['LM', 'CAM', 'RM'], ['CDM', 'CDM'], ['LB', 'CB', 'CB', 'RB'], ['GK']],
+  '3-5-2':   [['ST', 'ST'], ['LM', 'CM', 'CDM', 'CM', 'RM'], ['CB', 'CB', 'CB'], ['GK']],
+  '4-5-1':   [['ST'], ['LM', 'CM', 'CDM', 'CM', 'RM'], ['LB', 'CB', 'CB', 'RB'], ['GK']],
 };
 
-function bestPlayerForPosition(
-  position: Position,
-  squad: PlayerWithOvr[],
-  usedIds: Set<number>,
-): PlayerWithOvr | null {
-  // Score each player for the given position, pick best unused
-  const candidates = squad
-    .filter((p) => !usedIds.has(p.id))
-    .map((p) => ({
-      player: p,
-      score: calculateOverall(p.attributes, position),
-    }))
-    .sort((a, b) => b.score - a.score);
-  return candidates[0]?.player ?? null;
+const POSITION_GROUP: Record<string, string> = {
+  GK: 'GK', CB: 'DEF', LB: 'DEF', RB: 'DEF',
+  CDM: 'MID', CM: 'MID', CAM: 'MID', LM: 'MID', RM: 'MID',
+  LW: 'FWD', RW: 'FWD', ST: 'FWD',
+};
+
+function getPositionColor(position: string): string {
+  if (position === 'GK') return '#f4a261';
+  if (['CB', 'LB', 'RB'].includes(position)) return colors.primary;
+  if (['CDM', 'CM', 'CAM', 'LM', 'RM'].includes(position)) return colors.success;
+  return colors.accent;
 }
+
+const POS_ORDER: Record<string, number> = {
+  GK:0, CB:1, LB:2, RB:3, CDM:4, CM:5, CAM:6, LM:7, RM:8, LW:9, RW:10, ST:11,
+};
 
 interface SlotAssignment {
   positionRole: string;
   player: PlayerWithOvr | null;
 }
 
-function buildLineup(
-  formation: string,
+function bestPlayerForPosition(
+  position: Position,
   squad: PlayerWithOvr[],
-): SlotAssignment[][] {
+  usedIds: Set<number>,
+): PlayerWithOvr | null {
+  const targetGroup = POSITION_GROUP[position] ?? 'MID';
+  const candidates = squad
+    .filter((p) => !usedIds.has(p.id))
+    .map((p) => {
+      const base = calculateOverall(p.attributes, position);
+      let bonus = 0;
+      if (p.position === position) bonus = 15;
+      else if (p.secondaryPosition === position) bonus = 8;
+      else if (POSITION_GROUP[p.position] === targetGroup) bonus = 3;
+      else if (position === 'GK' && p.position !== 'GK') bonus = -30;
+      else if (p.position === 'GK' && position !== 'GK') bonus = -30;
+      else bonus = -10;
+      return { player: p, score: base + bonus };
+    })
+    .sort((a, b) => b.score - a.score);
+  return candidates[0]?.player ?? null;
+}
+
+function buildLineup(formation: string, squad: PlayerWithOvr[]): SlotAssignment[][] {
   const rows = FORMATION_ROWS[formation] ?? FORMATION_ROWS['4-4-2'];
   const usedIds = new Set<number>();
   return rows.map((row) =>
@@ -69,6 +111,37 @@ function buildLineup(
   );
 }
 
+function buildBench(squad: PlayerWithOvr[], startingIds: Set<number>): PlayerWithOvr[] {
+  const available = squad.filter(p => !startingIds.has(p.id));
+  const bench: PlayerWithOvr[] = [];
+  // 1 GK
+  const gk = available.find(p => p.position === 'GK');
+  if (gk) bench.push(gk);
+  // 6 best outfield
+  const outfield = available.filter(p => p.position !== 'GK' && !bench.includes(p));
+  outfield.sort((a, b) => b.overall - a.overall);
+  for (const p of outfield) {
+    if (bench.length >= 8) break;
+    bench.push(p);
+  }
+  return bench;
+}
+
+// ─── Selected player indicator ───────────────────────────────────────────────
+type SelectedPlayer = {
+  source: 'pitch';
+  row: number;
+  slot: number;
+  player: PlayerWithOvr;
+} | {
+  source: 'bench';
+  index: number;
+  player: PlayerWithOvr;
+} | {
+  source: 'unlisted';
+  player: PlayerWithOvr;
+} | null;
+
 export function TacticsScreen() {
   const playerClubId = useGameStore((s) => s.playerClubId);
   const dbHandle = useDatabaseStore((s) => s.dbHandle);
@@ -77,59 +150,209 @@ export function TacticsScreen() {
   const [squad, setSquad] = useState<PlayerWithOvr[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedFormation, setSelectedFormation] = useState<Formation>('4-4-2');
-  const [autoLineup, setAutoLineup] = useState<SlotAssignment[][] | null>(null);
+  const [showFormationDropdown, setShowFormationDropdown] = useState(false);
+  const [attackFocus, setAttackFocus] = useState<AttackFocus>('balanced');
+  const [showAttackFocusDropdown, setShowAttackFocusDropdown] = useState(false);
+  const [subStrategy, setSubStrategy] = useState<SubstitutionStrategy>('balanced');
+  const [showSubStrategyDropdown, setShowSubStrategyDropdown] = useState(false);
+  const [lineup, setLineup] = useState<SlotAssignment[][] | null>(null);
+  const [bench, setBench] = useState<PlayerWithOvr[]>([]);
+  const [dropTarget, setDropTarget] = useState<string | null>(null);
+  const [detailPlayer, setDetailPlayer] = useState<PlayerWithOvr | null>(null);
 
+  // Refs for latest state (needed by DOM drag event handlers to avoid stale closures)
+  const lineupRef = useRef(lineup);
+  const benchRef = useRef(bench);
+  const squadRef = useRef(squad);
+  const formationRef = useRef(selectedFormation);
+  useEffect(() => { lineupRef.current = lineup; }, [lineup]);
+  useEffect(() => { benchRef.current = bench; }, [bench]);
+  useEffect(() => { squadRef.current = squad; }, [squad]);
+  useEffect(() => { formationRef.current = selectedFormation; }, [selectedFormation]);
+
+  // ─── Load data ─────────────────────────────────────────────────────────────
   useEffect(() => {
-    if (!dbHandle || playerClubId === null) {
-      setLoading(false);
-      return;
-    }
+    if (!dbHandle || playerClubId === null) { setLoading(false); return; }
     setLoading(true);
-    try {
-      const activeTactic = getActiveTactic(dbHandle, playerClubId);
-      setTactic(activeTactic);
-      if (activeTactic) setSelectedFormation(activeTactic.formation);
-
-      const basePlayers = getPlayersByClub(dbHandle, playerClubId);
-      const withAttrs: PlayerWithOvr[] = [];
-      for (const p of basePlayers) {
-        const full = getPlayerById(dbHandle, p.id);
-        if (full) {
-          withAttrs.push({ ...full, overall: calculateOverall(full.attributes, full.position) });
+    (async () => {
+      try {
+        const activeTactic = await getActiveTactic(dbHandle, playerClubId);
+        setTactic(activeTactic);
+        if (activeTactic) {
+          setSelectedFormation(activeTactic.formation);
+          setAttackFocus(activeTactic.attackFocus);
+          setSubStrategy(activeTactic.subStrategy);
         }
-      }
-      setSquad(withAttrs);
-    } finally {
-      setLoading(false);
-    }
+
+        const basePlayers = await getPlayersByClub(dbHandle, playerClubId);
+        const withAttrs: PlayerWithOvr[] = [];
+        for (const p of basePlayers) {
+          const full = await getPlayerById(dbHandle, p.id);
+          if (full) withAttrs.push({ ...full, overall: calculateOverall(full.attributes, full.position) });
+        }
+        setSquad(withAttrs);
+      } finally { setLoading(false); }
+    })();
   }, [dbHandle, playerClubId]);
 
-  const handleAutoSelect = useCallback(() => {
-    const lineup = buildLineup(selectedFormation, squad);
-    setAutoLineup(lineup);
-  }, [selectedFormation, squad]);
-
-  const handleFormationChange = useCallback(
-    (formation: Formation) => {
-      setSelectedFormation(formation);
-      setAutoLineup(null);
-
-      if (!dbHandle || !tactic) return;
-      try {
-        updateTactic(dbHandle, tactic.id, { formation });
-        setTactic((prev) => (prev ? { ...prev, formation } : prev));
-      } catch {
-        // silently ignore DB errors in tactic update
-      }
-    },
-    [dbHandle, tactic],
-  );
-
+  // ─── Derived state ─────────────────────────────────────────────────────────
   const displayLineup = useMemo(
-    () => autoLineup ?? buildLineup(selectedFormation, squad),
-    [autoLineup, selectedFormation, squad],
+    () => lineup ?? buildLineup(selectedFormation, squad),
+    [lineup, selectedFormation, squad],
   );
 
+  const startingIds = useMemo(() => {
+    const ids = new Set<number>();
+    for (const row of displayLineup) for (const s of row) if (s.player) ids.add(s.player.id);
+    return ids;
+  }, [displayLineup]);
+
+  const benchIds = useMemo(() => new Set(bench.map(p => p.id)), [bench]);
+
+  const unlisted = useMemo(() =>
+    squad
+      .filter(p => !startingIds.has(p.id) && !benchIds.has(p.id))
+      .sort((a, b) => (POS_ORDER[a.position] ?? 99) - (POS_ORDER[b.position] ?? 99) || b.overall - a.overall),
+    [squad, startingIds, benchIds],
+  );
+
+  // Rebuild bench when lineup changes
+  useEffect(() => {
+    setBench(buildBench(squad, startingIds));
+  }, [squad, startingIds]);
+
+  // ─── Handlers ──────────────────────────────────────────────────────────────
+  const handleFormationChange = useCallback(async (formation: Formation) => {
+    setSelectedFormation(formation);
+    setShowFormationDropdown(false);
+    setLineup(null);
+    if (!dbHandle || !tactic) return;
+    try {
+      await updateTactic(dbHandle, tactic.id, { formation });
+      setTactic(prev => prev ? { ...prev, formation } : prev);
+    } catch { /* ignore */ }
+  }, [dbHandle, tactic]);
+
+  const handleAttackFocusChange = useCallback(async (value: AttackFocus) => {
+    setAttackFocus(value);
+    setShowAttackFocusDropdown(false);
+    if (!dbHandle || !tactic) return;
+    try {
+      await updateTactic(dbHandle, tactic.id, { attackFocus: value });
+      setTactic(prev => prev ? { ...prev, attackFocus: value } : prev);
+    } catch { /* ignore */ }
+  }, [dbHandle, tactic]);
+
+  const handleSubStrategyChange = useCallback(async (value: SubstitutionStrategy) => {
+    setSubStrategy(value);
+    setShowSubStrategyDropdown(false);
+    if (!dbHandle || !tactic) return;
+    try {
+      await updateTactic(dbHandle, tactic.id, { subStrategy: value });
+      setTactic(prev => prev ? { ...prev, subStrategy: value } : prev);
+    } catch { /* ignore */ }
+  }, [dbHandle, tactic]);
+
+  // No more tap-to-swap. Tap opens player detail modal. Swaps are done via drag and drop only.
+
+  // ─── Drag & Drop (web only, via DOM refs) ───────────────────────────────────
+  const dragDataRef = useRef<{ key: string; src: NonNullable<SelectedPlayer> } | null>(null);
+
+  const setupDrag = useCallback((el: any, key: string, src: NonNullable<SelectedPlayer>) => {
+    if (Platform.OS !== 'web' || !el) return;
+    // Access underlying DOM node
+    const node = el as HTMLElement;
+    node.draggable = true;
+    node.style.cursor = 'grab';
+    node.ondragstart = (e: DragEvent) => {
+      dragDataRef.current = { key, src };
+      if (e.dataTransfer) {
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', key);
+      }
+      node.style.opacity = '0.5';
+    };
+    node.ondragend = () => {
+      dragDataRef.current = null;
+      node.style.opacity = '1';
+      setDropTarget(null);
+    };
+  }, []);
+
+  const setupDrop = useCallback((el: any, key: string) => {
+    if (Platform.OS !== 'web' || !el) return;
+    const node = el as HTMLElement;
+    node.ondragover = (e: DragEvent) => { e.preventDefault(); setDropTarget(key); };
+    node.ondragleave = () => setDropTarget(null);
+    node.ondrop = (e: DragEvent) => {
+      e.preventDefault();
+      setDropTarget(null);
+      if (dragDataRef.current) {
+        performSwap(dragDataRef.current.src, key);
+        dragDataRef.current = null;
+      }
+    };
+  }, []);
+
+  const performSwap = useCallback((src: NonNullable<SelectedPlayer>, tgtKey: string) => {
+    const pitchMatch = tgtKey.match(/^pitch-(\d+)-(\d+)$/);
+    const benchMatch = tgtKey.match(/^bench-(\d+)$/);
+
+    // Use refs to get current state (avoids stale closures in DOM event handlers)
+    const curLineup = lineupRef.current ?? buildLineup(formationRef.current, squadRef.current);
+    const curBench = benchRef.current;
+
+    if (src.source === 'pitch' && pitchMatch) {
+      const tRow = +pitchMatch[1], tSlot = +pitchMatch[2];
+      const tPlayer = curLineup[tRow]?.[tSlot]?.player;
+      setLineup(curLineup.map((r, ri) => r.map((s, si) => {
+        if (ri === src.row && si === src.slot) return { ...s, player: tPlayer ?? null };
+        if (ri === tRow && si === tSlot) return { ...s, player: src.player };
+        return s;
+      })));
+    } else if (src.source === 'bench' && pitchMatch) {
+      const tRow = +pitchMatch[1], tSlot = +pitchMatch[2];
+      const tPlayer = curLineup[tRow]?.[tSlot]?.player;
+      setLineup(curLineup.map((r, ri) => r.map((s, si) => {
+        if (ri === tRow && si === tSlot) return { ...s, player: src.player };
+        return s;
+      })));
+      if (tPlayer) setBench(curBench.map((p, i) => i === src.index ? tPlayer : p));
+    } else if (src.source === 'pitch' && benchMatch) {
+      const tIdx = +benchMatch[1];
+      const tPlayer = curBench[tIdx];
+      setLineup(curLineup.map((r, ri) => r.map((s, si) => {
+        if (ri === src.row && si === src.slot) return { ...s, player: tPlayer ?? null };
+        return s;
+      })));
+      setBench(curBench.map((p, i) => i === tIdx ? src.player : p));
+    } else if (src.source === 'unlisted' && pitchMatch) {
+      const tRow = +pitchMatch[1], tSlot = +pitchMatch[2];
+      setLineup(curLineup.map((r, ri) => r.map((s, si) => {
+        if (ri === tRow && si === tSlot) return { ...s, player: src.player };
+        return s;
+      })));
+    } else if (src.source === 'unlisted' && benchMatch) {
+      const tIdx = +benchMatch[1];
+      setBench(curBench.map((p, i) => i === tIdx ? src.player : p));
+    } else if (src.source === 'bench' && benchMatch) {
+      const tIdx = +benchMatch[1];
+      const next = [...curBench];
+      const tmp = next[src.index];
+      next[src.index] = next[tIdx];
+      next[tIdx] = tmp;
+      setBench(next);
+    }
+  }, []);
+
+  // Combined ref setup for drag + drop
+  const dragDropRef = useCallback((el: any, key: string, src: NonNullable<SelectedPlayer> | null) => {
+    if (!el) return;
+    if (src) setupDrag(el, key, src);
+    setupDrop(el, key);
+  }, [setupDrag, setupDrop]);
+
+  // ─── Render ────────────────────────────────────────────────────────────────
   if (loading) {
     return (
       <View style={[commonStyles.screen, styles.centered]}>
@@ -140,81 +363,316 @@ export function TacticsScreen() {
 
   return (
     <ScrollView style={commonStyles.screen} contentContainerStyle={styles.scrollContent}>
-      {/* Formation selector */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Formation</Text>
-        <View style={styles.formationRow}>
-          {FORMATIONS.map((f) => (
-            <Pressable
-              key={f}
-              style={[styles.formationChip, selectedFormation === f && styles.formationChipActive]}
-              onPress={() => handleFormationChange(f)}
-            >
-              <Text
-                style={[
-                  styles.formationChipText,
-                  selectedFormation === f && styles.formationChipTextActive,
-                ]}
-              >
-                {f}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
-      </View>
-
-      {/* Auto Select button */}
-      <Pressable style={styles.autoSelectButton} onPress={handleAutoSelect}>
-        <Text style={styles.autoSelectText}>⚡ Auto Select</Text>
-      </Pressable>
-
-      {/* Formation view */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Lineup · {selectedFormation}</Text>
-        <View style={styles.pitchView}>
-          {displayLineup.map((row, rowIdx) => (
-            <View key={rowIdx} style={styles.pitchRow}>
-              {row.map((slot, slotIdx) => {
-                const ovr = slot.player?.overall;
-                const ovrColor = ovr
-                  ? ovr >= 75
-                    ? colors.success
-                    : ovr >= 60
-                    ? colors.warning
-                    : colors.danger
-                  : colors.textMuted;
-                return (
-                  <View key={slotIdx} style={styles.pitchSlot}>
-                    <Text style={[styles.pitchRole, { color: colors.textMuted }]}>
-                      {slot.positionRole}
-                    </Text>
-                    <Text style={styles.pitchPlayerName} numberOfLines={1}>
-                      {slot.player ? slot.player.name.split(' ').pop() ?? slot.player.name : '—'}
-                    </Text>
-                    {slot.player && (
-                      <Text style={[styles.pitchOverall, { color: ovrColor }]}>
-                        {slot.player.overall}
-                      </Text>
-                    )}
-                  </View>
-                );
-              })}
+      {/* Top bar: formation + team orientation dropdowns */}
+      <View style={styles.topBar}>
+        <View style={{ zIndex: 1003 }}>
+          <Text style={styles.topBarLabel}>Formation</Text>
+          <Pressable style={styles.dropdownBtn} onPress={() => {
+            setShowFormationDropdown(v => !v);
+            setShowAttackFocusDropdown(false);
+            setShowSubStrategyDropdown(false);
+          }}>
+            <Text style={styles.dropdownBtnText}>{selectedFormation} ▾</Text>
+          </Pressable>
+          {showFormationDropdown && (
+            <View style={styles.dropdownList}>
+              {FORMATIONS.map(f => (
+                <Pressable
+                  key={f}
+                  style={[styles.dropdownItem, f === selectedFormation && styles.dropdownItemActive]}
+                  onPress={() => handleFormationChange(f)}
+                >
+                  <Text style={[styles.dropdownItemText, f === selectedFormation && styles.dropdownItemTextActive]}>{f}</Text>
+                </Pressable>
+              ))}
             </View>
-          ))}
+          )}
+        </View>
+
+        <View style={{ flex: 1, zIndex: 1002 }}>
+          <Text style={styles.topBarLabel}>Attack focus</Text>
+          <Pressable style={styles.dropdownBtn} onPress={() => {
+            setShowAttackFocusDropdown(v => !v);
+            setShowFormationDropdown(false);
+            setShowSubStrategyDropdown(false);
+          }}>
+            <Text style={styles.dropdownBtnText} numberOfLines={1}>
+              {labelFor(ATTACK_FOCUS_OPTIONS, attackFocus)} ▾
+            </Text>
+          </Pressable>
+          {showAttackFocusDropdown && (
+            <View style={styles.dropdownListWide}>
+              {ATTACK_FOCUS_OPTIONS.map(opt => (
+                <Pressable
+                  key={opt.value}
+                  style={[styles.dropdownItem, opt.value === attackFocus && styles.dropdownItemActive]}
+                  onPress={() => handleAttackFocusChange(opt.value)}
+                >
+                  <Text style={[styles.dropdownItemText, opt.value === attackFocus && styles.dropdownItemTextActive]}>{opt.label}</Text>
+                </Pressable>
+              ))}
+            </View>
+          )}
+        </View>
+
+        <View style={{ flex: 1, zIndex: 1001 }}>
+          <Text style={styles.topBarLabel}>Substitutions</Text>
+          <Pressable style={styles.dropdownBtn} onPress={() => {
+            setShowSubStrategyDropdown(v => !v);
+            setShowFormationDropdown(false);
+            setShowAttackFocusDropdown(false);
+          }}>
+            <Text style={styles.dropdownBtnText} numberOfLines={1}>
+              {labelFor(SUB_STRATEGY_OPTIONS, subStrategy)} ▾
+            </Text>
+          </Pressable>
+          {showSubStrategyDropdown && (
+            <View style={styles.dropdownListWide}>
+              {SUB_STRATEGY_OPTIONS.map(opt => (
+                <Pressable
+                  key={opt.value}
+                  style={[styles.dropdownItem, opt.value === subStrategy && styles.dropdownItemActive]}
+                  onPress={() => handleSubStrategyChange(opt.value)}
+                >
+                  <Text style={[styles.dropdownItemText, opt.value === subStrategy && styles.dropdownItemTextActive]}>{opt.label}</Text>
+                </Pressable>
+              ))}
+            </View>
+          )}
         </View>
       </View>
+
+      <Text style={styles.dragHintText}>Arraste para trocar jogadores</Text>
+
+      {/* Pitch */}
+      <View style={styles.pitchView}>
+        {displayLineup.map((row, rowIdx) => (
+          <View key={rowIdx} style={styles.pitchRow}>
+            {row.map((slot, slotIdx) => {
+              const p = slot.player;
+              const ovr = p?.overall ?? 0;
+              const ovrColor = ovr >= 75 ? colors.success : ovr >= 60 ? colors.warning : colors.danger;
+              const key = `pitch-${rowIdx}-${slotIdx}`;
+              const isDropHover = dropTarget === key;
+              return (
+                <Pressable
+                  key={slotIdx}
+                  ref={(el: any) => dragDropRef(el, key, p ? { source: 'pitch', row: rowIdx, slot: slotIdx, player: p } : null)}
+                  style={[styles.pitchSlot, isDropHover && styles.dropHover]}
+                  onPress={() => p && setDetailPlayer(p)}
+                >
+                  <Text style={[styles.pitchRole, { color: getPositionColor(slot.positionRole) }]}>{slot.positionRole}</Text>
+                  <Text style={styles.pitchName} numberOfLines={1}>
+                    {p ? p.name.split(' ').pop() : '—'}
+                  </Text>
+                  {p && <Text style={[styles.pitchOvr, { color: ovrColor }]}>{ovr}</Text>}
+                </Pressable>
+              );
+            })}
+          </View>
+        ))}
+      </View>
+
+      {/* Bench */}
+      <View style={styles.section}>
+        <Text style={styles.sectionLabel}>BANCO ({bench.length})</Text>
+        <View style={styles.benchGrid}>
+          {bench.map((p, idx) => {
+            const ovrColor = p.overall >= 75 ? colors.success : p.overall >= 60 ? colors.warning : colors.danger;
+            const key = `bench-${idx}`;
+            const isDropHover = dropTarget === key;
+            return (
+              <Pressable
+                key={p.id}
+                ref={(el: any) => dragDropRef(el, key, { source: 'bench', index: idx, player: p })}
+                style={[styles.benchCard, isDropHover && styles.dropHover]}
+                onPress={() => setDetailPlayer(p)}
+              >
+                <Text style={[styles.benchPos, { color: getPositionColor(p.position) }]}>{p.position}</Text>
+                <Text style={styles.benchName} numberOfLines={1}>{p.name.split(' ').pop()}</Text>
+                <Text style={[styles.benchOvr, { color: ovrColor }]}>{p.overall}</Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      </View>
+
+      {/* Unlisted */}
+      {unlisted.length > 0 && (
+        <View style={styles.section}>
+          <Text style={styles.sectionLabel}>FORA DA LISTA ({unlisted.length})</Text>
+          {unlisted.map((p, idx) => {
+            const ovrColor = p.overall >= 75 ? colors.success : p.overall >= 60 ? colors.warning : colors.danger;
+            const key = `unlisted-${idx}`;
+            return (
+              <Pressable
+                key={p.id}
+                ref={(el: any) => { if (el) setupDrag(el, key, { source: 'unlisted', player: p }); }}
+                style={styles.unlistedRow}
+                onPress={() => setDetailPlayer(p)}
+              >
+                <Text style={[styles.unlistedPos, { color: getPositionColor(p.position) }]}>{p.position}</Text>
+                <Text style={styles.unlistedName} numberOfLines={1}>{p.name}</Text>
+                <Text style={[styles.unlistedOvr, { color: ovrColor }]}>{p.overall}</Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      )}
+      {/* Player Detail Modal */}
+      <Modal visible={detailPlayer !== null} transparent animationType="slide" onRequestClose={() => setDetailPlayer(null)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            {detailPlayer && (() => {
+              const p = detailPlayer;
+              const ovr = calculateOverall(p.attributes, p.position);
+              const ovrColor = ovr >= 75 ? colors.success : ovr >= 60 ? colors.warning : colors.danger;
+              const a = p.attributes;
+              const techAttrs = [
+                { label: 'Finishing', val: a.finishing }, { label: 'Passing', val: a.passing },
+                { label: 'Crossing', val: a.crossing }, { label: 'Dribbling', val: a.dribbling },
+                { label: 'Heading', val: a.heading }, { label: 'Long Shots', val: a.longShots },
+                { label: 'Free Kicks', val: a.freeKicks },
+              ];
+              const mentalAttrs = [
+                { label: 'Vision', val: a.vision }, { label: 'Composure', val: a.composure },
+                { label: 'Decisions', val: a.decisions }, { label: 'Positioning', val: a.positioning },
+                { label: 'Aggression', val: a.aggression }, { label: 'Leadership', val: a.leadership },
+              ];
+              const physAttrs = [
+                { label: 'Pace', val: a.pace }, { label: 'Stamina', val: a.stamina },
+                { label: 'Strength', val: a.strength }, { label: 'Agility', val: a.agility },
+                { label: 'Jumping', val: a.jumping },
+              ];
+              return (
+                <ScrollView nestedScrollEnabled>
+                  <View style={styles.detailHeader}>
+                    <Text style={styles.detailName}>{p.name}</Text>
+                    <View style={styles.detailMeta}>
+                      <Text style={[styles.detailPos, { color: colors.primary }]}>{p.position}</Text>
+                      <Text style={styles.detailAge}>Age {p.age}</Text>
+                      <Text style={[styles.detailOvr, { color: ovrColor }]}>{ovr}</Text>
+                    </View>
+                  </View>
+                  <View style={styles.detailStatsRow}>
+                    <View style={styles.detailStatItem}><Text style={styles.detailStatVal}>{p.morale}</Text><Text style={styles.detailStatLabel}>Morale</Text></View>
+                    <View style={styles.detailStatItem}><Text style={styles.detailStatVal}>{p.fitness}</Text><Text style={styles.detailStatLabel}>Fitness</Text></View>
+                    <View style={styles.detailStatItem}><Text style={styles.detailStatVal}>{p.preferredFoot === 'left' ? 'E' : 'D'}</Text><Text style={styles.detailStatLabel}>Pé</Text></View>
+                    <View style={styles.detailStatItem}><Text style={styles.detailStatVal}>{'★'.repeat(p.weakFootAbility)}{'☆'.repeat(5 - p.weakFootAbility)}</Text><Text style={styles.detailStatLabel}>Pé Ruim</Text></View>
+                  </View>
+                  <Text style={styles.detailSectionTitle}>Technical</Text>
+                  {techAttrs.map(attr => <StatBar key={attr.label} label={attr.label} value={attr.val} max={99} />)}
+                  <Text style={styles.detailSectionTitle}>Mental</Text>
+                  {mentalAttrs.map(attr => <StatBar key={attr.label} label={attr.label} value={attr.val} max={99} />)}
+                  <Text style={styles.detailSectionTitle}>Physical</Text>
+                  {physAttrs.map(attr => <StatBar key={attr.label} label={attr.label} value={attr.val} max={99} />)}
+                </ScrollView>
+              );
+            })()}
+            <Pressable style={styles.modalCloseBtn} onPress={() => setDetailPlayer(null)}>
+              <Text style={styles.modalCloseBtnText}>Close</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  scrollContent: {
-    paddingBottom: spacing.xl,
+  scrollContent: { paddingBottom: spacing.xl },
+  centered: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+
+  // Top bar
+  topBar: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    gap: spacing.sm,
+    zIndex: 10,
   },
-  centered: {
+  topBarLabel: {
+    color: colors.textMuted,
+    fontSize: fontSize.xs,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    marginBottom: 4,
+  },
+  dropdownBtn: {
+    backgroundColor: colors.surface,
+    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  dropdownBtnText: { color: colors.text, fontSize: fontSize.sm, fontWeight: '600' },
+  dropdownList: {
+    position: 'absolute',
+    top: 56,
+    left: 0,
+    backgroundColor: colors.surfaceLight,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
+    zIndex: 1000,
+    elevation: 10,
+  },
+  dropdownListWide: {
+    position: 'absolute',
+    top: 56,
+    left: 0,
+    right: 0,
+    backgroundColor: colors.surfaceLight,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
+    zIndex: 1000,
+    elevation: 10,
+  },
+  dropdownItem: { paddingVertical: 8, paddingHorizontal: spacing.md },
+  dropdownItemActive: { backgroundColor: colors.primary },
+  dropdownItemText: { color: colors.textSecondary, fontSize: fontSize.sm, fontWeight: '600' },
+  dropdownItemTextActive: { color: colors.text },
+  dragHintText: {
+    color: colors.textMuted,
+    fontSize: fontSize.xs,
+    fontStyle: 'italic',
+    textAlign: 'right',
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.xs,
+  },
+
+  // Pitch
+  pitchView: {
+    backgroundColor: colors.surface,
+    borderRadius: 12,
+    marginHorizontal: spacing.md,
+    padding: spacing.sm,
+    gap: spacing.sm,
+  },
+  pitchRow: { flexDirection: 'row', justifyContent: 'space-around' },
+  pitchSlot: {
     alignItems: 'center',
-    justifyContent: 'center',
+    minWidth: 58,
+    backgroundColor: colors.background,
+    borderRadius: 8,
+    padding: 4,
+    borderWidth: 2,
+    borderColor: 'transparent',
+    cursor: 'grab',
+  } as any,
+  dropHover: {
+    borderColor: colors.success,
+    backgroundColor: `${colors.success}22`,
   },
+  pitchRole: { fontSize: 10, fontWeight: 'bold', color: colors.textMuted, letterSpacing: 0.5 },
+  pitchName: { color: colors.text, fontSize: 11, fontWeight: '600', marginTop: 1, textAlign: 'center' },
+  pitchOvr: { fontSize: 10, fontWeight: 'bold', marginTop: 1 },
+
+  // Sections
   section: {
     backgroundColor: colors.surface,
     borderRadius: 12,
@@ -222,86 +680,68 @@ const styles = StyleSheet.create({
     marginHorizontal: spacing.md,
     marginTop: spacing.sm,
   },
-  sectionTitle: {
+  sectionLabel: {
     color: colors.textMuted,
     fontSize: fontSize.xs,
-    fontWeight: 'bold',
-    textTransform: 'uppercase',
+    fontWeight: '700',
     letterSpacing: 1,
     marginBottom: spacing.sm,
   },
-  formationRow: {
+
+  // Bench grid
+  benchGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: spacing.sm,
+    gap: 6,
   },
-  formationChip: {
-    paddingVertical: 6,
-    paddingHorizontal: spacing.md,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  formationChipActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  formationChipText: {
-    color: colors.textSecondary,
-    fontSize: fontSize.sm,
-    fontWeight: '600',
-  },
-  formationChipTextActive: {
-    color: colors.text,
-  },
-  autoSelectButton: {
-    backgroundColor: colors.surfaceLight,
+  benchCard: {
+    backgroundColor: colors.background,
     borderRadius: 8,
-    paddingVertical: 10,
-    marginHorizontal: spacing.md,
-    marginTop: spacing.sm,
+    padding: 6,
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  autoSelectText: {
-    color: colors.primaryLight,
-    fontSize: fontSize.md,
-    fontWeight: '600',
-  },
-  pitchView: {
+    minWidth: 70,
+    flex: 1,
+    maxWidth: '25%',
+    borderWidth: 2,
+    borderColor: 'transparent',
+    cursor: 'grab',
+  } as any,
+  benchPos: { fontSize: 10, fontWeight: 'bold', color: colors.primary },
+  benchName: { color: colors.text, fontSize: 11, fontWeight: '600', marginTop: 1, textAlign: 'center' },
+  benchOvr: { fontSize: 10, fontWeight: 'bold', marginTop: 1 },
+
+  // Unlisted
+  unlistedRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: colors.background,
     borderRadius: 8,
     padding: spacing.sm,
-    gap: spacing.sm,
-  },
-  pitchRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-  },
-  pitchSlot: {
-    alignItems: 'center',
-    minWidth: 60,
-    backgroundColor: colors.surfaceLight,
-    borderRadius: 8,
-    padding: spacing.xs,
-  },
-  pitchRole: {
-    fontSize: fontSize.xs,
-    fontWeight: 'bold',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  pitchPlayerName: {
-    color: colors.text,
-    fontSize: fontSize.xs,
-    fontWeight: '600',
-    marginTop: 2,
-    textAlign: 'center',
-  },
-  pitchOverall: {
-    fontSize: fontSize.xs,
-    fontWeight: 'bold',
-    marginTop: 1,
-  },
+    marginBottom: 4,
+    borderWidth: 2,
+    borderColor: 'transparent',
+    cursor: 'grab',
+  } as any,
+  unlistedPos: { color: colors.textMuted, fontSize: fontSize.xs, fontWeight: 'bold', width: 36 },
+  unlistedName: { color: colors.textSecondary, fontSize: fontSize.sm, flex: 1 },
+  unlistedOvr: { fontSize: fontSize.sm, fontWeight: 'bold', width: 30, textAlign: 'right' },
+
+  // Modal
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', paddingHorizontal: spacing.md },
+  modalContent: { backgroundColor: colors.surface, borderRadius: 16, padding: spacing.lg, maxHeight: '85%' },
+  modalCloseBtn: { backgroundColor: colors.primary, borderRadius: 8, paddingVertical: 12, alignItems: 'center', marginTop: spacing.sm },
+  modalCloseBtnText: { color: colors.text, fontSize: fontSize.md, fontWeight: '600' },
+
+  // Detail
+  detailHeader: { marginBottom: spacing.md },
+  detailName: { color: colors.text, fontSize: fontSize.xl, fontWeight: 'bold' },
+  detailMeta: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginTop: spacing.xs },
+  detailPos: { fontSize: fontSize.md, fontWeight: 'bold' },
+  detailAge: { color: colors.textSecondary, fontSize: fontSize.sm },
+  detailOvr: { fontSize: fontSize.xl, fontWeight: 'bold' },
+  detailStatsRow: { flexDirection: 'row', gap: spacing.md, marginBottom: spacing.md },
+  detailStatItem: { flex: 1, backgroundColor: colors.background, borderRadius: 8, padding: spacing.sm, alignItems: 'center' },
+  detailStatVal: { color: colors.text, fontSize: fontSize.lg, fontWeight: 'bold' },
+  detailStatLabel: { color: colors.textMuted, fontSize: fontSize.xs, marginTop: 2 },
+  detailSectionTitle: { color: colors.textMuted, fontSize: fontSize.xs, fontWeight: '700', letterSpacing: 1, marginTop: spacing.md, marginBottom: spacing.sm },
 });

@@ -7,6 +7,8 @@ import {
   PassingStyle,
   Tempo,
   Width,
+  AttackFocus,
+  SubstitutionStrategy,
 } from '@/types';
 import { DbHandle } from './players';
 
@@ -21,6 +23,8 @@ interface TacticRow {
   passing_style: string;
   tempo: string;
   width: string;
+  attack_focus: string | null;
+  sub_strategy: string | null;
 }
 
 interface TacticPositionRow {
@@ -43,6 +47,8 @@ function rowToTactic(row: TacticRow): Tactic {
     passingStyle: row.passing_style as PassingStyle,
     tempo: row.tempo as Tempo,
     width: row.width as Width,
+    attackFocus: (row.attack_focus ?? 'balanced') as AttackFocus,
+    subStrategy: (row.sub_strategy ?? 'balanced') as SubstitutionStrategy,
   };
 }
 
@@ -62,15 +68,15 @@ function rowToTacticPosition(row: TacticPositionRow): TacticPosition {
   };
 }
 
-export function getActiveTactic(db: DbHandle, clubId: number): Tactic | null {
-  const row = db
+export async function getActiveTactic(db: DbHandle, clubId: number): Promise<Tactic | null> {
+  const row = await db
     .prepare('SELECT * FROM tactics WHERE club_id = ? AND is_active = 1')
     .get(clubId) as TacticRow | undefined;
   return row ? rowToTactic(row) : null;
 }
 
-export function getTacticPositions(db: DbHandle, tacticId: number): TacticPosition[] {
-  const rows = db
+export async function getTacticPositions(db: DbHandle, tacticId: number): Promise<TacticPosition[]> {
+  const rows = await db
     .prepare('SELECT * FROM tactic_positions WHERE tactic_id = ? ORDER BY slot ASC')
     .all(tacticId) as TacticPositionRow[];
   return rows.map(rowToTacticPosition);
@@ -83,10 +89,12 @@ export interface UpdateTacticInput {
   passingStyle?: PassingStyle;
   tempo?: Tempo;
   width?: Width;
+  attackFocus?: AttackFocus;
+  subStrategy?: SubstitutionStrategy;
   name?: string;
 }
 
-export function updateTactic(db: DbHandle, tacticId: number, updates: UpdateTacticInput): void {
+export async function updateTactic(db: DbHandle, tacticId: number, updates: UpdateTacticInput): Promise<void> {
   const fields: string[] = [];
   const params: unknown[] = [];
 
@@ -114,6 +122,14 @@ export function updateTactic(db: DbHandle, tacticId: number, updates: UpdateTact
     fields.push('width = ?');
     params.push(updates.width);
   }
+  if (updates.attackFocus !== undefined) {
+    fields.push('attack_focus = ?');
+    params.push(updates.attackFocus);
+  }
+  if (updates.subStrategy !== undefined) {
+    fields.push('sub_strategy = ?');
+    params.push(updates.subStrategy);
+  }
   if (updates.name !== undefined) {
     fields.push('name = ?');
     params.push(updates.name);
@@ -122,5 +138,5 @@ export function updateTactic(db: DbHandle, tacticId: number, updates: UpdateTact
   if (fields.length === 0) return;
 
   params.push(tacticId);
-  db.prepare(`UPDATE tactics SET ${fields.join(', ')} WHERE id = ?`).run(...params);
+  await db.prepare(`UPDATE tactics SET ${fields.join(', ')} WHERE id = ?`).run(...params);
 }
