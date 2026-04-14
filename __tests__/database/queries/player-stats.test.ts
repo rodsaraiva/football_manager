@@ -10,6 +10,12 @@ describe('player-stats queries', () => {
   beforeAll(() => {
     rawDb = createTestDb();
     seedTestDb(rawDb);
+    // Insert a minimal competition so FK from player_stats.competition_id is satisfied.
+    // seedTestDb does not populate competitions (they're created at runtime by the game).
+    rawDb.prepare(
+      `INSERT INTO competitions (id, name, type, format, season, league_id)
+       VALUES (1, 'Test Competition', 'league', 'round_robin', 1, 1)`,
+    ).run();
     db = createTestDbHandle(rawDb);
   });
 
