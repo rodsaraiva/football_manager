@@ -28,6 +28,7 @@ import { Fixture } from '@/types';
 import { recalculatePotential } from '@/engine/training/potential';
 import { getPlayersByClub } from '@/database/queries/players';
 import { generateYouthPlayers } from '@/engine/youth/youth-academy';
+import { returnExpiredLoans } from '@/engine/transfer/loan-returns';
 import { SeededRng } from '@/engine/rng';
 
 type NavProp = NativeStackNavigationProp<RootStackParamList>;
@@ -60,91 +61,93 @@ export function EndOfSeasonScreen() {
       return;
     }
 
-    try {
-      // Get all club fixtures for the season
-      const allFixtures = getFixturesByClub(dbHandle, playerClubId, season);
-      const played = allFixtures.filter((f) => f.played);
+    (async () => {
+      try {
+        // Get all club fixtures for the season
+        const allFixtures = await getFixturesByClub(dbHandle, playerClubId, season);
+        const played = allFixtures.filter((f) => f.played);
 
-      let wins = 0;
-      let draws = 0;
-      let losses = 0;
-      let goalsFor = 0;
-      let goalsAgainst = 0;
+        let wins = 0;
+        let draws = 0;
+        let losses = 0;
+        let goalsFor = 0;
+        let goalsAgainst = 0;
 
-      for (const f of played) {
-        const isHome = f.homeClubId === playerClubId;
-        const myGoals = isHome ? (f.homeGoals ?? 0) : (f.awayGoals ?? 0);
-        const oppGoals = isHome ? (f.awayGoals ?? 0) : (f.homeGoals ?? 0);
-        goalsFor += myGoals;
-        goalsAgainst += oppGoals;
-        if (myGoals > oppGoals) wins++;
-        else if (myGoals === oppGoals) draws++;
-        else losses++;
-      }
+        for (const f of played) {
+          const isHome = f.homeClubId === playerClubId;
+          const myGoals = isHome ? (f.homeGoals ?? 0) : (f.awayGoals ?? 0);
+          const oppGoals = isHome ? (f.awayGoals ?? 0) : (f.homeGoals ?? 0);
+          goalsFor += myGoals;
+          goalsAgainst += oppGoals;
+          if (myGoals > oppGoals) wins++;
+          else if (myGoals === oppGoals) draws++;
+          else losses++;
+        }
 
-      // Compute league standings for player's club
-      const leagueClubs = getClubsByLeague(dbHandle, playerClub.leagueId);
-      const clubIds = leagueClubs.map((c) => c.id);
+        // Compute league standings for player's club
+        const leagueClubs = await getClubsByLeague(dbHandle, playerClub.leagueId);
+        const clubIds = leagueClubs.map((c) => c.id);
 
-      const competitions = getCompetitionsBySeason(dbHandle, season);
-      const leagueComp = competitions.find(
-        (comp) => comp.leagueId === playerClub.leagueId && comp.type === 'league',
-      );
+        const competitions = await getCompetitionsBySeason(dbHandle, season);
+        const leagueComp = competitions.find(
+          (comp) => comp.leagueId === playerClub.leagueId && comp.type === 'league',
+        );
 
-      let leaguePosition: number | null = null;
-      const totalTeams = leagueClubs.length;
+        let leaguePosition: number | null = null;
+        const totalTeams = leagueClubs.length;
 
-      if (leagueComp) {
-        // Collect all played league fixtures across all league clubs
-        const fixtureSet = new Map<number, Fixture>();
-        for (const clubId of clubIds) {
-          const clubFixtures = getFixturesByClub(dbHandle, clubId, season);
-          for (const f of clubFixtures) {
-            if (f.competitionId === leagueComp.id && f.played && !fixtureSet.has(f.id)) {
-              fixtureSet.set(f.id, f);
+        if (leagueComp) {
+          // Collect all played league fixtures across all league clubs
+          const fixtureSet = new Map<number, Fixture>();
+          for (const clubId of clubIds) {
+            const clubFixtures = await getFixturesByClub(dbHandle, clubId, season);
+            for (const f of clubFixtures) {
+              if (f.competitionId === leagueComp.id && f.played && !fixtureSet.has(f.id)) {
+                fixtureSet.set(f.id, f);
+              }
             }
           }
+          const allLeagueFixtures = Array.from(fixtureSet.values());
+          const standings = calculateStandings(allLeagueFixtures, clubIds);
+          const idx = standings.findIndex((e) => e.clubId === playerClubId);
+          leaguePosition = idx >= 0 ? idx + 1 : null;
         }
-        const allLeagueFixtures = Array.from(fixtureSet.values());
-        const standings = calculateStandings(allLeagueFixtures, clubIds);
-        const idx = standings.findIndex((e) => e.clubId === playerClubId);
-        leaguePosition = idx >= 0 ? idx + 1 : null;
+
+        // Financial summary
+        const balance = await getSeasonBalance(dbHandle, playerClubId, season);
+        const income = balance > 0 ? balance : 0;
+        const expenses = balance < 0 ? Math.abs(balance) : 0;
+
+        setStats({
+          played: played.length,
+          wins,
+          draws,
+          losses,
+          goalsFor,
+          goalsAgainst,
+          leaguePosition,
+          totalTeams,
+          income,
+          expenses,
+        });
+      } catch (e) {
+        // Fallback empty stats
+        setStats({
+          played: 0,
+          wins: 0,
+          draws: 0,
+          losses: 0,
+          goalsFor: 0,
+          goalsAgainst: 0,
+          leaguePosition: null,
+          totalTeams: 0,
+          income: 0,
+          expenses: 0,
+        });
+      } finally {
+        setLoading(false);
       }
-
-      // Financial summary
-      const balance = getSeasonBalance(dbHandle, playerClubId, season);
-      const income = balance > 0 ? balance : 0;
-      const expenses = balance < 0 ? Math.abs(balance) : 0;
-
-      setStats({
-        played: played.length,
-        wins,
-        draws,
-        losses,
-        goalsFor,
-        goalsAgainst,
-        leaguePosition,
-        totalTeams,
-        income,
-        expenses,
-      });
-    } catch (e) {
-      // Fallback empty stats
-      setStats({
-        played: 0,
-        wins: 0,
-        draws: 0,
-        losses: 0,
-        goalsFor: 0,
-        goalsAgainst: 0,
-        leaguePosition: null,
-        totalTeams: 0,
-        income: 0,
-        expenses: 0,
-      });
-    } finally {
-      setLoading(false);
-    }
+    })();
   }, [dbHandle, playerClub, playerClubId, season]);
 
   async function handleContinue() {
@@ -155,16 +158,19 @@ export function EndOfSeasonScreen() {
       const newSeason = season + 1;
 
       // 1. Age all players
-      dbHandle.prepare('UPDATE players SET age = age + 1').run();
+      await dbHandle.prepare('UPDATE players SET age = age + 1').run();
 
       // 2. Contract expiry — mark players whose contract ends this season as free agents
-      dbHandle.prepare('UPDATE players SET is_free_agent = 1 WHERE contract_end <= ?').run(season);
+      await dbHandle.prepare('UPDATE players SET is_free_agent = 1 WHERE contract_end <= ?').run(season);
+
+      // 2b. Return loaned players to their parent clubs
+      await returnExpiredLoans(dbHandle, season);
 
       // 3. Dynamic potential recalculation for player's club squad
       if (playerClubId) {
-        const squad = getPlayersByClub(dbHandle, playerClubId);
+        const squad = await getPlayersByClub(dbHandle, playerClubId);
         for (const player of squad) {
-          const seasonStats = dbHandle.prepare(
+          const seasonStats = await dbHandle.prepare(
             'SELECT avg_rating, minutes_played FROM player_stats WHERE player_id = ? AND season = ?',
           ).get(player.id, season) as { avg_rating: number; minutes_played: number } | undefined;
 
@@ -180,7 +186,7 @@ export function EndOfSeasonScreen() {
           });
 
           if (result.newEffectivePotential !== player.effectivePotential) {
-            dbHandle.prepare('UPDATE players SET effective_potential = ? WHERE id = ?').run(
+            await dbHandle.prepare('UPDATE players SET effective_potential = ? WHERE id = ?').run(
               result.newEffectivePotential,
               player.id,
             );
@@ -198,11 +204,11 @@ export function EndOfSeasonScreen() {
           rng: new SeededRng(newSeason * 7777),
         });
 
-        const maxIdRow = dbHandle.prepare('SELECT MAX(id) as maxId FROM players').get() as { maxId: number };
+        const maxIdRow = await dbHandle.prepare('SELECT MAX(id) as maxId FROM players').get() as { maxId: number };
         let nextId = (maxIdRow?.maxId ?? 0) + 1;
 
         for (const y of youth) {
-          dbHandle.prepare(
+          await dbHandle.prepare(
             'INSERT INTO players (id, name, nationality, age, position, secondary_position, club_id, wage, contract_end, market_value, base_potential, effective_potential, morale, fitness, injury_weeks_left, is_free_agent) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
           ).run(
             nextId, y.name, 'Local', y.age, y.position, null,
@@ -211,7 +217,7 @@ export function EndOfSeasonScreen() {
           );
 
           const a = y.attributes;
-          dbHandle.prepare(
+          await dbHandle.prepare(
             'INSERT INTO player_attributes (player_id, finishing, passing, crossing, dribbling, heading, long_shots, free_kicks, vision, composure, decisions, positioning, aggression, leadership, pace, stamina, strength, agility, jumping) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
           ).run(
             nextId, a.finishing, a.passing, a.crossing, a.dribbling, a.heading,
@@ -225,12 +231,12 @@ export function EndOfSeasonScreen() {
       }
 
       // Generate calendar for the new season
-      const leagues = getAllLeagues(dbHandle);
+      const leagues = await getAllLeagues(dbHandle);
       const clubsByLeague: Record<number, number[]> = {};
       const championsLeagueClubs: number[] = [];
 
       for (const league of leagues) {
-        const clubs = getClubsByLeague(dbHandle, league.id);
+        const clubs = await getClubsByLeague(dbHandle, league.id);
         const sorted = [...clubs].sort((a, b) => b.reputation - a.reputation);
         clubsByLeague[league.id] = clubs.map((c) => c.id);
         // Top 2 clubs per league go to Champions League (up to 8 total)
@@ -263,7 +269,7 @@ export function EndOfSeasonScreen() {
       // Persist competitions
       for (const comp of calendar.competitions) {
         try {
-          createCompetition(dbHandle, {
+          await createCompetition(dbHandle, {
             id: comp.id + newSeason * 10000,
             name: comp.name,
             type: comp.type,
@@ -280,7 +286,7 @@ export function EndOfSeasonScreen() {
       for (const entry of calendar.entries) {
         const compId = entry.competitionId + newSeason * 10000;
         try {
-          addCompetitionEntry(dbHandle, {
+          await addCompetitionEntry(dbHandle, {
             competitionId: compId,
             clubId: entry.clubId,
             groupName: entry.groupName,
@@ -296,7 +302,7 @@ export function EndOfSeasonScreen() {
         const compId = fixture.competitionId + newSeason * 10000;
         const fixtureId = fixture.id + newSeason * 100000;
         try {
-          createFixture(dbHandle, {
+          await createFixture(dbHandle, {
             id: fixtureId,
             competitionId: compId,
             season: newSeason,

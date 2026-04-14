@@ -1,14 +1,14 @@
 import { create } from 'zustand';
-import { Platform } from 'react-native';
 import * as SQLite from 'expo-sqlite';
-import { createAllTables } from '@/database/schema';
+import { SCHEMA_SQL } from '@/database/schema';
+import { generateSeedSQL } from '@/database/seed';
+import { generateSeedData } from '../../scripts/generate-seed-data';
 import { DbHandle } from '@/database/queries/players';
 
 interface DatabaseState {
   db: SQLite.SQLiteDatabase | null;
   dbHandle: DbHandle | null;
   isReady: boolean;
-  isWebMock: boolean;
   error: string | null;
 }
 
@@ -19,17 +19,32 @@ interface DatabaseActions {
 type DatabaseStore = DatabaseState & DatabaseActions;
 
 /**
+ * Adds a column if it doesn't already exist. SQLite doesn't support
+ * "ADD COLUMN IF NOT EXISTS", so we check PRAGMA table_info.
+ */
+async function addColumnIfMissing(
+  db: SQLite.SQLiteDatabase,
+  table: string,
+  column: string,
+  definition: string,
+): Promise<void> {
+  const cols = (await db.getAllAsync(`PRAGMA table_info(${table})`)) as Array<{ name: string }>;
+  if (cols.some((c) => c.name === column)) return;
+  await db.execAsync(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+}
+
+/**
  * Wraps expo-sqlite database to match DbHandle interface used by query layer.
  */
 export function wrapExpoDb(db: SQLite.SQLiteDatabase): DbHandle {
   return {
     prepare: (sql: string) => ({
-      all: (...params: unknown[]) =>
-        db.getAllSync(sql, params as SQLite.SQLiteBindParams) as unknown[],
-      get: (...params: unknown[]) =>
-        db.getFirstSync(sql, params as SQLite.SQLiteBindParams) as unknown,
-      run: (...params: unknown[]) => {
-        const result = db.runSync(sql, params as SQLite.SQLiteBindParams);
+      all: async (...params: unknown[]) =>
+        db.getAllAsync(sql, params as SQLite.SQLiteBindParams) as Promise<unknown[]>,
+      get: async (...params: unknown[]) =>
+        db.getFirstAsync(sql, params as SQLite.SQLiteBindParams) as Promise<unknown>,
+      run: async (...params: unknown[]) => {
+        const result = await db.runAsync(sql, params as SQLite.SQLiteBindParams);
         return { lastInsertRowid: result.lastInsertRowId };
       },
     }),
@@ -40,17 +55,8 @@ export const useDatabaseStore = create<DatabaseStore>((set) => ({
   db: null,
   dbHandle: null,
   isReady: false,
-  isWebMock: false,
   error: null,
   initialize: async () => {
-    // expo-sqlite doesn't work on web without COOP/COEP headers.
-    // On web, skip DB init and render screens in "preview" mode.
-    if (Platform.OS === 'web') {
-      console.log('[DB] Web platform detected — running in preview mode (no database)');
-      set({ isReady: true, isWebMock: true, error: null });
-      return;
-    }
-
     try {
       console.log('[DB] Opening database...');
       const db = await SQLite.openDatabaseAsync('football-manager.db');
@@ -58,8 +64,25 @@ export const useDatabaseStore = create<DatabaseStore>((set) => ({
       await db.execAsync('PRAGMA journal_mode = WAL;');
       await db.execAsync('PRAGMA foreign_keys = ON;');
       console.log('[DB] Creating tables...');
+      await db.execAsync(SCHEMA_SQL);
+
+      // Idempotent migrations — add columns that may be missing from older DBs
+      await addColumnIfMissing(db, 'transfer_offers', 'offer_type', "TEXT NOT NULL DEFAULT 'transfer'");
+      await addColumnIfMissing(db, 'transfer_offers', 'loan_end', 'INTEGER');
+
+      // Seed if DB is missing data (check both countries and clubs to catch partial seeds)
+      const countryCount = await db.getFirstAsync<{ cnt: number }>('SELECT COUNT(*) as cnt FROM countries');
+      const clubCount = await db.getFirstAsync<{ cnt: number }>('SELECT COUNT(*) as cnt FROM clubs');
+      if (!countryCount || countryCount.cnt === 0 || !clubCount || clubCount.cnt === 0) {
+        // Clear any partial data before re-seeding
+        await db.execAsync('DELETE FROM tactics; DELETE FROM staff; DELETE FROM player_attributes; DELETE FROM players; DELETE FROM clubs; DELETE FROM leagues; DELETE FROM countries;');
+        console.log('[DB] Seeding database...');
+        const seedSQL = generateSeedSQL(generateSeedData(2026));
+        await db.execAsync(seedSQL);
+        console.log('[DB] Seeding complete!');
+      }
+
       const handle = wrapExpoDb(db);
-      createAllTables({ exec: (sql: string) => db.execSync(sql) });
       console.log('[DB] Database ready!');
       set({ db, dbHandle: handle, isReady: true, error: null });
     } catch (err) {

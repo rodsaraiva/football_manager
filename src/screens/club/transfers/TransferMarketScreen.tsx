@@ -51,6 +51,7 @@ function getOverallColor(overall: number): string {
 
 export function TransferMarketScreen() {
   const playerClubId = useGameStore((s) => s.playerClubId);
+  const season = useGameStore((s) => s.season);
   const dbHandle = useDatabaseStore((s) => s.dbHandle);
 
   const [players, setPlayers] = useState<PlayerWithOverall[]>([]);
@@ -106,7 +107,12 @@ export function TransferMarketScreen() {
   }, []);
 
   const handleSubmitOffer = useCallback(
-    async (fee: number, wage: number) => {
+    async (
+      fee: number,
+      wage: number,
+      kind: 'transfer' | 'loan',
+      loanDurationSeasons?: number,
+    ) => {
       if (!dbHandle || playerClubId === null || !selectedPlayer) return;
       if (selectedPlayer.clubId === null) {
         Alert.alert('Error', 'This player has no club (free agent). Use the Free Agents screen.');
@@ -119,18 +125,23 @@ export function TransferMarketScreen() {
           sellingClubId: selectedPlayer.clubId,
           feeOffered: fee,
           wageOffered: wage,
+          offerType: kind,
+          loanEnd:
+            kind === 'loan' && loanDurationSeasons
+              ? season + loanDurationSeasons
+              : null,
         });
         setSelectedPlayer(null);
         Alert.alert(
           'Offer sent',
-          `Your offer for ${selectedPlayer.name} has been submitted. Response will come next week.`,
+          `Your ${kind} offer for ${selectedPlayer.name} has been submitted. Response will come next week.`,
           [{ text: 'OK' }],
         );
       } catch (e) {
         Alert.alert('Error', `Failed to submit offer: ${(e as Error).message}`);
       }
     },
-    [dbHandle, playerClubId, selectedPlayer],
+    [dbHandle, playerClubId, selectedPlayer, season],
   );
 
   return (
@@ -222,6 +233,7 @@ export function TransferMarketScreen() {
           marketValue={selectedPlayer.marketValue}
           currentWage={selectedPlayer.wage}
           buyerBudget={buyerBudget}
+          currentSeason={season}
         />
       )}
     </View>

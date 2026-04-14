@@ -22,6 +22,8 @@ interface TransferOfferRow {
   wage_offered: number;
   status: string;
   response_week: number | null;
+  offer_type: string | null;
+  loan_end: number | null;
 }
 
 function rowToTransfer(row: TransferRow): Transfer {
@@ -48,6 +50,8 @@ function rowToTransferOffer(row: TransferOfferRow): TransferOffer {
     wageOffered: row.wage_offered,
     status: row.status as OfferStatus,
     responseWeek: row.response_week,
+    offerType: ((row.offer_type as TransferType | null) ?? 'transfer'),
+    loanEnd: row.loan_end,
   };
 }
 
@@ -94,13 +98,17 @@ export interface CreateOfferInput {
   sellingClubId: number;
   feeOffered: number;
   wageOffered: number;
+  offerType?: TransferType; // defaults to 'transfer'
+  loanEnd?: number | null;
 }
 
 export async function createOffer(db: DbHandle, input: CreateOfferInput): Promise<number> {
+  const type = input.offerType ?? 'transfer';
   const result = await db
     .prepare(
-      `INSERT INTO transfer_offers (player_id, offering_club_id, selling_club_id, fee_offered, wage_offered, status)
-       VALUES (?, ?, ?, ?, ?, 'pending')`,
+      `INSERT INTO transfer_offers
+         (player_id, offering_club_id, selling_club_id, fee_offered, wage_offered, status, offer_type, loan_end)
+       VALUES (?, ?, ?, ?, ?, 'pending', ?, ?)`,
     )
     .run(
       input.playerId,
@@ -108,6 +116,8 @@ export async function createOffer(db: DbHandle, input: CreateOfferInput): Promis
       input.sellingClubId,
       input.feeOffered,
       input.wageOffered,
+      type,
+      input.loanEnd ?? null,
     ) as { lastInsertRowid: number | bigint };
   return Number(result.lastInsertRowid);
 }

@@ -2,6 +2,7 @@ import { DbHandle } from '@/database/queries/players';
 import { getPendingOffers, updateOfferStatus, createTransfer } from '@/database/queries/transfers';
 import { addFinanceEntry } from '@/database/queries/finances';
 import { evaluateOffer } from './transfer-ai';
+import { TransferType } from '@/types';
 
 /**
  * Execute an accepted transfer: move player to buying club, transfer funds,
@@ -18,9 +19,22 @@ export async function executeAcceptedTransfer(
     wageOffered: number;
     season: number;
     week: number;
+    offerType?: TransferType;
+    loanEnd?: number | null;
   },
 ): Promise<void> {
-  const { offerId, playerId, fromClubId, toClubId, fee, wageOffered, season, week } = params;
+  const {
+    offerId,
+    playerId,
+    fromClubId,
+    toClubId,
+    fee,
+    wageOffered,
+    season,
+    week,
+    offerType = 'transfer',
+    loanEnd = null,
+  } = params;
 
   // Move player to the buying club, update wage, reset free-agent flag
   await db
@@ -28,8 +42,10 @@ export async function executeAcceptedTransfer(
     .run(toClubId, wageOffered, playerId);
 
   // Transfer funds between clubs
-  await db.prepare('UPDATE clubs SET budget = budget - ? WHERE id = ?').run(fee, toClubId);
-  await db.prepare('UPDATE clubs SET budget = budget + ? WHERE id = ?').run(fee, fromClubId);
+  if (fee > 0) {
+    await db.prepare('UPDATE clubs SET budget = budget - ? WHERE id = ?').run(fee, toClubId);
+    await db.prepare('UPDATE clubs SET budget = budget + ? WHERE id = ?').run(fee, fromClubId);
+  }
 
   // Record the transfer
   await createTransfer(db, {
@@ -39,26 +55,30 @@ export async function executeAcceptedTransfer(
     toClubId,
     fee,
     wageOffered,
-    type: 'transfer',
+    type: offerType,
+    loanEnd: offerType === 'loan' ? loanEnd : null,
   });
 
-  // Finance entries
-  await addFinanceEntry(db, {
-    clubId: toClubId,
-    season,
-    week,
-    type: 'transfer_out',
-    amount: -fee,
-    description: `Transfer fee paid for player #${playerId}`,
-  });
-  await addFinanceEntry(db, {
-    clubId: fromClubId,
-    season,
-    week,
-    type: 'transfer_in',
-    amount: fee,
-    description: `Transfer fee received for player #${playerId}`,
-  });
+  // Finance entries (skip for zero-fee loans)
+  if (fee > 0) {
+    const label = offerType === 'loan' ? 'Loan fee' : 'Transfer fee';
+    await addFinanceEntry(db, {
+      clubId: toClubId,
+      season,
+      week,
+      type: 'transfer_out',
+      amount: -fee,
+      description: `${label} paid for player #${playerId}`,
+    });
+    await addFinanceEntry(db, {
+      clubId: fromClubId,
+      season,
+      week,
+      type: 'transfer_in',
+      amount: fee,
+      description: `${label} received for player #${playerId}`,
+    });
+  }
 
   // Mark offer as accepted (in case it wasn't already)
   await updateOfferStatus(db, offerId, 'accepted', week);
@@ -94,6 +114,8 @@ export async function processPendingOffers(
       selling_club_id: number;
       fee_offered: number;
       wage_offered: number;
+      offer_type: string | null;
+      loan_end: number | null;
     }>;
 
     for (const counter of userCounters) {
@@ -131,6 +153,8 @@ export async function processPendingOffers(
         wageOffered: counter.wage_offered,
         season,
         week,
+        offerType: (counter.offer_type as TransferType | null) ?? 'transfer',
+        loanEnd: counter.loan_end,
       });
     }
   }
@@ -214,6 +238,8 @@ export async function processPendingOffers(
         wageOffered: offer.wageOffered,
         season,
         week,
+        offerType: offer.offerType,
+        loanEnd: offer.loanEnd,
       });
     } else if (result.decision === 'reject') {
       await updateOfferStatus(db, offer.id, 'rejected', week);
@@ -249,6 +275,8 @@ export async function acceptIncomingOffer(
         fee_offered: number;
         wage_offered: number;
         status: string;
+        offer_type: string | null;
+        loan_end: number | null;
       }
     | undefined;
 
@@ -264,6 +292,8 @@ export async function acceptIncomingOffer(
     wageOffered: row.wage_offered,
     season,
     week,
+    offerType: (row.offer_type as TransferType | null) ?? 'transfer',
+    loanEnd: row.loan_end,
   });
 
   return { success: true };
@@ -320,6 +350,8 @@ export async function acceptCounterOffer(
         fee_offered: number;
         wage_offered: number;
         status: string;
+        offer_type: string | null;
+        loan_end: number | null;
       }
     | undefined;
 
@@ -345,6 +377,8 @@ export async function acceptCounterOffer(
     wageOffered: row.wage_offered,
     season,
     week,
+    offerType: (row.offer_type as TransferType | null) ?? 'transfer',
+    loanEnd: row.loan_end,
   });
 
   return { success: true };

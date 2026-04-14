@@ -18,7 +18,7 @@ export const TABLE_NAMES: string[] = [
   'save_games',
 ];
 
-const SCHEMA_SQL = `
+export const SCHEMA_SQL = `
 CREATE TABLE IF NOT EXISTS countries (
   id        INTEGER PRIMARY KEY,
   name      TEXT    NOT NULL,
@@ -70,7 +70,9 @@ CREATE TABLE IF NOT EXISTS players (
   morale             INTEGER NOT NULL CHECK (morale BETWEEN 1 AND 100),
   fitness            INTEGER NOT NULL CHECK (fitness BETWEEN 1 AND 100),
   injury_weeks_left  INTEGER NOT NULL DEFAULT 0,
-  is_free_agent      INTEGER NOT NULL DEFAULT 0
+  is_free_agent      INTEGER NOT NULL DEFAULT 0,
+  preferred_foot     TEXT    NOT NULL DEFAULT 'right',
+  weak_foot_ability  INTEGER NOT NULL DEFAULT 3 CHECK (weak_foot_ability BETWEEN 1 AND 5)
 );
 
 CREATE TABLE IF NOT EXISTS player_attributes (
@@ -189,7 +191,9 @@ CREATE TABLE IF NOT EXISTS transfer_offers (
   fee_offered     INTEGER NOT NULL,
   wage_offered    INTEGER NOT NULL,
   status          TEXT    NOT NULL DEFAULT 'pending',
-  response_week   INTEGER
+  response_week   INTEGER,
+  offer_type      TEXT    NOT NULL DEFAULT 'transfer',
+  loan_end        INTEGER
 );
 
 CREATE TABLE IF NOT EXISTS tactics (

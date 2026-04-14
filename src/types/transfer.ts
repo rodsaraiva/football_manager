@@ -22,4 +22,6 @@ export interface TransferOffer {
   wageOffered: number;
   status: OfferStatus;
   responseWeek: number | null;
+  offerType: TransferType;
+  loanEnd: number | null;
 }
