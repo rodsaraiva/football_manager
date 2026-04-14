@@ -112,7 +112,7 @@ export const useDatabaseStore = create<DatabaseStore>((set) => ({
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           season INTEGER NOT NULL,
           competition_id INTEGER NOT NULL,
-          award_type TEXT NOT NULL,
+          award_type TEXT NOT NULL CHECK(award_type IN ('top_scorer','top_assister','mvp','breakthrough')),
           rank INTEGER NOT NULL DEFAULT 1,
           player_id INTEGER NOT NULL,
           club_id INTEGER NOT NULL,

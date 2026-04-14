@@ -248,41 +248,41 @@ CREATE TABLE IF NOT EXISTS save_games (
 );
 
 CREATE TABLE IF NOT EXISTS season_competition_results (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  season INTEGER NOT NULL,
-  competition_id INTEGER NOT NULL REFERENCES competitions(id),
-  champion_club_id INTEGER NOT NULL REFERENCES clubs(id),
+  id                INTEGER PRIMARY KEY AUTOINCREMENT,
+  season            INTEGER NOT NULL,
+  competition_id    INTEGER NOT NULL REFERENCES competitions(id),
+  champion_club_id  INTEGER NOT NULL REFERENCES clubs(id),
   runner_up_club_id INTEGER REFERENCES clubs(id),
   UNIQUE(season, competition_id)
 );
 
 CREATE TABLE IF NOT EXISTS season_relegated (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  season INTEGER NOT NULL,
-  league_id INTEGER NOT NULL REFERENCES leagues(id),
-  club_id INTEGER NOT NULL REFERENCES clubs(id),
+  id             INTEGER PRIMARY KEY AUTOINCREMENT,
+  season         INTEGER NOT NULL,
+  league_id      INTEGER NOT NULL REFERENCES leagues(id),
+  club_id        INTEGER NOT NULL REFERENCES clubs(id),
   final_position INTEGER NOT NULL,
   UNIQUE(season, league_id, club_id)
 );
 
 CREATE TABLE IF NOT EXISTS season_awards (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  season INTEGER NOT NULL,
+  id             INTEGER PRIMARY KEY AUTOINCREMENT,
+  season         INTEGER NOT NULL,
   competition_id INTEGER NOT NULL REFERENCES competitions(id),
-  award_type TEXT NOT NULL CHECK(award_type IN ('top_scorer','top_assister','mvp','breakthrough')),
-  rank INTEGER NOT NULL DEFAULT 1,
-  player_id INTEGER NOT NULL REFERENCES players(id),
-  club_id INTEGER NOT NULL REFERENCES clubs(id),
-  value REAL NOT NULL,
+  award_type     TEXT    NOT NULL CHECK(award_type IN ('top_scorer','top_assister','mvp','breakthrough')),
+  rank           INTEGER NOT NULL DEFAULT 1,
+  player_id      INTEGER NOT NULL REFERENCES players(id),
+  club_id        INTEGER NOT NULL REFERENCES clubs(id),
+  value          REAL    NOT NULL,
   UNIQUE(season, competition_id, award_type, rank)
 );
 
 CREATE TABLE IF NOT EXISTS season_player_titles (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  season INTEGER NOT NULL,
+  id             INTEGER PRIMARY KEY AUTOINCREMENT,
+  season         INTEGER NOT NULL,
   competition_id INTEGER NOT NULL REFERENCES competitions(id),
-  club_id INTEGER NOT NULL REFERENCES clubs(id),
-  player_id INTEGER NOT NULL REFERENCES players(id),
+  club_id        INTEGER NOT NULL REFERENCES clubs(id),
+  player_id      INTEGER NOT NULL REFERENCES players(id),
   UNIQUE(season, competition_id, player_id)
 );
 
