@@ -77,7 +77,11 @@ CREATE TABLE IF NOT EXISTS players (
   injury_weeks_left  INTEGER NOT NULL DEFAULT 0,
   is_free_agent      INTEGER NOT NULL DEFAULT 0,
   preferred_foot     TEXT    NOT NULL DEFAULT 'right',
-  weak_foot_ability  INTEGER NOT NULL DEFAULT 3 CHECK (weak_foot_ability BETWEEN 1 AND 5)
+  weak_foot_ability  INTEGER NOT NULL DEFAULT 3 CHECK (weak_foot_ability BETWEEN 1 AND 5),
+  is_transfer_listed INTEGER NOT NULL DEFAULT 0,
+  is_loan_listed     INTEGER NOT NULL DEFAULT 0,
+  asking_price       INTEGER,
+  loan_wage_share    REAL
 );
 
 CREATE TABLE IF NOT EXISTS player_attributes (

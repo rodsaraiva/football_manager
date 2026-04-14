@@ -24,6 +24,8 @@ export interface PlayerAttributes {
   jumping: number;
 }
 
+export type Foot = 'right' | 'left';
+
 export interface Player {
   id: number;
   name: string;
@@ -41,6 +43,12 @@ export interface Player {
   fitness: number;
   injuryWeeksLeft: number;
   isFreeAgent: boolean;
+  preferredFoot: Foot;
+  weakFootAbility: number; // 1-5
+  isTransferListed: boolean;
+  isLoanListed: boolean;
+  askingPrice: number | null;
+  loanWageShare: number | null;
 }
 
 export interface PlayerStats {
