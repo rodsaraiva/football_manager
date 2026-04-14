@@ -2,6 +2,7 @@ import { DbHandle } from '@/database/queries/players';
 import { getPlayersByClub, getPlayerById } from '@/database/queries/players';
 import { generateAiTransfer } from './transfer/transfer-ai';
 import { processPendingOffers } from './transfer/offer-processor';
+import { generateAiOffersForPlayerClub } from './transfer/ai-offer-generator';
 import {
   getFixturesByWeek,
   updateFixtureResult,
@@ -409,8 +410,13 @@ export async function advanceGameWeek(params: AdvanceWeekParams): Promise<Advanc
   // 3b. Process AI transfers during transfer windows
   await processAiTransfers(db, season, week, rng);
 
-  // 3c. Process pending offers submitted by the player (always, not gated by window)
-  await processPendingOffers(db, season, week);
+  // 3c. AI clubs submit offers for the player's squad (in-window only)
+  if (isTransferWindow(week)) {
+    await generateAiOffersForPlayerClub(db, playerClubId, rng);
+  }
+
+  // 3d. Process pending offers submitted by the player (always, not gated by window)
+  await processPendingOffers(db, season, week, playerClubId);
 
   // 4. Process weekly finances for player's club
   const playerClub = await getClubById(db, playerClubId);

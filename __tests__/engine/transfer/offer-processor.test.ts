@@ -2,6 +2,9 @@ import { createTestDb, createTestDbHandle } from '../../database/test-helpers';
 import {
   processPendingOffers,
   acceptCounterOffer,
+  acceptIncomingOffer,
+  rejectIncomingOffer,
+  counterIncomingOffer,
   executeAcceptedTransfer,
 } from '@/engine/transfer/offer-processor';
 import { createOffer, getOfferById, getOffersByOfferingClub } from '@/database/queries/transfers';
@@ -238,6 +241,120 @@ describe('offer-processor', () => {
       const result = await acceptCounterOffer(h, 1, 1, 6);
       expect(result.success).toBe(false);
       expect(result.reason).toMatch(/budget/i);
+    });
+  });
+
+  describe('incoming offers (user is seller)', () => {
+    it('skips offers where user is the seller in processPendingOffers', async () => {
+      const db = createTestDb();
+      const h = createTestDbHandle(db);
+      seedMinimal(db);
+      // User is club 10; a rival (club 20) bids for user's player
+      insertPlayer(db, { id: 1, clubId: 10, marketValue: 10_000_000, position: 'ST' });
+
+      await createOffer(h, {
+        playerId: 1,
+        offeringClubId: 20,
+        sellingClubId: 10,
+        feeOffered: 12_000_000,
+        wageOffered: 30_000,
+      });
+
+      // Process with user as club 10 — should NOT auto-resolve
+      await processPendingOffers(h, 1, 5, 10);
+
+      const offer = await getOfferById(h, 1);
+      expect(offer!.status).toBe('pending');
+    });
+
+    it('acceptIncomingOffer executes the sale immediately', async () => {
+      const db = createTestDb();
+      const h = createTestDbHandle(db);
+      seedMinimal(db);
+      insertPlayer(db, { id: 1, clubId: 10, marketValue: 10_000_000, position: 'ST' });
+
+      await createOffer(h, {
+        playerId: 1,
+        offeringClubId: 20,
+        sellingClubId: 10,
+        feeOffered: 12_000_000,
+        wageOffered: 30_000,
+      });
+
+      const res = await acceptIncomingOffer(h, 1, 1, 5);
+      expect(res.success).toBe(true);
+
+      const player = db.prepare('SELECT club_id FROM players WHERE id = 1').get() as { club_id: number };
+      expect(player.club_id).toBe(20);
+    });
+
+    it('rejectIncomingOffer marks as rejected', async () => {
+      const db = createTestDb();
+      const h = createTestDbHandle(db);
+      seedMinimal(db);
+      insertPlayer(db, { id: 1, clubId: 10, marketValue: 10_000_000, position: 'ST' });
+
+      await createOffer(h, {
+        playerId: 1,
+        offeringClubId: 20,
+        sellingClubId: 10,
+        feeOffered: 8_000_000,
+        wageOffered: 30_000,
+      });
+
+      await rejectIncomingOffer(h, 1, 5);
+      const offer = await getOfferById(h, 1);
+      expect(offer!.status).toBe('rejected');
+    });
+
+    it('counter + buyer re-evaluation closes the deal when price is reasonable', async () => {
+      const db = createTestDb();
+      const h = createTestDbHandle(db);
+      seedMinimal(db);
+      insertPlayer(db, { id: 1, clubId: 10, marketValue: 10_000_000, position: 'ST' });
+
+      await createOffer(h, {
+        playerId: 1,
+        offeringClubId: 20,
+        sellingClubId: 10,
+        feeOffered: 9_000_000,
+        wageOffered: 30_000,
+      });
+
+      // User counters at 12M (120% of market — within 140% threshold)
+      await counterIncomingOffer(h, 1, 12_000_000);
+
+      // Buyer has 50M budget so can afford. Re-evaluate.
+      await processPendingOffers(h, 1, 6, 10);
+
+      const player = db.prepare('SELECT club_id FROM players WHERE id = 1').get() as { club_id: number };
+      expect(player.club_id).toBe(20);
+    });
+
+    it('counter is rejected when asking price is too high', async () => {
+      const db = createTestDb();
+      const h = createTestDbHandle(db);
+      seedMinimal(db);
+      insertPlayer(db, { id: 1, clubId: 10, marketValue: 10_000_000, position: 'ST' });
+
+      await createOffer(h, {
+        playerId: 1,
+        offeringClubId: 20,
+        sellingClubId: 10,
+        feeOffered: 9_000_000,
+        wageOffered: 30_000,
+      });
+
+      // User counters at 20M (200% of market — over threshold)
+      await counterIncomingOffer(h, 1, 20_000_000);
+
+      await processPendingOffers(h, 1, 6, 10);
+
+      const offer = await getOfferById(h, 1);
+      expect(offer!.status).toBe('rejected');
+
+      const player = db.prepare('SELECT club_id FROM players WHERE id = 1').get() as { club_id: number };
+      expect(player.club_id).toBe(10); // unchanged
     });
   });
 
