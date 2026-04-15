@@ -158,14 +158,17 @@ export async function ensureSeasonFixtures(
   db: DbHandle,
   season: number,
 ): Promise<boolean> {
-  // Fast-check: any fixture for this season?
+  // Heuristic: a healthy season has hundreds of fixtures (5 leagues × ~20 clubs ×
+  // 38 weeks + cup + CL). If we see fewer than 100, treat it as a botched/partial
+  // generation from an old buggy save and regenerate from scratch.
   const existing = await db
     .prepare('SELECT COUNT(*) AS cnt FROM fixtures WHERE season = ?')
     .get(season) as { cnt: number };
-  if (existing.cnt > 0) return false;
+  if (existing.cnt >= 100) return false;
 
-  // No fixtures — generate the calendar from scratch.
-  // Clear any orphaned competitions/entries from this season first.
+  // Wipe any partial state for this season before regenerating.
+  await db.prepare('DELETE FROM match_events WHERE fixture_id IN (SELECT id FROM fixtures WHERE season = ?)').run(season);
+  await db.prepare('DELETE FROM fixtures WHERE season = ?').run(season);
   await db.prepare('DELETE FROM competition_entries WHERE competition_id IN (SELECT id FROM competitions WHERE season = ?)').run(season);
   await db.prepare('DELETE FROM competitions WHERE season = ?').run(season);
 
