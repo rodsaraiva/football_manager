@@ -184,7 +184,8 @@ export function HomeScreen() {
       if (updatedClub) setPlayerClub(updatedClub);
 
       // Reload recent results
-      const allFixtures = await getFixturesByClub(dbHandle, playerClubId, result.isSeasonEnd ? season : result.newSeason);
+      const fetchSeasonForRecents = result.isSeasonEnd ? season : result.newSeason;
+      const allFixtures = await getFixturesByClub(dbHandle, playerClubId, fetchSeasonForRecents);
       const played = allFixtures.filter(f => f.played);
       setRecentResults(played.slice(-5));
 
@@ -441,11 +442,12 @@ export function HomeScreen() {
                     if (type === 'injury') return '🏥';
                     if (type === 'substitution') return '🔄';
                     if (type === 'assist') return '🅰️';
+                    if (type === 'shot_on_target') return '🎯';
                     return '';
                   };
                   // Filter out assists (shown inline with goals)
                   const visible = lastMatchResult.events.filter(
-                    e => e.type !== 'assist',
+                    e => e.type !== 'assist' && e.type !== 'shot_off_target' && e.type !== 'save',
                   );
                   // Build assist lookup: goalPlayerId -> assisterName
                   const assistMap = new Map<number, string>();

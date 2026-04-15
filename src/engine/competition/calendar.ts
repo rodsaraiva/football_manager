@@ -164,7 +164,9 @@ export async function ensureSeasonFixtures(
   const existing = await db
     .prepare('SELECT COUNT(*) AS cnt FROM fixtures WHERE season = ?')
     .get(season) as { cnt: number };
-  if (existing.cnt >= 100) return false;
+  if (existing.cnt >= 100) {
+    return false;
+  }
 
   // Wipe any partial state for this season before regenerating.
   await db.prepare('DELETE FROM match_events WHERE fixture_id IN (SELECT id FROM fixtures WHERE season = ?)').run(season);
@@ -197,9 +199,14 @@ export async function ensureSeasonFixtures(
 
   const calendar = generateSeasonCalendar({ season, leagues: allLeagues, clubsByLeague, championsLeagueClubs });
 
+  // Season 1 uses raw IDs (matches NewGameScreen). Season 2+ offsets IDs to
+  // avoid UNIQUE constraint collisions with prior seasons (matches EndOfSeasonScreen).
+  const compIdOffset = season > 1 ? season * 10000 : 0;
+  const fixtureIdOffset = season > 1 ? season * 100000 : 0;
+
   for (const comp of calendar.competitions) {
     await createCompetition(db, {
-      id: comp.id,
+      id: comp.id + compIdOffset,
       name: comp.name,
       type: comp.type,
       format: comp.format,
@@ -209,7 +216,7 @@ export async function ensureSeasonFixtures(
   }
   for (const entry of calendar.entries) {
     await addCompetitionEntry(db, {
-      competitionId: entry.competitionId,
+      competitionId: entry.competitionId + compIdOffset,
       clubId: entry.clubId,
       groupName: entry.groupName,
       seed: entry.seed,
@@ -217,8 +224,8 @@ export async function ensureSeasonFixtures(
   }
   for (const fixture of calendar.fixtures) {
     await createFixture(db, {
-      id: fixture.id,
-      competitionId: fixture.competitionId,
+      id: fixture.id + fixtureIdOffset,
+      competitionId: fixture.competitionId + compIdOffset,
       season,
       week: fixture.week,
       round: fixture.round !== null ? String(fixture.round) : null,

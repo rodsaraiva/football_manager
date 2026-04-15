@@ -1,5 +1,6 @@
-import { generateSeasonCalendar, SeasonCalendar } from '@/engine/competition/calendar';
+import { generateSeasonCalendar, ensureSeasonFixtures, SeasonCalendar } from '@/engine/competition/calendar';
 import { League } from '@/types';
+import { createTestDb, createTestDbHandle, seedTestDb } from '../../database/test-helpers';
 
 const mockLeagues: League[] = [
   { id: 1, name: 'Premier League', countryId: 1, divisionLevel: 1, numTeams: 20, promotionSpots: 0, relegationSpots: 3 },
@@ -72,5 +73,50 @@ describe('generateSeasonCalendar', () => {
   it('assigns unique competition IDs', () => {
     const ids = calendar.competitions.map(c => c.id);
     expect(new Set(ids).size).toBe(ids.length);
+  });
+});
+
+describe('ensureSeasonFixtures', () => {
+  it('generates fixtures for season 1 when none exist', async () => {
+    const rawDb = createTestDb();
+    seedTestDb(rawDb);
+    const db = createTestDbHandle(rawDb);
+
+    const result = await ensureSeasonFixtures(db, 1);
+    expect(result).toBe(true);
+
+    const { cnt } = rawDb.prepare('SELECT COUNT(*) as cnt FROM fixtures WHERE season = 1').get() as { cnt: number };
+    expect(cnt).toBeGreaterThan(100);
+  });
+
+  it('returns false when fixtures already exist', async () => {
+    const rawDb = createTestDb();
+    seedTestDb(rawDb);
+    const db = createTestDbHandle(rawDb);
+
+    await ensureSeasonFixtures(db, 1);
+    const result = await ensureSeasonFixtures(db, 1);
+    expect(result).toBe(false);
+  });
+
+  it('generates season 2 fixtures without UNIQUE constraint error when season 1 exists', async () => {
+    const rawDb = createTestDb();
+    seedTestDb(rawDb);
+    const db = createTestDbHandle(rawDb);
+
+    // Generate season 1
+    await ensureSeasonFixtures(db, 1);
+
+    // Generate season 2 — must not throw and must use offset IDs
+    const result = await ensureSeasonFixtures(db, 2);
+    expect(result).toBe(true);
+
+    const { cnt } = rawDb.prepare('SELECT COUNT(*) as cnt FROM fixtures WHERE season = 2').get() as { cnt: number };
+    expect(cnt).toBeGreaterThan(100);
+
+    // Fixture IDs for season 2 should be offset and not collide with season 1
+    const minId2 = (rawDb.prepare('SELECT MIN(id) as m FROM fixtures WHERE season = 2').get() as { m: number }).m;
+    const maxId1 = (rawDb.prepare('SELECT MAX(id) as m FROM fixtures WHERE season = 1').get() as { m: number }).m;
+    expect(minId2).toBeGreaterThan(maxId1);
   });
 });
