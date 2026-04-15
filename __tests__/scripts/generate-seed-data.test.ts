@@ -11,18 +11,18 @@ describe('generateSeedData', () => {
     expect(data.countries).toHaveLength(5);
   });
 
-  it('generates 5 leagues', () => {
-    expect(data.leagues).toHaveLength(5);
+  it('generates 17 leagues (5 EN + 3 ES + 3 IT + 3 DE + 3 FR)', () => {
+    expect(data.leagues).toHaveLength(17);
   });
 
-  it('generates 96 clubs', () => {
-    expect(data.clubs).toHaveLength(96);
+  it('generates 330 clubs', () => {
+    expect(data.clubs).toHaveLength(330);
   });
 
   it('generates ~25 players per club', () => {
     const totalPlayers = data.players.length;
-    expect(totalPlayers).toBeGreaterThanOrEqual(96 * 23);
-    expect(totalPlayers).toBeLessThanOrEqual(96 * 27);
+    expect(totalPlayers).toBeGreaterThanOrEqual(330 * 23);
+    expect(totalPlayers).toBeLessThanOrEqual(330 * 27);
   });
 
   it('each player has matching attributes', () => {

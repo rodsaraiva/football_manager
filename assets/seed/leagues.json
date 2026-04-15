@@ -10,6 +10,42 @@
   },
   {
     "id": 2,
+    "name": "Championship",
+    "countryId": 1,
+    "divisionLevel": 2,
+    "numTeams": 20,
+    "promotionSpots": 3,
+    "relegationSpots": 3
+  },
+  {
+    "id": 3,
+    "name": "League One",
+    "countryId": 1,
+    "divisionLevel": 3,
+    "numTeams": 20,
+    "promotionSpots": 4,
+    "relegationSpots": 4
+  },
+  {
+    "id": 4,
+    "name": "League Two",
+    "countryId": 1,
+    "divisionLevel": 4,
+    "numTeams": 20,
+    "promotionSpots": 4,
+    "relegationSpots": 2
+  },
+  {
+    "id": 5,
+    "name": "National League",
+    "countryId": 1,
+    "divisionLevel": 5,
+    "numTeams": 20,
+    "promotionSpots": 2,
+    "relegationSpots": 4
+  },
+  {
+    "id": 6,
     "name": "La Liga",
     "countryId": 2,
     "divisionLevel": 1,
@@ -18,7 +54,25 @@
     "relegationSpots": 3
   },
   {
-    "id": 3,
+    "id": 7,
+    "name": "La Liga 2",
+    "countryId": 2,
+    "divisionLevel": 2,
+    "numTeams": 20,
+    "promotionSpots": 3,
+    "relegationSpots": 4
+  },
+  {
+    "id": 8,
+    "name": "Primera Federacion",
+    "countryId": 2,
+    "divisionLevel": 3,
+    "numTeams": 20,
+    "promotionSpots": 4,
+    "relegationSpots": 4
+  },
+  {
+    "id": 9,
     "name": "Serie A",
     "countryId": 3,
     "divisionLevel": 1,
@@ -27,7 +81,25 @@
     "relegationSpots": 3
   },
   {
-    "id": 4,
+    "id": 10,
+    "name": "Serie B",
+    "countryId": 3,
+    "divisionLevel": 2,
+    "numTeams": 20,
+    "promotionSpots": 3,
+    "relegationSpots": 3
+  },
+  {
+    "id": 11,
+    "name": "Serie C",
+    "countryId": 3,
+    "divisionLevel": 3,
+    "numTeams": 20,
+    "promotionSpots": 4,
+    "relegationSpots": 4
+  },
+  {
+    "id": 12,
     "name": "Bundesliga",
     "countryId": 4,
     "divisionLevel": 1,
@@ -36,12 +108,48 @@
     "relegationSpots": 3
   },
   {
-    "id": 5,
+    "id": 13,
+    "name": "2. Bundesliga",
+    "countryId": 4,
+    "divisionLevel": 2,
+    "numTeams": 18,
+    "promotionSpots": 3,
+    "relegationSpots": 3
+  },
+  {
+    "id": 14,
+    "name": "3. Liga",
+    "countryId": 4,
+    "divisionLevel": 3,
+    "numTeams": 18,
+    "promotionSpots": 3,
+    "relegationSpots": 4
+  },
+  {
+    "id": 15,
     "name": "Ligue 1",
     "countryId": 5,
     "divisionLevel": 1,
     "numTeams": 18,
     "promotionSpots": 0,
     "relegationSpots": 3
+  },
+  {
+    "id": 16,
+    "name": "Ligue 2",
+    "countryId": 5,
+    "divisionLevel": 2,
+    "numTeams": 20,
+    "promotionSpots": 3,
+    "relegationSpots": 4
+  },
+  {
+    "id": 17,
+    "name": "National",
+    "countryId": 5,
+    "divisionLevel": 3,
+    "numTeams": 18,
+    "promotionSpots": 3,
+    "relegationSpots": 5
   }
 ]

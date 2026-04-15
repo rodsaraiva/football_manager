@@ -47,9 +47,9 @@ describe('clubs queries', () => {
   });
 
   describe('getAllClubs', () => {
-    it('returns 96 clubs', async () => {
+    it('returns 330 clubs', async () => {
       const clubs = await getAllClubs(db);
-      expect(clubs).toHaveLength(96);
+      expect(clubs).toHaveLength(330);
     });
 
     it('returns Club objects with all expected fields', async () => {

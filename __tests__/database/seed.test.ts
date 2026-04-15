@@ -22,7 +22,7 @@ describe('seedDatabase', () => {
     expect(countryCount).toBe(5);
 
     const clubCount = (db.prepare('SELECT COUNT(*) as c FROM clubs').get() as { c: number }).c;
-    expect(clubCount).toBe(96);
+    expect(clubCount).toBe(330);
 
     const playerCount = (db.prepare('SELECT COUNT(*) as c FROM players').get() as { c: number }).c;
     expect(playerCount).toBeGreaterThan(2000);
@@ -34,7 +34,7 @@ describe('seedDatabase', () => {
     expect(staffCount).toBeGreaterThan(200);
 
     const tacticCount = (db.prepare('SELECT COUNT(*) as c FROM tactics').get() as { c: number }).c;
-    expect(tacticCount).toBe(96);
+    expect(tacticCount).toBe(330);
   });
 
   it('runs within a transaction (all or nothing)', () => {

@@ -389,27 +389,36 @@ export function generateSeedData(seed: number): SeedData {
 
   // Build country → id map
   const countryIdMap: Record<string, number> = {};
+  // Build leagueId map: countryCode + divisionLevel → league id
+  const leagueIdMap: Record<string, number> = {};
+
+  // First pass: create countries (one per unique countryCode)
+  for (const leagueDef of LEAGUES) {
+    if (countryIdMap[leagueDef.countryCode] === undefined) {
+      const cId = countryId++;
+      countryIdMap[leagueDef.countryCode] = cId;
+      countries.push({
+        id: cId,
+        name: leagueDef.country,
+        code: leagueDef.countryCode,
+        continent: 'Europe',
+      });
+    }
+  }
 
   for (const leagueDef of LEAGUES) {
-    const cId = countryId++;
-    countryIdMap[leagueDef.countryCode] = cId;
-
-    countries.push({
-      id: cId,
-      name: leagueDef.country,
-      code: leagueDef.countryCode,
-      continent: 'Europe',
-    });
+    const cId = countryIdMap[leagueDef.countryCode];
 
     const lId = leagueId++;
+    leagueIdMap[`${leagueDef.countryCode}_${leagueDef.divisionLevel}`] = lId;
     leagues.push({
       id: lId,
       name: leagueDef.name,
       countryId: cId,
-      divisionLevel: 1,
+      divisionLevel: leagueDef.divisionLevel,
       numTeams: leagueDef.teams.length,
-      promotionSpots: 0,
-      relegationSpots: 3,
+      promotionSpots: leagueDef.promotionSpots,
+      relegationSpots: leagueDef.relegationSpots,
     });
 
     for (const teamDef of leagueDef.teams) {

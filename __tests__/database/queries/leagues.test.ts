@@ -41,9 +41,9 @@ describe('leagues queries', () => {
   });
 
   describe('getAllLeagues', () => {
-    it('returns 5 leagues', async () => {
+    it('returns 17 leagues', async () => {
       const leagues = await getAllLeagues(db);
-      expect(leagues).toHaveLength(5);
+      expect(leagues).toHaveLength(17);
     });
 
     it('returns League objects with expected fields', async () => {
