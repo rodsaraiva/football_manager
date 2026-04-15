@@ -211,6 +211,7 @@ interface TeamState {
   fatigueByPlayer: Map<number, number>; // #3
   momentumBlocksLeft: number;           // #5
   momentumType: 'chase' | 'scorer' | 'none'; // #5
+  cameInAsSub: Set<number>;
 }
 
 function makeTeam(
@@ -232,6 +233,7 @@ function makeTeam(
     fatigueByPlayer: new Map(squad.map(p => [p.id, 0])),
     momentumBlocksLeft: 0,
     momentumType: 'none',
+    cameInAsSub: new Set(),
   };
 }
 
@@ -263,15 +265,17 @@ function drainFatigue(team: TeamState, block: number, homeAdvantageMult: number)
 
 // ─── #4: Smart substitution ──────────────────────────────────────────────────
 
-function pickPlayerOut(team: TeamState, rng: SeededRng): PlayerForStrength {
-  // #6: yellow card holders are higher risk; fatigue also factors in
-  const weights = team.squad.map(p => {
+function pickPlayerOut(team: TeamState, rng: SeededRng): PlayerForStrength | null {
+  // Cannot sub out a player who came in as a substitute
+  const eligible = team.squad.filter(p => !team.cameInAsSub.has(p.id));
+  if (eligible.length === 0) return null;
+  const weights = eligible.map(p => {
     let w = team.fatigueByPlayer.get(p.id) ?? 0;
-    if (team.yellows.has(p.id)) w += 40; // risk of 2nd yellow
+    if (team.yellows.has(p.id)) w += 40;
     if (team.tactic.subStrategy === 'chase_the_game' && DEFENSE_POS.has(p.position)) w += 30;
     return Math.max(1, w);
   });
-  return rng.weightedPick(team.squad, weights);
+  return rng.weightedPick(eligible, weights);
 }
 
 function pickPlayerIn(
@@ -641,13 +645,9 @@ function runBlock(
       if (subIn) {
         team.squad.push(subIn);
         team.bench = team.bench.filter(p => p.id !== subIn.id);
-        team.fatigueByPlayer.set(subIn.id, 0); // #3: fresh legs
+        team.fatigueByPlayer.set(subIn.id, 0);
+        team.cameInAsSub.add(subIn.id);
       }
-      team.subsUsed++;
-    } else if (team.subsUsed < MAX_SUBS) {
-      const subIn = team.squad.find(p => p.id !== player.id) ?? null;
-      events.push({ fixtureId, minute: iMin, type: 'substitution', playerId: player.id, secondaryPlayerId: subIn?.id ?? null });
-      removeAndRecalc(team, player.id, homeAdvantageMult);
       team.subsUsed++;
     } else {
       removeAndRecalc(team, player.id, homeAdvantageMult);
@@ -667,16 +667,19 @@ function runBlock(
 
     if (rng.next() < rate) {
       const sMin = blockToMinute(block, rng, usedMinutes);
-      const out = pickPlayerOut(team, rng); // #4+#6: smart pick
-      const inn = pickPlayerIn(team.bench, out.position, team.tactic, team.goals - opp.goals, rng);
-      events.push({ fixtureId, minute: sMin, type: 'substitution', playerId: out.id, secondaryPlayerId: inn?.id ?? null });
-      removeAndRecalc(team, out.id, homeAdvantageMult);
-      if (inn) {
-        team.squad.push(inn);
-        team.bench = team.bench.filter(p => p.id !== inn.id);
-        team.fatigueByPlayer.set(inn.id, 0); // #3: fresh
+      const out = pickPlayerOut(team, rng);
+      if (out) {
+        const inn = pickPlayerIn(team.bench, out.position, team.tactic, team.goals - opp.goals, rng);
+        events.push({ fixtureId, minute: sMin, type: 'substitution', playerId: out.id, secondaryPlayerId: inn?.id ?? null });
+        removeAndRecalc(team, out.id, homeAdvantageMult);
+        if (inn) {
+          team.squad.push(inn);
+          team.bench = team.bench.filter(p => p.id !== inn.id);
+          team.fatigueByPlayer.set(inn.id, 0);
+          team.cameInAsSub.add(inn.id);
+        }
+        team.subsUsed++;
       }
-      team.subsUsed++;
     }
   }
 }
