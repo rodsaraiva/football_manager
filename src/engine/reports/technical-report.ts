@@ -7,6 +7,7 @@
  * Not UI-aware — each function takes plain data and returns plain data.
  */
 import { MatchEvent, Position, Fixture } from '@/types';
+import { PlayerAttributes } from '@/types/player';
 
 export const FORM_WINDOW = 5;
 
@@ -19,6 +20,109 @@ export interface SquadPlayer {
   basePotential: number;
   effectivePotential: number;
   injuryWeeksLeft: number;
+  attributes?: PlayerAttributes;
+}
+
+// ─── Squad Summary ─────────────────────────────────────────────────────────
+
+export const ATTRIBUTE_LABELS: Record<keyof PlayerAttributes, string> = {
+  finishing: 'Finalização',
+  passing: 'Passe',
+  crossing: 'Cruzamento',
+  dribbling: 'Drible',
+  heading: 'Cabeceio',
+  longShots: 'Chutes de longe',
+  freeKicks: 'Bolas paradas',
+  vision: 'Visão',
+  composure: 'Compostura',
+  decisions: 'Decisões',
+  positioning: 'Posicionamento',
+  aggression: 'Agressividade',
+  leadership: 'Liderança',
+  pace: 'Velocidade',
+  stamina: 'Resistência',
+  strength: 'Força',
+  agility: 'Agilidade',
+  jumping: 'Impulsão',
+};
+
+export interface CollectiveAttribute {
+  attribute: keyof PlayerAttributes;
+  label: string;
+  avg: number;
+}
+
+export interface IndividualHighlight {
+  playerId: number;
+  playerName: string;
+  position: Position;
+  attribute: keyof PlayerAttributes;
+  label: string;
+  value: number;
+}
+
+export interface SquadSummary {
+  collectiveStrengths: CollectiveAttribute[];
+  collectiveWeaknesses: CollectiveAttribute[];
+  individualHighlights: IndividualHighlight[];
+}
+
+/** Atributos considerados para destaques individuais */
+const HIGHLIGHT_ATTRIBUTES: (keyof PlayerAttributes)[] = [
+  'crossing', 'pace', 'passing', 'finishing', 'dribbling',
+  'vision', 'heading', 'freeKicks', 'longShots', 'leadership',
+];
+
+const MIN_VALUE_FOR_HIGHLIGHT = 80;
+
+export function buildSquadSummary(squad: SquadPlayer[]): SquadSummary {
+  const withAttrs = squad.filter((p) => p.attributes != null);
+
+  if (withAttrs.length === 0) {
+    return { collectiveStrengths: [], collectiveWeaknesses: [], individualHighlights: [] };
+  }
+
+  // Compute average per attribute across all players (inclusive — simples)
+  const attrKeys = Object.keys(ATTRIBUTE_LABELS) as (keyof PlayerAttributes)[];
+  const avgs: CollectiveAttribute[] = attrKeys.map((attr) => {
+    const sum = withAttrs.reduce((acc, p) => acc + (p.attributes![attr] as number), 0);
+    return {
+      attribute: attr,
+      label: ATTRIBUTE_LABELS[attr],
+      avg: Math.round((sum / withAttrs.length) * 10) / 10,
+    };
+  });
+
+  const sorted = [...avgs].sort((a, b) => b.avg - a.avg);
+  const collectiveStrengths = sorted.slice(0, 4);
+  const collectiveWeaknesses = [...sorted].reverse().slice(0, 3);
+
+  // Individual highlights: for each key attribute, best player if value >= 80
+  const highlights: IndividualHighlight[] = [];
+  for (const attr of HIGHLIGHT_ATTRIBUTES) {
+    let best: SquadPlayer | null = null;
+    let bestVal = MIN_VALUE_FOR_HIGHLIGHT - 1;
+    for (const p of withAttrs) {
+      const v = p.attributes![attr] as number;
+      if (v > bestVal) {
+        bestVal = v;
+        best = p;
+      }
+    }
+    if (best != null) {
+      highlights.push({
+        playerId: best.id,
+        playerName: best.name,
+        position: best.position,
+        attribute: attr,
+        label: ATTRIBUTE_LABELS[attr],
+        value: bestVal,
+      });
+    }
+    if (highlights.length >= 8) break;
+  }
+
+  return { collectiveStrengths, collectiveWeaknesses, individualHighlights: highlights };
 }
 
 export interface PlayerMatchAppearance {
@@ -59,6 +163,7 @@ export interface TechnicalReport {
   rising: SquadPlayer[];
   replacementSuggestions: ReplacementSuggestion[];
   benchedButDeservesMinutes: SquadPlayer[];
+  squadSummary: SquadSummary;
 }
 
 // ─── Rating heuristic from events ───────────────────────────────────────────
@@ -305,5 +410,6 @@ export function buildTechnicalReport(input: ReportInput): TechnicalReport {
     rising,
     replacementSuggestions: suggestions.slice(0, 5),
     benchedButDeservesMinutes: benchedButDeserves,
+    squadSummary: buildSquadSummary(squad),
   };
 }

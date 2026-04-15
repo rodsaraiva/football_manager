@@ -14,6 +14,7 @@ import {
   FormListItem,
   ReplacementSuggestion,
   TechnicalReport,
+  SquadSummary,
 } from '@/engine/reports/technical-report';
 import { MatchEvent } from '@/types';
 import { RootStackParamList } from '@/navigation/types';
@@ -49,6 +50,7 @@ export function ReportsTechnicalScreen() {
         basePotential: full.basePotential,
         effectivePotential: full.effectivePotential,
         injuryWeeksLeft: full.injuryWeeksLeft,
+        attributes: full.attributes,
       }));
 
       // Recent fixtures (configurable window)
@@ -129,6 +131,8 @@ export function ReportsTechnicalScreen() {
           ))}
         </View>
       </View>
+
+      <SquadSummarySection summary={report.squadSummary} />
 
       <Section title="🔥 Em grande fase" subtitle="Maior rating médio recente">
         {report.inForm.length === 0 ? (
@@ -225,6 +229,75 @@ export function ReportsTechnicalScreen() {
 }
 
 // ─── Subcomponents ──────────────────────────────────────────────────────────
+
+function SquadSummarySection({ summary }: { summary: SquadSummary }) {
+  const { collectiveStrengths, collectiveWeaknesses, individualHighlights } = summary;
+  const hasData = collectiveStrengths.length > 0;
+
+  return (
+    <View style={styles.section}>
+      <Text style={styles.sectionTitle}>📊 Resumo do Elenco</Text>
+      <Text style={styles.sectionSub}>Pontos fortes, fracos e destaques individuais</Text>
+
+      {!hasData ? (
+        <Text style={styles.empty}>Sem dados de atributos para analisar.</Text>
+      ) : (
+        <>
+          <Text style={styles.summaryGroupLabel}>Pontos fortes coletivos</Text>
+          <View style={styles.sectionBody}>
+            {collectiveStrengths.map((item) => (
+              <View key={item.attribute} style={styles.attrRow}>
+                <Text style={styles.attrLabel}>{item.label}</Text>
+                <View style={[styles.attrBar, { borderColor: colors.success }]}>
+                  <Text style={[styles.attrValue, { color: colors.success }]}>
+                    {item.avg.toFixed(1)}
+                  </Text>
+                </View>
+              </View>
+            ))}
+          </View>
+
+          <Text style={[styles.summaryGroupLabel, { marginTop: spacing.sm }]}>Pontos fracos coletivos</Text>
+          <View style={styles.sectionBody}>
+            {collectiveWeaknesses.map((item) => (
+              <View key={item.attribute} style={styles.attrRow}>
+                <Text style={styles.attrLabel}>{item.label}</Text>
+                <View style={[styles.attrBar, { borderColor: colors.danger }]}>
+                  <Text style={[styles.attrValue, { color: colors.danger }]}>
+                    {item.avg.toFixed(1)}
+                  </Text>
+                </View>
+              </View>
+            ))}
+          </View>
+
+          {individualHighlights.length > 0 && (
+            <>
+              <Text style={[styles.summaryGroupLabel, { marginTop: spacing.sm }]}>Destaques individuais</Text>
+              <View style={styles.sectionBody}>
+                {individualHighlights.map((item) => (
+                  <Pressable
+                    key={`${item.playerId}-${item.attribute}`}
+                    onPress={() => {}}
+                    style={({ pressed }) => [styles.highlightRow, pressed && styles.rowPressed]}
+                  >
+                    <View style={styles.highlightLeft}>
+                      <Text style={styles.playerName}>{item.playerName}</Text>
+                      <Text style={styles.playerMeta}>{item.position} · {item.label}</Text>
+                    </View>
+                    <View style={[styles.attrBar, { borderColor: colors.primary }]}>
+                      <Text style={[styles.attrValue, { color: colors.primary }]}>{item.value}</Text>
+                    </View>
+                  </Pressable>
+                ))}
+              </View>
+            </>
+          )}
+        </>
+      )}
+    </View>
+  );
+}
 
 function Section({
   title,
@@ -421,5 +494,43 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     fontSize: fontSize.sm,
     fontStyle: 'italic',
+  },
+  summaryGroupLabel: {
+    color: colors.textSecondary,
+    fontSize: fontSize.xs,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: spacing.xs,
+  },
+  attrRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 2,
+  },
+  attrLabel: {
+    flex: 1,
+    color: colors.text,
+    fontSize: fontSize.sm,
+  },
+  attrBar: {
+    borderWidth: 1,
+    borderRadius: 4,
+    paddingHorizontal: spacing.xs,
+    paddingVertical: 1,
+    minWidth: 44,
+    alignItems: 'center',
+  },
+  attrValue: {
+    fontSize: fontSize.sm,
+    fontWeight: '700',
+  },
+  highlightRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: spacing.xs,
+  },
+  highlightLeft: {
+    flex: 1,
   },
 });

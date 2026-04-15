@@ -1,10 +1,22 @@
 import {
   buildTechnicalReport,
+  buildSquadSummary,
   computeForm,
   ratePlayerFromEvents,
   SquadPlayer,
 } from '@/engine/reports/technical-report';
 import { Fixture, MatchEvent, Position } from '@/types';
+import { PlayerAttributes } from '@/types/player';
+
+function mkAttributes(overrides: Partial<PlayerAttributes> = {}): PlayerAttributes {
+  const defaults: PlayerAttributes = {
+    finishing: 60, passing: 60, crossing: 60, dribbling: 60, heading: 60,
+    longShots: 60, freeKicks: 60, vision: 60, composure: 60, decisions: 60,
+    positioning: 60, aggression: 60, leadership: 60, pace: 60, stamina: 60,
+    strength: 60, agility: 60, jumping: 60,
+  };
+  return { ...defaults, ...overrides };
+}
 
 function mkPlayer(overrides: Partial<SquadPlayer> & { id: number }): SquadPlayer {
   return {
@@ -16,6 +28,7 @@ function mkPlayer(overrides: Partial<SquadPlayer> & { id: number }): SquadPlayer
     basePotential: overrides.basePotential ?? 80,
     effectivePotential: overrides.effectivePotential ?? 80,
     injuryWeeksLeft: overrides.injuryWeeksLeft ?? 0,
+    attributes: overrides.attributes,
   };
 }
 
@@ -170,5 +183,75 @@ describe('buildTechnicalReport', () => {
     });
     expect(report.inForm).toHaveLength(0);
     expect(report.outOfForm).toHaveLength(0);
+  });
+
+  it('inclui squadSummary no relatório', () => {
+    const squad: SquadPlayer[] = [
+      mkPlayer({ id: 1, attributes: mkAttributes({ pace: 85 }) }),
+    ];
+    const report = buildTechnicalReport({
+      squad,
+      recentFixtures: [],
+      eventsByFixture: new Map(),
+      playerClubId: 10,
+      currentWeek: 1,
+    });
+    expect(report.squadSummary).toBeDefined();
+    expect(report.squadSummary.collectiveStrengths.length).toBeGreaterThan(0);
+  });
+});
+
+describe('buildSquadSummary', () => {
+  it('retorna vazio se nenhum jogador tem atributos', () => {
+    const squad = [mkPlayer({ id: 1 })];
+    const summary = buildSquadSummary(squad);
+    expect(summary.collectiveStrengths).toHaveLength(0);
+    expect(summary.collectiveWeaknesses).toHaveLength(0);
+    expect(summary.individualHighlights).toHaveLength(0);
+  });
+
+  it('identifica pontos fortes e fracos coletivos corretamente', () => {
+    const squad: SquadPlayer[] = [
+      mkPlayer({ id: 1, attributes: mkAttributes({ pace: 90, finishing: 40 }) }),
+      mkPlayer({ id: 2, attributes: mkAttributes({ pace: 88, finishing: 42 }) }),
+    ];
+    const summary = buildSquadSummary(squad);
+    const strengthAttrs = summary.collectiveStrengths.map((s) => s.attribute);
+    const weaknessAttrs = summary.collectiveWeaknesses.map((w) => w.attribute);
+    expect(strengthAttrs).toContain('pace');
+    expect(weaknessAttrs).toContain('finishing');
+  });
+
+  it('destaca jogador individual com atributo >= 80', () => {
+    const squad: SquadPlayer[] = [
+      mkPlayer({ id: 1, name: 'Rapido', attributes: mkAttributes({ pace: 92 }) }),
+      mkPlayer({ id: 2, attributes: mkAttributes({ pace: 55 }) }),
+    ];
+    const summary = buildSquadSummary(squad);
+    const paceHighlight = summary.individualHighlights.find((h) => h.attribute === 'pace');
+    expect(paceHighlight).toBeDefined();
+    expect(paceHighlight!.playerId).toBe(1);
+    expect(paceHighlight!.value).toBe(92);
+  });
+
+  it('não destaca atributo individual se nenhum jogador atinge 80', () => {
+    const squad: SquadPlayer[] = [
+      mkPlayer({ id: 1, attributes: mkAttributes({ pace: 79 }) }),
+    ];
+    const summary = buildSquadSummary(squad);
+    const paceHighlight = summary.individualHighlights.find((h) => h.attribute === 'pace');
+    expect(paceHighlight).toBeUndefined();
+  });
+
+  it('limita destaques individuais a 8', () => {
+    // All attributes at 90 — should still cap at 8 highlights
+    const attrs = mkAttributes({
+      crossing: 90, pace: 90, passing: 90, finishing: 90,
+      dribbling: 90, vision: 90, heading: 90, freeKicks: 90,
+      longShots: 90, leadership: 90,
+    });
+    const squad: SquadPlayer[] = [mkPlayer({ id: 1, attributes: attrs })];
+    const summary = buildSquadSummary(squad);
+    expect(summary.individualHighlights.length).toBeLessThanOrEqual(8);
   });
 });
