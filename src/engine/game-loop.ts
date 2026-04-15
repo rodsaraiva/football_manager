@@ -11,7 +11,7 @@ import {
   addMatchEvent,
 } from '@/database/queries/fixtures';
 import { getClubById, updateClubBudget } from '@/database/queries/clubs';
-import { getActiveTactic } from '@/database/queries/tactics';
+import { getActiveTactic, getTacticLineup } from '@/database/queries/tactics';
 import { addFinanceEntry } from '@/database/queries/finances';
 import { updateSaveWeek } from '@/database/queries/saves';
 import { getStaffByClub } from '@/database/queries/staff';
@@ -321,20 +321,79 @@ export async function advanceGameWeek(params: AdvanceWeekParams): Promise<Advanc
     const homeFormation = homeTactic?.formation ?? '4-4-2';
     const awayFormation = awayTactic?.formation ?? '4-4-2';
 
-    const homeSquad = pickStartingEleven(homeSquadRaw, homeFormation);
-    const awaySquad = pickStartingEleven(awaySquadRaw, awayFormation);
+    const homeLineupSaved = homeTactic ? await getTacticLineup(db, homeTactic.id) : null;
+    const awayLineupSaved = awayTactic ? await getTacticLineup(db, awayTactic.id) : null;
 
-    // Build benches: available players not in starting XI, not injured
+    function buildSquadFromSavedIds(
+      savedIds: number[],
+      rawPlayers: PlayerForPick[],
+      formation: string,
+    ): PlayerForStrength[] {
+      const byId = new Map(rawPlayers.map(p => [p.id, p]));
+      const slots = formationToSlots(formation);
+      const result: PlayerForStrength[] = [];
+      const usedIds = new Set<number>();
+      for (let i = 0; i < slots.length; i++) {
+        const pid = savedIds[i];
+        const p = pid != null ? byId.get(pid) : undefined;
+        if (p && p.injuryWeeksLeft === 0 && p.fitness > 30 && !usedIds.has(p.id)) {
+          usedIds.add(p.id);
+          result.push({ id: p.id, position: slots[i], secondaryPosition: p.secondaryPosition, attributes: p.attributes, morale: p.morale, fitness: p.fitness });
+        } else {
+          // fallback: best available for this slot
+          const fallback = rawPlayers
+            .filter(q => !usedIds.has(q.id) && q.injuryWeeksLeft === 0 && q.fitness > 30)
+            .sort((a, b) => {
+              const target = POSITION_GROUP[slots[i]] ?? 'MID';
+              const scoreA = calculateOverall(a.attributes, slots[i]) + (a.position === slots[i] ? 15 : POSITION_GROUP[a.position] === target ? 3 : -10);
+              const scoreB = calculateOverall(b.attributes, slots[i]) + (b.position === slots[i] ? 15 : POSITION_GROUP[b.position] === target ? 3 : -10);
+              return scoreB - scoreA;
+            })[0];
+          if (fallback) {
+            usedIds.add(fallback.id);
+            result.push({ id: fallback.id, position: slots[i], secondaryPosition: fallback.secondaryPosition, attributes: fallback.attributes, morale: fallback.morale, fitness: fallback.fitness });
+          }
+        }
+      }
+      return result;
+    }
+
+    const homeSquad = homeLineupSaved
+      ? buildSquadFromSavedIds(homeLineupSaved.starterIds, homeSquadRaw, homeFormation)
+      : pickStartingEleven(homeSquadRaw, homeFormation);
+    const awaySquad = awayLineupSaved
+      ? buildSquadFromSavedIds(awayLineupSaved.starterIds, awaySquadRaw, awayFormation)
+      : pickStartingEleven(awaySquadRaw, awayFormation);
+
+    // Build benches: saved bench or best available, cap 8
     const homeStartIds = new Set(homeSquad.map(p => p.id));
     const awayStartIds = new Set(awaySquad.map(p => p.id));
-    const homeBench: PlayerForStrength[] = homeSquadRaw
-      .filter(p => !homeStartIds.has(p.id) && p.injuryWeeksLeft === 0 && p.fitness > 30)
-      .slice(0, 7)
-      .map(p => ({ id: p.id, position: p.position, secondaryPosition: p.secondaryPosition, attributes: p.attributes, morale: p.morale, fitness: p.fitness }));
-    const awayBench: PlayerForStrength[] = awaySquadRaw
-      .filter(p => !awayStartIds.has(p.id) && p.injuryWeeksLeft === 0 && p.fitness > 30)
-      .slice(0, 7)
-      .map(p => ({ id: p.id, position: p.position, secondaryPosition: p.secondaryPosition, attributes: p.attributes, morale: p.morale, fitness: p.fitness }));
+
+    function buildBenchFromSavedIds(
+      savedIds: number[],
+      rawPlayers: PlayerForPick[],
+      startIds: Set<number>,
+    ): PlayerForStrength[] {
+      const byId = new Map(rawPlayers.map(p => [p.id, p]));
+      return savedIds
+        .map(id => byId.get(id))
+        .filter((p): p is PlayerForPick => p != null && !startIds.has(p.id) && p.injuryWeeksLeft === 0 && p.fitness > 30)
+        .slice(0, 8)
+        .map(p => ({ id: p.id, position: p.position, secondaryPosition: p.secondaryPosition, attributes: p.attributes, morale: p.morale, fitness: p.fitness }));
+    }
+
+    const homeBench: PlayerForStrength[] = homeLineupSaved
+      ? buildBenchFromSavedIds(homeLineupSaved.benchIds, homeSquadRaw, homeStartIds)
+      : homeSquadRaw
+          .filter(p => !homeStartIds.has(p.id) && p.injuryWeeksLeft === 0 && p.fitness > 30)
+          .slice(0, 8)
+          .map(p => ({ id: p.id, position: p.position, secondaryPosition: p.secondaryPosition, attributes: p.attributes, morale: p.morale, fitness: p.fitness }));
+    const awayBench: PlayerForStrength[] = awayLineupSaved
+      ? buildBenchFromSavedIds(awayLineupSaved.benchIds, awaySquadRaw, awayStartIds)
+      : awaySquadRaw
+          .filter(p => !awayStartIds.has(p.id) && p.injuryWeeksLeft === 0 && p.fitness > 30)
+          .slice(0, 8)
+          .map(p => ({ id: p.id, position: p.position, secondaryPosition: p.secondaryPosition, attributes: p.attributes, morale: p.morale, fitness: p.fitness }));
 
     const homeClub = await getClubById(db, playerFixture.homeClubId);
     const awayClub = await getClubById(db, playerFixture.awayClubId);
