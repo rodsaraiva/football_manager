@@ -182,6 +182,10 @@ export function HomeScreen() {
       setRecentResults(played.slice(-5));
 
       if (result.isSeasonEnd) setNewSeason(true);
+    } catch (err) {
+      // Surface the error to the console so it can be diagnosed; the week will
+      // NOT advance so the user can try again next session.
+      console.error('[HomeScreen] advanceGameWeek failed:', err);
     } finally {
       setAdvancing(false);
     }

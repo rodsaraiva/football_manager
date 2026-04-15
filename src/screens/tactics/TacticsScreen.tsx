@@ -306,6 +306,11 @@ export function TacticsScreen() {
     if (!dbHandle || !t || lineup === null) return;
     const starterIds: number[] = [];
     for (const row of lineup) for (const s of row) if (s.player) starterIds.push(s.player.id);
+    // Guard: only persist if lineup is complete (11 starters). A partial lineup
+    // (e.g. loaded from saved data where some players were transferred away) must
+    // not overwrite a previously-complete lineup with an incomplete one, and must
+    // not feed the engine a squad smaller than required.
+    if (starterIds.length < 11) return;
     const benchIds = bench.map(p => p.id);
     setTacticLineup(dbHandle, t.id, starterIds, benchIds).catch(() => {});
   }, [lineup, bench, dbHandle]);

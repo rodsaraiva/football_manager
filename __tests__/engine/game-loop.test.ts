@@ -282,4 +282,85 @@ describe('advanceGameWeek', () => {
     ]);
     expect(allRatedIds.size).toBeLessThanOrEqual(19 * 2); // 19 per side
   });
+
+  it('semana avança normalmente quando não há lineup salva (regressão: save antigo)', async () => {
+    // Regression: saves created before tactic_lineup was added have no rows in
+    // that table. getTacticLineup returns null → pickStartingEleven fallback must
+    // produce a valid squad and the fixture must be marked played.
+    // Ensure tactic_lineup is empty for club 1's tactic.
+    const tacticRow = rawDb
+      .prepare('SELECT id FROM tactics WHERE club_id = 1 AND is_active = 1')
+      .get() as { id: number } | undefined;
+    if (tacticRow) {
+      rawDb.prepare('DELETE FROM tactic_lineup WHERE tactic_id = ?').run(tacticRow.id);
+    }
+
+    const result = await advanceGameWeek({
+      dbHandle: db,
+      season: 1,
+      week: 7,
+      playerClubId: 1,
+      saveId: -1,
+      rng: new SeededRng(42),
+    });
+
+    expect(result.newWeek).toBe(8);
+    expect(result.playerMatchResult).not.toBeNull();
+    expect(result.playerMatchResult!.homeGoals).toBeGreaterThanOrEqual(0);
+    expect(result.playerMatchResult!.awayGoals).toBeGreaterThanOrEqual(0);
+
+    // Fixture must be marked played in DB
+    const fixture = rawDb
+      .prepare('SELECT played FROM fixtures WHERE season = 1 AND week = 7 AND (home_club_id = 1 OR away_club_id = 1)')
+      .get() as { played: number } | undefined;
+    expect(fixture?.played).toBe(1);
+  });
+
+  it('lineup salva com 11 IDs inválidos usa fallback e não derruba a semana', async () => {
+    // Regression: if transferred players remain in tactic_lineup, their IDs are
+    // not present in the club's current squad. buildSquadFromSavedIds must fall
+    // back to pickStartingEleven logic for each missing slot instead of
+    // producing an empty squad.
+    const tacticRow = rawDb
+      .prepare('SELECT id FROM tactics WHERE club_id = 1 AND is_active = 1')
+      .get() as { id: number } | undefined;
+    expect(tacticRow).toBeDefined();
+
+    // Write 11 non-existent player IDs (999001–999011) as starters. FK is not
+    // enforced by better-sqlite3 in test mode by default; we bypass it directly.
+    rawDb.prepare('DELETE FROM tactic_lineup WHERE tactic_id = ?').run(tacticRow!.id);
+    // Temporarily disable FK enforcement to insert stale/invalid player IDs that
+    // simulate a save where all lineup players were later transferred away.
+    rawDb.pragma('foreign_keys = OFF');
+    for (let i = 0; i < 11; i++) {
+      rawDb
+        .prepare('INSERT INTO tactic_lineup (tactic_id, slot_index, player_id) VALUES (?, ?, ?)')
+        .run(tacticRow!.id, i, 999001 + i);
+    }
+    rawDb.pragma('foreign_keys = ON');
+
+    // advanceGameWeek must NOT throw and must produce a valid match result.
+    const result = await advanceGameWeek({
+      dbHandle: db,
+      season: 1,
+      week: 7,
+      playerClubId: 1,
+      saveId: -1,
+      rng: new SeededRng(42),
+    });
+
+    expect(result.newWeek).toBe(8);
+    expect(result.playerMatchResult).not.toBeNull();
+    // Even with all invalid saved IDs, fallback fills 11 slots.
+    const ratings = result.playerMatchResult!.homeRatings.length > 0
+      ? result.playerMatchResult!.homeRatings
+      : result.playerMatchResult!.awayRatings;
+    expect(ratings.length).toBe(11);
+
+    // Fixture must be marked played.
+    const fixture = rawDb
+      .prepare('SELECT played FROM fixtures WHERE season = 1 AND week = 7 AND (home_club_id = 1 OR away_club_id = 1)')
+      .get() as { played: number } | undefined;
+    expect(fixture?.played).toBe(1);
+  });
 });
