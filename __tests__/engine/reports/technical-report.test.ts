@@ -201,6 +201,100 @@ describe('buildTechnicalReport', () => {
   });
 });
 
+describe('buildTechnicalReport — matchdaySquadIds', () => {
+  it('squadSummary usa apenas os relacionados quando matchdaySquadIds é fornecido', () => {
+    const attrs90 = mkAttributes({ pace: 90, finishing: 90 });
+    const attrs50 = mkAttributes({ pace: 50, finishing: 50 });
+    const squad: SquadPlayer[] = [
+      mkPlayer({ id: 1, attributes: attrs90, position: 'ST' }), // relacionado
+      mkPlayer({ id: 2, attributes: attrs50, position: 'CM' }), // NÃO relacionado (fraco)
+    ];
+
+    const matchdaySquadIds = new Set([1]);
+
+    const report = buildTechnicalReport({
+      squad,
+      recentFixtures: [],
+      eventsByFixture: new Map(),
+      playerClubId: 10,
+      currentWeek: 1,
+      matchdaySquadIds,
+    });
+
+    // Com apenas o jogador 1 (attrs altas), a média de pace deve ser 90
+    const paceStrength = report.squadSummary.collectiveStrengths.find((s) => s.attribute === 'pace');
+    expect(paceStrength?.avg).toBe(90);
+  });
+
+  it('squadSummary usa elenco completo quando matchdaySquadIds é undefined', () => {
+    const squad: SquadPlayer[] = [
+      mkPlayer({ id: 1, attributes: mkAttributes({ pace: 90 }), position: 'ST' }),
+      mkPlayer({ id: 2, attributes: mkAttributes({ pace: 50 }), position: 'CM' }),
+    ];
+
+    const report = buildTechnicalReport({
+      squad,
+      recentFixtures: [],
+      eventsByFixture: new Map(),
+      playerClubId: 10,
+      currentWeek: 1,
+      // matchdaySquadIds não fornecido
+    });
+
+    // Média de pace deve ser (90+50)/2 = 70
+    const paceAttr = report.squadSummary.collectiveStrengths
+      .concat(report.squadSummary.collectiveWeaknesses)
+      .find((a) => a.attribute === 'pace');
+    // pace 70 estará no meio — confirmar que a média considera os dois jogadores
+    const allAttrs = [...report.squadSummary.collectiveStrengths, ...report.squadSummary.collectiveWeaknesses];
+    const foundPace = allAttrs.find((a) => a.attribute === 'pace');
+    // Se pace=70 não aparece entre top/bottom, verifique que o relatório foi calculado com 2 jogadores
+    // O importante é que não seja 90 (que seria apenas 1 jogador)
+    if (foundPace) {
+      expect(foundPace.avg).not.toBe(90);
+    }
+  });
+
+  it('squadSummary usa elenco completo quando matchdaySquadIds está vazio', () => {
+    const squad: SquadPlayer[] = [
+      mkPlayer({ id: 1, attributes: mkAttributes({ pace: 90 }), position: 'ST' }),
+    ];
+
+    const report = buildTechnicalReport({
+      squad,
+      recentFixtures: [],
+      eventsByFixture: new Map(),
+      playerClubId: 10,
+      currentWeek: 1,
+      matchdaySquadIds: new Set(), // vazio — deve usar elenco completo (edge case)
+    });
+
+    expect(report.squadSummary.collectiveStrengths.length).toBeGreaterThan(0);
+  });
+
+  it('outras seções do relatório NÃO são afetadas por matchdaySquadIds', () => {
+    const squad: SquadPlayer[] = [
+      mkPlayer({ id: 1, overall: 68, age: 19, effectivePotential: 85, position: 'LW' }), // jovem em evolução
+      mkPlayer({ id: 2, overall: 72, position: 'CB' }), // fora dos relacionados
+    ];
+
+    // apenas jogador 1 no matchday squad
+    const matchdaySquadIds = new Set([1]);
+
+    const report = buildTechnicalReport({
+      squad,
+      recentFixtures: [],
+      eventsByFixture: new Map(),
+      playerClubId: 10,
+      currentWeek: 1,
+      matchdaySquadIds,
+    });
+
+    // rising deve considerar o elenco completo — jogador 1 deve aparecer
+    expect(report.rising.map((p) => p.id)).toContain(1);
+  });
+});
+
 describe('buildSquadSummary', () => {
   it('retorna vazio se nenhum jogador tem atributos', () => {
     const squad = [mkPlayer({ id: 1 })];

@@ -7,6 +7,7 @@ import { useGameStore } from '@/store/game-store';
 import { useDatabaseStore } from '@/store/database-store';
 import { getPlayersWithAttributesByClub } from '@/database/queries/players';
 import { getFixturesByClub, getMatchEvents } from '@/database/queries/fixtures';
+import { getActiveTactic, getTacticLineup } from '@/database/queries/tactics';
 import { calculateOverall } from '@/utils/overall';
 import {
   buildTechnicalReport,
@@ -67,12 +68,26 @@ export function ReportsTechnicalScreen() {
         eventsByFixture.set(f.id, evts);
       }
 
+      // Matchday squad (11 titulares + até 8 suplentes) para squadSummary
+      let matchdaySquadIds: Set<number> | undefined;
+      const activeTactic = await getActiveTactic(dbHandle, playerClubId);
+      if (activeTactic) {
+        const lineup = await getTacticLineup(dbHandle, activeTactic.id);
+        if (lineup) {
+          const ids = [...lineup.starterIds, ...lineup.benchIds].filter((id) => id != null);
+          if (ids.length > 0) {
+            matchdaySquadIds = new Set(ids);
+          }
+        }
+      }
+
       const r = buildTechnicalReport({
         squad,
         recentFixtures: recent,
         eventsByFixture,
         playerClubId,
         currentWeek: week,
+        matchdaySquadIds,
       });
       setReport(r);
     } finally {

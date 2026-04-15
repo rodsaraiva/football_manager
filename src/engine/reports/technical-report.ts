@@ -336,6 +336,12 @@ export function computeForm(input: FormInput): PlayerForm[] {
 export interface ReportInput extends FormInput {
   /** Current week — used to judge "benched" status via appearances. */
   currentWeek: number;
+  /**
+   * IDs dos 11 titulares + até 8 suplentes (matchday squad).
+   * Quando fornecido, `squadSummary` considera apenas esses jogadores.
+   * As demais seções do relatório continuam usando o elenco completo.
+   */
+  matchdaySquadIds?: Set<number>;
 }
 
 export function buildTechnicalReport(input: ReportInput): TechnicalReport {
@@ -410,6 +416,10 @@ export function buildTechnicalReport(input: ReportInput): TechnicalReport {
     rising,
     replacementSuggestions: suggestions.slice(0, 5),
     benchedButDeservesMinutes: benchedButDeserves,
-    squadSummary: buildSquadSummary(squad),
+    squadSummary: buildSquadSummary(
+      input.matchdaySquadIds && input.matchdaySquadIds.size > 0
+        ? squad.filter((p) => input.matchdaySquadIds!.has(p.id))
+        : squad,
+    ),
   };
 }
