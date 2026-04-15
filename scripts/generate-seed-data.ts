@@ -59,6 +59,8 @@ export interface SeedPlayer {
   fitness: number;
   injuryWeeksLeft: number;
   isFreeAgent: boolean;
+  preferredFoot: 'right' | 'left';
+  weakFootAbility: number;
 }
 
 export interface SeedPlayerAttributes {
@@ -552,6 +554,8 @@ export function generateSeedData(seed: number): SeedData {
           fitness: rng.nextInt(70, 100),
           injuryWeeksLeft: 0,
           isFreeAgent: false,
+          preferredFoot: rng.next() < 0.75 ? 'right' : 'left',
+          weakFootAbility: rng.nextInt(1, 5),
         });
 
         const attrs = generateAttributes(rng, effectiveOverall, position, age);

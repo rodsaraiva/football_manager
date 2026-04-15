@@ -19,7 +19,7 @@ export default function App() {
       <View style={errorStyles.container}>
         <Text style={errorStyles.title}>Database Error</Text>
         <Text style={errorStyles.message}>{error}</Text>
-        <Text style={errorStyles.hint}>expo-sqlite may not work on web. Try running on a native device or emulator.</Text>
+        <Text style={errorStyles.hint}>Check the browser console for details.</Text>
       </View>
     );
   }

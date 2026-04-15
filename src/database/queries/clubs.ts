@@ -39,25 +39,25 @@ function rowToClub(row: ClubRow): Club {
   };
 }
 
-export function getClubById(db: DbHandle, clubId: number): Club | null {
-  const row = db.prepare('SELECT * FROM clubs WHERE id = ?').get(clubId) as ClubRow | undefined;
+export async function getClubById(db: DbHandle, clubId: number): Promise<Club | null> {
+  const row = await db.prepare('SELECT * FROM clubs WHERE id = ?').get(clubId) as ClubRow | undefined;
   return row ? rowToClub(row) : null;
 }
 
-export function getClubsByLeague(db: DbHandle, leagueId: number): Club[] {
-  const rows = db.prepare('SELECT * FROM clubs WHERE league_id = ?').all(leagueId) as ClubRow[];
+export async function getClubsByLeague(db: DbHandle, leagueId: number): Promise<Club[]> {
+  const rows = await db.prepare('SELECT * FROM clubs WHERE league_id = ?').all(leagueId) as ClubRow[];
   return rows.map(rowToClub);
 }
 
-export function getAllClubs(db: DbHandle): Club[] {
-  const rows = db.prepare('SELECT * FROM clubs').all() as ClubRow[];
+export async function getAllClubs(db: DbHandle): Promise<Club[]> {
+  const rows = await db.prepare('SELECT * FROM clubs').all() as ClubRow[];
   return rows.map(rowToClub);
 }
 
-export function updateClubBudget(db: DbHandle, clubId: number, budget: number): void {
-  db.prepare('UPDATE clubs SET budget = ? WHERE id = ?').run(budget, clubId);
+export async function updateClubBudget(db: DbHandle, clubId: number, budget: number): Promise<void> {
+  await db.prepare('UPDATE clubs SET budget = ? WHERE id = ?').run(budget, clubId);
 }
 
-export function updateClubReputation(db: DbHandle, clubId: number, reputation: number): void {
-  db.prepare('UPDATE clubs SET reputation = ? WHERE id = ?').run(reputation, clubId);
+export async function updateClubReputation(db: DbHandle, clubId: number, reputation: number): Promise<void> {
+  await db.prepare('UPDATE clubs SET reputation = ? WHERE id = ?').run(reputation, clubId);
 }

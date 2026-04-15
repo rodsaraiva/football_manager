@@ -60,8 +60,8 @@ export interface CreateFixtureInput {
   awayClubId: number;
 }
 
-export function createFixture(db: DbHandle, input: CreateFixtureInput): number {
-  const result = db
+export async function createFixture(db: DbHandle, input: CreateFixtureInput): Promise<number> {
+  const result = await db
     .prepare(
       `INSERT INTO fixtures (id, competition_id, season, week, round, home_club_id, away_club_id, played)
        VALUES (?, ?, ?, ?, ?, ?, ?, 0)`,
@@ -78,28 +78,28 @@ export function createFixture(db: DbHandle, input: CreateFixtureInput): number {
   return Number(result.lastInsertRowid);
 }
 
-export function getFixturesByWeek(db: DbHandle, season: number, week: number): Fixture[] {
-  const rows = db
+export async function getFixturesByWeek(db: DbHandle, season: number, week: number): Promise<Fixture[]> {
+  const rows = await db
     .prepare('SELECT * FROM fixtures WHERE season = ? AND week = ?')
     .all(season, week) as FixtureRow[];
   return rows.map(rowToFixture);
 }
 
-export function getFixturesByClub(db: DbHandle, clubId: number, season: number): Fixture[] {
-  const rows = db
+export async function getFixturesByClub(db: DbHandle, clubId: number, season: number): Promise<Fixture[]> {
+  const rows = await db
     .prepare('SELECT * FROM fixtures WHERE season = ? AND (home_club_id = ? OR away_club_id = ?)')
     .all(season, clubId, clubId) as FixtureRow[];
   return rows.map(rowToFixture);
 }
 
-export function updateFixtureResult(
+export async function updateFixtureResult(
   db: DbHandle,
   fixtureId: number,
   homeGoals: number,
   awayGoals: number,
   attendance?: number,
-): void {
-  db.prepare(
+): Promise<void> {
+  await db.prepare(
     'UPDATE fixtures SET home_goals = ?, away_goals = ?, played = 1, attendance = ? WHERE id = ?',
   ).run(homeGoals, awayGoals, attendance ?? null, fixtureId);
 }
@@ -112,14 +112,14 @@ export interface AddMatchEventInput {
   secondaryPlayerId?: number | null;
 }
 
-export function addMatchEvent(db: DbHandle, input: AddMatchEventInput): void {
-  db.prepare(
+export async function addMatchEvent(db: DbHandle, input: AddMatchEventInput): Promise<void> {
+  await db.prepare(
     'INSERT INTO match_events (fixture_id, minute, type, player_id, secondary_player_id) VALUES (?, ?, ?, ?, ?)',
   ).run(input.fixtureId, input.minute, input.type, input.playerId, input.secondaryPlayerId ?? null);
 }
 
-export function getMatchEvents(db: DbHandle, fixtureId: number): MatchEvent[] {
-  const rows = db
+export async function getMatchEvents(db: DbHandle, fixtureId: number): Promise<MatchEvent[]> {
+  const rows = await db
     .prepare('SELECT * FROM match_events WHERE fixture_id = ? ORDER BY minute ASC')
     .all(fixtureId) as MatchEventRow[];
   return rows.map(rowToMatchEvent);

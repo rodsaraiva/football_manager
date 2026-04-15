@@ -34,14 +34,22 @@ export function generateRoundRobin(teamIds: number[], options: RoundRobinOptions
       const week = options.startWeek + half * roundsPerHalf + round;
       const roundTeams = [teams[0], ...rotatingTeams];
       for (let match = 0; match < matchesPerRound; match++) {
-        const home = roundTeams[match];
-        const away = roundTeams[totalTeams - 1 - match];
+        let home = roundTeams[match];
+        let away = roundTeams[totalTeams - 1 - match];
         if (home === -1 || away === -1) continue;
-        if (half === 0) {
-          fixtures.push({ competitionId: options.competitionId, season: options.season, week, round: null, homeClubId: home, awayClubId: away });
-        } else {
-          fixtures.push({ competitionId: options.competitionId, season: options.season, week, round: null, homeClubId: away, awayClubId: home });
+
+        // Alternate home/away for the pivot team (match 0) each round
+        // so no team gets all home or all away in one half
+        if (match === 0 && round % 2 === 1) {
+          [home, away] = [away, home];
         }
+
+        if (half === 1) {
+          // Second half: reverse home/away from first half
+          [home, away] = [away, home];
+        }
+
+        fixtures.push({ competitionId: options.competitionId, season: options.season, week, round: null, homeClubId: home, awayClubId: away });
       }
       rotatingTeams.unshift(rotatingTeams.pop()!);
     }

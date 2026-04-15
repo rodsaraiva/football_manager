@@ -6,7 +6,7 @@
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",
-    "web": "expo start --web",
+    "web": "expo start --web --port 19006 & node scripts/dev-proxy.js 8082 19006",
     "test": "jest",
     "test:watch": "jest --watch",
     "generate-data": "npx ts-node --project tsconfig.scripts.json scripts/generate-seed-data.ts"

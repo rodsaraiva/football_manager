@@ -3,7 +3,7 @@ import { createTestDb, seedTestDb, createTestDbHandle } from '../database/test-h
 import { DbHandle } from '@/database/queries/players';
 import { advanceGameWeek } from '@/engine/game-loop';
 import { SeededRng } from '@/engine/rng';
-import { generateSeasonCalendar } from '@/engine/competition/calendar';
+import { generateSeasonCalendar, ensureSeasonFixtures } from '@/engine/competition/calendar';
 import { createCompetition, addCompetitionEntry, getAllLeagues } from '@/database/queries/leagues';
 import { getClubsByLeague } from '@/database/queries/clubs';
 import { createFixture } from '@/database/queries/fixtures';
@@ -362,5 +362,89 @@ describe('advanceGameWeek', () => {
       .prepare('SELECT played FROM fixtures WHERE season = 1 AND week = 7 AND (home_club_id = 1 OR away_club_id = 1)')
       .get() as { played: number } | undefined;
     expect(fixture?.played).toBe(1);
+  });
+
+  // ─── Regressão: save sem fixtures (causa raiz do bug principal) ─────────────
+
+  it('sem fixtures no banco: advanceGameWeek avança semana mas playerMatchResult é null (comprova a causa raiz)', async () => {
+    // Reproduz o bug: salvo criado antes de as chamadas async serem corretamente
+    // aguardadas não tinha fixtures. O game-loop avanços semanas sem simular
+    // nenhuma partida porque getFixturesByWeek retorna vazio.
+    rawDb.prepare('DELETE FROM fixtures').run();
+    rawDb.prepare('DELETE FROM competition_entries').run();
+    rawDb.prepare('DELETE FROM competitions').run();
+
+    const result = await advanceGameWeek({
+      dbHandle: db,
+      season: 1,
+      week: 7,
+      playerClubId: 1,
+      saveId: -1,
+      rng: new SeededRng(42),
+    });
+
+    // Semana avança, mas sem fixture não há partida
+    expect(result.newWeek).toBe(8);
+    expect(result.playerMatchResult).toBeNull();
+  });
+
+  it('ensureSeasonFixtures: gera fixtures quando não existem e retorna true', async () => {
+    // Remove all fixtures/competitions to simulate a broken save
+    rawDb.prepare('DELETE FROM fixtures').run();
+    rawDb.prepare('DELETE FROM competition_entries').run();
+    rawDb.prepare('DELETE FROM competitions').run();
+
+    const fixturesBefore = (rawDb.prepare('SELECT COUNT(*) AS cnt FROM fixtures').get() as { cnt: number }).cnt;
+    expect(fixturesBefore).toBe(0);
+
+    const generated = await ensureSeasonFixtures(db, 1);
+    expect(generated).toBe(true);
+
+    const fixturesAfter = (rawDb.prepare('SELECT COUNT(*) AS cnt FROM fixtures WHERE season = 1').get() as { cnt: number }).cnt;
+    const week7After = (rawDb.prepare('SELECT COUNT(*) AS cnt FROM fixtures WHERE season = 1 AND week = 7').get() as { cnt: number }).cnt;
+    expect(fixturesAfter).toBeGreaterThan(0);
+    expect(week7After).toBeGreaterThan(0);
+  });
+
+  it('ensureSeasonFixtures: retorna false quando fixtures já existem (idempotente)', async () => {
+    // Fixtures already exist from beforeEach
+    const generated = await ensureSeasonFixtures(db, 1);
+    expect(generated).toBe(false);
+
+    // Count must remain the same
+    const count = (rawDb.prepare('SELECT COUNT(*) AS cnt FROM fixtures WHERE season = 1').get() as { cnt: number }).cnt;
+    expect(count).toBeGreaterThan(0);
+  });
+
+  it('save sem fixtures: após ensureSeasonFixtures, advanceGameWeek simula partida corretamente', async () => {
+    // Full end-to-end regression test: simulate a broken save (no fixtures),
+    // call ensureSeasonFixtures to repair it, then advance the week and
+    // assert that at least one fixture is marked played=1.
+    rawDb.prepare('DELETE FROM fixtures').run();
+    rawDb.prepare('DELETE FROM competition_entries').run();
+    rawDb.prepare('DELETE FROM competitions').run();
+
+    // Rescue: generate fixtures as HomeScreen now does on mount
+    const generated = await ensureSeasonFixtures(db, 1);
+    expect(generated).toBe(true);
+
+    const result = await advanceGameWeek({
+      dbHandle: db,
+      season: 1,
+      week: 7,
+      playerClubId: 1,
+      saveId: -1,
+      rng: new SeededRng(42),
+    });
+
+    // After repair, match should be simulated
+    expect(result.newWeek).toBe(8);
+    expect(result.playerMatchResult).not.toBeNull();
+
+    // At least the player's fixture should be marked played=1
+    const played = rawDb
+      .prepare('SELECT COUNT(*) AS cnt FROM fixtures WHERE season = 1 AND week = 7 AND played = 1')
+      .get() as { cnt: number };
+    expect(played.cnt).toBeGreaterThan(0);
   });
 });

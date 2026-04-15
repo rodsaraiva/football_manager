@@ -12,7 +12,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { colors, spacing, fontSize, commonStyles } from '@/theme';
 import { useDatabaseStore } from '@/store/database-store';
 import { useGameStore } from '@/store/game-store';
-import { getAllSaves } from '@/database/queries/saves';
+import { getAllSaves, deleteSave } from '@/database/queries/saves';
 import { RootStackParamList } from '@/navigation/types';
 import { SaveGame } from '@/types';
 
@@ -31,19 +31,28 @@ export function MainMenuScreen() {
       setLoading(false);
       return;
     }
-    try {
-      const result = getAllSaves(dbHandle);
-      setSaves(result);
-    } catch {
-      setSaves([]);
-    } finally {
-      setLoading(false);
-    }
+    (async () => {
+      try {
+        const result = await getAllSaves(dbHandle);
+        setSaves(result);
+      } catch {
+        setSaves([]);
+      } finally {
+        setLoading(false);
+      }
+    })();
   }, [isReady, dbHandle]);
 
   function handleLoadSave(save: SaveGame) {
     loadSave(save);
     navigation.navigate('Game');
+  }
+
+  async function handleDeleteSave(save: SaveGame) {
+    const confirmed = window.confirm(`Deletar "${save.name || `Save #${save.id}`}"?`);
+    if (!confirmed || !dbHandle) return;
+    await deleteSave(dbHandle, save.id);
+    setSaves(prev => prev.filter(s => s.id !== save.id));
   }
 
   return (
@@ -69,18 +78,26 @@ export function MainMenuScreen() {
             <Text style={styles.savesLabel}>LOAD GAME</Text>
             <ScrollView style={styles.savesList} showsVerticalScrollIndicator={false}>
               {saves.map((save) => (
-                <TouchableOpacity
-                  key={save.id}
-                  style={styles.saveCard}
-                  onPress={() => handleLoadSave(save)}
-                  activeOpacity={0.8}
-                >
-                  <Text style={styles.saveName}>{save.name || `Save #${save.id}`}</Text>
-                  <Text style={styles.saveMeta}>
-                    Season {save.currentSeason} — Week {save.currentWeek}
-                  </Text>
-                  <Text style={styles.saveDifficulty}>{save.difficulty}</Text>
-                </TouchableOpacity>
+                <View key={save.id} style={styles.saveCard}>
+                  <TouchableOpacity
+                    style={styles.saveCardContent}
+                    onPress={() => handleLoadSave(save)}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.saveName}>{save.name || `Save #${save.id}`}</Text>
+                    <Text style={styles.saveMeta}>
+                      Season {save.currentSeason} — Week {save.currentWeek}
+                    </Text>
+                    <Text style={styles.saveDifficulty}>{save.difficulty}</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.deleteButton}
+                    onPress={() => handleDeleteSave(save)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.deleteButtonText}>X</Text>
+                  </TouchableOpacity>
+                </View>
               ))}
             </ScrollView>
           </View>
@@ -149,10 +166,29 @@ const styles = StyleSheet.create({
   saveCard: {
     backgroundColor: colors.surface,
     borderRadius: 8,
-    padding: spacing.md,
     marginBottom: spacing.sm,
     borderWidth: 1,
     borderColor: colors.border,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  saveCardContent: {
+    flex: 1,
+    padding: spacing.md,
+  },
+  deleteButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: `${colors.danger}22`,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: spacing.sm,
+  },
+  deleteButtonText: {
+    color: colors.danger,
+    fontSize: fontSize.sm,
+    fontWeight: 'bold',
   },
   saveName: {
     color: colors.text,

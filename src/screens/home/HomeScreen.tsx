@@ -22,6 +22,7 @@ import { getClubById } from '@/database/queries/clubs';
 import { getPlayerById, getPlayersByClub } from '@/database/queries/players';
 import { getActiveTactic } from '@/database/queries/tactics';
 import { advanceGameWeek } from '@/engine/game-loop';
+import { ensureSeasonFixtures } from '@/engine/competition/calendar';
 import { FORMATION_ROWS } from '@/engine/formations';
 import { calculateOverall } from '@/utils/overall';
 import { Player, PlayerAttributes, Position } from '@/types';
@@ -71,6 +72,12 @@ export function HomeScreen() {
         const club = await getClubById(dbHandle, playerClubId);
         if (club) setPlayerClub(club);
       }
+
+      // Rescue old saves: if no fixtures exist for the season, generate them now.
+      // This fixes saves created before calendar generation was correctly awaited.
+      try {
+        await ensureSeasonFixtures(dbHandle, season);
+      } catch { /* non-fatal */ }
 
       // Reset fixtures that were played by a different save (week >= current save week)
       // This prevents results from other saves leaking into this one.

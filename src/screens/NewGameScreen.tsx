@@ -13,12 +13,10 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { colors, spacing, fontSize, commonStyles } from '@/theme';
 import { useDatabaseStore } from '@/store/database-store';
 import { useGameStore } from '@/store/game-store';
-import { getAllLeagues, getAllCountries, createCompetition, addCompetitionEntry } from '@/database/queries/leagues';
+import { getAllLeagues, createCompetition, addCompetitionEntry } from '@/database/queries/leagues';
 import { getClubsByLeague, getClubById } from '@/database/queries/clubs';
 import { createSave } from '@/database/queries/saves';
 import { createFixture } from '@/database/queries/fixtures';
-import { seedDatabase } from '@/database/seed';
-import { generateSeedData } from '../../scripts/generate-seed-data';
 import { generateSeasonCalendar } from '@/engine/competition/calendar';
 import { RootStackParamList } from '@/navigation/types';
 import { League, Club, Difficulty } from '@/types';
@@ -46,23 +44,29 @@ export function NewGameScreen() {
       if (isReady) setLoading(false);
       return;
     }
-    try {
-      const leagueRows = getAllLeagues(dbHandle);
-      setLeagues(leagueRows.slice(0, 5));
-    } catch {
-      setLeagues([]);
-    } finally {
-      setLoading(false);
-    }
+    (async () => {
+      try {
+        const leagueRows = await getAllLeagues(dbHandle);
+        console.log('[NewGame] leagues loaded:', leagueRows.map(l => ({ id: l.id, name: l.name })));
+        setLeagues(leagueRows.slice(0, 5));
+      } catch (err) {
+        console.error('[NewGame] getAllLeagues failed:', err);
+        setLeagues([]);
+      } finally {
+        setLoading(false);
+      }
+    })();
   }, [isReady, dbHandle]);
 
-  function handleSelectLeague(league: League) {
+  async function handleSelectLeague(league: League) {
     if (!dbHandle) return;
     setSelectedLeague(league);
     try {
-      const teamList = getClubsByLeague(dbHandle, league.id);
+      const teamList = await getClubsByLeague(dbHandle, league.id);
+      console.log('[NewGame] clubs for league', league.id, league.name, ':', teamList.length);
       setClubs(teamList);
-    } catch {
+    } catch (err) {
+      console.error('[NewGame] getClubsByLeague failed:', err);
       setClubs([]);
     }
     setStep('team');
@@ -77,20 +81,8 @@ export function NewGameScreen() {
     if (!dbHandle || !selectedClub) return;
     setStarting(true);
     try {
-      // Seed DB if needed — check countries exist
-      const countries = getAllCountries(dbHandle);
-      if (countries.length === 0) {
-        const db = useDatabaseStore.getState().db;
-        if (!db) throw new Error('Database not available');
-        const seedHandle = {
-          prepare: dbHandle.prepare.bind(dbHandle),
-          exec: (sql: string) => db.execSync(sql),
-        };
-        seedDatabase(seedHandle, generateSeedData(2026));
-      }
-
       const managerName = 'Manager';
-      const saveId = createSave(dbHandle, {
+      const saveId = await createSave(dbHandle, {
         name: `${managerName} at ${selectedClub.name}`,
         playerClubId: selectedClub.id,
         difficulty,
@@ -100,17 +92,21 @@ export function NewGameScreen() {
 
       startNewGame(saveId, selectedClub.id, 1, 1);
 
-      const club = getClubById(dbHandle, selectedClub.id);
+      const club = await getClubById(dbHandle, selectedClub.id);
       if (club) setPlayerClub(club);
 
-      // Generate season 1 calendar
+      // Clear old season 1 data and generate fresh calendar
       try {
-        const allLeagues = getAllLeagues(dbHandle);
+        await dbHandle.prepare('DELETE FROM match_events WHERE fixture_id IN (SELECT id FROM fixtures WHERE season = 1)').run();
+        await dbHandle.prepare('DELETE FROM fixtures WHERE season = 1').run();
+        await dbHandle.prepare('DELETE FROM competition_entries').run();
+        await dbHandle.prepare('DELETE FROM competitions WHERE season = 1').run();
+        const allLeagues = await getAllLeagues(dbHandle);
         const clubsByLeague: Record<number, number[]> = {};
         const championsLeagueClubs: number[] = [];
 
         for (const league of allLeagues) {
-          const leagueClubs = getClubsByLeague(dbHandle, league.id);
+          const leagueClubs = await getClubsByLeague(dbHandle, league.id);
           const sorted = [...leagueClubs].sort((a, b) => b.reputation - a.reputation);
           clubsByLeague[league.id] = leagueClubs.map((c) => c.id);
           // Top 2 per league → Champions League (max 8 total)
@@ -140,7 +136,7 @@ export function NewGameScreen() {
 
         // Persist competitions
         for (const comp of calendar.competitions) {
-          createCompetition(dbHandle, {
+          await createCompetition(dbHandle, {
             id: comp.id,
             name: comp.name,
             type: comp.type,
@@ -152,7 +148,7 @@ export function NewGameScreen() {
 
         // Persist competition entries
         for (const entry of calendar.entries) {
-          addCompetitionEntry(dbHandle, {
+          await addCompetitionEntry(dbHandle, {
             competitionId: entry.competitionId,
             clubId: entry.clubId,
             groupName: entry.groupName,
@@ -162,7 +158,7 @@ export function NewGameScreen() {
 
         // Persist fixtures
         for (const fixture of calendar.fixtures) {
-          createFixture(dbHandle, {
+          await createFixture(dbHandle, {
             id: fixture.id,
             competitionId: fixture.competitionId,
             season: 1,

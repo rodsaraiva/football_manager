@@ -33,9 +33,9 @@ export interface CreateSaveInput {
   currentWeek?: number;
 }
 
-export function createSave(db: DbHandle, input: CreateSaveInput): number {
+export async function createSave(db: DbHandle, input: CreateSaveInput): Promise<number> {
   const now = new Date().toISOString();
-  const result = db
+  const result = await db
     .prepare(
       `INSERT INTO save_games (name, current_season, current_week, player_club_id, difficulty, created_at, updated_at)
        VALUES (?, ?, ?, ?, ?, ?, ?)`,
@@ -52,32 +52,32 @@ export function createSave(db: DbHandle, input: CreateSaveInput): number {
   return Number(result.lastInsertRowid);
 }
 
-export function getAllSaves(db: DbHandle): SaveGame[] {
-  const rows = db
+export async function getAllSaves(db: DbHandle): Promise<SaveGame[]> {
+  const rows = await db
     .prepare('SELECT * FROM save_games ORDER BY updated_at DESC')
     .all() as SaveGameRow[];
   return rows.map(rowToSaveGame);
 }
 
-export function getSaveById(db: DbHandle, saveId: number): SaveGame | null {
-  const row = db
+export async function getSaveById(db: DbHandle, saveId: number): Promise<SaveGame | null> {
+  const row = await db
     .prepare('SELECT * FROM save_games WHERE id = ?')
     .get(saveId) as SaveGameRow | undefined;
   return row ? rowToSaveGame(row) : null;
 }
 
-export function updateSaveWeek(
+export async function updateSaveWeek(
   db: DbHandle,
   saveId: number,
   currentSeason: number,
   currentWeek: number,
-): void {
+): Promise<void> {
   const now = new Date().toISOString();
-  db.prepare(
+  await db.prepare(
     'UPDATE save_games SET current_season = ?, current_week = ?, updated_at = ? WHERE id = ?',
   ).run(currentSeason, currentWeek, now, saveId);
 }
 
-export function deleteSave(db: DbHandle, saveId: number): void {
-  db.prepare('DELETE FROM save_games WHERE id = ?').run(saveId);
+export async function deleteSave(db: DbHandle, saveId: number): Promise<void> {
+  await db.prepare('DELETE FROM save_games WHERE id = ?').run(saveId);
 }

@@ -75,18 +75,18 @@ function rowToCompetitionEntry(row: CompetitionEntryRow): CompetitionEntry {
   };
 }
 
-export function getAllCountries(db: DbHandle): Country[] {
-  const rows = db.prepare('SELECT * FROM countries').all() as CountryRow[];
+export async function getAllCountries(db: DbHandle): Promise<Country[]> {
+  const rows = await db.prepare('SELECT * FROM countries').all() as CountryRow[];
   return rows.map(rowToCountry);
 }
 
-export function getAllLeagues(db: DbHandle): League[] {
-  const rows = db.prepare('SELECT * FROM leagues').all() as LeagueRow[];
+export async function getAllLeagues(db: DbHandle): Promise<League[]> {
+  const rows = await db.prepare('SELECT * FROM leagues').all() as LeagueRow[];
   return rows.map(rowToLeague);
 }
 
-export function getLeagueById(db: DbHandle, leagueId: number): League | null {
-  const row = db.prepare('SELECT * FROM leagues WHERE id = ?').get(leagueId) as LeagueRow | undefined;
+export async function getLeagueById(db: DbHandle, leagueId: number): Promise<League | null> {
+  const row = await db.prepare('SELECT * FROM leagues WHERE id = ?').get(leagueId) as LeagueRow | undefined;
   return row ? rowToLeague(row) : null;
 }
 
@@ -99,8 +99,8 @@ export interface CreateCompetitionInput {
   leagueId?: number | null;
 }
 
-export function createCompetition(db: DbHandle, input: CreateCompetitionInput): number {
-  const result = db
+export async function createCompetition(db: DbHandle, input: CreateCompetitionInput): Promise<number> {
+  const result = await db
     .prepare(
       'INSERT INTO competitions (id, name, type, format, season, league_id) VALUES (?, ?, ?, ?, ?, ?)',
     )
@@ -110,8 +110,8 @@ export function createCompetition(db: DbHandle, input: CreateCompetitionInput): 
   return Number(result.lastInsertRowid);
 }
 
-export function getCompetitionsBySeason(db: DbHandle, season: number): Competition[] {
-  const rows = db
+export async function getCompetitionsBySeason(db: DbHandle, season: number): Promise<Competition[]> {
+  const rows = await db
     .prepare('SELECT * FROM competitions WHERE season = ?')
     .all(season) as CompetitionRow[];
   return rows.map(rowToCompetition);
@@ -124,14 +124,14 @@ export interface AddCompetitionEntryInput {
   seed?: number;
 }
 
-export function addCompetitionEntry(db: DbHandle, input: AddCompetitionEntryInput): void {
-  db.prepare(
+export async function addCompetitionEntry(db: DbHandle, input: AddCompetitionEntryInput): Promise<void> {
+  await db.prepare(
     'INSERT INTO competition_entries (competition_id, club_id, group_name, seed) VALUES (?, ?, ?, ?)',
   ).run(input.competitionId, input.clubId, input.groupName ?? null, input.seed ?? 0);
 }
 
-export function getCompetitionEntries(db: DbHandle, competitionId: number): CompetitionEntry[] {
-  const rows = db
+export async function getCompetitionEntries(db: DbHandle, competitionId: number): Promise<CompetitionEntry[]> {
+  const rows = await db
     .prepare('SELECT * FROM competition_entries WHERE competition_id = ?')
     .all(competitionId) as CompetitionEntryRow[];
   return rows.map(rowToCompetitionEntry);

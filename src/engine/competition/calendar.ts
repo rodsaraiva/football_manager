@@ -5,6 +5,14 @@ import {
   generateRoundRobin,
   generateKnockoutRound,
 } from './fixture-generator';
+import { DbHandle } from '@/database/queries/players';
+import { getAllLeagues } from '@/database/queries/leagues';
+import { getClubsByLeague } from '@/database/queries/clubs';
+import {
+  createCompetition,
+  addCompetitionEntry,
+} from '@/database/queries/leagues';
+import { createFixture } from '@/database/queries/fixtures';
 
 export interface SeasonCalendar {
   competitions: Competition[];
@@ -138,4 +146,83 @@ export function generateSeasonCalendar(options: GenerateSeasonCalendarOptions): 
   const fixtures = allFixtureInputs.map(f => ({ ...f, id: fixtureIdCounter++ }));
 
   return { competitions, fixtures, entries };
+}
+
+/**
+ * Ensures that fixtures exist for the given season.
+ * If no fixtures are found (e.g. a save created before calendar generation was
+ * properly awaited), the full season calendar is generated and persisted.
+ * Returns true if fixtures were generated, false if they already existed.
+ */
+export async function ensureSeasonFixtures(
+  db: DbHandle,
+  season: number,
+): Promise<boolean> {
+  // Fast-check: any fixture for this season?
+  const existing = await db
+    .prepare('SELECT COUNT(*) AS cnt FROM fixtures WHERE season = ?')
+    .get(season) as { cnt: number };
+  if (existing.cnt > 0) return false;
+
+  // No fixtures — generate the calendar from scratch.
+  // Clear any orphaned competitions/entries from this season first.
+  await db.prepare('DELETE FROM competition_entries WHERE competition_id IN (SELECT id FROM competitions WHERE season = ?)').run(season);
+  await db.prepare('DELETE FROM competitions WHERE season = ?').run(season);
+
+  const allLeagues = await getAllLeagues(db);
+  const clubsByLeague: Record<number, number[]> = {};
+  const championsLeagueClubs: number[] = [];
+
+  for (const league of allLeagues) {
+    const leagueClubs = await getClubsByLeague(db, league.id);
+    const sorted = [...leagueClubs].sort((a, b) => b.reputation - a.reputation);
+    clubsByLeague[league.id] = leagueClubs.map(c => c.id);
+    for (const c of sorted.slice(0, 2)) {
+      if (championsLeagueClubs.length < 8) championsLeagueClubs.push(c.id);
+    }
+  }
+
+  // Fill CL to 8 if needed
+  if (championsLeagueClubs.length < 8) {
+    const allIds = Object.values(clubsByLeague).flat();
+    for (const id of allIds) {
+      if (!championsLeagueClubs.includes(id) && championsLeagueClubs.length < 8) {
+        championsLeagueClubs.push(id);
+      }
+    }
+  }
+
+  const calendar = generateSeasonCalendar({ season, leagues: allLeagues, clubsByLeague, championsLeagueClubs });
+
+  for (const comp of calendar.competitions) {
+    await createCompetition(db, {
+      id: comp.id,
+      name: comp.name,
+      type: comp.type,
+      format: comp.format,
+      season,
+      leagueId: comp.leagueId,
+    });
+  }
+  for (const entry of calendar.entries) {
+    await addCompetitionEntry(db, {
+      competitionId: entry.competitionId,
+      clubId: entry.clubId,
+      groupName: entry.groupName,
+      seed: entry.seed,
+    });
+  }
+  for (const fixture of calendar.fixtures) {
+    await createFixture(db, {
+      id: fixture.id,
+      competitionId: fixture.competitionId,
+      season,
+      week: fixture.week,
+      round: fixture.round !== null ? String(fixture.round) : null,
+      homeClubId: fixture.homeClubId,
+      awayClubId: fixture.awayClubId,
+    });
+  }
+
+  return true;
 }

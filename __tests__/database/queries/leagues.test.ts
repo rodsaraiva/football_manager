@@ -1,5 +1,6 @@
 import Database from 'better-sqlite3';
-import { createTestDb, seedTestDb } from '../test-helpers';
+import { createTestDb, seedTestDb, createTestDbHandle } from '../test-helpers';
+import { DbHandle } from '@/database/queries/players';
 import {
   getAllCountries,
   getAllLeagues,
@@ -9,25 +10,27 @@ import {
 } from '@/database/queries/leagues';
 
 describe('leagues queries', () => {
-  let db: Database.Database;
+  let rawDb: Database.Database;
+  let db: DbHandle;
 
   beforeAll(() => {
-    db = createTestDb();
-    seedTestDb(db);
+    rawDb = createTestDb();
+    seedTestDb(rawDb);
+    db = createTestDbHandle(rawDb);
   });
 
   afterAll(() => {
-    db.close();
+    rawDb.close();
   });
 
   describe('getAllCountries', () => {
-    it('returns 5 countries', () => {
-      const countries = getAllCountries(db);
+    it('returns 5 countries', async () => {
+      const countries = await getAllCountries(db);
       expect(countries).toHaveLength(5);
     });
 
-    it('returns Country objects with expected fields', () => {
-      const countries = getAllCountries(db);
+    it('returns Country objects with expected fields', async () => {
+      const countries = await getAllCountries(db);
       for (const c of countries) {
         expect(typeof c.id).toBe('number');
         expect(typeof c.name).toBe('string');
@@ -38,13 +41,13 @@ describe('leagues queries', () => {
   });
 
   describe('getAllLeagues', () => {
-    it('returns 5 leagues', () => {
-      const leagues = getAllLeagues(db);
+    it('returns 5 leagues', async () => {
+      const leagues = await getAllLeagues(db);
       expect(leagues).toHaveLength(5);
     });
 
-    it('returns League objects with expected fields', () => {
-      const leagues = getAllLeagues(db);
+    it('returns League objects with expected fields', async () => {
+      const leagues = await getAllLeagues(db);
       for (const l of leagues) {
         expect(typeof l.id).toBe('number');
         expect(typeof l.name).toBe('string');
@@ -55,22 +58,22 @@ describe('leagues queries', () => {
   });
 
   describe('getLeagueById', () => {
-    it('returns the correct league', () => {
-      const league = getLeagueById(db, 1);
+    it('returns the correct league', async () => {
+      const league = await getLeagueById(db, 1);
       expect(league).not.toBeNull();
       expect(league!.id).toBe(1);
       expect(typeof league!.name).toBe('string');
     });
 
-    it('returns null for non-existent league', () => {
-      const league = getLeagueById(db, 999999);
+    it('returns null for non-existent league', async () => {
+      const league = await getLeagueById(db, 999999);
       expect(league).toBeNull();
     });
   });
 
   describe('createCompetition and getCompetitionsBySeason', () => {
-    it('creates a competition and retrieves it by season', () => {
-      createCompetition(db, {
+    it('creates a competition and retrieves it by season', async () => {
+      await createCompetition(db, {
         id: 9001,
         name: 'Test Cup',
         type: 'cup',
@@ -79,7 +82,7 @@ describe('leagues queries', () => {
         leagueId: null,
       });
 
-      const comps = getCompetitionsBySeason(db, 9999);
+      const comps = await getCompetitionsBySeason(db, 9999);
       expect(comps).toHaveLength(1);
       expect(comps[0].id).toBe(9001);
       expect(comps[0].name).toBe('Test Cup');
@@ -89,8 +92,8 @@ describe('leagues queries', () => {
       expect(comps[0].leagueId).toBeNull();
     });
 
-    it('returns empty array for season with no competitions', () => {
-      const comps = getCompetitionsBySeason(db, 0);
+    it('returns empty array for season with no competitions', async () => {
+      const comps = await getCompetitionsBySeason(db, 0);
       expect(comps).toEqual([]);
     });
   });

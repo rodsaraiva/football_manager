@@ -25,40 +25,42 @@ export function StandingsScreen() {
       return;
     }
 
-    const leagueId = playerClub.leagueId;
+    (async () => {
+      const leagueId = playerClub.leagueId;
 
-    // Load all clubs in the league
-    const leagueClubs = getClubsByLeague(dbHandle, leagueId);
-    const clubIds = leagueClubs.map((c) => c.id);
-    const namesMap: Record<number, string> = {};
-    for (const c of leagueClubs) {
-      namesMap[c.id] = c.name;
-    }
-    setClubNames(namesMap);
+      // Load all clubs in the league
+      const leagueClubs = await getClubsByLeague(dbHandle, leagueId);
+      const clubIds = leagueClubs.map((c) => c.id);
+      const namesMap: Record<number, string> = {};
+      for (const c of leagueClubs) {
+        namesMap[c.id] = c.name;
+      }
+      setClubNames(namesMap);
 
-    // Find the league competition for this season
-    const competitions = getCompetitionsBySeason(dbHandle, season);
-    const leagueComp = competitions.find(
-      (comp) => comp.leagueId === leagueId && comp.type === 'league',
-    );
+      // Find the league competition for this season
+      const competitions = await getCompetitionsBySeason(dbHandle, season);
+      const leagueComp = competitions.find(
+        (comp) => comp.leagueId === leagueId && comp.type === 'league',
+      );
 
-    if (leagueComp) {
-      setLeagueName(leagueComp.name);
-    }
+      if (leagueComp) {
+        setLeagueName(leagueComp.name);
+      }
 
-    // Collect all played fixtures for the competition up to current week
-    const playedFixtures: Fixture[] = [];
-    for (let w = 1; w <= week; w++) {
-      const weekFixtures = getFixturesByWeek(dbHandle, season, w);
-      const leagueFixtures = leagueComp
-        ? weekFixtures.filter((f) => f.competitionId === leagueComp.id && f.played)
-        : weekFixtures.filter((f) => f.played);
-      playedFixtures.push(...leagueFixtures);
-    }
+      // Collect all played fixtures for the competition up to current week
+      const playedFixtures: Fixture[] = [];
+      for (let w = 1; w <= week; w++) {
+        const weekFixtures = await getFixturesByWeek(dbHandle, season, w);
+        const leagueFixtures = leagueComp
+          ? weekFixtures.filter((f) => f.competitionId === leagueComp.id && f.played)
+          : weekFixtures.filter((f) => f.played);
+        playedFixtures.push(...leagueFixtures);
+      }
 
-    const standings = calculateStandings(playedFixtures, clubIds);
-    setEntries(standings);
-    setLoading(false);
+      const standings = calculateStandings(playedFixtures, clubIds);
+      setEntries(standings);
+      setLoading(false);
+    })();
   }, [dbHandle, playerClub, season, week]);
 
   if (loading) {
