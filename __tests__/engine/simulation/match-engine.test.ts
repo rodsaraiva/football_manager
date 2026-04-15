@@ -51,6 +51,16 @@ function makeInput(homeOverall: number, awayOverall: number): MatchInput {
   };
 }
 
+// IDs used across squads and benches
+const HOME_SQUAD_IDS = Array.from({ length: 11 }, (_, i) => i + 1);
+const AWAY_SQUAD_IDS = Array.from({ length: 11 }, (_, i) => i + 100);
+const HOME_BENCH_IDS = Array.from({ length: 5 }, (_, i) => i + 200);
+const AWAY_BENCH_IDS = Array.from({ length: 5 }, (_, i) => i + 300);
+const ALL_RELATED_IDS = new Set([
+  ...HOME_SQUAD_IDS, ...AWAY_SQUAD_IDS,
+  ...HOME_BENCH_IDS, ...AWAY_BENCH_IDS,
+]);
+
 describe('simulateMatch', () => {
   it('returns a valid match result', () => {
     const result = simulateMatch(makeInput(70, 70));
@@ -253,5 +263,85 @@ describe('simulateMatch', () => {
     expect(typeof result.stats.awayFouls).toBe('number');
     expect(typeof result.stats.homeCorners).toBe('number');
     expect(typeof result.stats.awayCorners).toBe('number');
+  });
+
+  it('jogador não relacionado nunca aparece em eventos de substituição', () => {
+    for (let seed = 0; seed < 100; seed++) {
+      const input = makeInput(70, 70);
+      input.rng = new SeededRng(seed);
+      const result = simulateMatch(input);
+      const subs = result.events.filter(e => e.type === 'substitution');
+      for (const sub of subs) {
+        const playerIdIn = sub.secondaryPlayerId;
+        const playerIdOut = sub.playerId;
+        expect(ALL_RELATED_IDS.has(playerIdOut)).toBe(true);
+        if (playerIdIn !== null) expect(ALL_RELATED_IDS.has(playerIdIn)).toBe(true);
+      }
+    }
+  });
+
+  it('jogador que entrou como sub não é substituído regularmente', () => {
+    for (let seed = 0; seed < 200; seed++) {
+      const input = makeInput(70, 70);
+      input.rng = new SeededRng(seed);
+      const result = simulateMatch(input);
+
+      const subEvents = result.events.filter(e => e.type === 'substitution');
+      const injuryEvents = result.events.filter(e => e.type === 'injury');
+      const injuredPlayerIds = new Set(injuryEvents.map(e => e.playerId));
+
+      const subInIds = new Set<number>();
+      for (const sub of subEvents) {
+        const outId = sub.playerId;
+        // A sub cannot come out via a regular sub if they came in as a sub,
+        // unless they suffered an injury themselves
+        if (subInIds.has(outId) && !injuredPlayerIds.has(outId)) {
+          // This would be the bug — fail
+          expect(false).toBe(true);
+        }
+        if (sub.secondaryPlayerId !== null) {
+          subInIds.add(sub.secondaryPlayerId);
+        }
+      }
+    }
+  });
+
+  it('bench cap é 8 — bench passado ao simulateMatch pode ter até 8 jogadores', () => {
+    const makeBench8 = (overall: number, idOffset: number) => Array.from({ length: 8 }, (_, i) => ({
+      id: idOffset + i,
+      position: (['CM', 'ST', 'LW', 'CB', 'GK', 'LM', 'RM', 'RB'] as Position[])[i],
+      secondaryPosition: null as Position | null,
+      attributes: makeAttrs(overall),
+      morale: 70,
+      fitness: 95,
+    }));
+
+    const input: MatchInput = {
+      fixtureId: 1,
+      homeSquad: makeSquad(70),
+      awaySquad: makeSquad(70).map((p, i) => ({ ...p, id: i + 100 })),
+      homeBench: makeBench8(70, 500),
+      awayBench: makeBench8(70, 600),
+      homeTactic: defaultTactic,
+      awayTactic: { ...defaultTactic, id: 2, clubId: 2 },
+      homeClubReputation: 80,
+      awayClubReputation: 80,
+      rng: new SeededRng(99),
+    };
+    const result = simulateMatch(input);
+    // Should complete without error and produce valid result
+    expect(result.homeGoals).toBeGreaterThanOrEqual(0);
+    expect(result.awayGoals).toBeGreaterThanOrEqual(0);
+    // All substitution player IDs must be from the related pool
+    const relatedIds = new Set([
+      ...Array.from({ length: 11 }, (_, i) => i + 1),
+      ...Array.from({ length: 11 }, (_, i) => i + 100),
+      ...Array.from({ length: 8 }, (_, i) => i + 500),
+      ...Array.from({ length: 8 }, (_, i) => i + 600),
+    ]);
+    for (const ev of result.events.filter(e => e.type === 'substitution')) {
+      expect(relatedIds.has(ev.playerId)).toBe(true);
+      if (ev.secondaryPlayerId !== null) expect(relatedIds.has(ev.secondaryPlayerId)).toBe(true);
+    }
   });
 });

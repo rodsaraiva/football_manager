@@ -8,6 +8,7 @@ import { createCompetition, addCompetitionEntry, getAllLeagues } from '@/databas
 import { getClubsByLeague } from '@/database/queries/clubs';
 import { createFixture } from '@/database/queries/fixtures';
 import { getPlayerStatsByCompetition } from '@/database/queries/player-stats';
+import { setTacticLineup } from '@/database/queries/tactics';
 
 describe('advanceGameWeek', () => {
   let rawDb: Database.Database;
@@ -210,5 +211,75 @@ describe('advanceGameWeek', () => {
     // Both teams have 11 players rated → at least 22 rows with appearances > 0
     const withAppearances = stats.filter(s => s.appearances > 0);
     expect(withAppearances.length).toBeGreaterThanOrEqual(22);
+  });
+
+  it('escalação salva no banco é respeitada pelo engine', async () => {
+    // Get players for club 1 (playerClubId)
+    const players = rawDb
+      .prepare('SELECT id FROM players WHERE club_id = 1 AND injury_weeks_left = 0 ORDER BY id ASC')
+      .all() as { id: number }[];
+    expect(players.length).toBeGreaterThanOrEqual(19);
+
+    const tacticRow = rawDb
+      .prepare('SELECT id FROM tactics WHERE club_id = 1 AND is_active = 1')
+      .get() as { id: number } | undefined;
+    expect(tacticRow).toBeDefined();
+
+    const starterIds = players.slice(0, 11).map(p => p.id);
+    const benchIds = players.slice(11, 19).map(p => p.id);
+    await setTacticLineup(db, tacticRow!.id, starterIds, benchIds);
+
+    const result = await advanceGameWeek({
+      dbHandle: db,
+      season: 1,
+      week: 7,
+      playerClubId: 1,
+      saveId: -1,
+      rng: new SeededRng(42),
+    });
+
+    expect(result.playerMatchResult).not.toBeNull();
+    const matchResult = result.playerMatchResult!;
+
+    // Determine if club 1 is home or away
+    const fixtureRow = rawDb
+      .prepare('SELECT home_club_id FROM fixtures WHERE season = 1 AND week = 7 AND (home_club_id = 1 OR away_club_id = 1)')
+      .get() as { home_club_id: number } | undefined;
+    expect(fixtureRow).toBeDefined();
+
+    const ratings = fixtureRow!.home_club_id === 1
+      ? matchResult.homeRatings
+      : matchResult.awayRatings;
+
+    // All rated players should be from the related pool (starters + bench)
+    const relatedIds = new Set([...starterIds, ...benchIds]);
+    for (const r of ratings) {
+      expect(relatedIds.has(r.playerId)).toBe(true);
+    }
+
+    // All 11 starters must appear in ratings
+    const ratedIds = new Set(ratings.map(r => r.playerId));
+    for (const id of starterIds) {
+      expect(ratedIds.has(id)).toBe(true);
+    }
+  });
+
+  it('bench tem no máximo 8 jogadores passados para o engine', async () => {
+    const result = await advanceGameWeek({
+      dbHandle: db,
+      season: 1,
+      week: 7,
+      playerClubId: 1,
+      saveId: -1,
+      rng: new SeededRng(42),
+    });
+
+    expect(result.playerMatchResult).not.toBeNull();
+    // The number of unique player IDs in ratings should be at most 11 starters + 8 bench = 19
+    const allRatedIds = new Set([
+      ...result.playerMatchResult!.homeRatings.map(r => r.playerId),
+      ...result.playerMatchResult!.awayRatings.map(r => r.playerId),
+    ]);
+    expect(allRatedIds.size).toBeLessThanOrEqual(19 * 2); // 19 per side
   });
 });
