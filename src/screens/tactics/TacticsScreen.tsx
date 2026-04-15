@@ -18,6 +18,8 @@ import { useDatabaseStore } from '@/store/database-store';
 import {
   getActiveTactic,
   updateTactic,
+  setTacticLineup,
+  getTacticLineup,
 } from '@/database/queries/tactics';
 import { getPlayersByClub, getPlayerById, setTransferListing, setLoanListing } from '@/database/queries/players';
 import { calculateOverall } from '@/utils/overall';
@@ -236,6 +238,28 @@ export function TacticsScreen() {
           if (full) withAttrs.push({ ...full, overall: calculateOverall(full.attributes, full.position) });
         }
         setSquad(withAttrs);
+
+        // Load saved lineup if available
+        if (activeTactic) {
+          const savedLineup = await getTacticLineup(dbHandle, activeTactic.id);
+          if (savedLineup) {
+            const byId = new Map(withAttrs.map(p => [p.id, p]));
+            const formation = activeTactic.formation;
+            const rows = FORMATION_ROWS[formation as Formation] ?? FORMATION_ROWS['4-4-2'];
+            let slotIdx = 0;
+            const builtLineup: SlotAssignment[][] = rows.map(row =>
+              row.map(role => {
+                const pid = savedLineup.starterIds[slotIdx++];
+                return { positionRole: role, player: pid != null ? (byId.get(pid) ?? null) : null };
+              }),
+            );
+            setLineup(builtLineup);
+            const benchPlayers = savedLineup.benchIds
+              .map(id => byId.get(id))
+              .filter((p): p is PlayerWithOvr => p != null);
+            setBench(benchPlayers);
+          }
+        }
       } finally { setLoading(false); }
     })();
   }, [dbHandle, playerClubId]);
@@ -261,16 +285,37 @@ export function TacticsScreen() {
     [squad, startingIds, benchIds],
   );
 
-  // Rebuild bench when lineup changes
+  // Rebuild bench from squad when lineup changes AND no bench is set yet
+  // (bench is managed manually after initial load)
+  const benchInitialized = useRef(false);
   useEffect(() => {
-    setBench(buildBench(squad, startingIds));
-  }, [squad, startingIds]);
+    if (!benchInitialized.current && squad.length > 0) {
+      benchInitialized.current = true;
+      // only auto-build if no saved lineup was loaded (lineup === null means fallback)
+      if (lineup === null) {
+        setBench(buildBench(squad, startingIds));
+      }
+    }
+  }, [squad]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Persist lineup to DB whenever it changes
+  const tacticRef = useRef(tactic);
+  useEffect(() => { tacticRef.current = tactic; }, [tactic]);
+  useEffect(() => {
+    const t = tacticRef.current;
+    if (!dbHandle || !t || lineup === null) return;
+    const starterIds: number[] = [];
+    for (const row of lineup) for (const s of row) if (s.player) starterIds.push(s.player.id);
+    const benchIds = bench.map(p => p.id);
+    setTacticLineup(dbHandle, t.id, starterIds, benchIds).catch(() => {});
+  }, [lineup, bench, dbHandle]);
 
   // ─── Handlers ──────────────────────────────────────────────────────────────
   const handleFormationChange = useCallback(async (formation: Formation) => {
     setSelectedFormation(formation);
     setShowFormationDropdown(false);
     setLineup(null);
+    benchInitialized.current = false; // allow bench to rebuild
     if (!dbHandle || !tactic) return;
     try {
       await updateTactic(dbHandle, tactic.id, { formation });

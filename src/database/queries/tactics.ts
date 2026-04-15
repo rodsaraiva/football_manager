@@ -140,3 +140,31 @@ export async function updateTactic(db: DbHandle, tacticId: number, updates: Upda
   params.push(tacticId);
   await db.prepare(`UPDATE tactics SET ${fields.join(', ')} WHERE id = ?`).run(...params);
 }
+
+export async function setTacticLineup(
+  db: DbHandle,
+  tacticId: number,
+  starters: number[],
+  bench: number[],
+): Promise<void> {
+  await db.prepare('DELETE FROM tactic_lineup WHERE tactic_id = ?').run(tacticId);
+  const all = [...starters, ...bench];
+  for (let i = 0; i < all.length; i++) {
+    await db.prepare(
+      'INSERT INTO tactic_lineup (tactic_id, slot_index, player_id) VALUES (?, ?, ?)',
+    ).run(tacticId, i, all[i]);
+  }
+}
+
+export async function getTacticLineup(
+  db: DbHandle,
+  tacticId: number,
+): Promise<{ starterIds: number[]; benchIds: number[] } | null> {
+  const rows = await db
+    .prepare('SELECT slot_index, player_id FROM tactic_lineup WHERE tactic_id = ? ORDER BY slot_index ASC')
+    .all(tacticId) as { slot_index: number; player_id: number }[];
+  if (rows.length === 0) return null;
+  const starterIds = rows.filter(r => r.slot_index < 11).map(r => r.player_id);
+  const benchIds = rows.filter(r => r.slot_index >= 11).map(r => r.player_id);
+  return { starterIds, benchIds };
+}

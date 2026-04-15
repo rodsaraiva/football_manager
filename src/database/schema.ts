@@ -16,6 +16,7 @@ export const TABLE_NAMES: string[] = [
   'transfer_blocks',
   'tactics',
   'tactic_positions',
+  'tactic_lineup',
   'save_games',
   'season_competition_results',
   'season_relegated',
@@ -239,6 +240,15 @@ CREATE TABLE IF NOT EXISTS tactic_positions (
   instructions  TEXT    NOT NULL DEFAULT '{}',
   PRIMARY KEY (tactic_id, slot)
 );
+
+CREATE TABLE IF NOT EXISTS tactic_lineup (
+  tactic_id  INTEGER NOT NULL REFERENCES tactics(id),
+  slot_index INTEGER NOT NULL CHECK (slot_index BETWEEN 0 AND 18),
+  player_id  INTEGER NOT NULL REFERENCES players(id),
+  PRIMARY KEY (tactic_id, slot_index)
+);
+
+CREATE INDEX IF NOT EXISTS idx_tactic_lineup_tactic ON tactic_lineup(tactic_id);
 
 CREATE TABLE IF NOT EXISTS save_games (
   id              INTEGER PRIMARY KEY AUTOINCREMENT,
