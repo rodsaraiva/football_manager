@@ -1,0 +1,375 @@
+/**
+ * Radar Comparativo de Atributos
+ *
+ * Mostra o perfil de atributos de um jogador como spider chart,
+ * com opção de sobrepor um segundo jogador ou a média da posição no elenco.
+ */
+import React, { useState, useCallback } from 'react';
+import {
+  View,
+  Text,
+  ScrollView,
+  StyleSheet,
+  ActivityIndicator,
+  Pressable,
+  FlatList,
+} from 'react-native';
+import { useFocusEffect, useRoute, RouteProp } from '@react-navigation/native';
+import { colors, spacing, fontSize, commonStyles } from '@/theme';
+import { useGameStore } from '@/store/game-store';
+import { useDatabaseStore } from '@/store/database-store';
+import { getPlayersWithAttributesByClub } from '@/database/queries/players';
+import { calculateOverall } from '@/utils/overall';
+import { ATTRIBUTE_LABELS, SquadPlayer } from '@/engine/reports/technical-report';
+import { PlayerAttributes, Position } from '@/types';
+import { RadarChart, RadarProfile } from '@/components/RadarChart';
+import { RootStackParamList } from '@/navigation/types';
+
+type RadarRouteProps = RouteProp<RootStackParamList, 'ReportsRadar'>;
+
+type CompareMode = 'player' | 'position_avg';
+
+const ATTR_KEYS = Object.keys(ATTRIBUTE_LABELS) as (keyof PlayerAttributes)[];
+const AXIS_LABELS = ATTR_KEYS.map((k) => ATTRIBUTE_LABELS[k]);
+
+function buildValues(attrs: PlayerAttributes): number[] {
+  return ATTR_KEYS.map((k) => attrs[k] as number);
+}
+
+function computePositionAvg(squad: SquadPlayer[], position: Position): number[] {
+  const matching = squad.filter((p) => p.position === position && p.attributes);
+  if (matching.length === 0) return ATTR_KEYS.map(() => 50);
+  return ATTR_KEYS.map((k) => {
+    const sum = matching.reduce((acc, p) => acc + ((p.attributes![k] as number) ?? 0), 0);
+    return Math.round(sum / matching.length);
+  });
+}
+
+export function ReportsRadarScreen() {
+  const route = useRoute<RadarRouteProps>();
+  const { playerClubId } = useGameStore();
+  const { dbHandle } = useDatabaseStore();
+
+  const [squad, setSquad] = useState<SquadPlayer[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const [playerAId, setPlayerAId] = useState<number | null>(route.params?.playerAId ?? null);
+  const [playerBId, setPlayerBId] = useState<number | null>(null);
+  const [compareMode, setCompareMode] = useState<CompareMode>('position_avg');
+
+  const [showPickerA, setShowPickerA] = useState(false);
+  const [showPickerB, setShowPickerB] = useState(false);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!dbHandle || !playerClubId) return;
+      setLoading(true);
+      getPlayersWithAttributesByClub(dbHandle, playerClubId)
+        .then((fullPlayers) => {
+          const s: SquadPlayer[] = fullPlayers.map((p) => ({
+            id: p.id,
+            name: p.name,
+            age: p.age,
+            position: p.position,
+            overall: calculateOverall(p.attributes, p.position),
+            basePotential: p.basePotential,
+            effectivePotential: p.effectivePotential,
+            injuryWeeksLeft: p.injuryWeeksLeft,
+            attributes: p.attributes,
+            morale: p.morale,
+          }));
+          setSquad(s);
+          if (route.params?.playerAId == null && s.length > 0) {
+            setPlayerAId(s[0].id);
+          }
+        })
+        .finally(() => setLoading(false));
+    }, [dbHandle, playerClubId, route.params?.playerAId]),
+  );
+
+  if (loading) {
+    return (
+      <View style={[commonStyles.screen, styles.center]}>
+        <ActivityIndicator color={colors.primary} size="large" />
+      </View>
+    );
+  }
+
+  const playerA = squad.find((p) => p.id === playerAId) ?? null;
+  const playerB = compareMode === 'player' ? (squad.find((p) => p.id === playerBId) ?? null) : null;
+
+  // Build profiles
+  const profiles: RadarProfile[] = [];
+  if (playerA?.attributes) {
+    profiles.push({
+      label: `${playerA.name} (${playerA.overall})`,
+      color: colors.primary,
+      values: buildValues(playerA.attributes),
+    });
+  }
+  if (compareMode === 'position_avg' && playerA) {
+    const avgVals = computePositionAvg(squad, playerA.position);
+    profiles.push({
+      label: `Média ${playerA.position}`,
+      color: colors.accent,
+      values: avgVals,
+    });
+  } else if (compareMode === 'player' && playerB?.attributes) {
+    profiles.push({
+      label: `${playerB.name} (${playerB.overall})`,
+      color: colors.accent,
+      values: buildValues(playerB.attributes),
+    });
+  }
+
+  // Delta table (only when 2 profiles with attrs)
+  const deltaRows: { label: string; attrKey: keyof PlayerAttributes; delta: number }[] = [];
+  if (profiles.length === 2 && playerA?.attributes) {
+    const bVals =
+      compareMode === 'position_avg' && playerA
+        ? computePositionAvg(squad, playerA.position)
+        : playerB?.attributes
+        ? buildValues(playerB.attributes)
+        : null;
+    if (bVals) {
+      const rows = ATTR_KEYS.map((k, i) => ({
+        label: ATTRIBUTE_LABELS[k],
+        attrKey: k,
+        delta: (playerA.attributes![k] as number) - bVals[i],
+      }));
+      rows.sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta));
+      deltaRows.push(...rows);
+    }
+  }
+
+  return (
+    <ScrollView style={commonStyles.screen} contentContainerStyle={styles.container}>
+      {/* Player A Picker */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Jogador A</Text>
+        <Pressable style={styles.pickerBtn} onPress={() => setShowPickerA(!showPickerA)}>
+          <Text style={styles.pickerBtnText}>
+            {playerA ? `${playerA.name} · ${playerA.position} · OVR ${playerA.overall}` : 'Selecionar jogador'}
+          </Text>
+          <Text style={styles.chevron}>{showPickerA ? '▲' : '▼'}</Text>
+        </Pressable>
+        {showPickerA && (
+          <View style={styles.pickerList}>
+            {squad.map((p) => (
+              <Pressable
+                key={p.id}
+                style={[styles.pickerItem, p.id === playerAId && styles.pickerItemSelected]}
+                onPress={() => {
+                  setPlayerAId(p.id);
+                  setShowPickerA(false);
+                }}
+              >
+                <Text style={[styles.pickerItemText, p.id === playerAId && styles.pickerItemTextSelected]}>
+                  {p.name} · {p.position} · OVR {p.overall}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        )}
+      </View>
+
+      {/* Compare mode toggle */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Comparar com</Text>
+        <View style={styles.modeRow}>
+          <Pressable
+            style={[styles.modeChip, compareMode === 'position_avg' && styles.modeChipActive]}
+            onPress={() => setCompareMode('position_avg')}
+          >
+            <Text style={[styles.modeChipText, compareMode === 'position_avg' && styles.modeChipTextActive]}>
+              Média da Posição
+            </Text>
+          </Pressable>
+          <Pressable
+            style={[styles.modeChip, compareMode === 'player' && styles.modeChipActive]}
+            onPress={() => setCompareMode('player')}
+          >
+            <Text style={[styles.modeChipText, compareMode === 'player' && styles.modeChipTextActive]}>
+              Outro Jogador
+            </Text>
+          </Pressable>
+        </View>
+      </View>
+
+      {/* Player B Picker (only if mode = player) */}
+      {compareMode === 'player' && (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Jogador B</Text>
+          <Pressable style={styles.pickerBtn} onPress={() => setShowPickerB(!showPickerB)}>
+            <Text style={styles.pickerBtnText}>
+              {playerB ? `${playerB.name} · ${playerB.position} · OVR ${playerB.overall}` : 'Selecionar jogador'}
+            </Text>
+            <Text style={styles.chevron}>{showPickerB ? '▲' : '▼'}</Text>
+          </Pressable>
+          {showPickerB && (
+            <View style={styles.pickerList}>
+              {squad
+                .filter((p) => p.id !== playerAId)
+                .map((p) => (
+                  <Pressable
+                    key={p.id}
+                    style={[styles.pickerItem, p.id === playerBId && styles.pickerItemSelected]}
+                    onPress={() => {
+                      setPlayerBId(p.id);
+                      setShowPickerB(false);
+                    }}
+                  >
+                    <Text style={[styles.pickerItemText, p.id === playerBId && styles.pickerItemTextSelected]}>
+                      {p.name} · {p.position} · OVR {p.overall}
+                    </Text>
+                  </Pressable>
+                ))}
+            </View>
+          )}
+        </View>
+      )}
+
+      {/* Radar Chart */}
+      {profiles.length > 0 && (
+        <View style={[styles.section, styles.chartContainer]}>
+          <RadarChart profiles={profiles} axisLabels={AXIS_LABELS} size={300} />
+        </View>
+      )}
+
+      {/* Delta table */}
+      {deltaRows.length > 0 && (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Diferença por Atributo</Text>
+          <Text style={styles.sectionSub}>Positivo = A superior · Negativo = A inferior</Text>
+          {deltaRows.map(({ label, attrKey, delta }) => (
+            <View key={attrKey} style={styles.deltaRow}>
+              <Text style={styles.deltaLabel}>{label}</Text>
+              <View style={[styles.deltaBadge, { borderColor: delta >= 0 ? colors.success : colors.danger }]}>
+                <Text style={[styles.deltaValue, { color: delta >= 0 ? colors.success : colors.danger }]}>
+                  {delta >= 0 ? '+' : ''}{delta}
+                </Text>
+              </View>
+            </View>
+          ))}
+        </View>
+      )}
+    </ScrollView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { paddingBottom: spacing.xl, paddingTop: spacing.sm },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  section: {
+    backgroundColor: colors.surface,
+    borderRadius: 12,
+    padding: spacing.md,
+    marginHorizontal: spacing.md,
+    marginBottom: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  sectionTitle: {
+    color: colors.text,
+    fontSize: fontSize.md,
+    fontWeight: '700',
+    marginBottom: spacing.xs,
+  },
+  sectionSub: {
+    color: colors.textMuted,
+    fontSize: fontSize.xs,
+    marginBottom: spacing.sm,
+  },
+  pickerBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 8,
+    padding: spacing.sm,
+    backgroundColor: colors.surfaceLight,
+  },
+  pickerBtnText: {
+    flex: 1,
+    color: colors.text,
+    fontSize: fontSize.sm,
+  },
+  chevron: {
+    color: colors.textMuted,
+    fontSize: fontSize.xs,
+  },
+  pickerList: {
+    marginTop: spacing.xs,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 8,
+    overflow: 'hidden',
+    maxHeight: 200,
+  },
+  pickerItem: {
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  pickerItemSelected: {
+    backgroundColor: colors.primary + '33',
+  },
+  pickerItemText: {
+    color: colors.textSecondary,
+    fontSize: fontSize.sm,
+  },
+  pickerItemTextSelected: {
+    color: colors.text,
+    fontWeight: '600',
+  },
+  modeRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  modeChip: {
+    flex: 1,
+    paddingVertical: spacing.xs,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+  },
+  modeChipActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  modeChipText: {
+    color: colors.textSecondary,
+    fontSize: fontSize.sm,
+    fontWeight: '600',
+  },
+  modeChipTextActive: {
+    color: colors.text,
+  },
+  chartContainer: {
+    alignItems: 'center',
+  },
+  deltaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 3,
+  },
+  deltaLabel: {
+    flex: 1,
+    color: colors.text,
+    fontSize: fontSize.sm,
+  },
+  deltaBadge: {
+    borderWidth: 1,
+    borderRadius: 4,
+    paddingHorizontal: spacing.xs,
+    paddingVertical: 1,
+    minWidth: 44,
+    alignItems: 'center',
+  },
+  deltaValue: {
+    fontSize: fontSize.sm,
+    fontWeight: '700',
+  },
+});

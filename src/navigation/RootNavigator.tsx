@@ -16,6 +16,10 @@ import { ReportsTechnicalScreen } from '@/screens/reports/ReportsTechnicalScreen
 import { ReportsFinancialScreen } from '@/screens/reports/ReportsFinancialScreen';
 import { ReportsAnalyticsScreen } from '@/screens/reports/ReportsAnalyticsScreen';
 import { ReportsYouthScreen } from '@/screens/reports/ReportsYouthScreen';
+import { ReportsRadarScreen } from '@/screens/reports/ReportsRadarScreen';
+import { ReportsOpponentScreen } from '@/screens/reports/ReportsOpponentScreen';
+import { ReportsTransferROIScreen } from '@/screens/reports/ReportsTransferROIScreen';
+import { ReportsProjectionScreen } from '@/screens/reports/ReportsProjectionScreen';
 import { HistoryScreen } from '@/screens/history/HistoryScreen';
 import { TabNavigator } from './TabNavigator';
 import { RootStackParamList } from './types';
@@ -54,6 +58,10 @@ export function RootNavigator() {
       <Stack.Screen name="ReportsFinancial" component={ReportsFinancialScreen} options={{ title: 'Assistente Financeiro' }} />
       <Stack.Screen name="ReportsAnalytics" component={ReportsAnalyticsScreen} options={{ title: 'Analista de Dados' }} />
       <Stack.Screen name="ReportsYouth" component={ReportsYouthScreen} options={{ title: 'Analista Sub-21' }} />
+      <Stack.Screen name="ReportsRadar" component={ReportsRadarScreen} options={{ title: 'Radar de Atributos' }} />
+      <Stack.Screen name="ReportsOpponent" component={ReportsOpponentScreen} options={{ title: 'Próximo Adversário' }} />
+      <Stack.Screen name="ReportsTransferROI" component={ReportsTransferROIScreen} options={{ title: 'ROI de Transferências' }} />
+      <Stack.Screen name="ReportsProjection" component={ReportsProjectionScreen} options={{ title: 'Projeção de Classificação' }} />
       {/* History hub */}
       <Stack.Screen name="SeasonHistory" component={HistoryScreen} options={{ title: 'History' }} />
     </Stack.Navigator>

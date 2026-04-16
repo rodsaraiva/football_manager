@@ -21,6 +21,10 @@ export type RootStackParamList = {
   ReportsFinancial: undefined;
   ReportsAnalytics: undefined;
   ReportsYouth: undefined;
+  ReportsRadar: { playerAId?: number };
+  ReportsOpponent: undefined;
+  ReportsTransferROI: undefined;
+  ReportsProjection: undefined;
   // My listings
   MyListings: undefined;
   // History hub

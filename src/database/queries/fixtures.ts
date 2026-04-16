@@ -124,3 +124,43 @@ export async function getMatchEvents(db: DbHandle, fixtureId: number): Promise<M
     .all(fixtureId) as MatchEventRow[];
   return rows.map(rowToMatchEvent);
 }
+
+/**
+ * Returns the next unplayed fixture for a club in a given season,
+ * ordered by week ascending (first upcoming match).
+ */
+export async function getNextFixtureForClub(
+  db: DbHandle,
+  clubId: number,
+  season: number,
+): Promise<Fixture | null> {
+  const row = await db
+    .prepare(
+      `SELECT * FROM fixtures
+       WHERE played = 0 AND season = ? AND (home_club_id = ? OR away_club_id = ?)
+       ORDER BY week ASC
+       LIMIT 1`,
+    )
+    .get(season, clubId, clubId) as FixtureRow | undefined;
+  return row ? rowToFixture(row) : null;
+}
+
+/**
+ * Returns recent played fixtures for a club in a season, most recent first.
+ */
+export async function getRecentFixturesForClub(
+  db: DbHandle,
+  clubId: number,
+  season: number,
+  limit: number = 5,
+): Promise<Fixture[]> {
+  const rows = await db
+    .prepare(
+      `SELECT * FROM fixtures
+       WHERE played = 1 AND season = ? AND (home_club_id = ? OR away_club_id = ?)
+       ORDER BY week DESC
+       LIMIT ?`,
+    )
+    .all(season, clubId, clubId, limit) as FixtureRow[];
+  return rows.map(rowToFixture);
+}

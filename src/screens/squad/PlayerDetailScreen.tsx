@@ -8,6 +8,8 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { colors, commonStyles, fontSize, spacing } from '@/theme';
 import StatBar from '@/components/StatBar';
 import { calculateOverall } from '@/utils/overall';
@@ -16,6 +18,9 @@ import { useDatabaseStore } from '@/store/database-store';
 import { useGameStore } from '@/store/game-store';
 import { getPlayerAwards, getPlayerTitles, SeasonAward, PlayerTitle } from '../../database/queries/history';
 import { setTransferListing, setLoanListing } from '../../database/queries/players';
+import { RootStackParamList } from '@/navigation/types';
+
+type NavProp = NativeStackNavigationProp<RootStackParamList>;
 
 interface PlayerWithAttributes extends Player {
   attributes: PlayerAttributes;
@@ -86,6 +91,7 @@ function awardLabel(a: SeasonAward): string {
 export default function PlayerDetailScreen({ player, onBack }: PlayerDetailScreenProps) {
   const { dbHandle } = useDatabaseStore();
   const playerClubId = useGameStore((s) => s.playerClubId);
+  const navigation = useNavigation<NavProp>();
   const [awards, setAwards] = useState<SeasonAward[]>([]);
   const [titles, setTitles] = useState<PlayerTitle[]>([]);
   useEffect(() => {
@@ -201,6 +207,14 @@ export default function PlayerDetailScreen({ player, onBack }: PlayerDetailScree
             </View>
           </View>
         </View>
+
+        {/* Radar comparison button */}
+        <Pressable
+          style={({ pressed }) => [styles.radarBtn, pressed && { opacity: 0.7 }]}
+          onPress={() => navigation.navigate('ReportsRadar', { playerAId: player.id })}
+        >
+          <Text style={styles.radarBtnText}>🕸️ Comparar atributos</Text>
+        </Pressable>
 
         {/* Attributes */}
         <View style={styles.section}>
@@ -320,6 +334,21 @@ export default function PlayerDetailScreen({ player, onBack }: PlayerDetailScree
 }
 
 const styles = StyleSheet.create({
+  radarBtn: {
+    marginHorizontal: spacing.md,
+    marginBottom: spacing.sm,
+    backgroundColor: colors.surfaceLight,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.primary,
+    paddingVertical: spacing.sm,
+    alignItems: 'center',
+  },
+  radarBtnText: {
+    color: colors.primary,
+    fontSize: fontSize.sm,
+    fontWeight: '700',
+  },
   backButton: {
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,

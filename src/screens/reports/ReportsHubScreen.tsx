@@ -7,9 +7,11 @@ import { RootStackParamList } from '@/navigation/types';
 import { useGameStore } from '@/store/game-store';
 import { useDatabaseStore } from '@/store/database-store';
 import { getPlayersWithAttributesByClub } from '@/database/queries/players';
+import { getClubsByLeague } from '@/database/queries/clubs';
 import { calculateOverall } from '@/utils/overall';
 import { buildContractAlerts } from '@/engine/reports/contract-alerts';
 import { SquadPlayer } from '@/engine/reports/technical-report';
+import { getNextFixtureForClub } from '@/database/queries/fixtures';
 
 type NavProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -54,10 +56,14 @@ export function ReportsHubScreen() {
   const { playerClubId, season } = useGameStore();
   const { dbHandle } = useDatabaseStore();
   const [contractAlertCount, setContractAlertCount] = useState(0);
+  const [nextOpponentName, setNextOpponentName] = useState<string | null>(null);
+  const { playerClub } = useGameStore();
 
   useFocusEffect(
     React.useCallback(() => {
       if (!dbHandle || !playerClubId) return;
+
+      // Load contract alerts
       getPlayersWithAttributesByClub(dbHandle, playerClubId).then((fullPlayers) => {
         const squad: SquadPlayer[] = fullPlayers.map((full) => ({
           id: full.id,
@@ -75,7 +81,18 @@ export function ReportsHubScreen() {
         }));
         setContractAlertCount(buildContractAlerts(squad, season).length);
       }).catch(() => {});
-    }, [dbHandle, playerClubId, season]),
+
+      // Load next opponent name for hub card subtitle
+      if (playerClub) {
+        getNextFixtureForClub(dbHandle, playerClubId, season).then(async (fixture) => {
+          if (!fixture) { setNextOpponentName(null); return; }
+          const opponentId = fixture.homeClubId === playerClubId ? fixture.awayClubId : fixture.homeClubId;
+          const leagueClubs = await getClubsByLeague(dbHandle, playerClub.leagueId);
+          const opp = leagueClubs.find((c) => c.id === opponentId);
+          setNextOpponentName(opp?.shortName ?? opp?.name ?? null);
+        }).catch(() => setNextOpponentName(null));
+      }
+    }, [dbHandle, playerClubId, playerClub, season]),
   );
 
   return (
@@ -113,6 +130,34 @@ export function ReportsHubScreen() {
         subtitle="Talentos jovens em detalhe"
         accent={colors.gold}
         onPress={() => navigation.navigate('ReportsYouth')}
+      />
+      <HubCard
+        icon="🕸️"
+        title="Radar de Atributos"
+        subtitle="Comparação visual de perfis de jogadores"
+        accent={colors.primaryLight}
+        onPress={() => navigation.navigate('ReportsRadar', {})}
+      />
+      <HubCard
+        icon="🔍"
+        title="Próximo Adversário"
+        subtitle={nextOpponentName ? `vs. ${nextOpponentName}` : 'Nenhum jogo agendado'}
+        accent={colors.warning}
+        onPress={() => navigation.navigate('ReportsOpponent')}
+      />
+      <HubCard
+        icon="💼"
+        title="ROI de Transferências"
+        subtitle="Retorno sobre contratações e vendas"
+        accent={colors.gold}
+        onPress={() => navigation.navigate('ReportsTransferROI')}
+      />
+      <HubCard
+        icon="📈"
+        title="Projeção de Classificação"
+        subtitle="Estimativa de onde terminarás na liga"
+        accent={colors.primary}
+        onPress={() => navigation.navigate('ReportsProjection')}
       />
 
       <View style={styles.secondary}>
