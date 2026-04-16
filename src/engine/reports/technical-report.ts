@@ -21,6 +21,12 @@ export interface SquadPlayer {
   effectivePotential: number;
   injuryWeeksLeft: number;
   attributes?: PlayerAttributes;
+  /** Morale score 1-100 (from players.morale). Optional for backwards compatibility. */
+  morale?: number;
+  /** Season in which the contract expires (from players.contract_end). */
+  contractEnd?: number;
+  /** Weekly wage (from players.wage). */
+  wage?: number;
 }
 
 // ─── Squad Summary ─────────────────────────────────────────────────────────

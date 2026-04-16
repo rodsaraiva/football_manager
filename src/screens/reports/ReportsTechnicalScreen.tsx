@@ -17,6 +17,7 @@ import {
   TechnicalReport,
   SquadSummary,
 } from '@/engine/reports/technical-report';
+import { buildMoraleReport, MoraleReport } from '@/engine/reports/morale-report';
 import { MatchEvent } from '@/types';
 import { RootStackParamList } from '@/navigation/types';
 
@@ -32,6 +33,7 @@ export function ReportsTechnicalScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [windowSize, setWindowSize] = useState<WindowOption>(5);
   const [report, setReport] = useState<TechnicalReport | null>(null);
+  const [moraleReport, setMoraleReport] = useState<MoraleReport | null>(null);
 
   const load = React.useCallback(async () => {
     if (!dbHandle || !playerClubId) {
@@ -52,6 +54,9 @@ export function ReportsTechnicalScreen() {
         effectivePotential: full.effectivePotential,
         injuryWeeksLeft: full.injuryWeeksLeft,
         attributes: full.attributes,
+        morale: full.morale,
+        contractEnd: full.contractEnd,
+        wage: full.wage,
       }));
 
       // Recent fixtures (configurable window)
@@ -90,6 +95,7 @@ export function ReportsTechnicalScreen() {
         matchdaySquadIds,
       });
       setReport(r);
+      setMoraleReport(buildMoraleReport(squad));
     } finally {
       setLoading(false);
     }
@@ -147,6 +153,7 @@ export function ReportsTechnicalScreen() {
         </View>
       </View>
 
+      {moraleReport && <MoraleSection report={moraleReport} />}
       <SquadSummarySection summary={report.squadSummary} />
 
       <Section title="🔥 Em grande fase" subtitle="Maior rating médio recente">
@@ -244,6 +251,69 @@ export function ReportsTechnicalScreen() {
 }
 
 // ─── Subcomponents ──────────────────────────────────────────────────────────
+
+function MoraleSection({ report }: { report: MoraleReport }) {
+  const { avgMorale, topMorale, bottomMorale, alertLevel } = report;
+  const gaugeColor =
+    alertLevel === 'critical' ? colors.danger : alertLevel === 'warning' ? colors.warning : colors.success;
+
+  return (
+    <View style={styles.section}>
+      <Text style={styles.sectionTitle}>💬 Moral do Elenco</Text>
+      <Text style={styles.sectionSub}>Índice coletivo e extremos de motivação</Text>
+
+      {alertLevel === 'critical' && (
+        <View style={styles.moraleBanner}>
+          <Text style={styles.moraleBannerText}>⚠️ Atenção: moral coletiva crítica</Text>
+        </View>
+      )}
+
+      {/* Gauge bar */}
+      <View style={styles.moraleGaugeContainer}>
+        <View style={styles.moraleGaugeBg}>
+          <View style={[styles.moraleGaugeFill, { width: `${avgMorale}%`, backgroundColor: gaugeColor }]} />
+        </View>
+        <Text style={[styles.moraleAvgText, { color: gaugeColor }]}>{avgMorale}</Text>
+      </View>
+
+      {topMorale.length > 0 && (
+        <>
+          <Text style={styles.summaryGroupLabel}>Top 3 Moral Alta</Text>
+          <View style={styles.sectionBody}>
+            {topMorale.map((e) => (
+              <View key={e.playerId} style={styles.moraleRow}>
+                <View style={[styles.moraleDot, { backgroundColor: colors.success }]} />
+                <Text style={styles.playerName}>{e.playerName}</Text>
+                <Text style={styles.playerMeta}> · {e.position}</Text>
+                <Text style={[styles.moraleValue, { color: colors.success }]}>{e.morale}</Text>
+              </View>
+            ))}
+          </View>
+        </>
+      )}
+
+      {bottomMorale.length > 0 && (
+        <>
+          <Text style={[styles.summaryGroupLabel, { marginTop: spacing.sm }]}>Top 3 Moral Baixa</Text>
+          <View style={styles.sectionBody}>
+            {bottomMorale.map((e) => (
+              <View key={e.playerId} style={styles.moraleRow}>
+                <View style={[styles.moraleDot, { backgroundColor: colors.danger }]} />
+                <Text style={styles.playerName}>{e.playerName}</Text>
+                <Text style={styles.playerMeta}> · {e.position}</Text>
+                <Text style={[styles.moraleValue, { color: colors.danger }]}>{e.morale}</Text>
+              </View>
+            ))}
+          </View>
+        </>
+      )}
+
+      {topMorale.length === 0 && bottomMorale.length === 0 && (
+        <Text style={styles.empty}>Sem dados de moral para analisar.</Text>
+      )}
+    </View>
+  );
+}
 
 function SquadSummarySection({ summary }: { summary: SquadSummary }) {
   const { collectiveStrengths, collectiveWeaknesses, individualHighlights } = summary;
@@ -547,5 +617,56 @@ const styles = StyleSheet.create({
   },
   highlightLeft: {
     flex: 1,
+  },
+  moraleBanner: {
+    backgroundColor: colors.danger,
+    borderRadius: 6,
+    padding: spacing.sm,
+    marginBottom: spacing.sm,
+  },
+  moraleBannerText: {
+    color: colors.text,
+    fontSize: fontSize.sm,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  moraleGaugeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.sm,
+    gap: spacing.sm,
+  },
+  moraleGaugeBg: {
+    flex: 1,
+    height: 14,
+    backgroundColor: colors.border,
+    borderRadius: 7,
+    overflow: 'hidden',
+  },
+  moraleGaugeFill: {
+    height: '100%',
+    borderRadius: 7,
+  },
+  moraleAvgText: {
+    fontSize: fontSize.md,
+    fontWeight: '700',
+    width: 32,
+    textAlign: 'right',
+  },
+  moraleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 2,
+    gap: spacing.xs,
+  },
+  moraleDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  moraleValue: {
+    fontSize: fontSize.sm,
+    fontWeight: '700',
+    marginLeft: 'auto',
   },
 });
