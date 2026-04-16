@@ -4,6 +4,7 @@ import {
   Text,
   TouchableOpacity,
   FlatList,
+  ScrollView,
   StyleSheet,
   ActivityIndicator,
   Alert,
@@ -13,17 +14,25 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { colors, spacing, fontSize, commonStyles } from '@/theme';
 import { useDatabaseStore } from '@/store/database-store';
 import { useGameStore } from '@/store/game-store';
-import { getAllLeagues, createCompetition, addCompetitionEntry } from '@/database/queries/leagues';
+import { getAllLeagues, getAllCountries, createCompetition, addCompetitionEntry } from '@/database/queries/leagues';
 import { getClubsByLeague, getClubById } from '@/database/queries/clubs';
 import { createSave } from '@/database/queries/saves';
 import { createFixture } from '@/database/queries/fixtures';
 import { generateSeasonCalendar } from '@/engine/competition/calendar';
 import { RootStackParamList } from '@/navigation/types';
-import { League, Club, Difficulty } from '@/types';
+import { League, Club, Country, Difficulty } from '@/types';
 
 type NavProp = NativeStackNavigationProp<RootStackParamList, 'NewGame'>;
 
 type Step = 'league' | 'team' | 'confirm';
+
+const COUNTRY_FLAGS: Record<string, string> = {
+  EN: '🏴󠁧󠁢󠁥󠁮󠁧󠁿',
+  ES: '🇪🇸',
+  IT: '🇮🇹',
+  DE: '🇩🇪',
+  FR: '🇫🇷',
+};
 
 export function NewGameScreen() {
   const navigation = useNavigation<NavProp>();
@@ -32,12 +41,14 @@ export function NewGameScreen() {
 
   const [step, setStep] = useState<Step>('league');
   const [leagues, setLeagues] = useState<League[]>([]);
+  const [countries, setCountries] = useState<Country[]>([]);
   const [clubs, setClubs] = useState<Club[]>([]);
   const [selectedLeague, setSelectedLeague] = useState<League | null>(null);
   const [selectedClub, setSelectedClub] = useState<Club | null>(null);
   const [difficulty, setDifficulty] = useState<Difficulty>('normal');
   const [loading, setLoading] = useState(true);
   const [starting, setStarting] = useState(false);
+  const [expandedCountries, setExpandedCountries] = useState<Set<number>>(new Set());
 
   useEffect(() => {
     if (!isReady || !dbHandle) {
@@ -46,17 +57,34 @@ export function NewGameScreen() {
     }
     (async () => {
       try {
-        const leagueRows = await getAllLeagues(dbHandle);
+        const [leagueRows, countryRows] = await Promise.all([
+          getAllLeagues(dbHandle),
+          getAllCountries(dbHandle),
+        ]);
         console.log('[NewGame] leagues loaded:', leagueRows.map(l => ({ id: l.id, name: l.name })));
-        setLeagues(leagueRows.slice(0, 5));
+        setLeagues(leagueRows);
+        setCountries(countryRows);
       } catch (err) {
-        console.error('[NewGame] getAllLeagues failed:', err);
+        console.error('[NewGame] failed to load leagues/countries:', err);
         setLeagues([]);
+        setCountries([]);
       } finally {
         setLoading(false);
       }
     })();
   }, [isReady, dbHandle]);
+
+  function toggleCountry(countryId: number) {
+    setExpandedCountries(prev => {
+      const next = new Set(prev);
+      if (next.has(countryId)) {
+        next.delete(countryId);
+      } else {
+        next.add(countryId);
+      }
+      return next;
+    });
+  }
 
   async function handleSelectLeague(league: League) {
     if (!dbHandle) return;
@@ -190,26 +218,62 @@ export function NewGameScreen() {
   }
 
   if (step === 'league') {
+    // Build a map of countryId -> leagues sorted by divisionLevel
+    const leaguesByCountry: Record<number, League[]> = {};
+    for (const league of leagues) {
+      if (!leaguesByCountry[league.countryId]) {
+        leaguesByCountry[league.countryId] = [];
+      }
+      leaguesByCountry[league.countryId].push(league);
+    }
+    for (const key of Object.keys(leaguesByCountry)) {
+      leaguesByCountry[Number(key)].sort((a, b) => a.divisionLevel - b.divisionLevel);
+    }
+
+    // Only show countries that have leagues
+    const countriesWithLeagues = countries.filter(c => leaguesByCountry[c.id]?.length > 0);
+
     return (
       <View style={commonStyles.screen}>
         <Text style={styles.stepTitle}>Select League</Text>
         <Text style={styles.stepSubtitle}>Choose the league you want to manage in</Text>
-        {leagues.length === 0 ? (
+        {countriesWithLeagues.length === 0 ? (
           <View style={styles.centered}>
             <Text style={styles.emptyText}>No leagues available. Database may need seeding.</Text>
           </View>
         ) : (
-          leagues.map((league) => (
-            <TouchableOpacity
-              key={league.id}
-              style={styles.leagueCard}
-              onPress={() => handleSelectLeague(league)}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.leagueName}>{league.name}</Text>
-              <Text style={styles.leagueMeta}>Division {league.divisionLevel} · {league.numTeams} teams</Text>
-            </TouchableOpacity>
-          ))
+          <ScrollView contentContainerStyle={styles.listContent}>
+            {countriesWithLeagues.map((country) => {
+              const isExpanded = expandedCountries.has(country.id);
+              const countryLeagues = leaguesByCountry[country.id] ?? [];
+              const flag = COUNTRY_FLAGS[country.code] ?? '🌍';
+              return (
+                <View key={country.id} style={styles.accordionGroup}>
+                  <TouchableOpacity
+                    style={styles.accordionHeader}
+                    onPress={() => toggleCountry(country.id)}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.accordionFlag}>{flag}</Text>
+                    <Text style={styles.accordionCountryName}>{country.name}</Text>
+                    <Text style={styles.accordionMeta}>{countryLeagues.length} league{countryLeagues.length !== 1 ? 's' : ''}</Text>
+                    <Text style={styles.accordionChevron}>{isExpanded ? '▲' : '▼'}</Text>
+                  </TouchableOpacity>
+                  {isExpanded && countryLeagues.map((league) => (
+                    <TouchableOpacity
+                      key={league.id}
+                      style={styles.leagueCard}
+                      onPress={() => handleSelectLeague(league)}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={styles.leagueName}>{league.name}</Text>
+                      <Text style={styles.leagueMeta}>Division {league.divisionLevel} · {league.numTeams} teams</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              );
+            })}
+          </ScrollView>
         )}
       </View>
     );
@@ -345,12 +409,44 @@ const styles = StyleSheet.create({
     marginTop: spacing.xl,
     paddingHorizontal: spacing.lg,
   },
-  leagueCard: {
+  accordionGroup: {
+    marginBottom: spacing.sm,
+  },
+  accordionHeader: {
     backgroundColor: colors.surface,
     borderRadius: 8,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  accordionFlag: {
+    fontSize: fontSize.lg,
+    marginRight: spacing.sm,
+  },
+  accordionCountryName: {
+    color: colors.text,
+    fontSize: fontSize.md,
+    fontWeight: '700',
+    flex: 1,
+  },
+  accordionMeta: {
+    color: colors.textSecondary,
+    fontSize: fontSize.xs,
+    marginRight: spacing.sm,
+  },
+  accordionChevron: {
+    color: colors.textSecondary,
+    fontSize: fontSize.xs,
+  },
+  leagueCard: {
+    backgroundColor: colors.surfaceLight,
+    borderRadius: 6,
     padding: spacing.md,
-    marginHorizontal: spacing.md,
-    marginBottom: spacing.sm,
+    marginTop: 2,
+    marginLeft: spacing.md,
     borderWidth: 1,
     borderColor: colors.border,
   },
