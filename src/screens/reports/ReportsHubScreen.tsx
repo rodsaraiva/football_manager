@@ -159,6 +159,13 @@ export function ReportsHubScreen() {
         accent={colors.primary}
         onPress={() => navigation.navigate('ReportsProjection')}
       />
+      <HubCard
+        icon="🎯"
+        title="Scouting de Free Agents"
+        subtitle="Free agents que melhoram o teu elenco"
+        accent={colors.success}
+        onPress={() => navigation.navigate('ReportsFreeAgentScout')}
+      />
 
       <View style={styles.secondary}>
         <HubCard

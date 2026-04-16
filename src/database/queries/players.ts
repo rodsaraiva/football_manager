@@ -201,6 +201,22 @@ export async function getFreeAgents(db: DbHandle): Promise<Player[]> {
   return rows.map(rowToPlayer);
 }
 
+export async function getFreeAgentsWithAttributes(
+  db: DbHandle,
+): Promise<(Player & { attributes: PlayerAttributes })[]> {
+  const playerRows = await db
+    .prepare('SELECT * FROM players WHERE is_free_agent = 1')
+    .all() as PlayerRow[];
+  if (playerRows.length === 0) return [];
+  const attrRows = await db
+    .prepare('SELECT * FROM player_attributes WHERE player_id IN (' + playerRows.map(() => '?').join(',') + ')')
+    .all(...playerRows.map((p) => p.id)) as PlayerAttributesRow[];
+  const attrsById = new Map(attrRows.map((a) => [a.player_id, rowToAttributes(a)]));
+  return playerRows
+    .filter((p) => attrsById.has(p.id))
+    .map((p) => ({ ...rowToPlayer(p), attributes: attrsById.get(p.id)! }));
+}
+
 export async function setTransferListing(
   db: DbHandle,
   playerId: number,

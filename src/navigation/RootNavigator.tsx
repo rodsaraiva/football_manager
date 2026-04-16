@@ -20,6 +20,7 @@ import { ReportsRadarScreen } from '@/screens/reports/ReportsRadarScreen';
 import { ReportsOpponentScreen } from '@/screens/reports/ReportsOpponentScreen';
 import { ReportsTransferROIScreen } from '@/screens/reports/ReportsTransferROIScreen';
 import { ReportsProjectionScreen } from '@/screens/reports/ReportsProjectionScreen';
+import { ReportsFreeAgentScoutScreen } from '@/screens/reports/ReportsFreeAgentScoutScreen';
 import { HistoryScreen } from '@/screens/history/HistoryScreen';
 import { TabNavigator } from './TabNavigator';
 import { RootStackParamList } from './types';
@@ -62,6 +63,7 @@ export function RootNavigator() {
       <Stack.Screen name="ReportsOpponent" component={ReportsOpponentScreen} options={{ title: 'Próximo Adversário' }} />
       <Stack.Screen name="ReportsTransferROI" component={ReportsTransferROIScreen} options={{ title: 'ROI de Transferências' }} />
       <Stack.Screen name="ReportsProjection" component={ReportsProjectionScreen} options={{ title: 'Projeção de Classificação' }} />
+      <Stack.Screen name="ReportsFreeAgentScout" component={ReportsFreeAgentScoutScreen} options={{ title: 'Scouting de Free Agents' }} />
       {/* History hub */}
       <Stack.Screen name="SeasonHistory" component={HistoryScreen} options={{ title: 'History' }} />
     </Stack.Navigator>
