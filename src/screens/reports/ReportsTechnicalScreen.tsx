@@ -18,6 +18,7 @@ import {
   SquadSummary,
 } from '@/engine/reports/technical-report';
 import { buildMoraleReport, MoraleReport } from '@/engine/reports/morale-report';
+import { buildContractAlerts, ContractAlert } from '@/engine/reports/contract-alerts';
 import { MatchEvent } from '@/types';
 import { RootStackParamList } from '@/navigation/types';
 
@@ -34,6 +35,7 @@ export function ReportsTechnicalScreen() {
   const [windowSize, setWindowSize] = useState<WindowOption>(5);
   const [report, setReport] = useState<TechnicalReport | null>(null);
   const [moraleReport, setMoraleReport] = useState<MoraleReport | null>(null);
+  const [contractAlerts, setContractAlerts] = useState<ContractAlert[]>([]);
 
   const load = React.useCallback(async () => {
     if (!dbHandle || !playerClubId) {
@@ -96,6 +98,7 @@ export function ReportsTechnicalScreen() {
       });
       setReport(r);
       setMoraleReport(buildMoraleReport(squad));
+      setContractAlerts(buildContractAlerts(squad, season));
     } finally {
       setLoading(false);
     }
@@ -154,6 +157,7 @@ export function ReportsTechnicalScreen() {
       </View>
 
       {moraleReport && <MoraleSection report={moraleReport} />}
+      <ContractAlertsSection alerts={contractAlerts} />
       <SquadSummarySection summary={report.squadSummary} />
 
       <Section title="🔥 Em grande fase" subtitle="Maior rating médio recente">
@@ -310,6 +314,43 @@ function MoraleSection({ report }: { report: MoraleReport }) {
 
       {topMorale.length === 0 && bottomMorale.length === 0 && (
         <Text style={styles.empty}>Sem dados de moral para analisar.</Text>
+      )}
+    </View>
+  );
+}
+
+function ContractAlertsSection({ alerts }: { alerts: ContractAlert[] }) {
+  const urgencyColor = (u: ContractAlert['urgency']) => {
+    if (u === 'critical') return colors.danger;
+    if (u === 'warning') return colors.warning;
+    return colors.primary;
+  };
+
+  return (
+    <View style={styles.section}>
+      <Text style={styles.sectionTitle}>⚠️ Contratos Vencendo</Text>
+      <Text style={styles.sectionSub}>Jogadores OVR {'>'} 70 com contrato expirando em até 2 temporadas</Text>
+      {alerts.length === 0 ? (
+        <Text style={styles.empty}>Nenhum contrato crítico no momento.</Text>
+      ) : (
+        <View style={styles.sectionBody}>
+          {alerts.map((alert) => (
+            <View key={alert.player.id} style={styles.contractRow}>
+              <View style={styles.contractLeft}>
+                <Text style={styles.playerName}>{alert.player.name}</Text>
+                <Text style={styles.playerMeta}>
+                  {alert.player.position} · OVR {alert.player.overall}
+                  {alert.player.wage != null ? ` · ${alert.player.wage.toLocaleString('pt-BR')} /sem` : ''}
+                </Text>
+              </View>
+              <View style={[styles.contractBadge, { borderColor: urgencyColor(alert.urgency) }]}>
+                <Text style={[styles.contractBadgeText, { color: urgencyColor(alert.urgency) }]}>
+                  {`Vence T${alert.contractEnd}`}
+                </Text>
+              </View>
+            </View>
+          ))}
+        </View>
       )}
     </View>
   );
@@ -617,6 +658,24 @@ const styles = StyleSheet.create({
   },
   highlightLeft: {
     flex: 1,
+  },
+  contractRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: spacing.xs,
+  },
+  contractLeft: {
+    flex: 1,
+  },
+  contractBadge: {
+    borderWidth: 1,
+    borderRadius: 6,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 3,
+  },
+  contractBadgeText: {
+    fontSize: fontSize.xs,
+    fontWeight: '700',
   },
   moraleBanner: {
     backgroundColor: colors.danger,

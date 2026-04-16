@@ -1,9 +1,15 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, ScrollView, StyleSheet, Pressable } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { colors, spacing, fontSize, commonStyles } from '@/theme';
 import { RootStackParamList } from '@/navigation/types';
+import { useGameStore } from '@/store/game-store';
+import { useDatabaseStore } from '@/store/database-store';
+import { getPlayersWithAttributesByClub } from '@/database/queries/players';
+import { calculateOverall } from '@/utils/overall';
+import { buildContractAlerts } from '@/engine/reports/contract-alerts';
+import { SquadPlayer } from '@/engine/reports/technical-report';
 
 type NavProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -13,9 +19,10 @@ interface HubCardProps {
   subtitle: string;
   onPress: () => void;
   accent: string;
+  badge?: number;
 }
 
-function HubCard({ icon, title, subtitle, onPress, accent }: HubCardProps) {
+function HubCard({ icon, title, subtitle, onPress, accent, badge }: HubCardProps) {
   return (
     <Pressable
       style={({ pressed }) => [
@@ -27,7 +34,14 @@ function HubCard({ icon, title, subtitle, onPress, accent }: HubCardProps) {
     >
       <Text style={styles.icon}>{icon}</Text>
       <View style={styles.content}>
-        <Text style={styles.title}>{title}</Text>
+        <View style={styles.titleRow}>
+          <Text style={styles.title}>{title}</Text>
+          {badge != null && badge > 0 && (
+            <View style={styles.badge}>
+              <Text style={styles.badgeText}>{badge}</Text>
+            </View>
+          )}
+        </View>
         <Text style={styles.subtitle}>{subtitle}</Text>
       </View>
       <Text style={styles.chevron}>›</Text>
@@ -37,6 +51,32 @@ function HubCard({ icon, title, subtitle, onPress, accent }: HubCardProps) {
 
 export function ReportsHubScreen() {
   const navigation = useNavigation<NavProp>();
+  const { playerClubId, season } = useGameStore();
+  const { dbHandle } = useDatabaseStore();
+  const [contractAlertCount, setContractAlertCount] = useState(0);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      if (!dbHandle || !playerClubId) return;
+      getPlayersWithAttributesByClub(dbHandle, playerClubId).then((fullPlayers) => {
+        const squad: SquadPlayer[] = fullPlayers.map((full) => ({
+          id: full.id,
+          name: full.name,
+          age: full.age,
+          position: full.position,
+          overall: calculateOverall(full.attributes, full.position),
+          basePotential: full.basePotential,
+          effectivePotential: full.effectivePotential,
+          injuryWeeksLeft: full.injuryWeeksLeft,
+          attributes: full.attributes,
+          morale: full.morale,
+          contractEnd: full.contractEnd,
+          wage: full.wage,
+        }));
+        setContractAlertCount(buildContractAlerts(squad, season).length);
+      }).catch(() => {});
+    }, [dbHandle, playerClubId, season]),
+  );
 
   return (
     <ScrollView style={commonStyles.screen} contentContainerStyle={styles.container}>
@@ -50,6 +90,7 @@ export function ReportsHubScreen() {
         title="Assistente Técnico"
         subtitle="Forma, evolução, quem merece chance"
         accent={colors.primary}
+        badge={contractAlertCount}
         onPress={() => navigation.navigate('ReportsTechnical')}
       />
       <HubCard
@@ -134,9 +175,28 @@ const styles = StyleSheet.create({
     marginRight: spacing.sm,
   },
   content: { flex: 1 },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
   title: {
     color: colors.text,
     fontSize: fontSize.md,
+    fontWeight: '700',
+  },
+  badge: {
+    backgroundColor: colors.danger,
+    borderRadius: 8,
+    minWidth: 16,
+    height: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+  },
+  badgeText: {
+    color: colors.text,
+    fontSize: fontSize.xs,
     fontWeight: '700',
   },
   subtitle: {
