@@ -92,6 +92,16 @@ export async function getTransfersBySeason(db: DbHandle, season: number): Promis
   return rows.map(rowToTransfer);
 }
 
+/**
+ * Returns all transfers where the club was either the buying or selling side.
+ */
+export async function getTransfersByClub(db: DbHandle, clubId: number): Promise<Transfer[]> {
+  const rows = await db
+    .prepare('SELECT * FROM transfers WHERE to_club_id = ? OR from_club_id = ? ORDER BY season DESC, id DESC')
+    .all(clubId, clubId) as TransferRow[];
+  return rows.map(rowToTransfer);
+}
+
 export interface CreateOfferInput {
   playerId: number;
   offeringClubId: number;
