@@ -231,7 +231,7 @@ const styles = StyleSheet.create({
   headerInfo: { flex: 1 },
   opponentName: {
     color: colors.text,
-    fontSize: fontSize.xl,
+    fontSize: fontSize.xxl,
     fontWeight: 'bold',
   },
   fixtureInfo: {

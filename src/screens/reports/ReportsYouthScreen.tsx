@@ -3,6 +3,9 @@ import { View, Text, StyleSheet, ScrollView, ActivityIndicator, RefreshControl, 
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { colors, fontSize, spacing, commonStyles } from '@/theme';
+import { SectionCard } from '@/components/SectionCard';
+import { EmptyState } from '@/components/EmptyState';
+import { ValueBadge } from '@/components/ValueBadge';
 import { useGameStore } from '@/store/game-store';
 import { useDatabaseStore } from '@/store/database-store';
 import { getPlayersWithAttributesByClub } from '@/database/queries/players';
@@ -110,9 +113,7 @@ export function ReportsYouthScreen() {
   if (!report || report.topProspects.length === 0) {
     return (
       <View style={[commonStyles.screen, styles.center]}>
-        <Text style={styles.subtitle}>
-          Nenhum jogador com até {U21_AGE_LIMIT} anos no elenco.
-        </Text>
+        <EmptyState icon="🌱" title={`Nenhum jogador com até ${U21_AGE_LIMIT} anos no elenco.`} />
       </View>
     );
   }
@@ -169,9 +170,9 @@ export function ReportsYouthScreen() {
           ))}
         </Section>
       ) : (
-        <View style={styles.section}>
-          <Text style={styles.sectionSub}>Nenhum jovem nesta posição.</Text>
-        </View>
+        <SectionCard title="⭐ Principais promessas">
+          <EmptyState icon="🌱" title="Nenhum jovem nesta posição." />
+        </SectionCard>
       )}
 
       {filteredUnderused.length > 0 && (
@@ -215,11 +216,9 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <View style={styles.section}>
-      <Text style={styles.sectionTitle}>{title}</Text>
-      <Text style={styles.sectionSub}>{subtitle}</Text>
-      <View style={styles.sectionBody}>{children}</View>
-    </View>
+    <SectionCard title={title} subtitle={subtitle}>
+      {children}
+    </SectionCard>
   );
 }
 
@@ -330,22 +329,6 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
   },
 
-  section: {
-    marginHorizontal: spacing.md,
-    marginBottom: spacing.md,
-    backgroundColor: colors.surface,
-    borderRadius: 12,
-    padding: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  sectionTitle: { color: colors.text, fontSize: fontSize.md, fontWeight: '700' },
-  sectionSub: {
-    color: colors.textMuted,
-    fontSize: fontSize.xs,
-    marginTop: 2,
-    marginBottom: spacing.sm,
-  },
   sectionBody: { gap: spacing.sm },
 
   youthCard: {
