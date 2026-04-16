@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import StatBar from '@/components/StatBar';
 import { colors, commonStyles, fontSize, spacing } from '@/theme';
+import { getPositionColor } from '@/utils/player-colors';
 import { useGameStore } from '@/store/game-store';
 import { useDatabaseStore } from '@/store/database-store';
 import {
@@ -61,13 +62,6 @@ const POSITION_GROUP: Record<string, string> = {
   CDM: 'MID', CM: 'MID', CAM: 'MID', LM: 'MID', RM: 'MID',
   LW: 'FWD', RW: 'FWD', ST: 'FWD',
 };
-
-function getPositionColor(position: string): string {
-  if (position === 'GK') return '#f4a261';
-  if (['CB', 'LB', 'RB'].includes(position)) return colors.primary;
-  if (['CDM', 'CM', 'CAM', 'LM', 'RM'].includes(position)) return colors.success;
-  return colors.accent;
-}
 
 const POS_ORDER: Record<string, number> = {
   GK:0, CB:1, LB:2, RB:3, CDM:4, CM:5, CAM:6, LM:7, RM:8, LW:9, RW:10, ST:11,

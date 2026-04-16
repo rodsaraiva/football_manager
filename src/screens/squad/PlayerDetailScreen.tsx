@@ -12,6 +12,7 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { colors, commonStyles, fontSize, spacing } from '@/theme';
 import StatBar from '@/components/StatBar';
+import { getPositionColor, getOverallColor } from '@/utils/player-colors';
 import { calculateOverall } from '@/utils/overall';
 import { Player, PlayerAttributes, Position } from '@/types';
 import { useDatabaseStore } from '@/store/database-store';
@@ -37,20 +38,6 @@ function formatCurrency(value: number): string {
   return `$${value}`;
 }
 
-function getPositionColor(position: Position): string {
-  if (position === 'GK') return '#f4a261';
-  if (['CB', 'LB', 'RB'].includes(position)) return colors.primary;
-  if (['CDM', 'CM', 'CAM', 'LM', 'RM'].includes(position)) return colors.success;
-  return colors.accent;
-}
-
-function getOverallColor(overall: number): string {
-  if (overall >= 85) return '#00e676';
-  if (overall >= 75) return colors.success;
-  if (overall >= 60) return colors.warning;
-  if (overall >= 40) return '#ff9800';
-  return colors.danger;
-}
 
 const TECHNICAL_ATTRS: { key: keyof PlayerAttributes; label: string }[] = [
   { key: 'finishing', label: 'Finishing' },
