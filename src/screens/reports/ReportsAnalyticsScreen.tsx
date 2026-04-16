@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator, RefreshControl } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { colors, fontSize, spacing, commonStyles } from '@/theme';
+import { EmptyState } from '@/components/EmptyState';
 import { useGameStore } from '@/store/game-store';
 import { useDatabaseStore } from '@/store/database-store';
 import { getClubsByLeague } from '@/database/queries/clubs';
@@ -128,9 +129,7 @@ export function ReportsAnalyticsScreen() {
   if (!report || report.lines.length === 0) {
     return (
       <View style={[commonStyles.screen, styles.center]}>
-        <Text style={styles.subtitle}>
-          Sem dados suficientes para análise comparativa ainda.
-        </Text>
+        <EmptyState icon="📊" title="Sem dados suficientes para análise comparativa ainda." />
       </View>
     );
   }

@@ -17,6 +17,7 @@ import {
 import { useFocusEffect } from '@react-navigation/native';
 import { colors, spacing, fontSize, commonStyles } from '@/theme';
 import { ValueBadge } from '@/components/ValueBadge';
+import { EmptyState } from '@/components/EmptyState';
 import { useGameStore } from '@/store/game-store';
 import { useDatabaseStore } from '@/store/database-store';
 import { getClubsByLeague } from '@/database/queries/clubs';
@@ -149,7 +150,7 @@ export function ReportsProjectionScreen() {
   if (projection.length === 0) {
     return (
       <View style={[commonStyles.screen, styles.center]}>
-        <Text style={styles.emptyText}>Dados insuficientes para projeção.</Text>
+        <EmptyState icon="📈" title="Dados insuficientes para projeção." />
       </View>
     );
   }

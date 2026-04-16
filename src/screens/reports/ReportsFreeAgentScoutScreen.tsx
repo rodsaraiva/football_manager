@@ -17,6 +17,7 @@ import {
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { colors, spacing, fontSize, commonStyles } from '@/theme';
+import { EmptyState } from '@/components/EmptyState';
 import { useGameStore } from '@/store/game-store';
 import { useDatabaseStore } from '@/store/database-store';
 import { getFreeAgentsWithAttributes, getPlayersWithAttributesByClub } from '@/database/queries/players';
@@ -333,12 +334,11 @@ export function ReportsFreeAgentScoutScreen() {
         maxBudget={scoutData.wageBudgetRemaining}
       />
       {filteredFits.length === 0 && (
-        <View style={styles.emptyContainer}>
-          <Text style={styles.emptyTitle}>Nenhum agente encontrado 👍</Text>
-          <Text style={styles.emptySubtitle}>
-            O teu elenco está bem coberto para os filtros selecionados. Tenta ampliar os critérios.
-          </Text>
-        </View>
+        <EmptyState
+          icon="👍"
+          title="Nenhum agente encontrado"
+          description="O teu elenco está bem coberto para os filtros selecionados. Tenta ampliar os critérios."
+        />
       )}
     </>
   );
@@ -564,25 +564,6 @@ const styles = StyleSheet.create({
     textAlign: 'right',
   },
 
-  // Empty state
-  emptyContainer: {
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.xl,
-    alignItems: 'center',
-  },
-  emptyTitle: {
-    color: colors.text,
-    fontSize: fontSize.lg,
-    fontWeight: '700',
-    marginBottom: spacing.sm,
-    textAlign: 'center',
-  },
-  emptySubtitle: {
-    color: colors.textSecondary,
-    fontSize: fontSize.sm,
-    textAlign: 'center',
-    lineHeight: 20,
-  },
   emptyText: {
     color: colors.textMuted,
     fontSize: fontSize.md,

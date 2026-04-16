@@ -16,6 +16,7 @@ import {
 import { useFocusEffect } from '@react-navigation/native';
 import { colors, spacing, fontSize, commonStyles } from '@/theme';
 import { SectionCard } from '@/components/SectionCard';
+import { EmptyState } from '@/components/EmptyState';
 import { useGameStore } from '@/store/game-store';
 import { useDatabaseStore } from '@/store/database-store';
 import { getPlayersWithAttributesByClub } from '@/database/queries/players';
@@ -112,7 +113,7 @@ export function ReportsOpponentScreen() {
   if (noFixture || !report) {
     return (
       <View style={[commonStyles.screen, styles.center]}>
-        <Text style={styles.emptyText}>Nenhum jogo agendado nesta temporada.</Text>
+        <EmptyState icon="🔍" title="Nenhum jogo agendado nesta temporada." />
       </View>
     );
   }
