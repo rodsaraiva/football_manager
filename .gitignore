@@ -3,3 +3,5 @@ dist-scripts/
 .expo/
 *.tsbuildinfo
 coverage/
+.claude/
+.playwright-mcp/
