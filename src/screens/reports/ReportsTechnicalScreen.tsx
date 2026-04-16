@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ScrollView, ActivityIndicator, RefreshControl, 
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { colors, fontSize, spacing, commonStyles } from '@/theme';
+import { SectionCard } from '@/components/SectionCard';
 import { useGameStore } from '@/store/game-store';
 import { useDatabaseStore } from '@/store/database-store';
 import { getPlayersWithAttributesByClub } from '@/database/queries/players';
@@ -266,10 +267,7 @@ function MoraleSection({ report }: { report: MoraleReport }) {
     alertLevel === 'critical' ? colors.danger : alertLevel === 'warning' ? colors.warning : colors.success;
 
   return (
-    <View style={styles.section}>
-      <Text style={styles.sectionTitle}>💬 Moral do Elenco</Text>
-      <Text style={styles.sectionSub}>Índice coletivo e extremos de motivação</Text>
-
+    <SectionCard title="💬 Moral do Elenco" subtitle="Índice coletivo e extremos de motivação">
       {alertLevel === 'critical' && (
         <View style={styles.moraleBanner}>
           <Text style={styles.moraleBannerText}>⚠️ Atenção: moral coletiva crítica</Text>
@@ -319,7 +317,7 @@ function MoraleSection({ report }: { report: MoraleReport }) {
       {topMorale.length === 0 && bottomMorale.length === 0 && (
         <Text style={styles.empty}>Sem dados de moral para analisar.</Text>
       )}
-    </View>
+    </SectionCard>
   );
 }
 
@@ -331,32 +329,28 @@ function ContractAlertsSection({ alerts }: { alerts: ContractAlert[] }) {
   };
 
   return (
-    <View style={styles.section}>
-      <Text style={styles.sectionTitle}>⚠️ Contratos Vencendo</Text>
-      <Text style={styles.sectionSub}>Jogadores OVR {'>'} 70 com contrato expirando em até 2 temporadas</Text>
+    <SectionCard title="⚠️ Contratos Vencendo" subtitle="Jogadores OVR > 70 com contrato expirando em até 2 temporadas">
       {alerts.length === 0 ? (
         <Text style={styles.empty}>Nenhum contrato crítico no momento.</Text>
       ) : (
-        <View style={styles.sectionBody}>
-          {alerts.map((alert) => (
-            <View key={alert.player.id} style={styles.contractRow}>
-              <View style={styles.contractLeft}>
-                <Text style={styles.playerName}>{alert.player.name}</Text>
-                <Text style={styles.playerMeta}>
-                  {alert.player.position} · OVR {alert.player.overall}
-                  {alert.player.wage != null ? ` · ${alert.player.wage.toLocaleString('pt-BR')} /sem` : ''}
-                </Text>
-              </View>
-              <View style={[styles.contractBadge, { borderColor: urgencyColor(alert.urgency) }]}>
-                <Text style={[styles.contractBadgeText, { color: urgencyColor(alert.urgency) }]}>
-                  {`Vence T${alert.contractEnd}`}
-                </Text>
-              </View>
+        alerts.map((alert) => (
+          <View key={alert.player.id} style={styles.contractRow}>
+            <View style={styles.contractLeft}>
+              <Text style={styles.playerName}>{alert.player.name}</Text>
+              <Text style={styles.playerMeta}>
+                {alert.player.position} · OVR {alert.player.overall}
+                {alert.player.wage != null ? ` · ${alert.player.wage.toLocaleString('pt-BR')} /sem` : ''}
+              </Text>
             </View>
-          ))}
-        </View>
+            <View style={[styles.contractBadge, { borderColor: urgencyColor(alert.urgency) }]}>
+              <Text style={[styles.contractBadgeText, { color: urgencyColor(alert.urgency) }]}>
+                {`Vence T${alert.contractEnd}`}
+              </Text>
+            </View>
+          </View>
+        ))
       )}
-    </View>
+    </SectionCard>
   );
 }
 
@@ -365,10 +359,7 @@ function SquadSummarySection({ summary }: { summary: SquadSummary }) {
   const hasData = collectiveStrengths.length > 0;
 
   return (
-    <View style={styles.section}>
-      <Text style={styles.sectionTitle}>📊 Resumo do Elenco</Text>
-      <Text style={styles.sectionSub}>Pontos fortes, fracos e destaques individuais</Text>
-
+    <SectionCard title="📊 Resumo do Elenco" subtitle="Pontos fortes, fracos e destaques individuais">
       {!hasData ? (
         <Text style={styles.empty}>Sem dados de atributos para analisar.</Text>
       ) : (
@@ -425,7 +416,7 @@ function SquadSummarySection({ summary }: { summary: SquadSummary }) {
           )}
         </>
       )}
-    </View>
+    </SectionCard>
   );
 }
 
@@ -433,52 +424,48 @@ function LineEfficiencySection({ lines }: { lines: LineEfficiency[] }) {
   const hasAnyData = lines.some((l) => l.appearances > 0);
 
   return (
-    <View style={styles.section}>
-      <Text style={styles.sectionTitle}>📊 Eficiência por Linha</Text>
-      <Text style={styles.sectionSub}>Rating médio dos setores no período analisado</Text>
+    <SectionCard title="📊 Eficiência por Linha" subtitle="Rating médio dos setores no período analisado">
       {!hasAnyData ? (
         <Text style={styles.empty}>Sem aparições registradas no período.</Text>
       ) : (
-        <View style={styles.sectionBody}>
-          {lines.map((line) => {
-            const barColor = line.isWeakest
-              ? colors.danger
-              : line.isStrongest
-              ? colors.success
-              : colors.primary;
-            const barWidth = line.appearances > 0 ? `${((line.avgRating - 4) / 6) * 100}%` : '0%';
+        lines.map((line) => {
+          const barColor = line.isWeakest
+            ? colors.danger
+            : line.isStrongest
+            ? colors.success
+            : colors.primary;
+          const barWidth = line.appearances > 0 ? `${((line.avgRating - 4) / 6) * 100}%` : '0%';
 
-            return (
-              <View key={line.group} style={styles.lineRow}>
-                <View style={styles.lineLeft}>
-                  <Text style={styles.playerName}>{line.label}</Text>
-                  {line.appearances === 0 ? (
-                    <Text style={[styles.playerMeta, { fontStyle: 'italic' }]}>Sem dados</Text>
-                  ) : (
-                    <Text style={styles.playerMeta}>{line.appearances} aparições</Text>
-                  )}
-                </View>
-                <View style={styles.lineBarContainer}>
-                  <View style={styles.lineBarBg}>
-                    <View style={[styles.lineBarFill, { width: barWidth as any, backgroundColor: barColor }]} />
-                  </View>
-                  {line.appearances > 0 && (
-                    <Text style={[styles.lineRating, { color: barColor }]}>{line.avgRating.toFixed(1)}</Text>
-                  )}
-                </View>
-                {(line.isWeakest || line.isStrongest) && (
-                  <View style={[styles.lineTag, { borderColor: barColor }]}>
-                    <Text style={[styles.lineTagText, { color: barColor }]}>
-                      {line.isWeakest ? 'Mais fraco' : 'Mais forte'}
-                    </Text>
-                  </View>
+          return (
+            <View key={line.group} style={styles.lineRow}>
+              <View style={styles.lineLeft}>
+                <Text style={styles.playerName}>{line.label}</Text>
+                {line.appearances === 0 ? (
+                  <Text style={[styles.playerMeta, { fontStyle: 'italic' }]}>Sem dados</Text>
+                ) : (
+                  <Text style={styles.playerMeta}>{line.appearances} aparições</Text>
                 )}
               </View>
-            );
-          })}
-        </View>
+              <View style={styles.lineBarContainer}>
+                <View style={styles.lineBarBg}>
+                  <View style={[styles.lineBarFill, { width: barWidth as any, backgroundColor: barColor }]} />
+                </View>
+                {line.appearances > 0 && (
+                  <Text style={[styles.lineRating, { color: barColor }]}>{line.avgRating.toFixed(1)}</Text>
+                )}
+              </View>
+              {(line.isWeakest || line.isStrongest) && (
+                <View style={[styles.lineTag, { borderColor: barColor }]}>
+                  <Text style={[styles.lineTagText, { color: barColor }]}>
+                    {line.isWeakest ? 'Mais fraco' : 'Mais forte'}
+                  </Text>
+                </View>
+              )}
+            </View>
+          );
+        })
       )}
-    </View>
+    </SectionCard>
   );
 }
 
@@ -492,11 +479,9 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <View style={styles.section}>
-      <Text style={styles.sectionTitle}>{title}</Text>
-      <Text style={styles.sectionSub}>{subtitle}</Text>
-      <View style={styles.sectionBody}>{children}</View>
-    </View>
+    <SectionCard title={title} subtitle={subtitle}>
+      {children}
+    </SectionCard>
   );
 }
 
@@ -599,26 +584,6 @@ const styles = StyleSheet.create({
   subtitle: {
     color: colors.textMuted,
     fontSize: fontSize.md,
-  },
-  section: {
-    marginHorizontal: spacing.md,
-    marginBottom: spacing.md,
-    backgroundColor: colors.surface,
-    borderRadius: 12,
-    padding: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  sectionTitle: {
-    color: colors.text,
-    fontSize: fontSize.md,
-    fontWeight: '700',
-  },
-  sectionSub: {
-    color: colors.textMuted,
-    fontSize: fontSize.xs,
-    marginTop: 2,
-    marginBottom: spacing.sm,
   },
   sectionBody: { gap: spacing.xs },
   formRow: {

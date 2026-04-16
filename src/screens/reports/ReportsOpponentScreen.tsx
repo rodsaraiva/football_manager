@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { colors, spacing, fontSize, commonStyles } from '@/theme';
+import { SectionCard } from '@/components/SectionCard';
 import { useGameStore } from '@/store/game-store';
 import { useDatabaseStore } from '@/store/database-store';
 import { getPlayersWithAttributesByClub } from '@/database/queries/players';
@@ -147,9 +148,7 @@ export function ReportsOpponentScreen() {
       </View>
 
       {/* Recent form */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Forma Recente</Text>
-        <Text style={styles.sectionSub}>Últimos {report.recentForm.length} jogos</Text>
+      <SectionCard title="Forma Recente" subtitle={`Últimos ${report.recentForm.length} jogos`}>
         {report.recentForm.length === 0 ? (
           <Text style={styles.empty}>Sem jogos disputados nesta temporada.</Text>
         ) : (
@@ -162,12 +161,10 @@ export function ReportsOpponentScreen() {
             ))}
           </View>
         )}
-      </View>
+      </SectionCard>
 
       {/* Squad strength */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Força do Elenco</Text>
-        <Text style={styles.sectionSub}>OVR médio: {report.squadAvgOverall}</Text>
+      <SectionCard title="Força do Elenco" subtitle={`OVR médio: ${report.squadAvgOverall}`}>
         {report.topPlayers.map((p, i) => (
           <View key={p.id} style={styles.playerRow}>
             <Text style={styles.playerRank}>#{i + 1}</Text>
@@ -180,12 +177,10 @@ export function ReportsOpponentScreen() {
             </View>
           </View>
         ))}
-      </View>
+      </SectionCard>
 
       {/* Attack vs Defense */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Ataque vs. Defesa</Text>
-        <Text style={styles.sectionSub}>Média por jogo nos últimos {report.recentForm.length} jogos</Text>
+      <SectionCard title="Ataque vs. Defesa" subtitle={`Média por jogo nos últimos ${report.recentForm.length} jogos`}>
         <View style={styles.statsRow}>
           <View style={styles.statItem}>
             <Text style={[styles.statValue, { color: colors.success }]}>{report.goalsPerGame}</Text>
@@ -197,7 +192,7 @@ export function ReportsOpponentScreen() {
             <Text style={styles.statLabel}>Gols sofridos/jogo</Text>
           </View>
         </View>
-      </View>
+      </SectionCard>
     </ScrollView>
   );
 }
@@ -265,26 +260,6 @@ const styles = StyleSheet.create({
     color: colors.warning,
     fontSize: fontSize.sm,
     fontWeight: '600',
-  },
-  section: {
-    backgroundColor: colors.surface,
-    borderRadius: 12,
-    padding: spacing.md,
-    marginHorizontal: spacing.md,
-    marginBottom: spacing.sm,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  sectionTitle: {
-    color: colors.text,
-    fontSize: fontSize.md,
-    fontWeight: '700',
-  },
-  sectionSub: {
-    color: colors.textMuted,
-    fontSize: fontSize.xs,
-    marginTop: 2,
-    marginBottom: spacing.sm,
   },
   empty: {
     color: colors.textMuted,

@@ -16,6 +16,7 @@ import {
 } from 'react-native';
 import { useFocusEffect, useRoute, RouteProp } from '@react-navigation/native';
 import { colors, spacing, fontSize, commonStyles } from '@/theme';
+import { SectionCard } from '@/components/SectionCard';
 import { useGameStore } from '@/store/game-store';
 import { useDatabaseStore } from '@/store/database-store';
 import { getPlayersWithAttributesByClub } from '@/database/queries/players';
@@ -163,8 +164,7 @@ export function ReportsRadarScreen() {
   return (
     <ScrollView style={commonStyles.screen} contentContainerStyle={styles.container}>
       {/* Player A Picker */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Jogador A</Text>
+      <SectionCard title="Jogador A">
         <Pressable style={styles.pickerBtn} onPress={() => setShowPickerA(!showPickerA)}>
           <Text style={styles.pickerBtnText}>
             {playerA ? `${playerA.name} · ${playerA.position} · OVR ${playerA.overall}` : 'Selecionar jogador'}
@@ -189,11 +189,10 @@ export function ReportsRadarScreen() {
             ))}
           </View>
         )}
-      </View>
+      </SectionCard>
 
       {/* Compare mode toggle */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Comparar com</Text>
+      <SectionCard title="Comparar com">
         <View style={styles.modeRow}>
           <Pressable
             style={[styles.modeChip, compareMode === 'position_avg' && styles.modeChipActive]}
@@ -212,12 +211,11 @@ export function ReportsRadarScreen() {
             </Text>
           </Pressable>
         </View>
-      </View>
+      </SectionCard>
 
       {/* Player B Picker (only if mode = player) */}
       {compareMode === 'player' && (
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Jogador B</Text>
+        <SectionCard title="Jogador B">
           <Pressable style={styles.pickerBtn} onPress={() => setShowPickerB(!showPickerB)}>
             <Text style={styles.pickerBtnText}>
               {playerB ? `${playerB.name} · ${playerB.position} · OVR ${playerB.overall}` : 'Selecionar jogador'}
@@ -244,21 +242,19 @@ export function ReportsRadarScreen() {
                 ))}
             </View>
           )}
-        </View>
+        </SectionCard>
       )}
 
       {/* Radar Chart */}
       {profiles.length > 0 && (
-        <View style={[styles.section, styles.chartContainer]}>
+        <SectionCard title="" style={styles.chartContainer}>
           <RadarChart profiles={profiles} axisLabels={AXIS_LABELS} size={300} />
-        </View>
+        </SectionCard>
       )}
 
       {/* Delta table */}
       {deltaRows.length > 0 && (
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Diferença por Atributo</Text>
-          <Text style={styles.sectionSub}>Positivo = A superior · Negativo = A inferior</Text>
+        <SectionCard title="Diferença por Atributo" subtitle="Positivo = A superior · Negativo = A inferior">
           {deltaRows.map(({ label, attrKey, delta }) => (
             <View key={attrKey} style={styles.deltaRow}>
               <Text style={styles.deltaLabel}>{label}</Text>
@@ -269,7 +265,7 @@ export function ReportsRadarScreen() {
               </View>
             </View>
           ))}
-        </View>
+        </SectionCard>
       )}
     </ScrollView>
   );
@@ -278,26 +274,6 @@ export function ReportsRadarScreen() {
 const styles = StyleSheet.create({
   container: { paddingBottom: spacing.xl, paddingTop: spacing.sm },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  section: {
-    backgroundColor: colors.surface,
-    borderRadius: 12,
-    padding: spacing.md,
-    marginHorizontal: spacing.md,
-    marginBottom: spacing.sm,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  sectionTitle: {
-    color: colors.text,
-    fontSize: fontSize.md,
-    fontWeight: '700',
-    marginBottom: spacing.xs,
-  },
-  sectionSub: {
-    color: colors.textMuted,
-    fontSize: fontSize.xs,
-    marginBottom: spacing.sm,
-  },
   pickerBtn: {
     flexDirection: 'row',
     alignItems: 'center',
