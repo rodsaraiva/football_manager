@@ -19,6 +19,7 @@ import {
 } from '@/engine/reports/technical-report';
 import { buildMoraleReport, MoraleReport } from '@/engine/reports/morale-report';
 import { buildContractAlerts, ContractAlert } from '@/engine/reports/contract-alerts';
+import { buildLineEfficiency, LineEfficiency } from '@/engine/reports/line-efficiency';
 import { MatchEvent } from '@/types';
 import { RootStackParamList } from '@/navigation/types';
 
@@ -36,6 +37,7 @@ export function ReportsTechnicalScreen() {
   const [report, setReport] = useState<TechnicalReport | null>(null);
   const [moraleReport, setMoraleReport] = useState<MoraleReport | null>(null);
   const [contractAlerts, setContractAlerts] = useState<ContractAlert[]>([]);
+  const [lineEfficiency, setLineEfficiency] = useState<LineEfficiency[]>([]);
 
   const load = React.useCallback(async () => {
     if (!dbHandle || !playerClubId) {
@@ -99,6 +101,7 @@ export function ReportsTechnicalScreen() {
       setReport(r);
       setMoraleReport(buildMoraleReport(squad));
       setContractAlerts(buildContractAlerts(squad, season));
+      setLineEfficiency(buildLineEfficiency(r.forms, squad));
     } finally {
       setLoading(false);
     }
@@ -159,6 +162,7 @@ export function ReportsTechnicalScreen() {
       {moraleReport && <MoraleSection report={moraleReport} />}
       <ContractAlertsSection alerts={contractAlerts} />
       <SquadSummarySection summary={report.squadSummary} />
+      {lineEfficiency.length > 0 && <LineEfficiencySection lines={lineEfficiency} />}
 
       <Section title="🔥 Em grande fase" subtitle="Maior rating médio recente">
         {report.inForm.length === 0 ? (
@@ -425,6 +429,59 @@ function SquadSummarySection({ summary }: { summary: SquadSummary }) {
   );
 }
 
+function LineEfficiencySection({ lines }: { lines: LineEfficiency[] }) {
+  const hasAnyData = lines.some((l) => l.appearances > 0);
+
+  return (
+    <View style={styles.section}>
+      <Text style={styles.sectionTitle}>📊 Eficiência por Linha</Text>
+      <Text style={styles.sectionSub}>Rating médio dos setores no período analisado</Text>
+      {!hasAnyData ? (
+        <Text style={styles.empty}>Sem aparições registradas no período.</Text>
+      ) : (
+        <View style={styles.sectionBody}>
+          {lines.map((line) => {
+            const barColor = line.isWeakest
+              ? colors.danger
+              : line.isStrongest
+              ? colors.success
+              : colors.primary;
+            const barWidth = line.appearances > 0 ? `${((line.avgRating - 4) / 6) * 100}%` : '0%';
+
+            return (
+              <View key={line.group} style={styles.lineRow}>
+                <View style={styles.lineLeft}>
+                  <Text style={styles.playerName}>{line.label}</Text>
+                  {line.appearances === 0 ? (
+                    <Text style={[styles.playerMeta, { fontStyle: 'italic' }]}>Sem dados</Text>
+                  ) : (
+                    <Text style={styles.playerMeta}>{line.appearances} aparições</Text>
+                  )}
+                </View>
+                <View style={styles.lineBarContainer}>
+                  <View style={styles.lineBarBg}>
+                    <View style={[styles.lineBarFill, { width: barWidth as any, backgroundColor: barColor }]} />
+                  </View>
+                  {line.appearances > 0 && (
+                    <Text style={[styles.lineRating, { color: barColor }]}>{line.avgRating.toFixed(1)}</Text>
+                  )}
+                </View>
+                {(line.isWeakest || line.isStrongest) && (
+                  <View style={[styles.lineTag, { borderColor: barColor }]}>
+                    <Text style={[styles.lineTagText, { color: barColor }]}>
+                      {line.isWeakest ? 'Mais fraco' : 'Mais forte'}
+                    </Text>
+                  </View>
+                )}
+              </View>
+            );
+          })}
+        </View>
+      )}
+    </View>
+  );
+}
+
 function Section({
   title,
   subtitle,
@@ -658,6 +715,48 @@ const styles = StyleSheet.create({
   },
   highlightLeft: {
     flex: 1,
+  },
+  lineRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: spacing.xs,
+    gap: spacing.xs,
+  },
+  lineLeft: {
+    width: 80,
+  },
+  lineBarContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  lineBarBg: {
+    flex: 1,
+    height: 10,
+    backgroundColor: colors.border,
+    borderRadius: 5,
+    overflow: 'hidden',
+  },
+  lineBarFill: {
+    height: '100%',
+    borderRadius: 5,
+  },
+  lineRating: {
+    fontSize: fontSize.sm,
+    fontWeight: '700',
+    width: 30,
+    textAlign: 'right',
+  },
+  lineTag: {
+    borderWidth: 1,
+    borderRadius: 4,
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+  },
+  lineTagText: {
+    fontSize: fontSize.xs,
+    fontWeight: '700',
   },
   contractRow: {
     flexDirection: 'row',

@@ -170,6 +170,8 @@ export interface TechnicalReport {
   replacementSuggestions: ReplacementSuggestion[];
   benchedButDeservesMinutes: SquadPlayer[];
   squadSummary: SquadSummary;
+  /** Raw form data for all squad players — used by downstream features (e.g. line efficiency). */
+  forms: PlayerForm[];
 }
 
 // ─── Rating heuristic from events ───────────────────────────────────────────
@@ -427,5 +429,6 @@ export function buildTechnicalReport(input: ReportInput): TechnicalReport {
         ? squad.filter((p) => input.matchdaySquadIds!.has(p.id))
         : squad,
     ),
+    forms,
   };
 }
