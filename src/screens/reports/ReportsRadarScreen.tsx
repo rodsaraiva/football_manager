@@ -17,6 +17,7 @@ import {
 import { useFocusEffect, useRoute, RouteProp } from '@react-navigation/native';
 import { colors, spacing, fontSize, commonStyles } from '@/theme';
 import { SectionCard } from '@/components/SectionCard';
+import { ValueBadge } from '@/components/ValueBadge';
 import { useGameStore } from '@/store/game-store';
 import { useDatabaseStore } from '@/store/database-store';
 import { getPlayersWithAttributesByClub } from '@/database/queries/players';
@@ -258,11 +259,11 @@ export function ReportsRadarScreen() {
           {deltaRows.map(({ label, attrKey, delta }) => (
             <View key={attrKey} style={styles.deltaRow}>
               <Text style={styles.deltaLabel}>{label}</Text>
-              <View style={[styles.deltaBadge, { borderColor: delta >= 0 ? colors.success : colors.danger }]}>
-                <Text style={[styles.deltaValue, { color: delta >= 0 ? colors.success : colors.danger }]}>
-                  {delta >= 0 ? '+' : ''}{delta}
-                </Text>
-              </View>
+              <ValueBadge
+                value={`${delta >= 0 ? '+' : ''}${delta}`}
+                tone={delta >= 0 ? 'success' : 'danger'}
+                size="sm"
+              />
             </View>
           ))}
         </SectionCard>
@@ -353,17 +354,5 @@ const styles = StyleSheet.create({
     flex: 1,
     color: colors.text,
     fontSize: fontSize.sm,
-  },
-  deltaBadge: {
-    borderWidth: 1,
-    borderRadius: 4,
-    paddingHorizontal: spacing.xs,
-    paddingVertical: 1,
-    minWidth: 44,
-    alignItems: 'center',
-  },
-  deltaValue: {
-    fontSize: fontSize.sm,
-    fontWeight: '700',
   },
 });

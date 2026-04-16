@@ -16,6 +16,7 @@ import {
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { colors, spacing, fontSize, commonStyles } from '@/theme';
+import { ValueBadge } from '@/components/ValueBadge';
 import { useGameStore } from '@/store/game-store';
 import { useDatabaseStore } from '@/store/database-store';
 import { getClubsByLeague } from '@/database/queries/clubs';
@@ -175,11 +176,11 @@ export function ReportsProjectionScreen() {
                   <Text style={styles.myPoints}>{myEntry.projectedPoints.toFixed(1)} pts projetados</Text>
                   <Text style={styles.myPointsCurrent}>{myEntry.points} pts atuais · {myEntry.remainingFixtures} jogos restantes</Text>
                 </View>
-                <View style={[styles.statusBadge, { borderColor: statusColor(myEntry.status) }]}>
-                  <Text style={[styles.statusText, { color: statusColor(myEntry.status) }]}>
-                    {statusLabel(myEntry.status)}
-                  </Text>
-                </View>
+                <ValueBadge
+                  value={statusLabel(myEntry.status)}
+                  tone={myEntry.status === 'title' ? 'warning' : myEntry.status === 'promotion' ? 'success' : myEntry.status === 'relegation' ? 'danger' : 'neutral'}
+                  size="sm"
+                />
               </View>
             </View>
           )}
@@ -192,9 +193,11 @@ export function ReportsProjectionScreen() {
                 <View key={f.fixtureId} style={styles.fixtureRow}>
                   <Text style={styles.fixtureWeek}>S{f.week}</Text>
                   <Text style={styles.fixtureName}>{f.opponentName}</Text>
-                  <View style={[styles.diffBadge, { borderColor: diffColor(f.difficulty) }]}>
-                    <Text style={[styles.diffText, { color: diffColor(f.difficulty) }]}>{f.difficulty}</Text>
-                  </View>
+                  <ValueBadge
+                    value={f.difficulty}
+                    tone={f.difficulty === 'Fácil' ? 'success' : f.difficulty === 'Difícil' ? 'danger' : 'warning'}
+                    size="sm"
+                  />
                 </View>
               ))}
             </View>
@@ -324,17 +327,6 @@ const styles = StyleSheet.create({
     fontSize: fontSize.sm,
     marginTop: 2,
   },
-  statusBadge: {
-    borderWidth: 1,
-    borderRadius: 6,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 3,
-  },
-  statusText: {
-    fontSize: fontSize.xs,
-    fontWeight: '700',
-    textAlign: 'center',
-  },
   section: {
     backgroundColor: colors.surface,
     borderRadius: 12,
@@ -370,16 +362,6 @@ const styles = StyleSheet.create({
     flex: 1,
     color: colors.text,
     fontSize: fontSize.sm,
-  },
-  diffBadge: {
-    borderWidth: 1,
-    borderRadius: 4,
-    paddingHorizontal: spacing.xs,
-    paddingVertical: 1,
-  },
-  diffText: {
-    fontSize: fontSize.xs,
-    fontWeight: '700',
   },
   tableHeader: {
     flexDirection: 'row',

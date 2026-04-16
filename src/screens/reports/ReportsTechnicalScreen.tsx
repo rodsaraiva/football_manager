@@ -4,6 +4,7 @@ import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { colors, fontSize, spacing, commonStyles } from '@/theme';
 import { SectionCard } from '@/components/SectionCard';
+import { ValueBadge } from '@/components/ValueBadge';
 import { useGameStore } from '@/store/game-store';
 import { useDatabaseStore } from '@/store/database-store';
 import { getPlayersWithAttributesByClub } from '@/database/queries/players';
@@ -211,11 +212,7 @@ export function ReportsTechnicalScreen() {
                   {p.position} · {p.age}a · OVR {p.overall} → Pot {p.effectivePotential}
                 </Text>
               </View>
-              <View style={[styles.gapBadge, { borderColor: colors.success }]}>
-                <Text style={[styles.gapText, { color: colors.success }]}>
-                  +{p.effectivePotential - p.overall}
-                </Text>
-              </View>
+              <ValueBadge value={`+${p.effectivePotential - p.overall}`} tone="success" />
             </Pressable>
           ))
         )}
@@ -342,11 +339,11 @@ function ContractAlertsSection({ alerts }: { alerts: ContractAlert[] }) {
                 {alert.player.wage != null ? ` · ${alert.player.wage.toLocaleString('pt-BR')} /sem` : ''}
               </Text>
             </View>
-            <View style={[styles.contractBadge, { borderColor: urgencyColor(alert.urgency) }]}>
-              <Text style={[styles.contractBadgeText, { color: urgencyColor(alert.urgency) }]}>
-                {`Vence T${alert.contractEnd}`}
-              </Text>
-            </View>
+            <ValueBadge
+              value={`Vence T${alert.contractEnd}`}
+              tone={alert.urgency === 'critical' ? 'danger' : alert.urgency === 'warning' ? 'warning' : 'primary'}
+              size="sm"
+            />
           </View>
         ))
       )}
@@ -510,9 +507,7 @@ function FormLine({
           {item.player.position} · {item.form.appearances} jogos · {item.form.goals}G {item.form.assists}A
         </Text>
       </View>
-      <View style={[styles.ratingBadge, { borderColor: accent }]}>
-        <Text style={[styles.ratingText, { color: accent }]}>{item.form.avgRating.toFixed(1)}</Text>
-      </View>
+      <ValueBadge value={item.form.avgRating.toFixed(1)} tone={tone === 'good' ? 'success' : 'danger'} />
     </Pressable>
   );
 }
@@ -604,34 +599,12 @@ const styles = StyleSheet.create({
     fontSize: fontSize.sm,
     marginTop: 2,
   },
-  ratingBadge: {
-    width: 44,
-    height: 32,
-    borderRadius: 6,
-    borderWidth: 2,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  ratingText: {
-    fontSize: fontSize.sm,
-    fontWeight: '700',
-  },
   risingRow: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: spacing.xs,
   },
   risingLeft: { flex: 1 },
-  gapBadge: {
-    borderWidth: 2,
-    borderRadius: 6,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
-  },
-  gapText: {
-    fontSize: fontSize.sm,
-    fontWeight: '700',
-  },
   suggestionRow: {
     paddingVertical: spacing.xs,
   },
@@ -730,16 +703,6 @@ const styles = StyleSheet.create({
   },
   contractLeft: {
     flex: 1,
-  },
-  contractBadge: {
-    borderWidth: 1,
-    borderRadius: 6,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 3,
-  },
-  contractBadgeText: {
-    fontSize: fontSize.xs,
-    fontWeight: '700',
   },
   moraleBanner: {
     backgroundColor: colors.danger,
