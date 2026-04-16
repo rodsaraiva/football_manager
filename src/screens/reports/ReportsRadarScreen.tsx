@@ -19,6 +19,7 @@ import { colors, spacing, fontSize, commonStyles } from '@/theme';
 import { useGameStore } from '@/store/game-store';
 import { useDatabaseStore } from '@/store/database-store';
 import { getPlayersWithAttributesByClub } from '@/database/queries/players';
+import { getClubsByLeague } from '@/database/queries/clubs';
 import { calculateOverall } from '@/utils/overall';
 import { ATTRIBUTE_LABELS, SquadPlayer } from '@/engine/reports/technical-report';
 import { PlayerAttributes, Position } from '@/types';
@@ -36,21 +37,25 @@ function buildValues(attrs: PlayerAttributes): number[] {
   return ATTR_KEYS.map((k) => attrs[k] as number);
 }
 
-function computePositionAvg(squad: SquadPlayer[], position: Position): number[] {
-  const matching = squad.filter((p) => p.position === position && p.attributes);
+function computePositionAvgFromMap(
+  leagueByPos: Map<Position, PlayerAttributes[]>,
+  position: Position,
+): number[] {
+  const matching = leagueByPos.get(position) ?? [];
   if (matching.length === 0) return ATTR_KEYS.map(() => 50);
   return ATTR_KEYS.map((k) => {
-    const sum = matching.reduce((acc, p) => acc + ((p.attributes![k] as number) ?? 0), 0);
+    const sum = matching.reduce((acc, a) => acc + ((a[k] as number) ?? 0), 0);
     return Math.round(sum / matching.length);
   });
 }
 
 export function ReportsRadarScreen() {
   const route = useRoute<RadarRouteProps>();
-  const { playerClubId } = useGameStore();
+  const { playerClub, playerClubId } = useGameStore();
   const { dbHandle } = useDatabaseStore();
 
   const [squad, setSquad] = useState<SquadPlayer[]>([]);
+  const [leagueByPos, setLeagueByPos] = useState<Map<Position, PlayerAttributes[]>>(new Map());
   const [loading, setLoading] = useState(true);
 
   const [playerAId, setPlayerAId] = useState<number | null>(route.params?.playerAId ?? null);
@@ -62,29 +67,42 @@ export function ReportsRadarScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      if (!dbHandle || !playerClubId) return;
+      if (!dbHandle || !playerClub || !playerClubId) return;
       setLoading(true);
-      getPlayersWithAttributesByClub(dbHandle, playerClubId)
-        .then((fullPlayers) => {
-          const s: SquadPlayer[] = fullPlayers.map((p) => ({
-            id: p.id,
-            name: p.name,
-            age: p.age,
-            position: p.position,
-            overall: calculateOverall(p.attributes, p.position),
-            basePotential: p.basePotential,
-            effectivePotential: p.effectivePotential,
-            injuryWeeksLeft: p.injuryWeeksLeft,
-            attributes: p.attributes,
-            morale: p.morale,
-          }));
-          setSquad(s);
-          if (route.params?.playerAId == null && s.length > 0) {
-            setPlayerAId(s[0].id);
+      (async () => {
+        const ownSquad = await getPlayersWithAttributesByClub(dbHandle, playerClubId);
+        const s: SquadPlayer[] = ownSquad.map((p) => ({
+          id: p.id,
+          name: p.name,
+          age: p.age,
+          position: p.position,
+          overall: calculateOverall(p.attributes, p.position),
+          basePotential: p.basePotential,
+          effectivePotential: p.effectivePotential,
+          injuryWeeksLeft: p.injuryWeeksLeft,
+          attributes: p.attributes,
+          morale: p.morale,
+        }));
+        setSquad(s);
+        if (route.params?.playerAId == null && s.length > 0) {
+          setPlayerAId(s[0].id);
+        }
+
+        const leagueClubs = await getClubsByLeague(dbHandle, playerClub.leagueId);
+        const byPos = new Map<Position, PlayerAttributes[]>();
+        const rosters = await Promise.all(
+          leagueClubs.map((c) => getPlayersWithAttributesByClub(dbHandle, c.id)),
+        );
+        for (const roster of rosters) {
+          for (const p of roster) {
+            const list = byPos.get(p.position) ?? [];
+            list.push(p.attributes);
+            byPos.set(p.position, list);
           }
-        })
-        .finally(() => setLoading(false));
-    }, [dbHandle, playerClubId, route.params?.playerAId]),
+        }
+        setLeagueByPos(byPos);
+      })().finally(() => setLoading(false));
+    }, [dbHandle, playerClub, playerClubId, route.params?.playerAId]),
   );
 
   if (loading) {
@@ -108,9 +126,9 @@ export function ReportsRadarScreen() {
     });
   }
   if (compareMode === 'position_avg' && playerA) {
-    const avgVals = computePositionAvg(squad, playerA.position);
+    const avgVals = computePositionAvgFromMap(leagueByPos, playerA.position);
     profiles.push({
-      label: `Média ${playerA.position}`,
+      label: `Média da Liga · ${playerA.position}`,
       color: colors.accent,
       values: avgVals,
     });
@@ -127,7 +145,7 @@ export function ReportsRadarScreen() {
   if (profiles.length === 2 && playerA?.attributes) {
     const bVals =
       compareMode === 'position_avg' && playerA
-        ? computePositionAvg(squad, playerA.position)
+        ? computePositionAvgFromMap(leagueByPos, playerA.position)
         : playerB?.attributes
         ? buildValues(playerB.attributes)
         : null;
@@ -182,7 +200,7 @@ export function ReportsRadarScreen() {
             onPress={() => setCompareMode('position_avg')}
           >
             <Text style={[styles.modeChipText, compareMode === 'position_avg' && styles.modeChipTextActive]}>
-              Média da Posição
+              Média da Liga
             </Text>
           </Pressable>
           <Pressable
