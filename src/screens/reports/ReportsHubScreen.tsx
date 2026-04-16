@@ -106,7 +106,7 @@ export function ReportsHubScreen() {
         icon="📋"
         title="Assistente Técnico"
         subtitle="Forma, evolução, quem merece chance"
-        accent={colors.primary}
+        accent={colors.reportTechnical}
         badge={contractAlertCount}
         onPress={() => navigation.navigate('ReportsTechnical')}
       />
@@ -114,56 +114,56 @@ export function ReportsHubScreen() {
         icon="💰"
         title="Assistente Financeiro"
         subtitle="Lucro, saldo de transferências, folha"
-        accent={colors.success}
+        accent={colors.reportFinancial}
         onPress={() => navigation.navigate('ReportsFinancial')}
       />
       <HubCard
         icon="📊"
         title="Analista de Dados"
         subtitle="Comparações com o resto da liga"
-        accent={colors.accent}
+        accent={colors.reportAnalytics}
         onPress={() => navigation.navigate('ReportsAnalytics')}
       />
       <HubCard
         icon="🌱"
         title="Analista Sub-21"
         subtitle="Talentos jovens em detalhe"
-        accent={colors.gold}
+        accent={colors.reportYouth}
         onPress={() => navigation.navigate('ReportsYouth')}
       />
       <HubCard
         icon="🕸️"
         title="Radar de Atributos"
         subtitle="Comparação visual de perfis de jogadores"
-        accent={colors.primaryLight}
+        accent={colors.reportRadar}
         onPress={() => navigation.navigate('ReportsRadar', {})}
       />
       <HubCard
         icon="🔍"
         title="Próximo Adversário"
         subtitle={nextOpponentName ? `vs. ${nextOpponentName}` : 'Nenhum jogo agendado'}
-        accent={colors.warning}
+        accent={colors.reportOpponent}
         onPress={() => navigation.navigate('ReportsOpponent')}
       />
       <HubCard
         icon="💼"
         title="ROI de Transferências"
         subtitle="Retorno sobre contratações e vendas"
-        accent={colors.gold}
+        accent={colors.reportROI}
         onPress={() => navigation.navigate('ReportsTransferROI')}
       />
       <HubCard
         icon="📈"
         title="Projeção de Classificação"
         subtitle="Estimativa de onde terminarás na liga"
-        accent={colors.primary}
+        accent={colors.reportProjection}
         onPress={() => navigation.navigate('ReportsProjection')}
       />
       <HubCard
         icon="🎯"
         title="Scouting de Free Agents"
         subtitle="Free agents que melhoram o teu elenco"
-        accent={colors.success}
+        accent={colors.reportScout}
         onPress={() => navigation.navigate('ReportsFreeAgentScout')}
       />
 
@@ -172,14 +172,14 @@ export function ReportsHubScreen() {
           icon="🏆"
           title="Tabela da Liga"
           subtitle="Classificação atualizada"
-          accent={colors.primaryLight}
+          accent={colors.reportTechnical}
           onPress={() => navigation.navigate('LeagueStandings')}
         />
         <HubCard
           icon="📜"
           title="History"
           subtitle="Past champions, awards & records"
-          accent={colors.gold}
+          accent={colors.reportHistory}
           onPress={() => navigation.navigate('SeasonHistory')}
         />
       </View>
@@ -199,7 +199,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     color: colors.text,
-    fontSize: fontSize.xl,
+    fontSize: fontSize.xxl,
     fontWeight: 'bold',
   },
   headerSub: {

@@ -17,6 +17,18 @@ export const colors = {
   gold: '#ffd700',
   silver: '#c0c0c0',
   bronze: '#cd7f32',
+
+  // Report category palette
+  reportTechnical: '#4361ee',   // primary blue — assistant técnico
+  reportAnalytics: '#7b2d8b',   // purple — data analyst
+  reportYouth: '#06d6a0',       // green — youth/academy
+  reportFinancial: '#ffd700',   // gold — financial
+  reportScout: '#00b4d8',       // teal — scouting
+  reportRadar: '#48cae4',       // cyan — radar chart
+  reportOpponent: '#f77f00',    // orange — opponent scouting
+  reportROI: '#c9b819',         // mustard — transfer ROI
+  reportProjection: '#90e0ef',  // light blue — projection
+  reportHistory: '#9e9e9e',     // grey-beige — history
 };
 
 export const spacing = { xs: 4, sm: 8, md: 16, lg: 24, xl: 32 };
