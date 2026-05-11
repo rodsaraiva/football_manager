@@ -36,7 +36,7 @@ const COUNTRY_FLAGS: Record<string, string> = {
 
 export function NewGameScreen() {
   const navigation = useNavigation<NavProp>();
-  const { dbHandle, isReady } = useDatabaseStore();
+  const { db, dbHandle, isReady } = useDatabaseStore();
   const { startNewGame, setPlayerClub } = useGameStore();
 
   const [step, setStep] = useState<Step>('league');
@@ -125,10 +125,17 @@ export function NewGameScreen() {
 
       // Clear old season 1 data and generate fresh calendar
       try {
-        await dbHandle.prepare('DELETE FROM match_events WHERE fixture_id IN (SELECT id FROM fixtures WHERE season = 1)').run();
-        await dbHandle.prepare('DELETE FROM fixtures WHERE season = 1').run();
-        await dbHandle.prepare('DELETE FROM competition_entries').run();
-        await dbHandle.prepare('DELETE FROM competitions WHERE season = 1').run();
+        // Limpa tudo que referencia competitions (FK chain) antes de regenerar o calendário.
+        await db!.execAsync(`
+          DELETE FROM match_events WHERE fixture_id IN (SELECT id FROM fixtures WHERE season = 1);
+          DELETE FROM player_stats WHERE competition_id IN (SELECT id FROM competitions WHERE season = 1);
+          DELETE FROM season_player_titles WHERE competition_id IN (SELECT id FROM competitions WHERE season = 1);
+          DELETE FROM season_awards WHERE competition_id IN (SELECT id FROM competitions WHERE season = 1);
+          DELETE FROM season_competition_results WHERE competition_id IN (SELECT id FROM competitions WHERE season = 1);
+          DELETE FROM fixtures WHERE season = 1;
+          DELETE FROM competition_entries;
+          DELETE FROM competitions WHERE season = 1;
+        `);
         const allLeagues = await getAllLeagues(dbHandle);
         const clubsByLeague: Record<number, number[]> = {};
         const championsLeagueClubs: number[] = [];
@@ -162,7 +169,6 @@ export function NewGameScreen() {
           championsLeagueClubs,
         });
 
-        // Persist competitions
         for (const comp of calendar.competitions) {
           await createCompetition(dbHandle, {
             id: comp.id,
@@ -174,7 +180,6 @@ export function NewGameScreen() {
           });
         }
 
-        // Persist competition entries
         for (const entry of calendar.entries) {
           await addCompetitionEntry(dbHandle, {
             competitionId: entry.competitionId,
@@ -184,20 +189,16 @@ export function NewGameScreen() {
           });
         }
 
-        // Persist fixtures
-        for (const fixture of calendar.fixtures) {
-          await createFixture(dbHandle, {
-            id: fixture.id,
-            competitionId: fixture.competitionId,
-            season: 1,
-            week: fixture.week,
-            round: fixture.round !== null ? String(fixture.round) : null,
-            homeClubId: fixture.homeClubId,
-            awayClubId: fixture.awayClubId,
-          });
-        }
-      } catch {
-        // Calendar generation failure is non-fatal — game can still start
+        // Batch insert dos ~6k fixtures via execAsync — inserts individuais demoram minutos na web.
+        const escape = (v: string | null) => v === null ? 'NULL' : `'${v.replace(/'/g, "''")}'`;
+        const values = calendar.fixtures.map(f =>
+          `(${f.id}, ${f.competitionId}, 1, ${f.week}, ${escape(f.round !== null ? String(f.round) : null)}, ${f.homeClubId}, ${f.awayClubId}, 0)`
+        ).join(',\n');
+        await db!.execAsync(
+          `INSERT INTO fixtures (id, competition_id, season, week, round, home_club_id, away_club_id, played) VALUES ${values};`
+        );
+      } catch (err) {
+        console.error('[NewGame] calendar generation failed:', err);
       }
 
       navigation.navigate('Game');
