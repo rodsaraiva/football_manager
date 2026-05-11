@@ -63,7 +63,7 @@ function rowToPlayer(row: PlayerRow): Player {
     age: row.age,
     position: row.position as Position,
     secondaryPosition: row.secondary_position as Position | null,
-    clubId: row.club_id as number,
+    clubId: row.club_id == null ? null : Number(row.club_id),
     wage: row.wage,
     contractEnd: row.contract_end,
     marketValue: row.market_value,
@@ -237,6 +237,17 @@ export async function setLoanListing(
   await db
     .prepare('UPDATE players SET is_loan_listed = ?, loan_wage_share = ? WHERE id = ?')
     .run(listed ? 1 : 0, listed ? loanWageShare : null, playerId);
+}
+
+// v0.1: sem coluna `is_retired` pra evitar migration agora; o par
+// (club_id=NULL, is_free_agent=0) funciona como marker implícito — jogador
+// some das queries atuais e se distingue de free agent (is_free_agent=1).
+export async function retirePlayer(db: DbHandle, playerId: number): Promise<void> {
+  await db
+    .prepare(
+      'UPDATE players SET club_id = NULL, is_free_agent = 0, contract_end = 0, wage = 0, is_transfer_listed = 0, is_loan_listed = 0 WHERE id = ?',
+    )
+    .run(playerId);
 }
 
 export async function getListedPlayers(

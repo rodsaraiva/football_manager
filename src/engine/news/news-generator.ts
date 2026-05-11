@@ -1,6 +1,7 @@
 import { Club, Fixture, MatchEvent, Transfer, League } from '@/types';
 import { StandingsEntry, calculateStandings } from '@/engine/competition/standings';
 import type { SeasonCompetitionSummary } from '@/database/queries/history';
+import type { RetirementDecision } from '@/engine/retirement/retirement-engine';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -16,7 +17,8 @@ export type NewsCategory =
   | 'streak'
   | 'comeback'
   | 'league'
-  | 'season_recap';
+  | 'season_recap'
+  | 'retirement';
 
 export interface NewsItem {
   id: string;
@@ -740,6 +742,38 @@ export function generateSeasonRecap(input: SeasonRecapInput): NewsItem[] {
   void playerInvolved;
 
   return items;
+}
+
+// ─── 9. Retirements ─────────────────────────────────────────────────────────
+
+export type RetirementNewsStage = 'announced' | 'retired';
+
+export function generateRetirementNews(
+  retiringPlayers: RetirementDecision[],
+  playerNames: Map<number, string>,
+  stage: RetirementNewsStage = 'retired',
+): NewsItem[] {
+  return retiringPlayers.map((r) => {
+    const name = playerNames.get(r.playerId) ?? r.playerName;
+    const announced = stage === 'announced';
+    const title = announced ? `${name} to retire at season's end` : `${name} retires`;
+    let body: string;
+    if (announced) {
+      body = `Announces retirement at ${r.age} — morale in freefall`;
+    } else if (r.reason === 'max_age') {
+      body = `Hangs up the boots at ${r.age} — a long career comes to a close`;
+    } else {
+      body = `Calls it a career at ${r.age} after a tough season`;
+    }
+    return {
+      id: `retirement-${stage}-${r.playerId}`,
+      icon: announced ? '📣' : '👋',
+      title,
+      body,
+      category: 'retirement',
+      priority: announced ? 90 : 93,
+    };
+  });
 }
 
 // ─── Sorting ────────────────────────────────────────────────────────────────

@@ -92,6 +92,10 @@ export const useDatabaseStore = create<DatabaseStore>((set) => ({
       await addColumnIfMissing(db, 'players', 'asking_price',       'INTEGER');
       await addColumnIfMissing(db, 'players', 'loan_wage_share',    'REAL');
 
+      // Retirement tracking (streak + announced flag)
+      await addColumnIfMissing(db, 'players', 'consecutive_low_morale_weeks', 'INTEGER NOT NULL DEFAULT 0');
+      await addColumnIfMissing(db, 'players', 'will_retire_at_season_end',    'INTEGER NOT NULL DEFAULT 0');
+
       // Season history tables (added post-initial-schema)
       await db.execAsync(`
         CREATE TABLE IF NOT EXISTS season_competition_results (

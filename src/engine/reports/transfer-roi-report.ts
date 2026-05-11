@@ -36,7 +36,7 @@ export interface PlayerForROI {
   id: number;
   name: string;
   position: Position;
-  clubId: number;
+  clubId: number | null; // null quando aposentado (sem clube)
   marketValue: number;
   attributes: PlayerAttributes;
 }

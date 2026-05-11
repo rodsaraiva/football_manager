@@ -50,6 +50,7 @@ export function HomeScreen() {
     setNewSeason,
     setPlayerClub,
     setRecentResults,
+    setLastRetiredPlayerIds,
   } = useGameStore();
 
   const { dbHandle } = useDatabaseStore();
@@ -190,6 +191,9 @@ export function HomeScreen() {
       setRecentResults(played.slice(-5));
 
       if (result.isSeasonEnd) setNewSeason(true);
+      if (result.retiringPlayerIds.length > 0) {
+        setLastRetiredPlayerIds(result.retiringPlayerIds);
+      }
     } catch (err) {
       // Surface the error to the console so it can be diagnosed; the week will
       // NOT advance so the user can try again next session.

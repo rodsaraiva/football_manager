@@ -25,6 +25,18 @@ import { Position, PlayerAttributes } from '@/types';
 import { Fixture } from '@/types';
 import { upsertPlayerStats } from '@/database/queries/player-stats';
 import { archiveSeason } from './history/season-archiver';
+import { retirePlayer } from '@/database/queries/players';
+import {
+  detectCompulsoryRetirements,
+  shouldAnnounceRetirement,
+  isInAnnounceWindow,
+} from './retirement/retirement-engine';
+import {
+  RETIREMENT_MIN_AGE,
+  RETIREMENT_MAX_AGE,
+  RETIREMENT_MORALE_THRESHOLD,
+  SEASON_END_WEEK,
+} from './balance';
 
 // ─── Persist per-match player stats ──────────────────────────────────────────
 
@@ -102,6 +114,10 @@ export interface AdvanceWeekResult {
   isSeasonEnd: boolean;
   playerMatchResult: MatchResult | null;
   updatedBudget: number;
+  // Anunciados nesta semana (flag will_retire_at_season_end acabou de ser setada).
+  newlyAnnouncedRetirementIds: number[];
+  // Efetivamente aposentados nesta semana — só populado em isSeasonEnd.
+  retiringPlayerIds: number[];
 }
 
 // Formation slot layout + helpers live in ./formations.ts
@@ -639,9 +655,84 @@ export async function advanceGameWeek(params: AdvanceWeekParams): Promise<Advanc
     await updateClubBudget(db, playerClubId, updatedBudget);
   }
 
+  // 7b. Update low-morale streak para jogadores na janela etária, ainda não anunciados.
+  // Incrementa se moral < threshold, zera caso contrário. Batch em SQL por perf.
+  await db.prepare(
+    `UPDATE players
+       SET consecutive_low_morale_weeks = CASE
+         WHEN morale < ? THEN consecutive_low_morale_weeks + 1
+         ELSE 0
+       END
+     WHERE age >= ? AND age <= ? AND will_retire_at_season_end = 0 AND club_id IS NOT NULL AND is_free_agent = 0`,
+  ).run(RETIREMENT_MORALE_THRESHOLD, RETIREMENT_MIN_AGE, RETIREMENT_MAX_AGE);
+
+  // 7c. Trigger antecipado: anunciar aposentadoria se streak+janela batem.
+  // Roda só no clube do player (v0.1: low_morale é escopo do jogador humano).
+  const newlyAnnouncedRetirementIds: number[] = [];
+  const retiringPlayerIds: number[] = [];
+  if (isInAnnounceWindow(week)) {
+    const candidates = await db.prepare(
+      `SELECT id, name, age, consecutive_low_morale_weeks as streak
+         FROM players
+        WHERE club_id = ? AND is_free_agent = 0
+          AND will_retire_at_season_end = 0
+          AND age >= ? AND age <= ?`,
+    ).all(playerClubId, RETIREMENT_MIN_AGE, RETIREMENT_MAX_AGE) as Array<{
+      id: number;
+      name: string;
+      age: number;
+      streak: number;
+    }>;
+    for (const c of candidates) {
+      if (shouldAnnounceRetirement({
+        age: c.age,
+        streak: c.streak,
+        currentWeek: week,
+        alreadyAnnounced: false,
+      })) {
+        await db.prepare(
+          'UPDATE players SET will_retire_at_season_end = 1 WHERE id = ?',
+        ).run(c.id);
+        newlyAnnouncedRetirementIds.push(c.id);
+      }
+    }
+  }
+
   // 8. Advance week
-  const isSeasonEnd = week >= 46;
+  const isSeasonEnd = week >= SEASON_END_WEEK;
   if (isSeasonEnd) {
+    // Aposentadoria anunciada fira independente de clube — flag persiste após transferência.
+    const announced = await db.prepare(
+      'SELECT id FROM players WHERE club_id IS NOT NULL AND will_retire_at_season_end = 1',
+    ).all() as Array<{ id: number }>;
+    for (const row of announced) {
+      await retirePlayer(db, row.id);
+      retiringPlayerIds.push(row.id);
+    }
+
+    // Compulsório (max_age) em todos os clubes, incluindo IA.
+    const allPlayers = await db.prepare(
+      'SELECT id, name, age, is_free_agent FROM players WHERE club_id IS NOT NULL',
+    ).all() as Array<{ id: number; name: string; age: number; is_free_agent: number }>;
+    const compulsory = detectCompulsoryRetirements(
+      allPlayers.map((p) => ({
+        id: p.id,
+        name: p.name,
+        age: p.age,
+        isFreeAgent: p.is_free_agent === 1,
+      })),
+    );
+    for (const d of compulsory) {
+      await retirePlayer(db, d.playerId);
+      if (!retiringPlayerIds.includes(d.playerId)) retiringPlayerIds.push(d.playerId);
+    }
+
+    // Reset flag+streak pros remanescentes começarem a próxima temporada limpos.
+    // Restrito a quem está em clube — aposentados (club_id=NULL) ficam fora da rotina ativa.
+    await db.prepare(
+      'UPDATE players SET will_retire_at_season_end = 0, consecutive_low_morale_weeks = 0 WHERE club_id IS NOT NULL',
+    ).run();
+
     await archiveSeason(db, season);
   }
   const newWeek = isSeasonEnd ? 1 : week + 1;
@@ -658,5 +749,7 @@ export async function advanceGameWeek(params: AdvanceWeekParams): Promise<Advanc
     isSeasonEnd,
     playerMatchResult,
     updatedBudget,
+    newlyAnnouncedRetirementIds,
+    retiringPlayerIds,
   };
 }

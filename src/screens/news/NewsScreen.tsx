@@ -27,13 +27,15 @@ import {
   generateMatchStar,
   generateStreaks,
   generateSeasonRecap,
+  generateRetirementNews,
   sortNews,
 } from '@/engine/news/news-generator';
+import type { RetirementDecision } from '@/engine/retirement/retirement-engine';
 
 // ─── Main ───────────────────────────────────────────────────────────────────
 
 export function NewsScreen() {
-  const { playerClub, playerClubId, season, week } = useGameStore();
+  const { playerClub, playerClubId, season, week, lastRetiredPlayerIds } = useGameStore();
   const { dbHandle } = useDatabaseStore();
 
   const [news, setNews] = useState<NewsItem[]>([]);
@@ -275,6 +277,23 @@ export function NewsScreen() {
           );
         }
 
+        // ── 10. Retirement news — jogadores efetivamente aposentados ─────
+        if (lastRetiredPlayerIds.length > 0) {
+          const retiredRows = (await dbHandle
+            .prepare(
+              `SELECT id, name, age FROM players WHERE id IN (${lastRetiredPlayerIds.map(() => '?').join(',')})`,
+            )
+            .all(...lastRetiredPlayerIds)) as Array<{ id: number; name: string; age: number }>;
+          const retiredDecisions: RetirementDecision[] = retiredRows.map((r) => ({
+            playerId: r.id,
+            playerName: r.name,
+            age: r.age,
+            reason: 'max_age' as const,
+          }));
+          const retiredNames = new Map<number, string>(retiredRows.map((r) => [r.id, r.name]));
+          items.push(...generateRetirementNews(retiredDecisions, retiredNames, 'retired'));
+        }
+
         // Empty state
         if (items.length === 0) {
           items.push({
@@ -327,6 +346,7 @@ export function NewsScreen() {
               item.category === 'comeback' && styles.cardComeback,
               item.category === 'league' && styles.cardLeague,
               item.category === 'season_recap' && styles.cardSeasonRecap,
+              item.category === 'retirement' && styles.cardRetirement,
             ]}
           >
             <Text style={styles.cardIcon}>{item.icon}</Text>
@@ -483,6 +503,9 @@ const styles = StyleSheet.create({
     borderLeftColor: colors.gold,
     backgroundColor: colors.surfaceLight,
     borderLeftWidth: 4,
+  },
+  cardRetirement: {
+    borderLeftColor: colors.textSecondary,
   },
   cardIcon: {
     fontSize: fontSize.xl,

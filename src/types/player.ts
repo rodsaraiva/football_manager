@@ -33,7 +33,7 @@ export interface Player {
   age: number;
   position: Position;
   secondaryPosition: Position | null;
-  clubId: number;
+  clubId: number | null;
   wage: number;
   contractEnd: number;
   marketValue: number;

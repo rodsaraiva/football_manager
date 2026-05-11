@@ -166,11 +166,16 @@ export function EndOfSeasonScreen() {
       // for anything referring to the finished year.
       const newSeason = season;
 
-      // 1. Age all players
-      await dbHandle.prepare('UPDATE players SET age = age + 1').run();
+      // 1. Age all non-retired players (aposentados têm club_id=NULL e is_free_agent=0;
+      // sem o filtro, ganhariam +1 de idade toda virada).
+      await dbHandle
+        .prepare('UPDATE players SET age = age + 1 WHERE club_id IS NOT NULL OR is_free_agent = 1')
+        .run();
 
-      // 2. Contract expiry — mark players whose contract ended with this season as free agents
-      await dbHandle.prepare('UPDATE players SET is_free_agent = 1 WHERE contract_end <= ?').run(endedSeason);
+      // 2. Contract expiry — mark players whose contract ended with this season as free agents.
+      // Restrict to club_id IS NOT NULL so retired players (club_id=NULL, is_free_agent=0)
+      // are not accidentally flipped to is_free_agent=1.
+      await dbHandle.prepare('UPDATE players SET is_free_agent = 1 WHERE contract_end <= ? AND club_id IS NOT NULL').run(endedSeason);
 
       // 2b. Return loaned players to their parent clubs
       await returnExpiredLoans(dbHandle, endedSeason);

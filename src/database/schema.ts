@@ -82,7 +82,9 @@ CREATE TABLE IF NOT EXISTS players (
   is_transfer_listed INTEGER NOT NULL DEFAULT 0,
   is_loan_listed     INTEGER NOT NULL DEFAULT 0,
   asking_price       INTEGER,
-  loan_wage_share    REAL
+  loan_wage_share    REAL,
+  consecutive_low_morale_weeks INTEGER NOT NULL DEFAULT 0,
+  will_retire_at_season_end    INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS player_attributes (
