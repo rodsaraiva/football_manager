@@ -126,6 +126,7 @@ export function NewGameScreen() {
       // Clear old season 1 data and generate fresh calendar
       try {
         // Limpa tudo que referencia competitions (FK chain) antes de regenerar o calendário.
+        // Também zera club_finances pra não somar entries do save anterior na tela de Finances.
         await db!.execAsync(`
           DELETE FROM match_events WHERE fixture_id IN (SELECT id FROM fixtures WHERE season = 1);
           DELETE FROM player_stats WHERE competition_id IN (SELECT id FROM competitions WHERE season = 1);
@@ -135,6 +136,7 @@ export function NewGameScreen() {
           DELETE FROM fixtures WHERE season = 1;
           DELETE FROM competition_entries;
           DELETE FROM competitions WHERE season = 1;
+          DELETE FROM club_finances;
         `);
         const allLeagues = await getAllLeagues(dbHandle);
         const clubsByLeague: Record<number, number[]> = {};

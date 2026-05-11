@@ -96,6 +96,13 @@ export const useDatabaseStore = create<DatabaseStore>((set) => ({
       await addColumnIfMissing(db, 'players', 'consecutive_low_morale_weeks', 'INTEGER NOT NULL DEFAULT 0');
       await addColumnIfMissing(db, 'players', 'will_retire_at_season_end',    'INTEGER NOT NULL DEFAULT 0');
 
+      // Migration: corrige wages inflados em 100x por bug antigo em computeWage (Math.round * 10 em vez de /10).
+      // Heurística: média de wage acima de 50k indica DB seedado pelo código bugado — divide por 100.
+      const wageProbe = await db.getFirstAsync<{ avg: number | null }>('SELECT AVG(wage) AS avg FROM players') ?? { avg: null };
+      if (wageProbe.avg && wageProbe.avg > 50000) {
+        await db.execAsync('UPDATE players SET wage = wage / 100');
+      }
+
       // Season history tables (added post-initial-schema)
       await db.execAsync(`
         CREATE TABLE IF NOT EXISTS season_competition_results (

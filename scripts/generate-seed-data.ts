@@ -342,7 +342,8 @@ function computeMarketValue(age: number, overall: number, potential: number): nu
 function computeWage(overall: number, reputation: number): number {
   const repFactor = reputation / 100;
   const base = Math.pow(overall / 50, 2) * 1000;
-  return Math.round(base * (0.5 + repFactor) * 10) * 10;
+  // Arredonda pro múltiplo de 10 (divide → round → multiplica). Antes tinha `* 10` em vez de `/ 10`, inflando wages em 100x.
+  return Math.round(base * (0.5 + repFactor) / 10) * 10;
 }
 
 function computePotential(rng: SeededRng, age: number, overall: number): number {
