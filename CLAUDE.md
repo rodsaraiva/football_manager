@@ -2,6 +2,22 @@
 
 Instruções do subprojeto. Complementa `/root/rodrigo/CLAUDE.md` (monorepo) e `/root/.claude/CLAUDE.md` (VPS global). Sempre **pt-BR**.
 
+## Escopo: NUNCA sair deste diretório
+
+**Regra absoluta**: nesta sessão, alterações de arquivo ficam **estritamente** dentro de `/root/rodrigo/football-manager/`.
+
+Proibido sem autorização explícita do usuário:
+
+- Editar/criar/deletar arquivos em qualquer outro projeto (`idle_rpg/`, `projeto_alana/`, `hope_saude/`, `arquimedes/`, `mxservices/`, `raylook/`, etc.).
+- Editar `/root/rodrigo/CLAUDE.md`, `/root/.claude/CLAUDE.md` ou qualquer config fora deste subprojeto.
+- Rodar `git`/`docker`/`pkill`/`rm`/`mv` em paths fora deste subprojeto.
+- Derrubar ou alterar containers compartilhados (Traefik, Postgres, N8N, Evolution).
+- Instalar pacotes globais (`npm i -g`, `pip install -g`, `apt install`).
+
+Se uma tarefa parecer exigir mudança fora deste diretório, **pare e pergunte** antes de fazer.
+
+Buscas/leituras read-only fora do diretório são permitidas (`grep`, `find`, `cat`) — só não escrever.
+
 ## Stack
 
 - Expo 54 + React Native 0.81 + React 19.1
@@ -91,8 +107,3 @@ Na dúvida entre pequena e não-trivial → **assume não-trivial**.
 3. UI validada no browser (Playwright MCP) se mexeu em tela/componente.
 4. `git diff` revisado.
 
-## Fora de escopo
-
-- Não tocar em projetos irmãos (`idle_rpg/`, `projeto_alana/`, etc.).
-- Não derrubar containers compartilhados do VPS.
-- Não instalar pacote global sem autorização.
