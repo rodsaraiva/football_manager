@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { SaveGame, Club, Player, Fixture, Competition } from '@/types';
 import { MatchResult } from '@/engine/simulation/match-engine';
 import { StandingsEntry } from '@/engine/competition/standings';
+import { useBoardStore } from '@/store/board-store';
 
 interface GameState {
   // Save
@@ -85,7 +86,8 @@ export const useGameStore = create<GameStore>((set) => ({
       season,
       week,
     }),
-  loadSave: (save) =>
+  loadSave: (save) => {
+    useBoardStore.getState().reset();
     set({
       currentSave: save,
       playerClubId: save.playerClubId,
@@ -97,8 +99,12 @@ export const useGameStore = create<GameStore>((set) => ({
       lastMatchOpponentName: null,
       playerClub: null,
       isNewSeason: false,
-    }),
-  clearGame: () => set(initialState),
+    });
+  },
+  clearGame: () => {
+    useBoardStore.getState().reset();
+    set(initialState);
+  },
   setAdvancing: (advancing) => set({ isAdvancing: advancing }),
   updateWeek: (season, week) => set({ season, week }),
   setLastMatchResult: (result) => set({ lastMatchResult: result }),

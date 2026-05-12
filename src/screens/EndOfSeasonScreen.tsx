@@ -30,8 +30,135 @@ import { getPlayersByClub } from '@/database/queries/players';
 import { generateYouthPlayers } from '@/engine/youth/youth-academy';
 import { returnExpiredLoans } from '@/engine/transfer/loan-returns';
 import { SeededRng } from '@/engine/rng';
+import { computeReputationDelta } from '@/engine/board/reputation-engine';
+import { generateObjective } from '@/engine/board/objective-generator';
+import { computeTrustDelta } from '@/engine/board/trust-engine';
+import {
+  insertReputationHistory,
+  getReputationHistory,
+  upsertBoardObjective,
+  getBoardObjective,
+  insertTrustHistory,
+  getSaveBoardTrust,
+  updateSaveBoardTrust,
+} from '@/database/queries/board';
+import { useBoardStore } from '@/store/board-store';
+import { TrustConsequence, TrustOutcome } from '@/types/board';
 
 type NavProp = NativeStackNavigationProp<RootStackParamList>;
+
+interface ProcessBoardArgs {
+  dbHandle: import('@/database/queries/players').DbHandle;
+  clubId: number;
+  saveId: number;
+  endedSeason: number;
+  newSeason: number;
+  leaguePosition: number | null;
+  totalTeams: number;
+  currentReputation: number;
+  budgetBalance: number;
+  wasRelegated: boolean;
+  wasPromoted: boolean;
+  wonLeague: boolean;
+  wonCup: boolean;
+  setCurrentObjective: (obj: import('@/types/board').BoardObjective | null) => void;
+  setCurrentTrust: (trust: number) => void;
+  setLastTrustResult: (outcome: TrustOutcome, consequence: TrustConsequence) => void;
+  setReputationHistory: (history: import('@/types/board').ReputationHistoryEntry[]) => void;
+  setBoardEval: (v: {
+    oldRep: number; newRep: number; delta: number;
+    trust: number; outcome: TrustOutcome; consequence: TrustConsequence;
+    objectiveDescription: string;
+  } | null) => void;
+}
+
+async function processSeasonEndBoard(args: ProcessBoardArgs): Promise<void> {
+  const {
+    dbHandle, clubId, saveId, endedSeason, newSeason,
+    leaguePosition, totalTeams, currentReputation, budgetBalance,
+    wasRelegated, wasPromoted, wonLeague, wonCup,
+    setCurrentObjective, setCurrentTrust, setLastTrustResult, setReputationHistory, setBoardEval,
+  } = args;
+
+  // 1. Compute reputation delta
+  const repResult = computeReputationDelta({
+    currentReputation,
+    leaguePosition: leaguePosition ?? Math.ceil(totalTeams / 2),
+    totalTeams,
+    wonLeague, wonCup, wasRelegated, wasPromoted,
+    budgetBalance,
+    squadAverageOverall: 70,
+    staffAverageAbility: 10,
+  });
+
+  // 2. Persist reputation history + update club
+  await insertReputationHistory(dbHandle, {
+    clubId, season: endedSeason, reputation: repResult.newReputation, delta: repResult.delta,
+  }).catch(() => {});
+  await dbHandle.prepare('UPDATE clubs SET reputation = ? WHERE id = ?').run(repResult.newReputation, clubId);
+
+  // 3. Fetch current trust + compute trust delta
+  const currentTrust = await getSaveBoardTrust(dbHandle, saveId);
+  const prevObjective = await getBoardObjective(dbHandle, clubId, endedSeason);
+
+  const trustResult = computeTrustDelta({
+    currentTrust,
+    objectiveType: prevObjective?.type ?? 'no_relegation',
+    objectiveTarget: prevObjective?.target ?? null,
+    leaguePosition,
+    totalTeams,
+    wonCup, wasRelegated, wasPromoted,
+    reputationDelta: repResult.delta,
+    budgetBalance: args.budgetBalance,
+  });
+
+  // 4. Persist trust history + update save
+  await insertTrustHistory(dbHandle, {
+    clubId, season: endedSeason, trust: trustResult.newTrust, outcome: trustResult.outcome,
+  }).catch(() => {});
+  await updateSaveBoardTrust(dbHandle, saveId, trustResult.newTrust);
+
+  // 5. Apply budget consequence
+  if (trustResult.consequence === 'budget_cut') {
+    await dbHandle.prepare('UPDATE clubs SET budget = CAST(budget * 0.8 AS INTEGER) WHERE id = ?').run(clubId);
+  } else if (trustResult.consequence === 'budget_bonus') {
+    await dbHandle.prepare('UPDATE clubs SET budget = CAST(budget * 1.1 AS INTEGER) WHERE id = ?').run(clubId);
+  }
+
+  // 6. Generate objective for the NEW season
+  const objective = generateObjective({
+    clubReputation: repResult.newReputation,
+    currentLeaguePosition: leaguePosition,
+    totalTeams,
+    divisionLevel: 1,
+    wasRelegated, wasPromoted,
+    rng: new SeededRng(newSeason * 31337 + clubId),
+  });
+  await upsertBoardObjective(dbHandle, {
+    clubId, season: newSeason,
+    type: objective.type, target: objective.target, description: objective.description,
+  });
+
+  // 7. Update stores
+  const fullObjective = await getBoardObjective(dbHandle, clubId, newSeason);
+  const repHistory = await getReputationHistory(dbHandle, clubId);
+
+  setCurrentObjective(fullObjective);
+  setCurrentTrust(trustResult.newTrust);
+  setLastTrustResult(trustResult.outcome, trustResult.consequence);
+  setReputationHistory(repHistory);
+
+  // 8. Set board eval for UI display (shown before Continue is pressed)
+  setBoardEval({
+    oldRep: currentReputation,
+    newRep: repResult.newReputation,
+    delta: repResult.delta,
+    trust: trustResult.newTrust,
+    outcome: trustResult.outcome,
+    consequence: trustResult.consequence,
+    objectiveDescription: objective.description,
+  });
+}
 
 interface SeasonStats {
   played: number;
@@ -50,10 +177,17 @@ export function EndOfSeasonScreen() {
   const navigation = useNavigation<NavProp>();
   const { season, playerClub, playerClubId, setNewSeason, updateWeek, currentSave } = useGameStore();
   const { dbHandle } = useDatabaseStore();
+  const { setCurrentObjective, setCurrentTrust, setLastTrustResult, setReputationHistory } = useBoardStore();
 
   const [stats, setStats] = useState<SeasonStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [starting, setStarting] = useState(false);
+  const [boardProcessed, setBoardProcessed] = useState(false);
+  const [boardEval, setBoardEval] = useState<{
+    oldRep: number; newRep: number; delta: number;
+    trust: number; outcome: TrustOutcome; consequence: TrustConsequence;
+    objectiveDescription: string;
+  } | null>(null);
 
   // advanceGameWeek already bumped the season pointer to the upcoming year.
   // The stats/report are about the season that just finished, which is one
@@ -136,6 +270,34 @@ export function EndOfSeasonScreen() {
           income,
           expenses,
         });
+
+        // Board evaluation — compute and persist once; guard prevents re-runs on re-renders
+        if (currentSave && !boardProcessed) {
+          setBoardProcessed(true);
+          const relegatedRow = await dbHandle
+            .prepare('SELECT id FROM season_relegated WHERE season = ? AND club_id = ? LIMIT 1')
+            .get(endedSeason, playerClubId) as { id: number } | undefined;
+          await processSeasonEndBoard({
+            dbHandle,
+            clubId: playerClubId,
+            saveId: currentSave.id,
+            endedSeason,
+            newSeason: season,
+            leaguePosition,
+            totalTeams,
+            currentReputation: playerClub.reputation,
+            budgetBalance: income - expenses,
+            wasRelegated: relegatedRow != null,
+            wasPromoted: false,
+            wonLeague: leaguePosition === 1,
+            wonCup: false,
+            setCurrentObjective,
+            setCurrentTrust,
+            setLastTrustResult,
+            setReputationHistory,
+            setBoardEval,
+          }).catch(() => {});
+        }
       } catch (e) {
         // Fallback empty stats
         setStats({
@@ -154,7 +316,7 @@ export function EndOfSeasonScreen() {
         setLoading(false);
       }
     })();
-  }, [dbHandle, playerClub, playerClubId, endedSeason]);
+  }, [dbHandle, playerClub, playerClubId, endedSeason, currentSave, season, boardProcessed, setCurrentObjective, setCurrentTrust, setLastTrustResult, setReputationHistory]);
 
   async function handleContinue() {
     if (!dbHandle || starting || !playerClubId) return;
@@ -437,6 +599,52 @@ export function EndOfSeasonScreen() {
               {formatCurrency(stats.income - stats.expenses)}
             </Text>
           </View>
+        </View>
+      )}
+
+      {/* Board Evaluation */}
+      {boardEval && (
+        <View style={styles.card}>
+          <Text style={styles.cardLabel}>BOARD EVALUATION</Text>
+          <View style={styles.statsGrid}>
+            <View style={styles.statItem}>
+              <Text style={styles.statValue}>{boardEval.oldRep}</Text>
+              <Text style={styles.statLabel}>Rep Before</Text>
+            </View>
+            <View style={styles.statItem}>
+              <Text style={[styles.statValue, { color: boardEval.delta >= 0 ? colors.success : colors.danger }]}>
+                {boardEval.newRep}
+              </Text>
+              <Text style={styles.statLabel}>Rep After</Text>
+            </View>
+            <View style={styles.statItem}>
+              <Text style={[styles.statValue, { color: boardEval.delta >= 0 ? colors.success : colors.danger }]}>
+                {boardEval.delta >= 0 ? `+${boardEval.delta}` : `${boardEval.delta}`}
+              </Text>
+              <Text style={styles.statLabel}>Delta</Text>
+            </View>
+            <View style={styles.statItem}>
+              <Text style={styles.statValue}>{boardEval.trust}</Text>
+              <Text style={styles.statLabel}>Trust</Text>
+            </View>
+          </View>
+          <View style={styles.divider} />
+          <Text style={styles.balanceLabel}>
+            Objective outcome:{' '}
+            <Text style={{ color: boardEval.outcome === 'objective_met' ? colors.success : boardEval.outcome === 'objective_partial' ? colors.warning : colors.danger }}>
+              {boardEval.outcome === 'objective_met' ? 'MET' : boardEval.outcome === 'objective_partial' ? 'CLOSE' : 'FAILED'}
+            </Text>
+          </Text>
+          {boardEval.consequence !== 'none' && (
+            <Text style={[styles.noDataText, { color: boardEval.consequence === 'fired' || boardEval.consequence === 'budget_cut' ? colors.danger : colors.success, marginTop: spacing.xs }]}>
+              {boardEval.consequence === 'fired' ? 'FIRED — you have been dismissed.' :
+               boardEval.consequence === 'budget_cut' ? 'Budget reduced by 20%.' :
+               'Budget increased by 10%.'}
+            </Text>
+          )}
+          <View style={styles.divider} />
+          <Text style={styles.balanceLabel}>Next season objective:</Text>
+          <Text style={styles.noDataText}>{boardEval.objectiveDescription}</Text>
         </View>
       )}
 

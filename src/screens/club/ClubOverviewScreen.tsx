@@ -167,6 +167,13 @@ export function ClubOverviewScreen() {
         accent={colors.gold}
         onPress={() => navigation.navigate('ClubUpgrades')}
       />
+      <HubCard
+        icon="🏛️"
+        title="Board"
+        subtitle="Reputation, trust & objectives"
+        accent={colors.primary}
+        onPress={() => navigation.navigate('ClubBoard')}
+      />
 
       {/* Trophy Cabinet */}
       <Text style={styles.sectionTitle}>TROPHY CABINET</Text>

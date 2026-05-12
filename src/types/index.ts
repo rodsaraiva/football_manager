@@ -7,3 +7,4 @@ export * from './staff';
 export * from './finance';
 export * from './tactic';
 export * from './save';
+export * from './board';

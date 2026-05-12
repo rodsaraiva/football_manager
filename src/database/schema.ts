@@ -22,6 +22,9 @@ export const TABLE_NAMES: string[] = [
   'season_relegated',
   'season_awards',
   'season_player_titles',
+  'club_reputation_history',
+  'board_objectives',
+  'board_trust_history',
 ];
 
 export const SCHEMA_SQL = `
@@ -259,6 +262,7 @@ CREATE TABLE IF NOT EXISTS save_games (
   current_week    INTEGER NOT NULL DEFAULT 1,
   player_club_id  INTEGER NOT NULL REFERENCES clubs(id),
   difficulty      TEXT    NOT NULL DEFAULT 'normal',
+  board_trust     INTEGER NOT NULL DEFAULT 50,
   created_at      TEXT    NOT NULL,
   updated_at      TEXT    NOT NULL
 );
@@ -300,6 +304,34 @@ CREATE TABLE IF NOT EXISTS season_player_titles (
   club_id        INTEGER NOT NULL REFERENCES clubs(id),
   player_id      INTEGER NOT NULL REFERENCES players(id),
   UNIQUE(season, competition_id, player_id)
+);
+
+CREATE TABLE IF NOT EXISTS club_reputation_history (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  club_id    INTEGER NOT NULL REFERENCES clubs(id),
+  season     INTEGER NOT NULL,
+  reputation INTEGER NOT NULL CHECK (reputation BETWEEN 1 AND 100),
+  delta      INTEGER NOT NULL,
+  UNIQUE(club_id, season)
+);
+
+CREATE TABLE IF NOT EXISTS board_objectives (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  club_id     INTEGER NOT NULL REFERENCES clubs(id),
+  season      INTEGER NOT NULL,
+  type        TEXT    NOT NULL,
+  target      INTEGER,
+  description TEXT    NOT NULL,
+  UNIQUE(club_id, season)
+);
+
+CREATE TABLE IF NOT EXISTS board_trust_history (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  club_id    INTEGER NOT NULL REFERENCES clubs(id),
+  season     INTEGER NOT NULL,
+  trust      INTEGER NOT NULL CHECK (trust BETWEEN 0 AND 100),
+  outcome    TEXT    NOT NULL,
+  UNIQUE(club_id, season)
 );
 
 CREATE INDEX IF NOT EXISTS idx_awards_player       ON season_awards(player_id);

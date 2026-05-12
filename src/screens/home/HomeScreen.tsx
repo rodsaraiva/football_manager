@@ -14,6 +14,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { colors, spacing, fontSize, commonStyles } from '@/theme';
 import { useGameStore } from '@/store/game-store';
 import { useDatabaseStore } from '@/store/database-store';
+import { useBoardStore } from '@/store/board-store';
 import { Fixture, Club, MatchEvent } from '@/types';
 import { RootStackParamList } from '@/navigation/types';
 import { SeededRng } from '@/engine/rng';
@@ -54,6 +55,7 @@ export function HomeScreen() {
   } = useGameStore();
 
   const { dbHandle } = useDatabaseStore();
+  const { currentObjective, currentTrust } = useBoardStore();
 
   const [nextOpponent, setNextOpponent] = useState<{ club: Club; isHome: boolean } | null>(null);
   const [showMatchModal, setShowMatchModal] = useState(false);
@@ -257,6 +259,36 @@ export function HomeScreen() {
           Season {season} — Week {week}
         </Text>
       </View>
+
+      {/* Board objective widget */}
+      {currentObjective && (
+        <TouchableOpacity
+          style={styles.boardWidget}
+          activeOpacity={0.8}
+          onPress={() => navigation.navigate('ClubBoard')}
+        >
+          <View style={styles.boardWidgetLeft}>
+            <Text style={styles.boardWidgetLabel}>OBJECTIVE</Text>
+            <Text style={styles.boardWidgetText} numberOfLines={1}>{currentObjective.description}</Text>
+          </View>
+          <View style={styles.boardWidgetRight}>
+            <Text style={styles.boardWidgetLabel}>TRUST</Text>
+            <View style={styles.boardMiniBar}>
+              {Array.from({ length: 5 }).map((_, i) => (
+                <View
+                  key={i}
+                  style={[
+                    styles.boardMiniSegment,
+                    i < Math.round((currentTrust / 100) * 5) && {
+                      backgroundColor: currentTrust < 40 ? colors.danger : currentTrust < 80 ? colors.warning : colors.success,
+                    },
+                  ]}
+                />
+              ))}
+            </View>
+          </View>
+        </TouchableOpacity>
+      )}
 
       {/* League Table shortcut */}
       <TouchableOpacity
@@ -712,6 +744,27 @@ const styles = StyleSheet.create({
     borderColor: colors.primary,
     alignItems: 'center',
   },
+  boardWidget: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: colors.surface,
+    borderRadius: 12,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    marginHorizontal: spacing.md,
+    marginBottom: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderLeftWidth: 4,
+    borderLeftColor: colors.primary,
+  },
+  boardWidgetLeft: { flex: 1, marginRight: spacing.md },
+  boardWidgetRight: { alignItems: 'flex-end' },
+  boardWidgetLabel: { color: colors.textSecondary, fontSize: fontSize.xs, fontWeight: '700', letterSpacing: 1 },
+  boardWidgetText: { color: colors.text, fontSize: fontSize.sm, marginTop: 2 },
+  boardMiniBar: { flexDirection: 'row', gap: 3, marginTop: 4 },
+  boardMiniSegment: { width: 12, height: 6, borderRadius: 2, backgroundColor: colors.border },
   leagueTableBtn: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -153,6 +153,9 @@ export const useDatabaseStore = create<DatabaseStore>((set) => ({
       await db.execAsync(`CREATE INDEX IF NOT EXISTS idx_relegated_season ON season_relegated(season);`);
       await db.execAsync(`CREATE INDEX IF NOT EXISTS idx_player_titles_player ON season_player_titles(player_id);`);
 
+      // Board system (added post-initial-schema)
+      await addColumnIfMissing(db, 'save_games', 'board_trust', 'INTEGER NOT NULL DEFAULT 50');
+
       // Seed if DB is missing data (check both countries and clubs to catch partial seeds)
       const countryCount = await db.getFirstAsync<{ cnt: number }>('SELECT COUNT(*) as cnt FROM countries');
       const clubCount = await db.getFirstAsync<{ cnt: number }>('SELECT COUNT(*) as cnt FROM clubs');

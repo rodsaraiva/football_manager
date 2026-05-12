@@ -9,6 +9,7 @@ export type RootStackParamList = {
   ClubFinances: undefined;
   ClubStaff: undefined;
   ClubUpgrades: undefined;
+  ClubBoard: undefined;
   // Transfer sub-screens
   TransferMarket: undefined;
   OffersSent: undefined;

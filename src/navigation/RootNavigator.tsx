@@ -6,6 +6,7 @@ import { EndOfSeasonScreen } from '@/screens/EndOfSeasonScreen';
 import { FinancesScreen } from '@/screens/club/FinancesScreen';
 import { StaffScreen } from '@/screens/club/StaffScreen';
 import { UpgradesScreen } from '@/screens/club/UpgradesScreen';
+import { BoardScreen } from '@/screens/club/BoardScreen';
 import { TransferMarketScreen } from '@/screens/club/transfers/TransferMarketScreen';
 import { OffersSentScreen } from '@/screens/club/transfers/OffersSentScreen';
 import { OffersReceivedScreen } from '@/screens/club/transfers/OffersReceivedScreen';
@@ -46,6 +47,7 @@ export function RootNavigator() {
       <Stack.Screen name="ClubFinances" component={FinancesScreen} options={{ title: 'Finances' }} />
       <Stack.Screen name="ClubStaff" component={StaffScreen} options={{ title: 'Staff' }} />
       <Stack.Screen name="ClubUpgrades" component={UpgradesScreen} options={{ title: 'Upgrades' }} />
+      <Stack.Screen name="ClubBoard" component={BoardScreen} options={{ title: 'Board' }} />
       {/* Transfer sub-screens */}
       <Stack.Screen name="TransferMarket" component={TransferMarketScreen} options={{ title: 'Transfer Market' }} />
       <Stack.Screen name="OffersSent" component={OffersSentScreen} options={{ title: 'Offers Sent' }} />
