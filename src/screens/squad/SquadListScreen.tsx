@@ -145,10 +145,11 @@ export function SquadListScreen() {
                 fitness={item.fitness}
                 onPress={() => handleSelectPlayer(item.id)}
               />
-              {(item.isTransferListed || item.isLoanListed) && (
+              {(item.isTransferListed || item.isLoanListed || item.willRetireAtSeasonEnd) && (
                 <View style={styles.listingBadges}>
                   {item.isTransferListed && <Text style={styles.listingBadge}>💰</Text>}
                   {item.isLoanListed && <Text style={styles.listingBadge}>🔁</Text>}
+                  {item.willRetireAtSeasonEnd && <Text style={[styles.listingBadge, styles.retiringBadge]}>🏁 Retiring</Text>}
                 </View>
               )}
             </View>
@@ -209,5 +210,9 @@ const styles = StyleSheet.create({
   listingBadge: {
     fontSize: fontSize.xs,
     marginLeft: spacing.xs,
+  },
+  retiringBadge: {
+    color: colors.warning,
+    fontWeight: '700',
   },
 });

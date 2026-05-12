@@ -35,7 +35,7 @@ import type { RetirementDecision } from '@/engine/retirement/retirement-engine';
 // ─── Main ───────────────────────────────────────────────────────────────────
 
 export function NewsScreen() {
-  const { playerClub, playerClubId, season, week, lastRetiredPlayerIds } = useGameStore();
+  const { playerClub, playerClubId, season, week, lastRetiredPlayerIds, pendingAnnouncedRetirementIds } = useGameStore();
   const { dbHandle } = useDatabaseStore();
 
   const [news, setNews] = useState<NewsItem[]>([]);
@@ -292,6 +292,25 @@ export function NewsScreen() {
           }));
           const retiredNames = new Map<number, string>(retiredRows.map((r) => [r.id, r.name]));
           items.push(...generateRetirementNews(retiredDecisions, retiredNames, 'retired'));
+        }
+
+        // ── 11. Retirement announcements — jogadores que anunciaram aposentadoria ─
+        if (pendingAnnouncedRetirementIds.length > 0) {
+          const announcedRows = (await dbHandle
+            .prepare(
+              `SELECT id, name, age FROM players WHERE id IN (${pendingAnnouncedRetirementIds.map(() => '?').join(',')})`,
+            )
+            .all(...pendingAnnouncedRetirementIds)) as Array<{ id: number; name: string; age: number }>;
+          if (announcedRows.length > 0) {
+            const announcedDecisions: RetirementDecision[] = announcedRows.map((r) => ({
+              playerId: r.id,
+              playerName: r.name,
+              age: r.age,
+              reason: 'low_morale' as const,
+            }));
+            const announcedNames = new Map<number, string>(announcedRows.map((r) => [r.id, r.name]));
+            items.push(...generateRetirementNews(announcedDecisions, announcedNames, 'announced'));
+          }
         }
 
         // Empty state

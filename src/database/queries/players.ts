@@ -31,6 +31,8 @@ interface PlayerRow {
   is_loan_listed: number;
   asking_price: number | null;
   loan_wage_share: number | null;
+  consecutive_low_morale_weeks: number;
+  will_retire_at_season_end: number;
 }
 
 interface PlayerAttributesRow {
@@ -79,6 +81,8 @@ function rowToPlayer(row: PlayerRow): Player {
     isLoanListed: row.is_loan_listed === 1,
     askingPrice: row.asking_price ?? null,
     loanWageShare: row.loan_wage_share ?? null,
+    consecutiveLowMoraleWeeks: row.consecutive_low_morale_weeks ?? 0,
+    willRetireAtSeasonEnd: (row.will_retire_at_season_end ?? 0) === 1,
   };
 }
 
@@ -248,6 +252,13 @@ export async function retirePlayer(db: DbHandle, playerId: number): Promise<void
       'UPDATE players SET club_id = NULL, is_free_agent = 0, contract_end = 0, wage = 0, is_transfer_listed = 0, is_loan_listed = 0 WHERE id = ?',
     )
     .run(playerId);
+}
+
+export async function getPlayersAboutToRetire(db: DbHandle, clubId: number): Promise<Player[]> {
+  const rows = await db
+    .prepare('SELECT * FROM players WHERE club_id = ? AND will_retire_at_season_end = 1')
+    .all(clubId) as PlayerRow[];
+  return rows.map(rowToPlayer);
 }
 
 export async function getListedPlayers(

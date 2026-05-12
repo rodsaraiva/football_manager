@@ -178,7 +178,7 @@ interface SeasonStats {
 
 export function EndOfSeasonScreen() {
   const navigation = useNavigation<NavProp>();
-  const { season, playerClub, playerClubId, setNewSeason, updateWeek, currentSave } = useGameStore();
+  const { season, playerClub, playerClubId, setNewSeason, updateWeek, currentSave, setPendingAnnouncedRetirementIds } = useGameStore();
   const { dbHandle } = useDatabaseStore();
   const { setCurrentObjective, setCurrentTrust, setLastTrustResult, setReputationHistory } = useBoardStore();
   const { setAssistants } = useAssistantStore();
@@ -516,6 +516,7 @@ export function EndOfSeasonScreen() {
 
       // Reset to new season — season pointer is already correct, just flip
       // the flag and make sure we're on week 1 of the new season.
+      setPendingAnnouncedRetirementIds([]);
       setNewSeason(false);
       updateWeek(newSeason, 1);
     } catch (err) {

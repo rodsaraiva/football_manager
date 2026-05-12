@@ -27,6 +27,8 @@ interface GameState {
   isNewSeason: boolean;
   // Retirement: IDs aposentados na última virada de temporada
   lastRetiredPlayerIds: number[];
+  // IDs com aposentadoria anunciada nesta semana
+  pendingAnnouncedRetirementIds: number[];
 }
 
 interface GameActions {
@@ -41,6 +43,7 @@ interface GameActions {
   setLastMatchContext: (isHome: boolean | null, opponentName: string | null) => void;
   setNewSeason: (isNew: boolean) => void;
   setLastRetiredPlayerIds: (ids: number[]) => void;
+  setPendingAnnouncedRetirementIds: (ids: number[]) => void;
   // Data loading
   setSquad: (squad: Player[]) => void;
   setCompetitions: (competitions: Competition[]) => void;
@@ -67,6 +70,7 @@ const initialState: GameState = {
   isAdvancing: false,
   isNewSeason: false,
   lastRetiredPlayerIds: [],
+  pendingAnnouncedRetirementIds: [],
 };
 
 export const useGameStore = create<GameStore>((set) => ({
@@ -115,6 +119,7 @@ export const useGameStore = create<GameStore>((set) => ({
     set({ lastMatchIsHome: isHome, lastMatchOpponentName: opponentName }),
   setNewSeason: (isNew) => set({ isNewSeason: isNew }),
   setLastRetiredPlayerIds: (ids) => set({ lastRetiredPlayerIds: ids }),
+  setPendingAnnouncedRetirementIds: (ids) => set({ pendingAnnouncedRetirementIds: ids }),
   setSquad: (squad) => set({ squad }),
   setCompetitions: (competitions) => set({ competitions }),
   setStandings: (standings) => set({ standings }),

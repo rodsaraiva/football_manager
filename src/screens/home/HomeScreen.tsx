@@ -21,7 +21,7 @@ import { RootStackParamList } from '@/navigation/types';
 import { SeededRng } from '@/engine/rng';
 import { getFixturesByWeek, getFixturesByClub } from '@/database/queries/fixtures';
 import { getClubById } from '@/database/queries/clubs';
-import { getPlayerById, getPlayersByClub } from '@/database/queries/players';
+import { getPlayerById, getPlayersByClub, getPlayersAboutToRetire } from '@/database/queries/players';
 import { getActiveTactic } from '@/database/queries/tactics';
 import { advanceGameWeek } from '@/engine/game-loop';
 import { ensureSeasonFixtures } from '@/engine/competition/calendar';
@@ -53,12 +53,15 @@ export function HomeScreen() {
     setPlayerClub,
     setRecentResults,
     setLastRetiredPlayerIds,
+    setPendingAnnouncedRetirementIds,
+    pendingAnnouncedRetirementIds,
   } = useGameStore();
 
   const { dbHandle } = useDatabaseStore();
   const { currentObjective, currentTrust } = useBoardStore();
   const { pendingComment, setPendingComment, setLastCommentWeek } = useAssistantStore();
 
+  const [announcedRetirees, setAnnouncedRetirees] = useState<Array<{ id: number; name: string; age: number }>>([]);
   const [nextOpponent, setNextOpponent] = useState<{ club: Club; isHome: boolean } | null>(null);
   const [showMatchModal, setShowMatchModal] = useState(false);
   const [playerNames, setPlayerNames] = useState<Record<number, string>>({});
@@ -100,6 +103,18 @@ export function HomeScreen() {
       } catch { /* ignore */ }
     })();
   }, [dbHandle, playerClubId, season, week]);
+
+  // Load retiring player names when IDs become available
+  useEffect(() => {
+    if (!dbHandle || !playerClubId || pendingAnnouncedRetirementIds.length === 0) {
+      setAnnouncedRetirees([]);
+      return;
+    }
+    (async () => {
+      const players = await getPlayersAboutToRetire(dbHandle, playerClubId);
+      setAnnouncedRetirees(players.map(p => ({ id: p.id, name: p.name, age: p.age })));
+    })();
+  }, [dbHandle, playerClubId, pendingAnnouncedRetirementIds]);
 
   // Load next match opponent
   useEffect(() => {
@@ -202,6 +217,11 @@ export function HomeScreen() {
       if (result.retiringPlayerIds.length > 0) {
         setLastRetiredPlayerIds(result.retiringPlayerIds);
       }
+      if (result.newlyAnnouncedRetirementIds.length > 0) {
+        setPendingAnnouncedRetirementIds(result.newlyAnnouncedRetirementIds);
+      } else if (pendingAnnouncedRetirementIds.length > 0) {
+        setPendingAnnouncedRetirementIds([]);
+      }
     } catch (err) {
       // Surface the error to the console so it can be diagnosed; the week will
       // NOT advance so the user can try again next session.
@@ -279,6 +299,18 @@ export function HomeScreen() {
           <Text style={styles.commentText}>{pendingComment.text}</Text>
           <Text style={styles.commentDismiss}>Tap to dismiss</Text>
         </TouchableOpacity>
+      )}
+
+      {/* Retirement announcement alert */}
+      {announcedRetirees.length > 0 && (
+        <View style={styles.retirementAlert}>
+          <Text style={styles.retirementAlertTitle}>⚠️ Retirement Announcement</Text>
+          {announcedRetirees.map(p => (
+            <Text key={p.id} style={styles.retirementAlertItem}>
+              {p.name} ({p.age}) will retire at the end of this season
+            </Text>
+          ))}
+        </View>
       )}
 
       {/* Board objective widget */}
@@ -815,6 +847,28 @@ const styles = StyleSheet.create({
     fontSize: fontSize.xs,
     marginTop: spacing.xs,
     textAlign: 'right',
+  },
+  retirementAlert: {
+    backgroundColor: colors.surface,
+    borderRadius: 12,
+    padding: spacing.md,
+    marginHorizontal: spacing.md,
+    marginBottom: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.warning + '66',
+    borderLeftWidth: 4,
+    borderLeftColor: colors.warning,
+  },
+  retirementAlertTitle: {
+    color: colors.warning,
+    fontSize: fontSize.sm,
+    fontWeight: '700',
+    marginBottom: spacing.xs,
+  },
+  retirementAlertItem: {
+    color: colors.text,
+    fontSize: fontSize.sm,
+    marginTop: 2,
   },
   leagueTableBtn: {
     flexDirection: 'row',

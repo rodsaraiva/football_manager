@@ -49,6 +49,8 @@ export interface Player {
   isLoanListed: boolean;
   askingPrice: number | null;
   loanWageShare: number | null;
+  consecutiveLowMoraleWeeks: number;
+  willRetireAtSeasonEnd: boolean;
 }
 
 export interface PlayerStats {

@@ -1,5 +1,8 @@
 import { DbHandle } from '@/database/queries/players';
 import { getPlayersByClub, getPlayerById } from '@/database/queries/players';
+import { getAssistantsBySave } from '@/database/queries/assistants';
+import { maybeGenerateComment } from './assistant/comment-generator';
+import { AssistantComment } from '@/types/assistant';
 import { generateAiTransfer } from './transfer/transfer-ai';
 import { processPendingOffers } from './transfer/offer-processor';
 import { generateAiOffersForPlayerClub } from './transfer/ai-offer-generator';
@@ -118,6 +121,8 @@ export interface AdvanceWeekResult {
   newlyAnnouncedRetirementIds: number[];
   // Efetivamente aposentados nesta semana — só populado em isSeasonEnd.
   retiringPlayerIds: number[];
+  // Comentário espontâneo de assistente (null se nenhum ativou esta semana).
+  assistantComment: AssistantComment | null;
 }
 
 // Formation slot layout + helpers live in ./formations.ts
@@ -652,7 +657,47 @@ export async function advanceGameWeek(params: AdvanceWeekParams): Promise<Advanc
       income.tv + income.sponsor + (hasHomeMatch ? income.ticket : 0);
     const totalExpenses = expenses.wages + expenses.maintenance;
     updatedBudget = playerClub.budget + totalIncome - totalExpenses;
+
+    // Monthly assistant wages (every 4 weeks)
+    if (saveId >= 0 && week % 4 === 0) {
+      const assistants = await getAssistantsBySave(db, saveId);
+      let totalAssistantWages = 0;
+      for (const a of assistants) {
+        totalAssistantWages += a.wagePerMonth;
+      }
+      if (totalAssistantWages > 0) {
+        await addFinanceEntry(db, {
+          clubId: playerClubId,
+          season,
+          week,
+          type: 'assistant_wage',
+          amount: -totalAssistantWages,
+          description: 'Monthly assistant staff wages',
+        });
+        updatedBudget -= totalAssistantWages;
+      }
+    }
+
     await updateClubBudget(db, playerClubId, updatedBudget);
+  }
+
+  // 4b. Generate assistant comment (max 1 per week, 15% chance)
+  let assistantComment: AssistantComment | null = null;
+  if (saveId >= 0) {
+    const assistants = await getAssistantsBySave(db, saveId);
+    const commentRng = new SeededRng(saveId * season * (week + 1));
+    for (const assistant of assistants) {
+      const comment = maybeGenerateComment(assistant, {
+        leaguePosition: null,
+        totalTeams: 20,
+        week,
+        season,
+        budgetBalance: updatedBudget,
+        squadAvgAge: 26,
+        topYouthPotential: null,
+      }, commentRng);
+      if (comment) { assistantComment = comment; break; }
+    }
   }
 
   // 7b. Update low-morale streak para jogadores na janela etária, ainda não anunciados.
@@ -751,5 +796,6 @@ export async function advanceGameWeek(params: AdvanceWeekParams): Promise<Advanc
     updatedBudget,
     newlyAnnouncedRetirementIds,
     retiringPlayerIds,
+    assistantComment,
   };
 }

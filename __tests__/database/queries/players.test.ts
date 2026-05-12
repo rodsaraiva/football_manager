@@ -7,6 +7,7 @@ import {
   searchPlayers,
   updatePlayerMorale,
   getFreeAgents,
+  getPlayersAboutToRetire,
 } from '@/database/queries/players';
 
 describe('players queries', () => {
@@ -88,6 +89,87 @@ describe('players queries', () => {
 
       const after = await getPlayerById(db, 1);
       expect(after!.morale).toBe(newMorale);
+    });
+  });
+
+  describe('retirement fields in rowToPlayer', () => {
+    it('maps consecutiveLowMoraleWeeks from DB row', async () => {
+      rawDb.prepare(
+        `INSERT INTO players (id, name, nationality, age, position, club_id, wage,
+          contract_end, market_value, base_potential, effective_potential, morale, fitness,
+          injury_weeks_left, is_free_agent, consecutive_low_morale_weeks, will_retire_at_season_end)
+         VALUES (88881, 'Veteran A', 'English', 35, 'CM', 1, 5000, 2026, 500000, 65, 65, 40, 90, 0, 0, 3, 0)`,
+      ).run();
+      rawDb.prepare(
+        `INSERT INTO player_attributes (player_id, finishing, passing, crossing, dribbling, heading,
+          long_shots, free_kicks, vision, composure, decisions, positioning, aggression, leadership,
+          pace, stamina, strength, agility, jumping)
+         VALUES (88881, 60,60,55,60,60,55,45,60,65,65,65,55,50,70,65,65,70,60)`,
+      ).run();
+
+      const p = await getPlayerById(db, 88881);
+      expect(p).not.toBeNull();
+      expect(p!.consecutiveLowMoraleWeeks).toBe(3);
+      expect(p!.willRetireAtSeasonEnd).toBe(false);
+
+      rawDb.prepare('DELETE FROM player_attributes WHERE player_id = 88881').run();
+      rawDb.prepare('DELETE FROM players WHERE id = 88881').run();
+    });
+
+    it('maps willRetireAtSeasonEnd = true when flag is 1', async () => {
+      rawDb.prepare(
+        `INSERT INTO players (id, name, nationality, age, position, club_id, wage,
+          contract_end, market_value, base_potential, effective_potential, morale, fitness,
+          injury_weeks_left, is_free_agent, consecutive_low_morale_weeks, will_retire_at_season_end)
+         VALUES (88882, 'Veteran B', 'English', 37, 'ST', 1, 5000, 2026, 500000, 65, 65, 30, 90, 0, 0, 5, 1)`,
+      ).run();
+      rawDb.prepare(
+        `INSERT INTO player_attributes (player_id, finishing, passing, crossing, dribbling, heading,
+          long_shots, free_kicks, vision, composure, decisions, positioning, aggression, leadership,
+          pace, stamina, strength, agility, jumping)
+         VALUES (88882, 60,60,55,60,60,55,45,60,65,65,65,55,50,70,65,65,70,60)`,
+      ).run();
+
+      const p = await getPlayerById(db, 88882);
+      expect(p).not.toBeNull();
+      expect(p!.willRetireAtSeasonEnd).toBe(true);
+      expect(p!.consecutiveLowMoraleWeeks).toBe(5);
+
+      rawDb.prepare('DELETE FROM player_attributes WHERE player_id = 88882').run();
+      rawDb.prepare('DELETE FROM players WHERE id = 88882').run();
+    });
+  });
+
+  describe('getPlayersAboutToRetire', () => {
+    it('returns only players in given club with willRetireAtSeasonEnd = true', async () => {
+      rawDb.prepare(
+        `INSERT INTO players (id, name, nationality, age, position, club_id, wage,
+          contract_end, market_value, base_potential, effective_potential, morale, fitness,
+          injury_weeks_left, is_free_agent, consecutive_low_morale_weeks, will_retire_at_season_end)
+         VALUES (88883, 'Retiring Player', 'English', 36, 'LB', 1, 5000, 2026, 500000, 60, 60, 30, 90, 0, 0, 4, 1)`,
+      ).run();
+      rawDb.prepare(
+        `INSERT INTO player_attributes (player_id, finishing, passing, crossing, dribbling, heading,
+          long_shots, free_kicks, vision, composure, decisions, positioning, aggression, leadership,
+          pace, stamina, strength, agility, jumping)
+         VALUES (88883, 55,60,65,55,60,50,45,58,60,62,60,55,50,65,65,65,65,60)`,
+      ).run();
+
+      const retiring = await getPlayersAboutToRetire(db, 1);
+      expect(retiring.length).toBeGreaterThan(0);
+      for (const p of retiring) {
+        expect(p.willRetireAtSeasonEnd).toBe(true);
+        expect(p.clubId).toBe(1);
+      }
+      expect(retiring.some((p) => p.id === 88883)).toBe(true);
+
+      rawDb.prepare('DELETE FROM player_attributes WHERE player_id = 88883').run();
+      rawDb.prepare('DELETE FROM players WHERE id = 88883').run();
+    });
+
+    it('returns empty array when no player in club is retiring', async () => {
+      const retiring = await getPlayersAboutToRetire(db, 99999);
+      expect(retiring).toEqual([]);
     });
   });
 
