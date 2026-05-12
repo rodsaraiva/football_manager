@@ -10,6 +10,8 @@ export type RootStackParamList = {
   ClubStaff: undefined;
   ClubUpgrades: undefined;
   ClubBoard: undefined;
+  ClubAssistants: undefined;
+  ClubAssistantHiring: { role: import('@/types/assistant').AssistantRole };
   // Transfer sub-screens
   TransferMarket: undefined;
   OffersSent: undefined;

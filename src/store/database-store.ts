@@ -156,6 +156,26 @@ export const useDatabaseStore = create<DatabaseStore>((set) => ({
       // Board system (added post-initial-schema)
       await addColumnIfMissing(db, 'save_games', 'board_trust', 'INTEGER NOT NULL DEFAULT 50');
 
+      // Assistants system (added post-initial-schema)
+      await db.execAsync(`
+        CREATE TABLE IF NOT EXISTS assistants (
+          id                      INTEGER PRIMARY KEY AUTOINCREMENT,
+          club_id                 INTEGER NOT NULL,
+          save_id                 INTEGER NOT NULL,
+          role                    TEXT    NOT NULL,
+          name                    TEXT    NOT NULL,
+          age                     INTEGER NOT NULL,
+          archetype               TEXT    NOT NULL,
+          seasons_at_club         INTEGER NOT NULL DEFAULT 0,
+          retirement_age          INTEGER NOT NULL,
+          wage_per_month          INTEGER NOT NULL,
+          will_retire_next_season INTEGER NOT NULL DEFAULT 0,
+          UNIQUE(save_id, role)
+        );
+        CREATE INDEX IF NOT EXISTS idx_assistants_save ON assistants(save_id);
+        CREATE INDEX IF NOT EXISTS idx_assistants_club ON assistants(club_id);
+      `);
+
       // Seed if DB is missing data (check both countries and clubs to catch partial seeds)
       const countryCount = await db.getFirstAsync<{ cnt: number }>('SELECT COUNT(*) as cnt FROM countries');
       const clubCount = await db.getFirstAsync<{ cnt: number }>('SELECT COUNT(*) as cnt FROM clubs');

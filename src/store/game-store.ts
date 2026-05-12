@@ -3,6 +3,7 @@ import { SaveGame, Club, Player, Fixture, Competition } from '@/types';
 import { MatchResult } from '@/engine/simulation/match-engine';
 import { StandingsEntry } from '@/engine/competition/standings';
 import { useBoardStore } from '@/store/board-store';
+import { useAssistantStore } from '@/store/assistant-store';
 
 interface GameState {
   // Save
@@ -88,6 +89,7 @@ export const useGameStore = create<GameStore>((set) => ({
     }),
   loadSave: (save) => {
     useBoardStore.getState().reset();
+    useAssistantStore.getState().reset();
     set({
       currentSave: save,
       playerClubId: save.playerClubId,
@@ -103,6 +105,7 @@ export const useGameStore = create<GameStore>((set) => ({
   },
   clearGame: () => {
     useBoardStore.getState().reset();
+    useAssistantStore.getState().reset();
     set(initialState);
   },
   setAdvancing: (advancing) => set({ isAdvancing: advancing }),

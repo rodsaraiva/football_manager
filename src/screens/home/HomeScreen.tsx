@@ -15,6 +15,7 @@ import { colors, spacing, fontSize, commonStyles } from '@/theme';
 import { useGameStore } from '@/store/game-store';
 import { useDatabaseStore } from '@/store/database-store';
 import { useBoardStore } from '@/store/board-store';
+import { useAssistantStore } from '@/store/assistant-store';
 import { Fixture, Club, MatchEvent } from '@/types';
 import { RootStackParamList } from '@/navigation/types';
 import { SeededRng } from '@/engine/rng';
@@ -56,6 +57,7 @@ export function HomeScreen() {
 
   const { dbHandle } = useDatabaseStore();
   const { currentObjective, currentTrust } = useBoardStore();
+  const { pendingComment, setPendingComment, setLastCommentWeek } = useAssistantStore();
 
   const [nextOpponent, setNextOpponent] = useState<{ club: Club; isHome: boolean } | null>(null);
   const [showMatchModal, setShowMatchModal] = useState(false);
@@ -181,6 +183,10 @@ export function HomeScreen() {
 
       updateWeek(result.newSeason, result.newWeek);
       if (result.playerMatchResult) setLastMatchResult(result.playerMatchResult);
+      if (result.assistantComment) {
+        setPendingComment(result.assistantComment);
+        setLastCommentWeek(result.newWeek);
+      }
 
       // Reload club data
       const updatedClub = await getClubById(dbHandle, playerClubId);
@@ -216,6 +222,8 @@ export function HomeScreen() {
     setNewSeason,
     setPlayerClub,
     setRecentResults,
+    setPendingComment,
+    setLastCommentWeek,
   ]);
 
   const renderRecentResult = useCallback(
@@ -259,6 +267,19 @@ export function HomeScreen() {
           Season {season} — Week {week}
         </Text>
       </View>
+
+      {/* Assistant comment card */}
+      {pendingComment && (
+        <TouchableOpacity
+          style={styles.commentCard}
+          activeOpacity={0.8}
+          onPress={() => setPendingComment(null)}
+        >
+          <Text style={styles.commentAuthor}>{pendingComment.assistantName}</Text>
+          <Text style={styles.commentText}>{pendingComment.text}</Text>
+          <Text style={styles.commentDismiss}>Tap to dismiss</Text>
+        </TouchableOpacity>
+      )}
 
       {/* Board objective widget */}
       {currentObjective && (
@@ -765,6 +786,36 @@ const styles = StyleSheet.create({
   boardWidgetText: { color: colors.text, fontSize: fontSize.sm, marginTop: 2 },
   boardMiniBar: { flexDirection: 'row', gap: 3, marginTop: 4 },
   boardMiniSegment: { width: 12, height: 6, borderRadius: 2, backgroundColor: colors.border },
+  commentCard: {
+    backgroundColor: colors.surface,
+    borderRadius: 12,
+    padding: spacing.md,
+    marginHorizontal: spacing.md,
+    marginBottom: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.primaryLight,
+    borderLeftWidth: 4,
+    borderLeftColor: colors.primary,
+  },
+  commentAuthor: {
+    color: colors.primary,
+    fontSize: fontSize.xs,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+    marginBottom: spacing.xs,
+  },
+  commentText: {
+    color: colors.text,
+    fontSize: fontSize.sm,
+    lineHeight: 18,
+  },
+  commentDismiss: {
+    color: colors.textMuted,
+    fontSize: fontSize.xs,
+    marginTop: spacing.xs,
+    textAlign: 'right',
+  },
   leagueTableBtn: {
     flexDirection: 'row',
     alignItems: 'center',

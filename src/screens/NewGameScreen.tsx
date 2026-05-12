@@ -21,6 +21,10 @@ import { createFixture } from '@/database/queries/fixtures';
 import { generateSeasonCalendar } from '@/engine/competition/calendar';
 import { RootStackParamList } from '@/navigation/types';
 import { League, Club, Country, Difficulty } from '@/types';
+import { generateAssistant } from '@/engine/assistant/assistant-engine';
+import { insertAssistant } from '@/database/queries/assistants';
+import { SeededRng } from '@/engine/rng';
+import { AssistantRole } from '@/types/assistant';
 
 type NavProp = NativeStackNavigationProp<RootStackParamList, 'NewGame'>;
 
@@ -119,6 +123,14 @@ export function NewGameScreen() {
       });
 
       startNewGame(saveId, selectedClub.id, 1, 1);
+
+      // Generate 3 assistants (one per role) for this save
+      const assistantRoles: AssistantRole[] = ['squad', 'financial', 'youth'];
+      const assistantRng = new SeededRng(saveId * 13337);
+      for (const role of assistantRoles) {
+        const generated = generateAssistant({ role, clubId: selectedClub.id, saveId, rng: assistantRng });
+        await insertAssistant(dbHandle, generated);
+      }
 
       const club = await getClubById(dbHandle, selectedClub.id);
       if (club) setPlayerClub(club);

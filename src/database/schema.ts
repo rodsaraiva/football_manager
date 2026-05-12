@@ -25,6 +25,7 @@ export const TABLE_NAMES: string[] = [
   'club_reputation_history',
   'board_objectives',
   'board_trust_history',
+  'assistants',
 ];
 
 export const SCHEMA_SQL = `
@@ -334,11 +335,28 @@ CREATE TABLE IF NOT EXISTS board_trust_history (
   UNIQUE(club_id, season)
 );
 
-CREATE INDEX IF NOT EXISTS idx_awards_player       ON season_awards(player_id);
-CREATE INDEX IF NOT EXISTS idx_awards_season_comp  ON season_awards(season, competition_id);
-CREATE INDEX IF NOT EXISTS idx_results_season      ON season_competition_results(season);
-CREATE INDEX IF NOT EXISTS idx_relegated_season    ON season_relegated(season);
+CREATE TABLE IF NOT EXISTS assistants (
+  id                      INTEGER PRIMARY KEY AUTOINCREMENT,
+  club_id                 INTEGER NOT NULL REFERENCES clubs(id),
+  save_id                 INTEGER NOT NULL REFERENCES save_games(id),
+  role                    TEXT    NOT NULL CHECK(role IN ('squad','financial','youth')),
+  name                    TEXT    NOT NULL,
+  age                     INTEGER NOT NULL,
+  archetype               TEXT    NOT NULL,
+  seasons_at_club         INTEGER NOT NULL DEFAULT 0,
+  retirement_age          INTEGER NOT NULL,
+  wage_per_month          INTEGER NOT NULL,
+  will_retire_next_season INTEGER NOT NULL DEFAULT 0,
+  UNIQUE(save_id, role)
+);
+
+CREATE INDEX IF NOT EXISTS idx_awards_player        ON season_awards(player_id);
+CREATE INDEX IF NOT EXISTS idx_awards_season_comp   ON season_awards(season, competition_id);
+CREATE INDEX IF NOT EXISTS idx_results_season       ON season_competition_results(season);
+CREATE INDEX IF NOT EXISTS idx_relegated_season     ON season_relegated(season);
 CREATE INDEX IF NOT EXISTS idx_player_titles_player ON season_player_titles(player_id);
+CREATE INDEX IF NOT EXISTS idx_assistants_save      ON assistants(save_id);
+CREATE INDEX IF NOT EXISTS idx_assistants_club      ON assistants(club_id);
 `;
 
 export interface DbExec {

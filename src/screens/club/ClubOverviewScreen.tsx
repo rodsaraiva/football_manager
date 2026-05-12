@@ -174,6 +174,13 @@ export function ClubOverviewScreen() {
         accent={colors.primary}
         onPress={() => navigation.navigate('ClubBoard')}
       />
+      <HubCard
+        icon="🧠"
+        title="Assistants"
+        subtitle="Squad analyst, financial advisor & youth coach"
+        accent={colors.accent}
+        onPress={() => navigation.navigate('ClubAssistants')}
+      />
 
       {/* Trophy Cabinet */}
       <Text style={styles.sectionTitle}>TROPHY CABINET</Text>

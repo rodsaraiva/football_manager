@@ -44,6 +44,9 @@ import {
 } from '@/database/queries/board';
 import { useBoardStore } from '@/store/board-store';
 import { TrustConsequence, TrustOutcome } from '@/types/board';
+import { useAssistantStore } from '@/store/assistant-store';
+import { getAssistantsBySave, updateAssistantSeasonEnd, deleteAssistant } from '@/database/queries/assistants';
+import { processAssistantSeasonEnd } from '@/engine/assistant/assistant-engine';
 
 type NavProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -178,6 +181,7 @@ export function EndOfSeasonScreen() {
   const { season, playerClub, playerClubId, setNewSeason, updateWeek, currentSave } = useGameStore();
   const { dbHandle } = useDatabaseStore();
   const { setCurrentObjective, setCurrentTrust, setLastTrustResult, setReputationHistory } = useBoardStore();
+  const { setAssistants } = useAssistantStore();
 
   const [stats, setStats] = useState<SeasonStats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -333,6 +337,24 @@ export function EndOfSeasonScreen() {
       await dbHandle
         .prepare('UPDATE players SET age = age + 1 WHERE club_id IS NOT NULL OR is_free_agent = 1')
         .run();
+
+      // 1b. Process assistants: age++, seasons++, retire those who reached retirement age
+      if (currentSave) {
+        const assistants = await getAssistantsBySave(dbHandle, currentSave.id);
+        for (const assistant of assistants) {
+          const result = processAssistantSeasonEnd(assistant);
+          if (result.retired) {
+            await deleteAssistant(dbHandle, assistant.id);
+          } else {
+            await updateAssistantSeasonEnd(
+              dbHandle, assistant.id,
+              result.newAge, result.newSeasonsAtClub, result.willRetireNextSeason,
+            );
+          }
+        }
+        const updated = await getAssistantsBySave(dbHandle, currentSave.id);
+        setAssistants(updated);
+      }
 
       // 2. Contract expiry — mark players whose contract ended with this season as free agents.
       // Restrict to club_id IS NOT NULL so retired players (club_id=NULL, is_free_agent=0)

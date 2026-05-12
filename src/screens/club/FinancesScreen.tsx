@@ -43,6 +43,7 @@ const FINANCE_TYPE_LABELS: Record<FinanceType, string> = {
   maintenance: 'Maintenance',
   bonus: 'Bonus',
   upgrade: 'Facility Upgrade',
+  assistant_wage: 'Assistant Wages',
 };
 
 function typeIcon(type: FinanceType): string {
@@ -56,6 +57,7 @@ function typeIcon(type: FinanceType): string {
     case 'maintenance': return '🔧';
     case 'bonus': return '⭐';
     case 'upgrade': return '🏗';
+    case 'assistant_wage': return '🧠';
     default: return '💰';
   }
 }

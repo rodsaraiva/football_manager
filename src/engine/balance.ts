@@ -24,3 +24,15 @@ export const RETIREMENT_LOW_MORALE_STREAK_THRESHOLD = 3;
 export const RETIREMENT_ANNOUNCE_WINDOW_OPEN_OFFSET = 20;
 export const RETIREMENT_ANNOUNCE_WINDOW_CLOSE_OFFSET = 10;
 export const SEASON_END_WEEK = 46;
+
+// Assistants
+export const ASSISTANT_RETIREMENT_MIN_AGE = 60;
+export const ASSISTANT_RETIREMENT_MAX_AGE = 70;
+export const ASSISTANT_AGE_MIN = 35;
+export const ASSISTANT_AGE_MAX = 55;
+export const ASSISTANT_WAGE_MIN = 5_000;
+export const ASSISTANT_WAGE_MAX = 20_000;
+export const ASSISTANT_CANDIDATE_POOL_SIZE = 5;
+export const ASSISTANT_COMMENT_CHANCE_PER_WEEK = 0.15;
+// seasonsAtClub thresholds to reach each star level (index = star - 1)
+export const ASSISTANT_QUALITY_THRESHOLDS = [0, 2, 4, 7, 10] as const;
