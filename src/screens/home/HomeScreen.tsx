@@ -1,4 +1,4 @@
-import React, { useEffect, useCallback, useState } from 'react';
+import React, { useEffect, useCallback, useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -72,6 +72,8 @@ export function HomeScreen() {
   const [opponentFormation, setOpponentFormation] = useState('4-4-2');
   const [loadingOpponent, setLoadingOpponent] = useState(false);
 
+  const boardLoadedRef = useRef(false);
+
   // Load club data, reset stale fixtures, and load recent results on save load
   useEffect(() => {
     if (!dbHandle || !playerClubId) return;
@@ -140,6 +142,11 @@ export function HomeScreen() {
     })();
   }, [dbHandle, playerClubId, season, week]);
 
+  // Reset board-loaded flag when switching saves
+  useEffect(() => {
+    boardLoadedRef.current = false;
+  }, [currentSave?.id]);
+
   // Navigate to EndOfSeason when flag is set
   useEffect(() => {
     if (isNewSeason) {
@@ -168,9 +175,11 @@ export function HomeScreen() {
     })();
   }, [lastMatchResult, dbHandle]);
 
-  // Load board state from DB when store is empty (e.g. after resuming a save)
+  // Load board state from DB once per save load (guard: store empty + not yet loaded)
   useEffect(() => {
-    if (!dbHandle || !currentSave || !playerClubId || currentObjective !== null) return;
+    if (!dbHandle || !currentSave || !playerClubId) return;
+    if (boardLoadedRef.current || currentObjective !== null) return;
+    boardLoadedRef.current = true;
     (async () => {
       const [obj, trust, history] = await Promise.all([
         getBoardObjective(dbHandle, playerClubId, season),
