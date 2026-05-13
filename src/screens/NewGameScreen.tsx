@@ -25,6 +25,9 @@ import { generateAssistant } from '@/engine/assistant/assistant-engine';
 import { insertAssistant } from '@/database/queries/assistants';
 import { SeededRng } from '@/engine/rng';
 import { AssistantRole } from '@/types/assistant';
+import { generateObjective } from '@/engine/board/objective-generator';
+import { upsertBoardObjective } from '@/database/queries/board';
+import { useBoardStore } from '@/store/board-store';
 
 type NavProp = NativeStackNavigationProp<RootStackParamList, 'NewGame'>;
 
@@ -42,6 +45,7 @@ export function NewGameScreen() {
   const navigation = useNavigation<NavProp>();
   const { db, dbHandle, isReady } = useDatabaseStore();
   const { startNewGame, setPlayerClub } = useGameStore();
+  const { setCurrentObjective } = useBoardStore();
 
   const [step, setStep] = useState<Step>('league');
   const [leagues, setLeagues] = useState<League[]>([]);
@@ -123,6 +127,33 @@ export function NewGameScreen() {
       });
 
       startNewGame(saveId, selectedClub.id, 1, 1);
+
+      // Generate season-1 board objective
+      const boardRng = new SeededRng(saveId * 999);
+      const s1Objective = generateObjective({
+        clubReputation: selectedClub.reputation,
+        currentLeaguePosition: null,
+        totalTeams: selectedLeague?.numTeams ?? 16,
+        divisionLevel: selectedLeague?.divisionLevel ?? 1,
+        wasRelegated: false,
+        wasPromoted: false,
+        rng: boardRng,
+      });
+      await upsertBoardObjective(dbHandle, {
+        clubId: selectedClub.id,
+        season: 1,
+        type: s1Objective.type,
+        target: s1Objective.target,
+        description: s1Objective.description,
+      });
+      setCurrentObjective({
+        id: 0,
+        clubId: selectedClub.id,
+        season: 1,
+        type: s1Objective.type,
+        target: s1Objective.target,
+        description: s1Objective.description,
+      });
 
       // Generate 3 assistants (one per role) for this save
       const assistantRoles: AssistantRole[] = ['squad', 'financial', 'youth'];
