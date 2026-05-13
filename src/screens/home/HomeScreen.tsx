@@ -23,6 +23,7 @@ import { getFixturesByWeek, getFixturesByClub } from '@/database/queries/fixture
 import { getClubById } from '@/database/queries/clubs';
 import { getPlayerById, getPlayersByClub, getPlayersAboutToRetire } from '@/database/queries/players';
 import { getActiveTactic } from '@/database/queries/tactics';
+import { getBoardObjective, getSaveBoardTrust, getReputationHistory } from '@/database/queries/board';
 import { advanceGameWeek } from '@/engine/game-loop';
 import { ensureSeasonFixtures } from '@/engine/competition/calendar';
 import { FORMATION_ROWS } from '@/engine/formations';
@@ -58,7 +59,7 @@ export function HomeScreen() {
   } = useGameStore();
 
   const { dbHandle } = useDatabaseStore();
-  const { currentObjective, currentTrust } = useBoardStore();
+  const { currentObjective, currentTrust, setCurrentObjective, setCurrentTrust, setReputationHistory } = useBoardStore();
   const { pendingComment, setPendingComment, setLastCommentWeek } = useAssistantStore();
 
   const [announcedRetirees, setAnnouncedRetirees] = useState<Array<{ id: number; name: string; age: number }>>([]);
@@ -166,6 +167,21 @@ export function HomeScreen() {
       setShowMatchModal(true);
     })();
   }, [lastMatchResult, dbHandle]);
+
+  // Load board state from DB when store is empty (e.g. after resuming a save)
+  useEffect(() => {
+    if (!dbHandle || !currentSave || !playerClubId || currentObjective !== null) return;
+    (async () => {
+      const [obj, trust, history] = await Promise.all([
+        getBoardObjective(dbHandle, playerClubId, season),
+        getSaveBoardTrust(dbHandle, currentSave.id),
+        getReputationHistory(dbHandle, playerClubId),
+      ]);
+      if (obj) setCurrentObjective(obj);
+      setCurrentTrust(trust);
+      setReputationHistory(history);
+    })();
+  }, [dbHandle, currentSave, playerClubId, season, currentObjective, setCurrentObjective, setCurrentTrust, setReputationHistory]);
 
   const handleAdvanceWeek = useCallback(async () => {
     if (isAdvancing || !dbHandle || !playerClubId || !currentSave) return;
