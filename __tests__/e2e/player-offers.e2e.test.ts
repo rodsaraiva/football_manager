@@ -54,9 +54,18 @@ describe('E2E · player-initiated offers', () => {
 
     expect(getPlayerClub(ctx, target.id)).toBe(ctx.playerClubId);
 
+    // Assert the fee via the transfer ledger, not the absolute budget: stepWeek also
+    // applies weekly income/expenses (TV, sponsor, wages, maintenance), which would
+    // otherwise pollute a raw budget comparison.
     const fee = Math.round(target.market_value * 1.1);
-    expect(getClubBudget(ctx, ctx.playerClubId)).toBeLessThanOrEqual(buyerBudgetBefore - fee);
-    expect(getClubBudget(ctx, target.club_id)).toBeGreaterThanOrEqual(sellerBudgetBefore + fee);
+    const buyerPaid = (ctx.rawDb
+      .prepare("SELECT amount FROM club_finances WHERE club_id = ? AND type = 'transfer_out'")
+      .all(ctx.playerClubId) as Array<{ amount: number }>).map((r) => r.amount);
+    const sellerReceived = (ctx.rawDb
+      .prepare("SELECT amount FROM club_finances WHERE club_id = ? AND type = 'transfer_in'")
+      .all(target.club_id) as Array<{ amount: number }>).map((r) => r.amount);
+    expect(buyerPaid).toContain(-fee);
+    expect(sellerReceived).toContain(fee);
   });
 
   it('low-but-reasonable offer returns a counter', async () => {

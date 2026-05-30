@@ -33,7 +33,9 @@ function seedMinimalTransferDb(rawDb: Database.Database): void {
     )
     .run(1, 'League A', 1, 1, 20, 3, 3);
 
-  // Buyer club — reputation 60, budget 100M, only 1 GK (so ST is needed)
+  // Buyer club — reputation 80, budget 100M, one ST (Charlie) so ST is a needed position.
+  // The high reputation also blocks the SELLER from signing Charlie back (rep+10 rule below),
+  // so exactly ONE transfer is possible in this DB: buyer 100 signs Alice from seller 200.
   rawDb
     .prepare(
       `INSERT INTO clubs
@@ -42,9 +44,10 @@ function seedMinimalTransferDb(rawDb: Database.Database): void {
           primary_color, secondary_color)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
-    .run(100, 'Buyer FC', 'BUY', 1, 1, 60, 100_000_000, 5_000_000, 'Buyer Stadium', 30000, 3, 3, 3, '#fff', '#000');
+    .run(100, 'Buyer FC', 'BUY', 1, 1, 80, 100_000_000, 5_000_000, 'Buyer Stadium', 30000, 3, 3, 3, '#fff', '#000');
 
-  // Seller club — reputation 65 (buyer rep + 5 — within the +10 threshold)
+  // Seller club — reputation 65 (well under buyer's 80, so the buyer may sign from it; the
+  // reverse is blocked since Charlie's club rep 80 > seller rep 65 + 10).
   rawDb
     .prepare(
       `INSERT INTO clubs

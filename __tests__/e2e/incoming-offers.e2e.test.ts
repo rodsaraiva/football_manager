@@ -93,13 +93,27 @@ describe('E2E · AI-initiated offers for the player squad', () => {
     const offers = await waitForIncomingOffers();
     const pending = offers.filter((o) => o.status === 'pending');
     expect(pending.length).toBeGreaterThan(0);
-    const target = pending[0];
-
-    // Ask ~125% of market value (within 140% cap so AI should match)
-    const player = ctx.rawDb
-      .prepare('SELECT market_value FROM players WHERE id = ?')
-      .get(target.playerId) as { market_value: number };
-    const askFee = Math.round(player.market_value * 1.25);
+    // Counter at ~125% of market value (inside the AI's 140% accept cap). Pick an offer
+    // whose buyer can actually fund that ask — the AI re-evaluation rejects a counter it
+    // can't afford, so an arbitrary pending[0] makes this flaky on which AI club bid.
+    let target: (typeof pending)[number] | undefined;
+    let askFee = 0;
+    for (const o of pending) {
+      const { market_value } = ctx.rawDb
+        .prepare('SELECT market_value FROM players WHERE id = ?')
+        .get(o.playerId) as { market_value: number };
+      const fee = Math.round(market_value * 1.25);
+      const { budget } = ctx.rawDb
+        .prepare('SELECT budget FROM clubs WHERE id = ?')
+        .get(o.offeringClubId) as { budget: number };
+      if (budget >= fee) {
+        target = o;
+        askFee = fee;
+        break;
+      }
+    }
+    expect(target).toBeDefined();
+    if (!target) return;
 
     await counterIncomingOffer(ctx.db, target.id, askFee);
 
