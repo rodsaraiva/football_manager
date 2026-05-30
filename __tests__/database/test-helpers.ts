@@ -10,15 +10,37 @@ export function createTestDb(): Database.Database {
 }
 
 /**
+ * better-sqlite3 is a native addon shared across Jest's per-file VM realms, so the
+ * SqliteError it throws is bound to whichever test file loaded the addon first. In any
+ * OTHER realm `err instanceof Error` is false, which silently breaks `.rejects.toThrow()`
+ * (Jest reports "did not throw"). Re-throw as a local-realm Error so error assertions are
+ * reliable regardless of test execution order.
+ */
+function rethrowInLocalRealm(e: unknown): never {
+  if (e instanceof Error) throw e;
+  const message = (e as { message?: string })?.message ?? String(e);
+  const err = new Error(message);
+  const code = (e as { code?: string })?.code;
+  if (code) (err as { code?: string }).code = code;
+  throw err;
+}
+
+/**
  * Wraps a better-sqlite3 Database into a DbHandle whose .all()/.get()/.run()
  * return Promises, matching the async query-layer interface.
  */
 export function createTestDbHandle(db: Database.Database): DbHandle {
   return {
     prepare: (sql: string) => ({
-      all: async (...params: unknown[]) => db.prepare(sql).all(...params),
-      get: async (...params: unknown[]) => db.prepare(sql).get(...params),
-      run: async (...params: unknown[]) => db.prepare(sql).run(...params),
+      all: async (...params: unknown[]) => {
+        try { return db.prepare(sql).all(...params); } catch (e) { rethrowInLocalRealm(e); }
+      },
+      get: async (...params: unknown[]) => {
+        try { return db.prepare(sql).get(...params); } catch (e) { rethrowInLocalRealm(e); }
+      },
+      run: async (...params: unknown[]) => {
+        try { return db.prepare(sql).run(...params); } catch (e) { rethrowInLocalRealm(e); }
+      },
     }),
   };
 }
