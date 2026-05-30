@@ -12,6 +12,7 @@ import { colors, spacing, fontSize, commonStyles } from '@/theme';
 import { useGameStore } from '@/store/game-store';
 import { useDatabaseStore } from '@/store/database-store';
 import { getClubById } from '@/database/queries/clubs';
+import { DbHandle } from '@/database/queries/players';
 import { calculateUpgradeCost, FacilityType } from '@/engine/finance/finance-engine';
 import { applyUpgrade } from '@/engine/finance/upgrades';
 import { Club } from '@/types';
@@ -55,7 +56,7 @@ interface UpgradeCardProps {
   clubId: number;
   season: number;
   week: number;
-  dbHandle: NonNullable<ReturnType<typeof useDatabaseStore>['dbHandle']>;
+  dbHandle: DbHandle;
   onUpgradeComplete: () => void;
 }
 

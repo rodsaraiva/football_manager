@@ -650,11 +650,11 @@ export function TacticsScreen() {
                     <View style={styles.detailStatItem}><Text style={styles.detailStatVal}>{'★'.repeat(p.weakFootAbility)}{'☆'.repeat(5 - p.weakFootAbility)}</Text><Text style={styles.detailStatLabel}>Pé Ruim</Text></View>
                   </View>
                   <Text style={styles.detailSectionTitle}>Technical</Text>
-                  {techAttrs.map(attr => <StatBar key={attr.label} label={attr.label} value={attr.val} max={99} />)}
+                  {techAttrs.map(attr => <StatBar key={attr.label} label={attr.label} value={attr.val} />)}
                   <Text style={styles.detailSectionTitle}>Mental</Text>
-                  {mentalAttrs.map(attr => <StatBar key={attr.label} label={attr.label} value={attr.val} max={99} />)}
+                  {mentalAttrs.map(attr => <StatBar key={attr.label} label={attr.label} value={attr.val} />)}
                   <Text style={styles.detailSectionTitle}>Physical</Text>
-                  {physAttrs.map(attr => <StatBar key={attr.label} label={attr.label} value={attr.val} max={99} />)}
+                  {physAttrs.map(attr => <StatBar key={attr.label} label={attr.label} value={attr.val} />)}
                   {p.clubId === playerClubId && (
                     <>
                       <Text style={styles.detailSectionTitle}>Status de Transferência</Text>
