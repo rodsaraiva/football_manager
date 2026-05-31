@@ -326,8 +326,8 @@ export function NewGameScreen() {
               onPress={() => handleSelectProfile(p.id)}
               activeOpacity={0.8}
             >
-              <Text style={styles.leagueName}>{p.labelPt}</Text>
-              <Text style={styles.profileDesc}>{p.descriptionPt}</Text>
+              <Text style={styles.leagueName}>{t(`newgame.ambition_${p.id}_label`)}</Text>
+              <Text style={styles.profileDesc}>{t(`newgame.ambition_${p.id}_desc`)}</Text>
             </TouchableOpacity>
           ))}
           <TouchableOpacity style={styles.exploreLink} onPress={handleExploreManually} activeOpacity={0.7}>
@@ -365,7 +365,7 @@ export function NewGameScreen() {
   }
 
   if (step === 'suggestions') {
-    const profileLabel = AMBITION_PROFILES.find((p) => p.id === selectedProfile)?.labelPt ?? '';
+    const profileLabel = selectedProfile ? t(`newgame.ambition_${selectedProfile}_label`) : '';
     return (
       <View style={commonStyles.screen}>
         <TouchableOpacity style={styles.backButton} onPress={() => setStep('country')}>

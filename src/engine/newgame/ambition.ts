@@ -8,9 +8,6 @@ export interface ClubForAmbition {
 
 export interface AmbitionProfile {
   id: AmbitionProfileId;
-  labelPt: string;
-  labelEn: string;
-  descriptionPt: string;
   matches: (club: ClubForAmbition) => boolean;
 }
 
@@ -21,27 +18,9 @@ export const MAX_SUGGESTIONS = 5;
 const CONTINENTAL_MIN_REP = 78;
 
 export const AMBITION_PROFILES: AmbitionProfile[] = [
-  {
-    id: 'continental',
-    labelPt: 'Continental',
-    labelEn: 'Continental',
-    descriptionPt: 'Clubes de elite, candidatos à Champions.',
-    matches: (c) => c.divisionLevel === 1 && c.reputation >= CONTINENTAL_MIN_REP,
-  },
-  {
-    id: 'nacional',
-    labelPt: 'Nacional',
-    labelEn: 'National',
-    descriptionPt: 'Primeira divisão, brigando pelo título nacional.',
-    matches: (c) => c.divisionLevel === 1 && c.reputation < CONTINENTAL_MIN_REP,
-  },
-  {
-    id: 'acesso',
-    labelPt: 'Acesso',
-    labelEn: 'Promotion',
-    descriptionPt: 'Divisões inferiores lutando pela subida.',
-    matches: (c) => c.divisionLevel >= 2,
-  },
+  { id: 'continental', matches: (c) => c.divisionLevel === 1 && c.reputation >= CONTINENTAL_MIN_REP },
+  { id: 'nacional', matches: (c) => c.divisionLevel === 1 && c.reputation < CONTINENTAL_MIN_REP },
+  { id: 'acesso', matches: (c) => c.divisionLevel >= 2 },
 ];
 
 /**
