@@ -363,6 +363,17 @@ CREATE INDEX IF NOT EXISTS idx_relegated_season     ON season_relegated(season);
 CREATE INDEX IF NOT EXISTS idx_player_titles_player ON season_player_titles(player_id);
 CREATE INDEX IF NOT EXISTS idx_assistants_save      ON assistants(save_id);
 CREATE INDEX IF NOT EXISTS idx_assistants_club      ON assistants(club_id);
+
+CREATE INDEX IF NOT EXISTS idx_players_club           ON players(club_id);
+CREATE INDEX IF NOT EXISTS idx_fixtures_season_week   ON fixtures(season, week);
+CREATE INDEX IF NOT EXISTS idx_fixtures_home          ON fixtures(home_club_id);
+CREATE INDEX IF NOT EXISTS idx_fixtures_away          ON fixtures(away_club_id);
+CREATE INDEX IF NOT EXISTS idx_finances_club_season   ON club_finances(club_id, season);
+CREATE INDEX IF NOT EXISTS idx_match_events_fixture   ON match_events(fixture_id);
+CREATE INDEX IF NOT EXISTS idx_comp_entries_club      ON competition_entries(club_id);
+CREATE INDEX IF NOT EXISTS idx_player_stats_season    ON player_stats(season, competition_id);
+CREATE INDEX IF NOT EXISTS idx_transfer_offers_status ON transfer_offers(status);
+CREATE INDEX IF NOT EXISTS idx_transfer_offers_club   ON transfer_offers(offering_club_id);
 `;
 
 export interface DbExec {

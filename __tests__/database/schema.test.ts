@@ -66,4 +66,35 @@ describe('Database Schema', () => {
     createAllTables(db);
     expect(() => createAllTables(db)).not.toThrow();
   });
+
+  it('creates indexes on the hottest foreign keys', () => {
+    createAllTables(db);
+    const indexes = db
+      .prepare("SELECT name FROM sqlite_master WHERE type='index'")
+      .all() as { name: string }[];
+    const names = indexes.map((i) => i.name);
+    for (const expected of [
+      'idx_players_club',
+      'idx_fixtures_season_week',
+      'idx_fixtures_home',
+      'idx_fixtures_away',
+      'idx_finances_club_season',
+      'idx_match_events_fixture',
+      'idx_comp_entries_club',
+      'idx_player_stats_season',
+      'idx_transfer_offers_status',
+      'idx_transfer_offers_club',
+    ]) {
+      expect(names).toContain(expected);
+    }
+  });
+
+  it('uses idx_players_club for a club_id lookup (query plan)', () => {
+    createAllTables(db);
+    const plan = db
+      .prepare('EXPLAIN QUERY PLAN SELECT * FROM players WHERE club_id = ?')
+      .all(1) as { detail: string }[];
+    const usesIndex = plan.some((row) => /USING\b.*\bINDEX idx_players_club/.test(row.detail));
+    expect(usesIndex).toBe(true);
+  });
 });
