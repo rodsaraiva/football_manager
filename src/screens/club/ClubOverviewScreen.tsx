@@ -9,6 +9,7 @@ import { useDatabaseStore } from '@/store/database-store';
 import { getClubById } from '@/database/queries/clubs';
 import { Club } from '@/types';
 import { RootStackParamList } from '@/navigation/types';
+import { useTranslation } from '@/i18n';
 
 type NavProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -47,6 +48,7 @@ function HubCard({ icon, title, subtitle, onPress, accent }: HubCardProps) {
 }
 
 export function ClubOverviewScreen() {
+  const { t } = useTranslation();
   const { playerClubId, week } = useGameStore();
   const { dbHandle } = useDatabaseStore();
   const navigation = useNavigation<NavProp>();
@@ -82,7 +84,7 @@ export function ClubOverviewScreen() {
   if (!club) {
     return (
       <View style={[commonStyles.screen, styles.center]}>
-        <Text style={styles.emptyText}>Loading club data...</Text>
+        <Text style={styles.emptyText}>{t('club.loading')}</Text>
       </View>
     );
   }
@@ -95,106 +97,108 @@ export function ClubOverviewScreen() {
         <Text style={styles.clubShort}>{club.shortName}</Text>
         <View style={styles.headerStats}>
           <View style={styles.headerStat}>
-            <Text style={styles.headerStatLabel}>Budget</Text>
+            <Text style={styles.headerStatLabel}>{t('club.budget_label')}</Text>
             <Text style={styles.headerStatValue}>{formatCurrency(club.budget)}</Text>
           </View>
           <View style={styles.headerStatDivider} />
           <View style={styles.headerStat}>
-            <Text style={styles.headerStatLabel}>Reputation</Text>
+            <Text style={styles.headerStatLabel}>{t('club.reputation_label')}</Text>
             <Text style={styles.headerStatValue}>{club.reputation}/100</Text>
           </View>
         </View>
       </View>
 
       {/* Transfers section */}
-      <Text style={styles.sectionTitle}>TRANSFERS</Text>
+      <Text style={styles.sectionTitle}>{t('club.section_transfers')}</Text>
       <HubCard
         icon="🔄"
-        title="Transfer Market"
-        subtitle="Browse and bid for players"
+        title={t('club.transfer_market_title')}
+        subtitle={t('club.transfer_market_sub')}
         accent={colors.accent}
         onPress={() => navigation.navigate('TransferMarket')}
       />
       <HubCard
         icon="📤"
-        title="Offers Sent"
-        subtitle="Track your bids"
+        title={t('club.offers_sent_title')}
+        subtitle={t('club.offers_sent_sub')}
         accent={colors.primary}
         onPress={() => navigation.navigate('OffersSent')}
       />
       <HubCard
         icon="📥"
-        title="Offers Received"
-        subtitle="Bids for your players"
+        title={t('club.offers_received_title')}
+        subtitle={t('club.offers_received_sub')}
         accent={colors.warning}
         onPress={() => navigation.navigate('OffersReceived')}
       />
       <HubCard
         icon="🏷️"
-        title="My Listings"
-        subtitle="Liste seu plantel para venda ou empréstimo"
+        title={t('club.my_listings_title')}
+        subtitle={t('club.my_listings_sub')}
         accent={colors.warning}
         onPress={() => navigation.navigate('MyListings')}
       />
       <HubCard
         icon="🆓"
-        title="Free Agents"
-        subtitle="Sign unattached players"
+        title={t('club.free_agents_title')}
+        subtitle={t('club.free_agents_sub')}
         accent={colors.success}
         onPress={() => navigation.navigate('FreeAgents')}
       />
 
       {/* Management section */}
-      <Text style={styles.sectionTitle}>MANAGEMENT</Text>
+      <Text style={styles.sectionTitle}>{t('club.section_management')}</Text>
       <HubCard
         icon="💰"
-        title="Finances"
-        subtitle="Income & expenses"
+        title={t('club.finances_title')}
+        subtitle={t('club.finances_sub')}
         accent={colors.success}
         onPress={() => navigation.navigate('ClubFinances')}
       />
       <HubCard
         icon="👔"
-        title="Staff"
-        subtitle="Coaches & scouts"
+        title={t('club.staff_title')}
+        subtitle={t('club.staff_sub')}
         accent={colors.primaryLight}
         onPress={() => navigation.navigate('ClubStaff')}
       />
       <HubCard
         icon="🏗️"
-        title="Upgrades"
-        subtitle="Facilities & stadium"
+        title={t('club.upgrades_title')}
+        subtitle={t('club.upgrades_sub')}
         accent={colors.gold}
         onPress={() => navigation.navigate('ClubUpgrades')}
       />
       <HubCard
         icon="🏛️"
-        title="Board"
-        subtitle="Reputation, trust & objectives"
+        title={t('club.board_title')}
+        subtitle={t('club.board_sub')}
         accent={colors.primary}
         onPress={() => navigation.navigate('ClubBoard')}
       />
       <HubCard
         icon="🧠"
-        title="Assistants"
-        subtitle="Squad analyst, financial advisor & youth coach"
+        title={t('club.assistants_title')}
+        subtitle={t('club.assistants_sub')}
         accent={colors.accent}
         onPress={() => navigation.navigate('ClubAssistants')}
       />
 
       {/* Trophy Cabinet */}
-      <Text style={styles.sectionTitle}>TROPHY CABINET</Text>
+      <Text style={styles.sectionTitle}>{t('club.section_trophies')}</Text>
       <View style={styles.trophyCard}>
-        {trophies.length === 0 && <Text style={styles.empty}>No trophies yet.</Text>}
-        {trophies.map((t) => (
-          <View key={t.competitionId} style={styles.trophyRow}>
-            <Text style={styles.trophyComp}>{t.competitionName}</Text>
+        {trophies.length === 0 && <Text style={styles.empty}>{t('club.no_trophies')}</Text>}
+        {trophies.map((trophy) => (
+          <View key={trophy.competitionId} style={styles.trophyRow}>
+            <Text style={styles.trophyComp}>{trophy.competitionName}</Text>
             <Text style={styles.trophyCount}>
-              {t.titles} {t.titles === 1 ? 'title' : 'titles'}
-              {t.runnerUps > 0 ? ` · ${t.runnerUps} runner-up` : ''}
+              {trophy.titles === 1
+                ? t('club.trophy_title_one', { count: trophy.titles })
+                : t('club.trophy_title_other', { count: trophy.titles })}
+              {trophy.runnerUps > 0 ? t('club.trophy_runner_up', { count: trophy.runnerUps }) : ''}
             </Text>
-            {t.titleYears.length > 0 && (
-              <Text style={styles.trophyYears}>Years: {t.titleYears.join(', ')}</Text>
+            {trophy.titleYears.length > 0 && (
+              <Text style={styles.trophyYears}>{t('club.trophy_years', { years: trophy.titleYears.join(', ') })}</Text>
             )}
           </View>
         ))}
