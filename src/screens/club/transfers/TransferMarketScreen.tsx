@@ -9,6 +9,7 @@ import {
   View,
 } from 'react-native';
 import { colors, commonStyles, fontSize, spacing } from '@/theme';
+import { getPositionColor, getOverallColor } from '@/utils/player-colors';
 import { useGameStore } from '@/store/game-store';
 import { useDatabaseStore } from '@/store/database-store';
 import { searchPlayers, getPlayerById } from '@/database/queries/players';
@@ -32,21 +33,6 @@ function formatCurrency(value: number): string {
   if (value >= 1_000_000) return `$${(value / 1_000_000).toFixed(1)}M`;
   if (value >= 1_000) return `$${(value / 1_000).toFixed(0)}K`;
   return `$${value}`;
-}
-
-function getPositionColor(position: Position): string {
-  if (position === 'GK') return '#f4a261';
-  if (['CB', 'LB', 'RB'].includes(position)) return colors.primary;
-  if (['CDM', 'CM', 'CAM', 'LM', 'RM'].includes(position)) return colors.success;
-  return colors.accent;
-}
-
-function getOverallColor(overall: number): string {
-  if (overall >= 85) return '#00e676';
-  if (overall >= 75) return colors.success;
-  if (overall >= 60) return colors.warning;
-  if (overall >= 40) return '#ff9800';
-  return colors.danger;
 }
 
 export function TransferMarketScreen() {

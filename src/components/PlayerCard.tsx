@@ -1,6 +1,7 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { colors, commonStyles, fontSize, spacing } from '@/theme';
+import { colors, commonStyles, fontSize, radius, spacing } from '@/theme';
+import { getPositionColor, getOverallColor } from '@/utils/player-colors';
 import { Position } from '@/types/player';
 
 interface PlayerCardProps {
@@ -11,28 +12,6 @@ interface PlayerCardProps {
   morale?: number;
   fitness?: number;
   onPress?: () => void;
-}
-
-function getPositionColor(position: Position): string {
-  if (position === 'GK') return '#f4a261';
-  if (position === 'CB' || position === 'LB' || position === 'RB') return colors.primary;
-  if (
-    position === 'CDM' ||
-    position === 'CM' ||
-    position === 'CAM' ||
-    position === 'LM' ||
-    position === 'RM'
-  )
-    return colors.success;
-  return colors.accent; // LW, RW, ST
-}
-
-function getOverallColor(overall: number): string {
-  if (overall >= 85) return '#00e676';
-  if (overall >= 75) return colors.success;
-  if (overall >= 60) return colors.warning;
-  if (overall >= 40) return '#ff9800';
-  return colors.danger;
 }
 
 export default function PlayerCard({
@@ -94,12 +73,12 @@ const styles = StyleSheet.create({
   age: {
     color: colors.textSecondary,
     fontSize: fontSize.sm,
-    marginTop: 2,
+    marginTop: spacing.xxs,
   },
   overallBadge: {
     width: 40,
     height: 40,
-    borderRadius: 20,
+    borderRadius: radius.pill,
     borderWidth: 2,
     justifyContent: 'center',
     alignItems: 'center',

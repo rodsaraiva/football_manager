@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { colors, fontSize, spacing, commonStyles } from '@/theme';
+import { getPositionColor, getOverallColor } from '@/utils/player-colors';
 import { useGameStore } from '@/store/game-store';
 import { useDatabaseStore } from '@/store/database-store';
 import { getFreeAgents, getPlayerById } from '@/database/queries/players';
@@ -42,20 +43,6 @@ function formatMoney(n: number): string {
 function parseNumber(input: string): number {
   const cleaned = input.replace(/[^0-9]/g, '');
   return cleaned === '' ? 0 : parseInt(cleaned, 10);
-}
-
-function positionColor(p: Position): string {
-  if (p === 'GK') return '#f4a261';
-  if (['CB', 'LB', 'RB'].includes(p)) return colors.primary;
-  if (['CDM', 'CM', 'CAM', 'LM', 'RM'].includes(p)) return colors.success;
-  return colors.accent;
-}
-
-function overallColor(ovr: number): string {
-  if (ovr >= 85) return '#00e676';
-  if (ovr >= 75) return colors.success;
-  if (ovr >= 60) return colors.warning;
-  return colors.danger;
 }
 
 export function FreeAgentsScreen() {
@@ -195,8 +182,8 @@ export function FreeAgentsScreen() {
           data={filtered}
           keyExtractor={(item) => String(item.id)}
           renderItem={({ item }) => {
-            const pColor = positionColor(item.position);
-            const oColor = overallColor(item.overall);
+            const pColor = getPositionColor(item.position);
+            const oColor = getOverallColor(item.overall);
             const expected = freeAgentExpectedWage(item.overall);
             return (
               <View style={styles.playerRow}>

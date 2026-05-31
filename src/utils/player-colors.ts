@@ -1,17 +1,23 @@
-import { colors } from '@/theme';
+import { colors } from '@/theme/tokens';
 import { Position } from '@/types';
 
+// Single home for player position/rating colors (was duplicated in 4 screens,
+// one with a drifted >=40 tier). Imports the RN-free tokens so it stays testable.
+
 export function getPositionColor(position: Position | string): string {
-  if (position === 'GK') return '#f4a261';
-  if (['CB', 'LB', 'RB'].includes(position)) return colors.primary;
-  if (['CDM', 'CM', 'CAM', 'LM', 'RM'].includes(position)) return colors.success;
-  return colors.accent;
+  if (position === 'GK') return colors.positionGK;
+  if (['CB', 'LB', 'RB'].includes(position)) return colors.positionDef;
+  if (['CDM', 'CM', 'CAM', 'LM', 'RM'].includes(position)) return colors.positionMid;
+  return colors.positionAtk; // LW, RW, ST
 }
 
 export function getOverallColor(overall: number): string {
-  if (overall >= 85) return '#00e676';
-  if (overall >= 75) return colors.success;
-  if (overall >= 60) return colors.warning;
-  if (overall >= 40) return '#ff9800';
-  return colors.danger;
+  if (overall >= 85) return colors.ratingElite;
+  if (overall >= 75) return colors.ratingGood;
+  if (overall >= 60) return colors.ratingAverage;
+  if (overall >= 40) return colors.ratingPoor;
+  return colors.ratingBad;
 }
+
+// Stat bars use the same ramp as overall — aliased so they can never drift apart.
+export const getBarColor = getOverallColor;

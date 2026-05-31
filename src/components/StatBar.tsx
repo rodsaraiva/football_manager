@@ -1,19 +1,12 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { colors, fontSize, spacing } from '@/theme';
+import { colors, fontSize, radius, spacing } from '@/theme';
+import { getBarColor } from '@/utils/player-colors';
 
 interface StatBarProps {
   label: string;
   value: number;
   maxValue?: number;
-}
-
-function getBarColor(value: number): string {
-  if (value >= 85) return '#00e676';
-  if (value >= 75) return colors.success;
-  if (value >= 60) return colors.warning;
-  if (value >= 40) return '#ff9800';
-  return colors.danger;
 }
 
 export default function StatBar({ label, value, maxValue = 99 }: StatBarProps) {
@@ -47,13 +40,13 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 6,
     backgroundColor: colors.border,
-    borderRadius: 3,
+    borderRadius: radius.sm,
     overflow: 'hidden',
     marginHorizontal: spacing.sm,
   },
   barFill: {
     height: '100%',
-    borderRadius: 3,
+    borderRadius: radius.sm,
   },
   value: {
     fontSize: fontSize.sm,
