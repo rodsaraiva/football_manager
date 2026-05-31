@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useTranslation } from '@/i18n';
 import { colors, spacing, fontSize, commonStyles } from '@/theme';
 import { useDatabaseStore } from '@/store/database-store';
 import { useGameStore } from '@/store/game-store';
@@ -44,6 +45,7 @@ const COUNTRY_FLAGS: Record<string, string> = {
 
 export function NewGameScreen() {
   const navigation = useNavigation<NavProp>();
+  const { t } = useTranslation();
   const { db, dbHandle, isReady } = useDatabaseStore();
   const { startNewGame, setPlayerClub } = useGameStore();
   const { setCurrentObjective } = useBoardStore();
@@ -281,7 +283,7 @@ export function NewGameScreen() {
 
       navigation.navigate('Game');
     } catch (err) {
-      Alert.alert('Error', (err as Error).message);
+      Alert.alert(t('newgame.error'), (err as Error).message);
     } finally {
       setStarting(false);
     }
@@ -306,7 +308,7 @@ export function NewGameScreen() {
     return (
       <View style={[commonStyles.screen, styles.centered]}>
         <ActivityIndicator color={colors.primary} size="large" />
-        <Text style={styles.loadingText}>Loading...</Text>
+        <Text style={styles.loadingText}>{t('newgame.loading')}</Text>
       </View>
     );
   }
@@ -314,8 +316,8 @@ export function NewGameScreen() {
   if (step === 'ambition') {
     return (
       <View style={commonStyles.screen}>
-        <Text style={styles.stepTitle}>Qual sua ambição?</Text>
-        <Text style={styles.stepSubtitle}>Escolha um perfil — ele guia as sugestões de clube</Text>
+        <Text style={styles.stepTitle}>{t('newgame.ambition_title')}</Text>
+        <Text style={styles.stepSubtitle}>{t('newgame.ambition_subtitle')}</Text>
         <ScrollView contentContainerStyle={styles.listContent}>
           {AMBITION_PROFILES.map((p) => (
             <TouchableOpacity
@@ -329,7 +331,7 @@ export function NewGameScreen() {
             </TouchableOpacity>
           ))}
           <TouchableOpacity style={styles.exploreLink} onPress={handleExploreManually} activeOpacity={0.7}>
-            <Text style={styles.exploreLinkText}>Explorar todas as ligas →</Text>
+            <Text style={styles.exploreLinkText}>{t('newgame.explore_leagues')}</Text>
           </TouchableOpacity>
         </ScrollView>
       </View>
@@ -341,9 +343,9 @@ export function NewGameScreen() {
     return (
       <View style={commonStyles.screen}>
         <TouchableOpacity style={styles.backButton} onPress={() => setStep('ambition')}>
-          <Text style={styles.backButtonText}>← Back</Text>
+          <Text style={styles.backButtonText}>{'← ' + t('common.back')}</Text>
         </TouchableOpacity>
-        <Text style={styles.stepTitle}>Escolha o país</Text>
+        <Text style={styles.stepTitle}>{t('newgame.country_title')}</Text>
         <ScrollView contentContainerStyle={styles.listContent}>
           {countriesWithLeagues.map((country) => (
             <TouchableOpacity
@@ -367,15 +369,15 @@ export function NewGameScreen() {
     return (
       <View style={commonStyles.screen}>
         <TouchableOpacity style={styles.backButton} onPress={() => setStep('country')}>
-          <Text style={styles.backButtonText}>← Back</Text>
+          <Text style={styles.backButtonText}>{'← ' + t('common.back')}</Text>
         </TouchableOpacity>
-        <Text style={styles.stepTitle}>Clubes sugeridos</Text>
+        <Text style={styles.stepTitle}>{t('newgame.suggestions_title')}</Text>
         <Text style={styles.stepSubtitle}>{profileLabel}</Text>
         <FlatList
           data={suggestions}
           keyExtractor={(item) => String(item.id)}
           contentContainerStyle={styles.listContent}
-          ListEmptyComponent={<Text style={styles.emptyText}>Nenhum clube neste perfil.</Text>}
+          ListEmptyComponent={<Text style={styles.emptyText}>{t('newgame.suggestions_empty')}</Text>}
           renderItem={({ item }) => renderClubCard(item, () => handleSelectSuggestedClub(item))}
         />
       </View>
@@ -400,11 +402,11 @@ export function NewGameScreen() {
 
     return (
       <View style={commonStyles.screen}>
-        <Text style={styles.stepTitle}>Select League</Text>
-        <Text style={styles.stepSubtitle}>Choose the league you want to manage in</Text>
+        <Text style={styles.stepTitle}>{t('newgame.league_title')}</Text>
+        <Text style={styles.stepSubtitle}>{t('newgame.league_subtitle')}</Text>
         {countriesWithLeagues.length === 0 ? (
           <View style={styles.centered}>
-            <Text style={styles.emptyText}>No leagues available. Database may need seeding.</Text>
+            <Text style={styles.emptyText}>{t('newgame.league_empty')}</Text>
           </View>
         ) : (
           <ScrollView contentContainerStyle={styles.listContent}>
@@ -421,7 +423,7 @@ export function NewGameScreen() {
                   >
                     <Text style={styles.accordionFlag}>{flag}</Text>
                     <Text style={styles.accordionCountryName}>{country.name}</Text>
-                    <Text style={styles.accordionMeta}>{countryLeagues.length} league{countryLeagues.length !== 1 ? 's' : ''}</Text>
+                    <Text style={styles.accordionMeta}>{t('newgame.league_count', { count: countryLeagues.length })}</Text>
                     <Text style={styles.accordionChevron}>{isExpanded ? '▲' : '▼'}</Text>
                   </TouchableOpacity>
                   {isExpanded && countryLeagues.map((league) => (
@@ -432,7 +434,7 @@ export function NewGameScreen() {
                       activeOpacity={0.8}
                     >
                       <Text style={styles.leagueName}>{league.name}</Text>
-                      <Text style={styles.leagueMeta}>Division {league.divisionLevel} · {league.numTeams} teams</Text>
+                      <Text style={styles.leagueMeta}>{t('newgame.division_teams', { division: league.divisionLevel, teams: league.numTeams })}</Text>
                     </TouchableOpacity>
                   ))}
                 </View>
@@ -448,10 +450,10 @@ export function NewGameScreen() {
     return (
       <View style={commonStyles.screen}>
         <TouchableOpacity style={styles.backButton} onPress={() => setStep('league')}>
-          <Text style={styles.backButtonText}>← Back</Text>
+          <Text style={styles.backButtonText}>{'← ' + t('common.back')}</Text>
         </TouchableOpacity>
         <Text style={styles.stepTitle}>{selectedLeague?.name}</Text>
-        <Text style={styles.stepSubtitle}>Select your club</Text>
+        <Text style={styles.stepSubtitle}>{t('newgame.team_subtitle')}</Text>
         <FlatList
           data={clubs}
           keyExtractor={(item) => String(item.id)}
@@ -472,18 +474,18 @@ export function NewGameScreen() {
         style={styles.backButton}
         onPress={() => setStep(selectedProfile ? 'suggestions' : 'team')}
       >
-        <Text style={styles.backButtonText}>← Back</Text>
+        <Text style={styles.backButtonText}>{'← ' + t('common.back')}</Text>
       </TouchableOpacity>
-      <Text style={styles.stepTitle}>Confirm Selection</Text>
+      <Text style={styles.stepTitle}>{t('newgame.confirm_title')}</Text>
 
       <View style={styles.confirmCard}>
-        <Text style={styles.confirmLabel}>CLUB</Text>
+        <Text style={styles.confirmLabel}>{t('newgame.confirm_club_label')}</Text>
         <Text style={styles.confirmValue}>{selectedClub?.name}</Text>
         <Text style={styles.confirmMeta}>{selectedLeague?.name}</Text>
       </View>
 
       <View style={styles.confirmCard}>
-        <Text style={styles.confirmLabel}>DIFFICULTY</Text>
+        <Text style={styles.confirmLabel}>{t('newgame.confirm_difficulty_label')}</Text>
         <View style={styles.difficultyRow}>
           {(['easy', 'normal', 'hard'] as Difficulty[]).map((d) => (
             <TouchableOpacity
@@ -498,7 +500,7 @@ export function NewGameScreen() {
                   difficulty === d && styles.difficultyButtonTextActive,
                 ]}
               >
-                {d.charAt(0).toUpperCase() + d.slice(1)}
+                {t(`newgame.difficulty_${d}`)}
               </Text>
             </TouchableOpacity>
           ))}
@@ -514,7 +516,7 @@ export function NewGameScreen() {
         {starting ? (
           <ActivityIndicator color={colors.text} />
         ) : (
-          <Text style={styles.startButtonText}>START GAME</Text>
+          <Text style={styles.startButtonText}>{t('newgame.start_game')}</Text>
         )}
       </TouchableOpacity>
     </View>
