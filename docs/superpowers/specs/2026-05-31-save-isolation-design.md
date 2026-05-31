@@ -7,6 +7,8 @@
 
 **Goal:** Tornar cada save um mundo independente — criar/jogar o save B nunca toca o save A — adicionando `save_id` a toda tabela de mundo, escopando toda query por `save_id`, e seedando um mundo novo por save.
 
+> **Decisão do usuário (2026-05-31): DBs legados → RESET.** Quando o app abrir um DB legado (mundo global sem `save_id`), recriar o DB do zero via bump de `SCHEMA_VERSION` (drop + recria). **Não** adotar o mundo global no save existente. Isso elimina deste épico todo o caminho de "adoção do save único" e o rebuild de UNIQUE em tabela populada — as `open_questions` #1 e #2 ficam resolvidas; a #3 (`SAVE_ID_STRIDE=1e8`) foi confirmada. Ajustar o plano: a Task de migração legada vira "detectar versão antiga → dropar tabelas de mundo → recriar com schema novo".
+
 ---
 
 ## 1. Problema / Estado atual

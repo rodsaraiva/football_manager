@@ -9,7 +9,9 @@
 
 ## 1. Goal
 
-Fazer minutos, desempenho, foco de treino, comissão técnica e moral **realmente importarem**: alimentar `calculateWeeklyProgression`/`recalculatePotential` com dados reais por jogador, conectar `getStaffEffects` aos resultados, persistir o foco de treino, e mover moral por resultados/banco/transferências expondo uma superfície mínima de gestão (team talk / elogiar-criticar).
+Fazer minutos, desempenho, foco de treino, comissão técnica e moral **realmente importarem**: alimentar `calculateWeeklyProgression`/`recalculatePotential` com dados reais por jogador, conectar `getStaffEffects` aos resultados, persistir o foco de treino, e mover moral por resultados/banco/transferências.
+
+> **Decisão do usuário (2026-05-31): superfície de moral adiada.** Este épico entrega **apenas moral dinâmica** — resultados/banco/transferências chamam `updatePlayerMorale`. A UI de gestão de moral (team talk / elogiar-criticar) sai do escopo e vira o **pilar P2** em [`product-pillars-roadmap`](../plans/2026-05-31-product-pillars-roadmap.md). Remover do plano qualquer task de UI de conversa; manter as tasks de moral dinâmica no engine.
 
 ---
 

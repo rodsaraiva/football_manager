@@ -98,14 +98,12 @@ Ordem de merge importa (vários épicos editam `schema.ts`). **Regra:** `db-hard
 
 ---
 
-## ⚠️ Decisões de produto pendentes (precisam de você)
+## ✅ Decisões de produto (resolvidas 2026-05-31)
 
-Coletadas das `open_questions` dos specs — vale decidir antes de executar as ondas correspondentes:
-
-1. **Migração de DBs legados (save-isolation):** o spec adota o mundo global no único save existente quando há exatamente 1 save, e deixa `save_id` NULL (não-migrável) quando há 0 ou ≥2 saves. Alternativa: forçar DB novo / reset de dados. **Confirmar comportamento.**
-2. **`SEASON_END_WEEK` 46→58 (competitions-real):** estende a temporada para caber a fase de mata-mata pós-liga. Afeta ritmo do jogo. **OK aumentar?**
-3. **`SAVE_ID_STRIDE = 1e8` (save-isolation):** espaço de IDs por save (todos os clubes/jogadores/fixtures de todas as temporadas) deve caber sob o stride. **Confirmar folga.**
-4. **Superfície de moral (progression-wired):** moral dinâmica é obrigatória; uma UI de "conversa/elogiar-criticar" é opcional nesta fase. **Incluir agora ou adiar para pilar de produto?**
+1. **Migração de DBs legados (save-isolation):** **RESET.** Ao detectar um DB legado (mundo global sem `save_id`), fazer reset/recriar o DB do zero — não adotar o mundo no save existente. Simplifica save-isolation (remove o caminho de adoção/UNIQUE-rebuild legado): basta um `SCHEMA_VERSION` bump que dropa e recria.
+2. **`SEASON_END_WEEK` 46→58 (competitions-real):** **OK** — pode estender a temporada para caber o mata-mata pós-liga.
+3. **`SAVE_ID_STRIDE = 1e8` (save-isolation):** **OK** — confirmado.
+4. **Superfície de moral (progression-wired):** **adiada para o pilar P2** ([product-pillars](./2026-05-31-product-pillars-roadmap.md)). `progression-wired` entrega **apenas moral dinâmica** (resultados/banco/transferências chamam `updatePlayerMorale`); a UI de conversa/elogiar-criticar fica no P2.
 
 ---
 
