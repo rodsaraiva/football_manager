@@ -27,26 +27,23 @@ import { calculateOverall } from '@/utils/overall';
 import { Formation, Tactic, AttackFocus, SubstitutionStrategy } from '@/types';
 import { Player, PlayerAttributes, Position } from '@/types';
 import { FORMATION_ROWS } from '@/engine/formations';
+import { useTranslation } from '@/i18n';
 
-const ATTACK_FOCUS_OPTIONS: { value: AttackFocus; label: string }[] = [
-  { value: 'balanced', label: 'Balanced' },
-  { value: 'through_middle', label: 'Through the middle' },
-  { value: 'down_the_flanks', label: 'Down the flanks' },
-  { value: 'counter_attack', label: 'Counter-attack' },
-  { value: 'possession', label: 'Possession' },
+const ATTACK_FOCUS_VALUES: AttackFocus[] = [
+  'balanced',
+  'through_middle',
+  'down_the_flanks',
+  'counter_attack',
+  'possession',
 ];
 
-const SUB_STRATEGY_OPTIONS: { value: SubstitutionStrategy; label: string }[] = [
-  { value: 'balanced', label: 'Balanced' },
-  { value: 'minimal', label: 'Minimal (injuries only)' },
-  { value: 'heavy_rotation', label: 'Heavy rotation' },
-  { value: 'youth_chances', label: 'Youth chances' },
-  { value: 'chase_the_game', label: 'Chase the game' },
+const SUB_STRATEGY_VALUES: SubstitutionStrategy[] = [
+  'balanced',
+  'minimal',
+  'heavy_rotation',
+  'youth_chances',
+  'chase_the_game',
 ];
-
-function labelFor<T extends string>(opts: { value: T; label: string }[], v: T): string {
-  return opts.find((o) => o.value === v)?.label ?? v;
-}
 
 type PlayerWithOvr = Player & { attributes: PlayerAttributes; overall: number };
 
@@ -139,6 +136,7 @@ type SelectedPlayer = {
 } | null;
 
 export function TacticsScreen() {
+  const { t } = useTranslation();
   const playerClubId = useGameStore((s) => s.playerClubId);
   const dbHandle = useDatabaseStore((s) => s.dbHandle);
 
@@ -296,8 +294,8 @@ export function TacticsScreen() {
   const tacticRef = useRef(tactic);
   useEffect(() => { tacticRef.current = tactic; }, [tactic]);
   useEffect(() => {
-    const t = tacticRef.current;
-    if (!dbHandle || !t || lineup === null) return;
+    const tacticVal = tacticRef.current;
+    if (!dbHandle || !tacticVal || lineup === null) return;
     const starterIds: number[] = [];
     for (const row of lineup) for (const s of row) if (s.player) starterIds.push(s.player.id);
     // Guard: only persist if lineup is complete (11 starters). A partial lineup
@@ -305,8 +303,8 @@ export function TacticsScreen() {
     // not overwrite a previously-complete lineup with an incomplete one, and must
     // not feed the engine a squad smaller than required.
     if (starterIds.length < 11) return;
-    const benchIds = bench.map(p => p.id);
-    setTacticLineup(dbHandle, t.id, starterIds, benchIds).catch(() => {});
+    const benchIdList = bench.map(p => p.id);
+    setTacticLineup(dbHandle, tacticVal.id, starterIds, benchIdList).catch(() => {});
   }, [lineup, bench, dbHandle]);
 
   // ─── Handlers ──────────────────────────────────────────────────────────────
@@ -441,6 +439,29 @@ export function TacticsScreen() {
     setupDrop(el, key);
   }, [setupDrag, setupDrop]);
 
+  // ─── i18n helpers ──────────────────────────────────────────────────────────
+  const attackFocusLabel = useCallback((value: AttackFocus): string => {
+    const keyMap: Record<AttackFocus, Parameters<typeof t>[0]> = {
+      balanced: 'tactics.attack_focus_balanced',
+      through_middle: 'tactics.attack_focus_through_middle',
+      down_the_flanks: 'tactics.attack_focus_down_the_flanks',
+      counter_attack: 'tactics.attack_focus_counter_attack',
+      possession: 'tactics.attack_focus_possession',
+    };
+    return t(keyMap[value]);
+  }, [t]);
+
+  const subStrategyLabel = useCallback((value: SubstitutionStrategy): string => {
+    const keyMap: Record<SubstitutionStrategy, Parameters<typeof t>[0]> = {
+      balanced: 'tactics.sub_strategy_balanced',
+      minimal: 'tactics.sub_strategy_minimal',
+      heavy_rotation: 'tactics.sub_strategy_heavy_rotation',
+      youth_chances: 'tactics.sub_strategy_youth_chances',
+      chase_the_game: 'tactics.sub_strategy_chase_the_game',
+    };
+    return t(keyMap[value]);
+  }, [t]);
+
   // ─── Render ────────────────────────────────────────────────────────────────
   if (loading) {
     return (
@@ -455,7 +476,7 @@ export function TacticsScreen() {
       {/* Top bar: formation + team orientation dropdowns */}
       <View style={styles.topBar}>
         <View style={{ zIndex: 1003 }}>
-          <Text style={styles.topBarLabel}>Formation</Text>
+          <Text style={styles.topBarLabel}>{t('tactics.formation_label')}</Text>
           <Pressable style={styles.dropdownBtn} onPress={() => {
             setShowFormationDropdown(v => !v);
             setShowAttackFocusDropdown(false);
@@ -479,25 +500,27 @@ export function TacticsScreen() {
         </View>
 
         <View style={{ flex: 1, zIndex: 1002 }}>
-          <Text style={styles.topBarLabel}>Attack focus</Text>
+          <Text style={styles.topBarLabel}>{t('tactics.attack_focus_label')}</Text>
           <Pressable style={styles.dropdownBtn} onPress={() => {
             setShowAttackFocusDropdown(v => !v);
             setShowFormationDropdown(false);
             setShowSubStrategyDropdown(false);
           }}>
             <Text style={styles.dropdownBtnText} numberOfLines={1}>
-              {labelFor(ATTACK_FOCUS_OPTIONS, attackFocus)} ▾
+              {attackFocusLabel(attackFocus)} ▾
             </Text>
           </Pressable>
           {showAttackFocusDropdown && (
             <View style={styles.dropdownListWide}>
-              {ATTACK_FOCUS_OPTIONS.map(opt => (
+              {ATTACK_FOCUS_VALUES.map(value => (
                 <Pressable
-                  key={opt.value}
-                  style={[styles.dropdownItem, opt.value === attackFocus && styles.dropdownItemActive]}
-                  onPress={() => handleAttackFocusChange(opt.value)}
+                  key={value}
+                  style={[styles.dropdownItem, value === attackFocus && styles.dropdownItemActive]}
+                  onPress={() => handleAttackFocusChange(value)}
                 >
-                  <Text style={[styles.dropdownItemText, opt.value === attackFocus && styles.dropdownItemTextActive]}>{opt.label}</Text>
+                  <Text style={[styles.dropdownItemText, value === attackFocus && styles.dropdownItemTextActive]}>
+                    {attackFocusLabel(value)}
+                  </Text>
                 </Pressable>
               ))}
             </View>
@@ -505,25 +528,27 @@ export function TacticsScreen() {
         </View>
 
         <View style={{ flex: 1, zIndex: 1001 }}>
-          <Text style={styles.topBarLabel}>Substitutions</Text>
+          <Text style={styles.topBarLabel}>{t('tactics.substitutions_label')}</Text>
           <Pressable style={styles.dropdownBtn} onPress={() => {
             setShowSubStrategyDropdown(v => !v);
             setShowFormationDropdown(false);
             setShowAttackFocusDropdown(false);
           }}>
             <Text style={styles.dropdownBtnText} numberOfLines={1}>
-              {labelFor(SUB_STRATEGY_OPTIONS, subStrategy)} ▾
+              {subStrategyLabel(subStrategy)} ▾
             </Text>
           </Pressable>
           {showSubStrategyDropdown && (
             <View style={styles.dropdownListWide}>
-              {SUB_STRATEGY_OPTIONS.map(opt => (
+              {SUB_STRATEGY_VALUES.map(value => (
                 <Pressable
-                  key={opt.value}
-                  style={[styles.dropdownItem, opt.value === subStrategy && styles.dropdownItemActive]}
-                  onPress={() => handleSubStrategyChange(opt.value)}
+                  key={value}
+                  style={[styles.dropdownItem, value === subStrategy && styles.dropdownItemActive]}
+                  onPress={() => handleSubStrategyChange(value)}
                 >
-                  <Text style={[styles.dropdownItemText, opt.value === subStrategy && styles.dropdownItemTextActive]}>{opt.label}</Text>
+                  <Text style={[styles.dropdownItemText, value === subStrategy && styles.dropdownItemTextActive]}>
+                    {subStrategyLabel(value)}
+                  </Text>
                 </Pressable>
               ))}
             </View>
@@ -531,7 +556,7 @@ export function TacticsScreen() {
         </View>
       </View>
 
-      <Text style={styles.dragHintText}>Arraste para trocar jogadores</Text>
+      <Text style={styles.dragHintText}>{t('tactics.drag_hint')}</Text>
 
       {/* Pitch */}
       <View style={styles.pitchView}>
@@ -564,7 +589,7 @@ export function TacticsScreen() {
 
       {/* Bench */}
       <View style={styles.section}>
-        <Text style={styles.sectionLabel}>BANCO ({bench.length})</Text>
+        <Text style={styles.sectionLabel}>{t('tactics.bench_label', { count: bench.length })}</Text>
         <View style={styles.benchGrid}>
           {bench.map((p, idx) => {
             const ovrColor = p.overall >= 75 ? colors.success : p.overall >= 60 ? colors.warning : colors.danger;
@@ -589,7 +614,7 @@ export function TacticsScreen() {
       {/* Unlisted */}
       {unlisted.length > 0 && (
         <View style={styles.section}>
-          <Text style={styles.sectionLabel}>FORA DA LISTA ({unlisted.length})</Text>
+          <Text style={styles.sectionLabel}>{t('tactics.unlisted_label', { count: unlisted.length })}</Text>
           {unlisted.map((p, idx) => {
             const ovrColor = p.overall >= 75 ? colors.success : p.overall >= 60 ? colors.warning : colors.danger;
             const key = `unlisted-${idx}`;
@@ -618,20 +643,28 @@ export function TacticsScreen() {
               const ovrColor = ovr >= 75 ? colors.success : ovr >= 60 ? colors.warning : colors.danger;
               const a = p.attributes;
               const techAttrs = [
-                { label: 'Finishing', val: a.finishing }, { label: 'Passing', val: a.passing },
-                { label: 'Crossing', val: a.crossing }, { label: 'Dribbling', val: a.dribbling },
-                { label: 'Heading', val: a.heading }, { label: 'Long Shots', val: a.longShots },
-                { label: 'Free Kicks', val: a.freeKicks },
+                { label: t('tactics.attr_finishing'), val: a.finishing },
+                { label: t('tactics.attr_passing'), val: a.passing },
+                { label: t('tactics.attr_crossing'), val: a.crossing },
+                { label: t('tactics.attr_dribbling'), val: a.dribbling },
+                { label: t('tactics.attr_heading'), val: a.heading },
+                { label: t('tactics.attr_long_shots'), val: a.longShots },
+                { label: t('tactics.attr_free_kicks'), val: a.freeKicks },
               ];
               const mentalAttrs = [
-                { label: 'Vision', val: a.vision }, { label: 'Composure', val: a.composure },
-                { label: 'Decisions', val: a.decisions }, { label: 'Positioning', val: a.positioning },
-                { label: 'Aggression', val: a.aggression }, { label: 'Leadership', val: a.leadership },
+                { label: t('tactics.attr_vision'), val: a.vision },
+                { label: t('tactics.attr_composure'), val: a.composure },
+                { label: t('tactics.attr_decisions'), val: a.decisions },
+                { label: t('tactics.attr_positioning'), val: a.positioning },
+                { label: t('tactics.attr_aggression'), val: a.aggression },
+                { label: t('tactics.attr_leadership'), val: a.leadership },
               ];
               const physAttrs = [
-                { label: 'Pace', val: a.pace }, { label: 'Stamina', val: a.stamina },
-                { label: 'Strength', val: a.strength }, { label: 'Agility', val: a.agility },
-                { label: 'Jumping', val: a.jumping },
+                { label: t('tactics.attr_pace'), val: a.pace },
+                { label: t('tactics.attr_stamina'), val: a.stamina },
+                { label: t('tactics.attr_strength'), val: a.strength },
+                { label: t('tactics.attr_agility'), val: a.agility },
+                { label: t('tactics.attr_jumping'), val: a.jumping },
               ];
               return (
                 <ScrollView nestedScrollEnabled>
@@ -639,50 +672,64 @@ export function TacticsScreen() {
                     <Text style={styles.detailName}>{p.name}</Text>
                     <View style={styles.detailMeta}>
                       <Text style={[styles.detailPos, { color: colors.primary }]}>{p.position}</Text>
-                      <Text style={styles.detailAge}>Age {p.age}</Text>
+                      <Text style={styles.detailAge}>{t('tactics.detail_age', { age: p.age })}</Text>
                       <Text style={[styles.detailOvr, { color: ovrColor }]}>{ovr}</Text>
                     </View>
                   </View>
                   <View style={styles.detailStatsRow}>
-                    <View style={styles.detailStatItem}><Text style={styles.detailStatVal}>{p.morale}</Text><Text style={styles.detailStatLabel}>Morale</Text></View>
-                    <View style={styles.detailStatItem}><Text style={styles.detailStatVal}>{p.fitness}</Text><Text style={styles.detailStatLabel}>Fitness</Text></View>
-                    <View style={styles.detailStatItem}><Text style={styles.detailStatVal}>{p.preferredFoot === 'left' ? 'E' : 'D'}</Text><Text style={styles.detailStatLabel}>Pé</Text></View>
-                    <View style={styles.detailStatItem}><Text style={styles.detailStatVal}>{'★'.repeat(p.weakFootAbility)}{'☆'.repeat(5 - p.weakFootAbility)}</Text><Text style={styles.detailStatLabel}>Pé Ruim</Text></View>
+                    <View style={styles.detailStatItem}>
+                      <Text style={styles.detailStatVal}>{p.morale}</Text>
+                      <Text style={styles.detailStatLabel}>{t('tactics.detail_morale')}</Text>
+                    </View>
+                    <View style={styles.detailStatItem}>
+                      <Text style={styles.detailStatVal}>{p.fitness}</Text>
+                      <Text style={styles.detailStatLabel}>{t('tactics.detail_fitness')}</Text>
+                    </View>
+                    <View style={styles.detailStatItem}>
+                      <Text style={styles.detailStatVal}>
+                        {p.preferredFoot === 'left' ? t('tactics.detail_foot_left') : t('tactics.detail_foot_right')}
+                      </Text>
+                      <Text style={styles.detailStatLabel}>{t('tactics.detail_foot')}</Text>
+                    </View>
+                    <View style={styles.detailStatItem}>
+                      <Text style={styles.detailStatVal}>{'★'.repeat(p.weakFootAbility)}{'☆'.repeat(5 - p.weakFootAbility)}</Text>
+                      <Text style={styles.detailStatLabel}>{t('tactics.detail_weak_foot')}</Text>
+                    </View>
                   </View>
-                  <Text style={styles.detailSectionTitle}>Technical</Text>
+                  <Text style={styles.detailSectionTitle}>{t('tactics.section_technical')}</Text>
                   {techAttrs.map(attr => <StatBar key={attr.label} label={attr.label} value={attr.val} />)}
-                  <Text style={styles.detailSectionTitle}>Mental</Text>
+                  <Text style={styles.detailSectionTitle}>{t('tactics.section_mental')}</Text>
                   {mentalAttrs.map(attr => <StatBar key={attr.label} label={attr.label} value={attr.val} />)}
-                  <Text style={styles.detailSectionTitle}>Physical</Text>
+                  <Text style={styles.detailSectionTitle}>{t('tactics.section_physical')}</Text>
                   {physAttrs.map(attr => <StatBar key={attr.label} label={attr.label} value={attr.val} />)}
                   {p.clubId === playerClubId && (
                     <>
-                      <Text style={styles.detailSectionTitle}>Status de Transferência</Text>
+                      <Text style={styles.detailSectionTitle}>{t('tactics.transfer_status_title')}</Text>
                       <View style={styles.listingRow}>
-                        <Text style={styles.listingLabel}>Listar para venda</Text>
+                        <Text style={styles.listingLabel}>{t('tactics.list_for_sale')}</Text>
                         <Switch value={isTransferListed} onValueChange={handleToggleTransferListing} />
                       </View>
                       {isTransferListed && (
                         <View style={styles.listingRow}>
-                          <Text style={styles.listingLabel}>Preço pedido</Text>
+                          <Text style={styles.listingLabel}>{t('tactics.asking_price')}</Text>
                           <TextInput
                             style={styles.listingInput}
                             value={askingPriceText}
                             onChangeText={setAskingPriceText}
                             onBlur={handleBlurAskingPrice}
                             keyboardType="numeric"
-                            placeholder="Aberto a propostas"
+                            placeholder={t('tactics.asking_price_placeholder')}
                             placeholderTextColor={colors.textMuted}
                           />
                         </View>
                       )}
                       <View style={styles.listingRow}>
-                        <Text style={styles.listingLabel}>Listar para empréstimo</Text>
+                        <Text style={styles.listingLabel}>{t('tactics.list_for_loan')}</Text>
                         <Switch value={isLoanListed} onValueChange={handleToggleLoanListing} />
                       </View>
                       {isLoanListed && (
                         <View style={styles.listingRow}>
-                          <Text style={styles.listingLabel}>Tomador paga (%)</Text>
+                          <Text style={styles.listingLabel}>{t('tactics.loan_wage_share')}</Text>
                           <TextInput
                             style={styles.listingInput}
                             value={loanShareText}
@@ -700,7 +747,7 @@ export function TacticsScreen() {
               );
             })()}
             <Pressable style={styles.modalCloseBtn} onPress={() => setDetailPlayer(null)}>
-              <Text style={styles.modalCloseBtnText}>Close</Text>
+              <Text style={styles.modalCloseBtnText}>{t('tactics.close')}</Text>
             </Pressable>
           </View>
         </View>
