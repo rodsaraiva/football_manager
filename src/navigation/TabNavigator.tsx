@@ -1,6 +1,7 @@
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Text } from 'react-native';
 import { colors } from '@/theme';
+import { useClubAccent } from '@/theme/useClubAccent';
 import { HomeScreen } from '@/screens/home/HomeScreen';
 import { NewsScreen } from '@/screens/news/NewsScreen';
 import { TacticsScreen } from '@/screens/tactics/TacticsScreen';
@@ -11,12 +12,13 @@ import { TabParamList } from './types';
 const Tab = createBottomTabNavigator<TabParamList>();
 
 export function TabNavigator() {
+  const { accent } = useClubAccent();
   return (
     <Tab.Navigator screenOptions={{
       headerStyle: { backgroundColor: colors.surface },
       headerTintColor: colors.text,
       tabBarStyle: { backgroundColor: colors.surface, borderTopColor: colors.border },
-      tabBarActiveTintColor: colors.primary,
+      tabBarActiveTintColor: accent,
       tabBarInactiveTintColor: colors.textMuted,
     }}>
       <Tab.Screen

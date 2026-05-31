@@ -1,5 +1,6 @@
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { colors } from '@/theme';
+import { useClubAccent } from '@/theme/useClubAccent';
 import { MainMenuScreen } from '@/screens/MainMenuScreen';
 import { NewGameScreen } from '@/screens/NewGameScreen';
 import { EndOfSeasonScreen } from '@/screens/EndOfSeasonScreen';
@@ -31,10 +32,11 @@ import { RootStackParamList } from './types';
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export function RootNavigator() {
+  const { accent } = useClubAccent();
   return (
     <Stack.Navigator screenOptions={{
       headerStyle: { backgroundColor: colors.surface },
-      headerTintColor: colors.text,
+      headerTintColor: accent,
       contentStyle: { backgroundColor: colors.background },
     }}>
       <Stack.Screen name="MainMenu" component={MainMenuScreen} options={{ headerShown: false }} />
