@@ -7,6 +7,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { colors, spacing, fontSize, commonStyles } from '@/theme';
+import { useTranslation } from '@/i18n';
 import { useGameStore } from '@/store/game-store';
 import { useDatabaseStore } from '@/store/database-store';
 import { getClubsByLeague } from '@/database/queries/clubs';
@@ -31,10 +32,14 @@ import {
   sortNews,
 } from '@/engine/news/news-generator';
 import type { RetirementDecision } from '@/engine/retirement/retirement-engine';
+import type { TKey } from '@/i18n/translate';
+
+type TFn = (key: TKey, vars?: Record<string, string | number>) => string;
 
 // ─── Main ───────────────────────────────────────────────────────────────────
 
 export function NewsScreen() {
+  const { t } = useTranslation();
   const { playerClub, playerClubId, season, week, lastRetiredPlayerIds, pendingAnnouncedRetirementIds } = useGameStore();
   const { dbHandle } = useDatabaseStore();
 
@@ -108,9 +113,9 @@ export function NewsScreen() {
           : lastWeekFixturesAll.filter((f) => f.played);
 
         if (lastWeekLeagueFixtures.length > 0) {
-          items.push(buildResultsHeader(resultsWeek, leagueComp));
+          items.push(buildResultsHeader(resultsWeek, leagueComp, t));
           for (const f of lastWeekLeagueFixtures) {
-            items.push(buildMatchResult(f, clubMap, playerClubId));
+            items.push(buildMatchResult(f, clubMap, playerClubId, t));
           }
           // High-scoring matches (4+ goals)
           items.push(
@@ -184,8 +189,13 @@ export function NewsScreen() {
             items.push({
               id: 'injury-header',
               icon: '🏥',
-              title: 'Injury Report',
-              body: `${injured.length} player${injured.length > 1 ? 's' : ''} currently injured in your squad`,
+              title: t('news.injury_report_title'),
+              body: t(
+                injured.length > 1
+                  ? 'news.injury_report_body_other'
+                  : 'news.injury_report_body_one',
+                { count: injured.length },
+              ),
               category: 'injury',
               priority: 50,
             });
@@ -194,7 +204,12 @@ export function NewsScreen() {
                 id: `injury-${p.id}`,
                 icon: '🤕',
                 title: p.name,
-                body: `Out for ${p.injuryWeeksLeft} more week${p.injuryWeeksLeft > 1 ? 's' : ''} (${p.position})`,
+                body: t(
+                  p.injuryWeeksLeft > 1
+                    ? 'news.injury_player_body_other'
+                    : 'news.injury_player_body_one',
+                  { weeks: p.injuryWeeksLeft, position: p.position },
+                ),
                 category: 'injury',
                 priority: 49,
               });
@@ -206,8 +221,8 @@ export function NewsScreen() {
             items.push({
               id: `morale-${p.id}`,
               icon: '😤',
-              title: `${p.name} unhappy`,
-              body: `Morale is very low (${p.morale}). Consider addressing the situation.`,
+              title: t('news.morale_title', { name: p.name }),
+              body: t('news.morale_body', { morale: p.morale }),
               category: 'info',
               priority: 45,
             });
@@ -218,8 +233,13 @@ export function NewsScreen() {
             items.push({
               id: 'contracts-header',
               icon: '📝',
-              title: 'Contracts Expiring',
-              body: `${expiring.length} player${expiring.length > 1 ? 's' : ''} with contracts expiring this season`,
+              title: t('news.contracts_title'),
+              body: t(
+                expiring.length > 1
+                  ? 'news.contracts_body_other'
+                  : 'news.contracts_body_one',
+                { count: expiring.length },
+              ),
               category: 'info',
               priority: 40,
             });
@@ -228,7 +248,7 @@ export function NewsScreen() {
                 id: `contract-${p.id}`,
                 icon: '⏳',
                 title: p.name,
-                body: `Contract expires at end of season ${p.contractEnd} (${p.position})`,
+                body: t('news.contract_player_body', { season: p.contractEnd, position: p.position }),
                 category: 'info',
                 priority: 39,
               });
@@ -243,7 +263,7 @@ export function NewsScreen() {
             items.push({
               id: 'topscorer-header',
               icon: '👑',
-              title: 'Top Scorers',
+              title: t('news.topscorer_title'),
               body: leagueComp.name,
               category: 'topscorer',
               priority: 55,
@@ -255,7 +275,7 @@ export function NewsScreen() {
                 id: `topscorer-${ts.playerId}`,
                 icon: `${i + 1}.`,
                 title: ts.name,
-                body: `${ts.goals} goals (${clubNm})`,
+                body: t('news.topscorer_goals', { goals: ts.goals, club: clubNm }),
                 category: 'topscorer',
                 priority: 54 - i,
               });
@@ -318,8 +338,8 @@ export function NewsScreen() {
           items.push({
             id: 'empty',
             icon: '📰',
-            title: 'No news yet',
-            body: 'News will appear as the season progresses',
+            title: t('news.empty_title'),
+            body: t('news.empty_body'),
             category: 'info',
             priority: 0,
           });
@@ -343,9 +363,9 @@ export function NewsScreen() {
   return (
     <View style={commonStyles.screen}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>News</Text>
+        <Text style={styles.headerTitle}>{t('news.header_title')}</Text>
         <Text style={styles.headerSub}>
-          Season {season} — Week {week}
+          {t('news.header_sub', { season, week })}
         </Text>
       </View>
       <ScrollView contentContainerStyle={styles.list}>
@@ -382,12 +402,12 @@ export function NewsScreen() {
 
 // ─── Local helpers ──────────────────────────────────────────────────────────
 
-function buildResultsHeader(week: number, comp: Competition | undefined): NewsItem {
+function buildResultsHeader(week: number, comp: Competition | undefined, t: TFn): NewsItem {
   return {
     id: `results-header-${week}`,
     icon: '📅',
-    title: `Week ${week} Results`,
-    body: comp?.name ?? 'League',
+    title: t('news.results_header_title', { week }),
+    body: comp?.name ?? t('news.results_header_body_fallback'),
     category: 'result',
     priority: 72,
   };
@@ -397,6 +417,7 @@ function buildMatchResult(
   f: Fixture,
   clubMap: Map<number, Club>,
   playerClubId: number | null,
+  t: TFn,
 ): NewsItem {
   const home = clubMap.get(f.homeClubId)?.shortName ?? `Club ${f.homeClubId}`;
   const away = clubMap.get(f.awayClubId)?.shortName ?? `Club ${f.awayClubId}`;
@@ -405,7 +426,7 @@ function buildMatchResult(
     id: `result-${f.id}`,
     icon: isPlayerMatch ? '🏟️' : '⚽',
     title: `${home} ${f.homeGoals ?? 0} - ${f.awayGoals ?? 0} ${away}`,
-    body: isPlayerMatch ? 'Your match' : `Matchday result`,
+    body: isPlayerMatch ? t('news.match_your') : t('news.match_result'),
     category: 'result',
     priority: isPlayerMatch ? 71 : 68,
   };
