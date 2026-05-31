@@ -8,11 +8,17 @@ import { useDatabaseStore } from '@/store/database-store';
 import { colors, fontSize } from '@/theme';
 
 export default function App() {
-  const { isReady, error, initialize } = useDatabaseStore();
+  const { isReady, error, initialize, dbHandle } = useDatabaseStore();
 
   useEffect(() => {
     initialize();
   }, []);
+
+  useEffect(() => {
+    if (isReady && dbHandle) {
+      import('@/i18n/persistence').then((m) => m.loadPersistedLanguage(dbHandle));
+    }
+  }, [isReady, dbHandle]);
 
   if (error) {
     return (
