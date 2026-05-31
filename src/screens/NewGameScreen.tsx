@@ -468,7 +468,10 @@ export function NewGameScreen() {
   // Step: confirm
   return (
     <View style={commonStyles.screen}>
-      <TouchableOpacity style={styles.backButton} onPress={() => setStep('team')}>
+      <TouchableOpacity
+        style={styles.backButton}
+        onPress={() => setStep(selectedProfile ? 'suggestions' : 'team')}
+      >
         <Text style={styles.backButtonText}>← Back</Text>
       </TouchableOpacity>
       <Text style={styles.stepTitle}>Confirm Selection</Text>
