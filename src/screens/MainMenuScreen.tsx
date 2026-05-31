@@ -6,6 +6,7 @@ import {
   StyleSheet,
   ScrollView,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -57,9 +58,20 @@ export function MainMenuScreen() {
     navigation.navigate('Game');
   }
 
-  async function handleDeleteSave(save: SaveGame) {
-    const confirmed = window.confirm(t('mainmenu.delete_confirm', { name: save.name || t('mainmenu.save_default', { id: save.id }) }));
-    if (!confirmed || !dbHandle) return;
+  function handleDeleteSave(save: SaveGame) {
+    const label = save.name || t('mainmenu.save_default', { id: save.id });
+    Alert.alert(
+      t('mainmenu.delete_title'),
+      t('mainmenu.delete_confirm', { name: label }),
+      [
+        { text: t('common.cancel'), style: 'cancel' },
+        { text: t('common.delete'), style: 'destructive', onPress: () => doDelete(save) },
+      ],
+    );
+  }
+
+  async function doDelete(save: SaveGame) {
+    if (!dbHandle) return;
     await deleteSave(dbHandle, save.id);
     setSaves(prev => prev.filter(s => s.id !== save.id));
   }
