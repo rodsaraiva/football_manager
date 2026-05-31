@@ -12,6 +12,7 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { colors, spacing, fontSize, commonStyles } from '@/theme';
+import { useTranslation } from '@/i18n';
 import { useGameStore } from '@/store/game-store';
 import { useDatabaseStore } from '@/store/database-store';
 import { useBoardStore } from '@/store/board-store';
@@ -34,6 +35,7 @@ type NavProp = NativeStackNavigationProp<RootStackParamList>;
 
 export function HomeScreen() {
   const navigation = useNavigation<NavProp>();
+  const { t } = useTranslation();
 
   const {
     playerClub,
@@ -307,9 +309,9 @@ export function HomeScreen() {
     <ScrollView style={commonStyles.screen} contentContainerStyle={styles.container}>
       {/* Header Card */}
       <View style={styles.headerCard}>
-        <Text style={styles.clubName}>{playerClub?.name ?? 'No Club'}</Text>
+        <Text style={styles.clubName}>{playerClub?.name ?? t('home.no_club')}</Text>
         <Text style={styles.seasonInfo}>
-          Season {season} — Week {week}
+          {t('home.season_week', { season, week })}
         </Text>
       </View>
 
@@ -322,17 +324,17 @@ export function HomeScreen() {
         >
           <Text style={styles.commentAuthor}>{pendingComment.assistantName}</Text>
           <Text style={styles.commentText}>{pendingComment.text}</Text>
-          <Text style={styles.commentDismiss}>Tap to dismiss</Text>
+          <Text style={styles.commentDismiss}>{t('home.tap_dismiss')}</Text>
         </TouchableOpacity>
       )}
 
       {/* Retirement announcement alert */}
       {announcedRetirees.length > 0 && (
         <View style={styles.retirementAlert}>
-          <Text style={styles.retirementAlertTitle}>⚠️ Retirement Announcement</Text>
+          <Text style={styles.retirementAlertTitle}>{t('home.retirement_title')}</Text>
           {announcedRetirees.map(p => (
             <Text key={p.id} style={styles.retirementAlertItem}>
-              {p.name} ({p.age}) will retire at the end of this season
+              {t('home.retirement_item', { name: p.name, age: p.age })}
             </Text>
           ))}
         </View>
@@ -346,11 +348,11 @@ export function HomeScreen() {
           onPress={() => navigation.navigate('ClubBoard')}
         >
           <View style={styles.boardWidgetLeft}>
-            <Text style={styles.boardWidgetLabel}>OBJECTIVE</Text>
+            <Text style={styles.boardWidgetLabel}>{t('home.objective_label')}</Text>
             <Text style={styles.boardWidgetText} numberOfLines={1}>{currentObjective.description}</Text>
           </View>
           <View style={styles.boardWidgetRight}>
-            <Text style={styles.boardWidgetLabel}>TRUST</Text>
+            <Text style={styles.boardWidgetLabel}>{t('home.trust_label')}</Text>
             <View style={styles.boardMiniBar}>
               {Array.from({ length: 5 }).map((_, i) => (
                 <View
@@ -376,8 +378,8 @@ export function HomeScreen() {
       >
         <Text style={styles.leagueTableIcon}>🏆</Text>
         <View style={styles.leagueTableContent}>
-          <Text style={styles.leagueTableTitle}>Tabela da Liga</Text>
-          <Text style={styles.leagueTableSub}>Ver classificação atualizada</Text>
+          <Text style={styles.leagueTableTitle}>{t('home.league_table_title')}</Text>
+          <Text style={styles.leagueTableSub}>{t('home.league_table_sub')}</Text>
         </View>
         <Text style={styles.leagueTableChevron}>›</Text>
       </TouchableOpacity>
@@ -389,11 +391,11 @@ export function HomeScreen() {
           onPress={() => setShowMatchModal(true)}
           activeOpacity={0.8}
         >
-          <Text style={styles.matchResultLabel}>LAST RESULT</Text>
+          <Text style={styles.matchResultLabel}>{t('home.last_result_label')}</Text>
           <Text style={styles.matchResultScore}>
             {lastMatchResult.homeGoals} - {lastMatchResult.awayGoals}
           </Text>
-          <Text style={styles.matchResultTap}>Tap to view details</Text>
+          <Text style={styles.matchResultTap}>{t('home.tap_details')}</Text>
         </TouchableOpacity>
       )}
 
@@ -401,9 +403,9 @@ export function HomeScreen() {
       {nextOpponent ? (
         <View style={styles.nextMatchCard}>
           <View style={styles.nextMatchHeader}>
-            <Text style={styles.cardLabel}>NEXT MATCH</Text>
+            <Text style={styles.cardLabel}>{t('home.next_match_label')}</Text>
             <View style={[styles.nextMatchBadge, { backgroundColor: nextOpponent.isHome ? colors.success : colors.accent }]}>
-              <Text style={styles.nextMatchBadgeText}>{nextOpponent.isHome ? 'HOME' : 'AWAY'}</Text>
+              <Text style={styles.nextMatchBadgeText}>{nextOpponent.isHome ? t('home.badge_home') : t('home.badge_away')}</Text>
             </View>
           </View>
           <View style={styles.nextMatchTeams}>
@@ -430,7 +432,7 @@ export function HomeScreen() {
             })()}
           </View>
           <Text style={styles.nextMatchVenue}>
-            {nextOpponent.isHome ? (playerClub?.stadiumName ?? 'Home Stadium') : nextOpponent.club.stadiumName}
+            {nextOpponent.isHome ? (playerClub?.stadiumName ?? t('home.home_stadium')) : nextOpponent.club.stadiumName}
           </Text>
           <TouchableOpacity
             style={styles.scoutButton}
