@@ -197,4 +197,8 @@ export const en: Record<keyof typeof pt, string> = {
   'reports.league_table_sub': 'Updated standings',
   'reports.history_title': 'History',
   'reports.history_sub': 'Past champions, awards & records',
+  'common.delete': 'Delete',
+  'errorboundary.title': 'Something went wrong',
+  'errorboundary.message': 'This screen hit an unexpected error.',
+  'errorboundary.retry': 'Try again',
 };

@@ -195,4 +195,8 @@ export const pt = {
   'reports.league_table_sub': 'Classificação atualizada',
   'reports.history_title': 'Histórico',
   'reports.history_sub': 'Campeões, prêmios e recordes anteriores',
+  'common.delete': 'Deletar',
+  'errorboundary.title': 'Algo deu errado',
+  'errorboundary.message': 'A tela encontrou um erro inesperado.',
+  'errorboundary.retry': 'Tentar novamente',
 } as const;

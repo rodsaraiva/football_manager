@@ -3,6 +3,7 @@ import { View, Text, StyleSheet } from 'react-native';
 import { NavigationContainer, DarkTheme } from '@react-navigation/native';
 import { StatusBar } from 'expo-status-bar';
 import { RootNavigator } from '@/navigation/RootNavigator';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 import LoadingScreen from '@/components/LoadingScreen';
 import { useDatabaseStore } from '@/store/database-store';
 import { colors, fontSize } from '@/theme';
@@ -47,7 +48,9 @@ export default function App() {
         notification: colors.accent,
       },
     }}>
-      <RootNavigator />
+      <ErrorBoundary>
+        <RootNavigator />
+      </ErrorBoundary>
       <StatusBar style="light" />
     </NavigationContainer>
   );
