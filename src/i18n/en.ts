@@ -201,4 +201,7 @@ export const en: Record<keyof typeof pt, string> = {
   'errorboundary.title': 'Something went wrong',
   'errorboundary.message': 'This screen hit an unexpected error.',
   'errorboundary.retry': 'Try again',
+  'nav.player_detail': 'Player',
+  'nav.match_result': 'Match Result',
+  'mainmenu.delete_title': 'Delete save',
 };

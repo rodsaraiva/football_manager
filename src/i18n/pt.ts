@@ -199,4 +199,7 @@ export const pt = {
   'errorboundary.title': 'Algo deu errado',
   'errorboundary.message': 'A tela encontrou um erro inesperado.',
   'errorboundary.retry': 'Tentar novamente',
+  'nav.player_detail': 'Jogador',
+  'nav.match_result': 'Resultado da Partida',
+  'mainmenu.delete_title': 'Deletar save',
 } as const;

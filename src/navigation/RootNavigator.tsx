@@ -26,6 +26,8 @@ import { ReportsTransferROIScreen } from '@/screens/reports/ReportsTransferROISc
 import { ReportsProjectionScreen } from '@/screens/reports/ReportsProjectionScreen';
 import { ReportsFreeAgentScoutScreen } from '@/screens/reports/ReportsFreeAgentScoutScreen';
 import { HistoryScreen } from '@/screens/history/HistoryScreen';
+import { PlayerDetailRoute } from '@/screens/squad/PlayerDetailRoute';
+import { MatchResultScreen } from '@/screens/home/MatchResultScreen';
 import { TabNavigator } from './TabNavigator';
 import { RootStackParamList } from './types';
 
@@ -47,6 +49,9 @@ export function RootNavigator() {
         component={EndOfSeasonScreen}
         options={{ title: 'End of Season', headerShown: false }}
       />
+      {/* Player detail + match result (reachable from reports, squad, results) */}
+      <Stack.Screen name="PlayerDetail" component={PlayerDetailRoute} options={{ title: 'Player' }} />
+      <Stack.Screen name="MatchResult" component={MatchResultScreen} options={{ title: 'Match Result' }} />
       {/* Club sub-screens */}
       <Stack.Screen name="ClubFinances" component={FinancesScreen} options={{ title: 'Finances' }} />
       <Stack.Screen name="ClubStaff" component={StaffScreen} options={{ title: 'Staff' }} />
