@@ -58,6 +58,24 @@ export async function updateClubBudget(db: DbHandle, clubId: number, budget: num
   await db.prepare('UPDATE clubs SET budget = ? WHERE id = ?').run(budget, clubId);
 }
 
+export interface ClubWithDivision extends Club {
+  divisionLevel: number;
+}
+
+export async function getClubsByCountry(
+  db: DbHandle,
+  countryId: number,
+): Promise<ClubWithDivision[]> {
+  const rows = (await db
+    .prepare(
+      `SELECT clubs.*, leagues.division_level AS division_level
+       FROM clubs JOIN leagues ON clubs.league_id = leagues.id
+       WHERE leagues.country_id = ?`,
+    )
+    .all(countryId)) as Array<ClubRow & { division_level: number }>;
+  return rows.map((r) => ({ ...rowToClub(r), divisionLevel: r.division_level }));
+}
+
 export async function updateClubReputation(db: DbHandle, clubId: number, reputation: number): Promise<void> {
   await db.prepare('UPDATE clubs SET reputation = ? WHERE id = ?').run(reputation, clubId);
 }

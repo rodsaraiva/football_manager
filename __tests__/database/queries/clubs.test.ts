@@ -1,7 +1,7 @@
 import Database from 'better-sqlite3';
 import { createTestDb, seedTestDb, createTestDbHandle } from '../test-helpers';
 import { DbHandle } from '@/database/queries/players';
-import { getClubById, getClubsByLeague, getAllClubs, updateClubBudget } from '@/database/queries/clubs';
+import { getClubById, getClubsByLeague, getAllClubs, updateClubBudget, getClubsByCountry } from '@/database/queries/clubs';
 
 describe('clubs queries', () => {
   let rawDb: Database.Database;
@@ -60,6 +60,24 @@ describe('clubs queries', () => {
       expect(typeof first.shortName).toBe('string');
       expect(typeof first.budget).toBe('number');
       expect(typeof first.reputation).toBe('number');
+    });
+  });
+
+  describe('getClubsByCountry', () => {
+    it('returns clubs of the country, each with a numeric divisionLevel', async () => {
+      const clubs = await getClubsByCountry(db, 1);
+      expect(clubs.length).toBeGreaterThan(0);
+      for (const c of clubs) {
+        expect(c.countryId).toBe(1);
+        expect(typeof c.divisionLevel).toBe('number');
+        expect(c.divisionLevel).toBeGreaterThanOrEqual(1);
+      }
+    });
+
+    it('spans more than one division (country has multiple tiers)', async () => {
+      const clubs = await getClubsByCountry(db, 1);
+      const divisions = new Set(clubs.map((c) => c.divisionLevel));
+      expect(divisions.size).toBeGreaterThanOrEqual(2);
     });
   });
 
