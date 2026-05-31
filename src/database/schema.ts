@@ -26,6 +26,7 @@ export const TABLE_NAMES: string[] = [
   'board_objectives',
   'board_trust_history',
   'assistants',
+  'app_settings',
 ];
 
 export const SCHEMA_SQL = `
@@ -348,6 +349,11 @@ CREATE TABLE IF NOT EXISTS assistants (
   wage_per_month          INTEGER NOT NULL,
   will_retire_next_season INTEGER NOT NULL DEFAULT 0,
   UNIQUE(save_id, role)
+);
+
+CREATE TABLE IF NOT EXISTS app_settings (
+  key   TEXT PRIMARY KEY,
+  value TEXT NOT NULL
 );
 
 CREATE INDEX IF NOT EXISTS idx_awards_player        ON season_awards(player_id);

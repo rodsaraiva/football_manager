@@ -176,6 +176,14 @@ export const useDatabaseStore = create<DatabaseStore>((set) => ({
         CREATE INDEX IF NOT EXISTS idx_assistants_club ON assistants(club_id);
       `);
 
+      // App settings key-value store (added for i18n)
+      await db.execAsync(`
+        CREATE TABLE IF NOT EXISTS app_settings (
+          key   TEXT PRIMARY KEY,
+          value TEXT NOT NULL
+        );
+      `);
+
       // Seed if DB is missing data (check both countries and clubs to catch partial seeds)
       const countryCount = await db.getFirstAsync<{ cnt: number }>('SELECT COUNT(*) as cnt FROM countries');
       const clubCount = await db.getFirstAsync<{ cnt: number }>('SELECT COUNT(*) as cnt FROM clubs');
