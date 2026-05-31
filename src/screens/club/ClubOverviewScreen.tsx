@@ -4,6 +4,7 @@ import { getClubTrophies, ClubTrophySummary } from '../../database/queries/histo
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { colors, spacing, fontSize, commonStyles } from '@/theme';
+import { ClubBanner } from '@/components/ClubBanner';
 import { useGameStore } from '@/store/game-store';
 import { useDatabaseStore } from '@/store/database-store';
 import { getClubById } from '@/database/queries/clubs';
@@ -91,10 +92,8 @@ export function ClubOverviewScreen() {
 
   return (
     <ScrollView style={commonStyles.screen} contentContainerStyle={styles.container}>
-      {/* Club name header */}
+      <ClubBanner subtitle={club.shortName} />
       <View style={styles.header}>
-        <Text style={styles.clubName}>{club.name}</Text>
-        <Text style={styles.clubShort}>{club.shortName}</Text>
         <View style={styles.headerStats}>
           <View style={styles.headerStat}>
             <Text style={styles.headerStatLabel}>{t('club.budget_label')}</Text>

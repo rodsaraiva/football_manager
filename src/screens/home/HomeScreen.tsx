@@ -12,6 +12,7 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { colors, spacing, fontSize, commonStyles } from '@/theme';
+import { ClubBanner } from '@/components/ClubBanner';
 import { useTranslation } from '@/i18n';
 import { useGameStore } from '@/store/game-store';
 import { useDatabaseStore } from '@/store/database-store';
@@ -307,13 +308,7 @@ export function HomeScreen() {
 
   return (
     <ScrollView style={commonStyles.screen} contentContainerStyle={styles.container}>
-      {/* Header Card */}
-      <View style={styles.headerCard}>
-        <Text style={styles.clubName}>{playerClub?.name ?? t('home.no_club')}</Text>
-        <Text style={styles.seasonInfo}>
-          {t('home.season_week', { season, week })}
-        </Text>
-      </View>
+      <ClubBanner subtitle={t('home.season_week', { season, week })} />
 
       {/* Assistant comment card */}
       {pendingComment && (
