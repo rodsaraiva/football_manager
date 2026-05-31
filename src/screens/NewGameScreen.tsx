@@ -15,7 +15,8 @@ import { colors, spacing, fontSize, commonStyles } from '@/theme';
 import { useDatabaseStore } from '@/store/database-store';
 import { useGameStore } from '@/store/game-store';
 import { getAllLeagues, getAllCountries, createCompetition, addCompetitionEntry } from '@/database/queries/leagues';
-import { getClubsByLeague, getClubById } from '@/database/queries/clubs';
+import { getClubsByLeague, getClubById, getClubsByCountry, ClubWithDivision } from '@/database/queries/clubs';
+import { AMBITION_PROFILES, suggestClubsForProfile, AmbitionProfileId } from '@/engine/newgame/ambition';
 import { createSave } from '@/database/queries/saves';
 import { createFixture } from '@/database/queries/fixtures';
 import { generateSeasonCalendar } from '@/engine/competition/calendar';
@@ -31,7 +32,7 @@ import { useBoardStore } from '@/store/board-store';
 
 type NavProp = NativeStackNavigationProp<RootStackParamList, 'NewGame'>;
 
-type Step = 'league' | 'team' | 'confirm';
+type Step = 'ambition' | 'country' | 'suggestions' | 'league' | 'team' | 'confirm';
 
 const COUNTRY_FLAGS: Record<string, string> = {
   EN: '🏴󠁧󠁢󠁥󠁮󠁧󠁿',
@@ -47,7 +48,9 @@ export function NewGameScreen() {
   const { startNewGame, setPlayerClub } = useGameStore();
   const { setCurrentObjective } = useBoardStore();
 
-  const [step, setStep] = useState<Step>('league');
+  const [step, setStep] = useState<Step>('ambition');
+  const [selectedProfile, setSelectedProfile] = useState<AmbitionProfileId | null>(null);
+  const [suggestions, setSuggestions] = useState<ClubWithDivision[]>([]);
   const [leagues, setLeagues] = useState<League[]>([]);
   const [countries, setCountries] = useState<Country[]>([]);
   const [clubs, setClubs] = useState<Club[]>([]);
@@ -111,6 +114,36 @@ export function NewGameScreen() {
   function handleSelectClub(club: Club) {
     setSelectedClub(club);
     setStep('confirm');
+  }
+
+  function handleSelectProfile(id: AmbitionProfileId) {
+    setSelectedProfile(id);
+    setStep('country');
+  }
+
+  async function handleSelectCountry(country: Country) {
+    if (!dbHandle || !selectedProfile) return;
+    try {
+      const countryClubs = await getClubsByCountry(dbHandle, country.id);
+      setSuggestions(suggestClubsForProfile(selectedProfile, countryClubs));
+    } catch (err) {
+      console.error('[NewGame] getClubsByCountry failed:', err);
+      setSuggestions([]);
+    }
+    setStep('suggestions');
+  }
+
+  // Suggested-club path: also resolve the club's league (already loaded) so
+  // handleStartGame's objective generation gets numTeams/divisionLevel right.
+  function handleSelectSuggestedClub(club: ClubWithDivision) {
+    setSelectedClub(club);
+    setSelectedLeague(leagues.find((l) => l.id === club.leagueId) ?? null);
+    setStep('confirm');
+  }
+
+  function handleExploreManually() {
+    setSelectedProfile(null);
+    setStep('league');
   }
 
   async function handleStartGame() {
@@ -254,11 +287,97 @@ export function NewGameScreen() {
     }
   }
 
+  function renderClubCard(item: Club, onPress: () => void) {
+    return (
+      <TouchableOpacity style={styles.clubCard} onPress={onPress} activeOpacity={0.8}>
+        <View style={styles.clubCardHeader}>
+          <Text style={styles.clubName}>{item.name}</Text>
+          <Text style={styles.clubRep}>{item.reputation}</Text>
+        </View>
+        <View style={styles.reputationBarContainer}>
+          <View style={[styles.reputationBarFill, { width: `${item.reputation}%` as `${number}%` }]} />
+        </View>
+        <Text style={styles.clubStadium}>{item.stadiumName}</Text>
+      </TouchableOpacity>
+    );
+  }
+
   if (loading) {
     return (
       <View style={[commonStyles.screen, styles.centered]}>
         <ActivityIndicator color={colors.primary} size="large" />
         <Text style={styles.loadingText}>Loading...</Text>
+      </View>
+    );
+  }
+
+  if (step === 'ambition') {
+    return (
+      <View style={commonStyles.screen}>
+        <Text style={styles.stepTitle}>Qual sua ambição?</Text>
+        <Text style={styles.stepSubtitle}>Escolha um perfil — ele guia as sugestões de clube</Text>
+        <ScrollView contentContainerStyle={styles.listContent}>
+          {AMBITION_PROFILES.map((p) => (
+            <TouchableOpacity
+              key={p.id}
+              style={styles.leagueCard}
+              onPress={() => handleSelectProfile(p.id)}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.leagueName}>{p.labelPt}</Text>
+              <Text style={styles.profileDesc}>{p.descriptionPt}</Text>
+            </TouchableOpacity>
+          ))}
+          <TouchableOpacity style={styles.exploreLink} onPress={handleExploreManually} activeOpacity={0.7}>
+            <Text style={styles.exploreLinkText}>Explorar todas as ligas →</Text>
+          </TouchableOpacity>
+        </ScrollView>
+      </View>
+    );
+  }
+
+  if (step === 'country') {
+    const countriesWithLeagues = countries.filter((c) => leagues.some((l) => l.countryId === c.id));
+    return (
+      <View style={commonStyles.screen}>
+        <TouchableOpacity style={styles.backButton} onPress={() => setStep('ambition')}>
+          <Text style={styles.backButtonText}>← Back</Text>
+        </TouchableOpacity>
+        <Text style={styles.stepTitle}>Escolha o país</Text>
+        <ScrollView contentContainerStyle={styles.listContent}>
+          {countriesWithLeagues.map((country) => (
+            <TouchableOpacity
+              key={country.id}
+              style={styles.leagueCard}
+              onPress={() => handleSelectCountry(country)}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.leagueName}>
+                {(COUNTRY_FLAGS[country.code] ?? '🌍') + '  ' + country.name}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </View>
+    );
+  }
+
+  if (step === 'suggestions') {
+    const profileLabel = AMBITION_PROFILES.find((p) => p.id === selectedProfile)?.labelPt ?? '';
+    return (
+      <View style={commonStyles.screen}>
+        <TouchableOpacity style={styles.backButton} onPress={() => setStep('country')}>
+          <Text style={styles.backButtonText}>← Back</Text>
+        </TouchableOpacity>
+        <Text style={styles.stepTitle}>Clubes sugeridos</Text>
+        <Text style={styles.stepSubtitle}>{profileLabel}</Text>
+        <FlatList
+          data={suggestions}
+          keyExtractor={(item) => String(item.id)}
+          contentContainerStyle={styles.listContent}
+          ListEmptyComponent={<Text style={styles.emptyText}>Nenhum clube neste perfil.</Text>}
+          renderItem={({ item }) => renderClubCard(item, () => handleSelectSuggestedClub(item))}
+        />
       </View>
     );
   }
@@ -340,27 +459,7 @@ export function NewGameScreen() {
           ListEmptyComponent={
             <Text style={styles.emptyText}>No clubs found in this league.</Text>
           }
-          renderItem={({ item }) => (
-            <TouchableOpacity
-              style={styles.clubCard}
-              onPress={() => handleSelectClub(item)}
-              activeOpacity={0.8}
-            >
-              <View style={styles.clubCardHeader}>
-                <Text style={styles.clubName}>{item.name}</Text>
-                <Text style={styles.clubRep}>{item.reputation}</Text>
-              </View>
-              <View style={styles.reputationBarContainer}>
-                <View
-                  style={[
-                    styles.reputationBarFill,
-                    { width: `${item.reputation}%` as `${number}%` },
-                  ]}
-                />
-              </View>
-              <Text style={styles.clubStadium}>{item.stadiumName}</Text>
-            </TouchableOpacity>
-          )}
+          renderItem={({ item }) => renderClubCard(item, () => handleSelectClub(item))}
         />
       </View>
     );
@@ -505,6 +604,22 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     fontSize: fontSize.sm,
     marginTop: 2,
+  },
+  profileDesc: {
+    color: colors.textSecondary,
+    fontSize: fontSize.sm,
+    marginTop: spacing.xs,
+  },
+  exploreLink: {
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
+    marginTop: spacing.sm,
+    alignItems: 'center',
+  },
+  exploreLinkText: {
+    color: colors.primary,
+    fontSize: fontSize.md,
+    fontWeight: '600',
   },
   backButton: {
     paddingHorizontal: spacing.lg,
