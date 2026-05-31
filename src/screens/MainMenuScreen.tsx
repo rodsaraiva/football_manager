@@ -12,6 +12,9 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { colors, spacing, fontSize, commonStyles } from '@/theme';
 import { useDatabaseStore } from '@/store/database-store';
 import { useGameStore } from '@/store/game-store';
+import { useTranslation } from '@/i18n';
+import { useI18nStore } from '@/store/i18n-store';
+import { changeLanguage } from '@/i18n/persistence';
 import { getAllSaves, deleteSave } from '@/database/queries/saves';
 import { RootStackParamList } from '@/navigation/types';
 import { SaveGame } from '@/types';
@@ -22,6 +25,12 @@ export function MainMenuScreen() {
   const navigation = useNavigation<NavProp>();
   const { dbHandle, isReady } = useDatabaseStore();
   const loadSave = useGameStore((s) => s.loadSave);
+  const { t } = useTranslation();
+  const language = useI18nStore((s) => s.language);
+
+  function handleSetLanguage(lang: 'pt' | 'en') {
+    if (dbHandle) changeLanguage(dbHandle, lang);
+  }
 
   const [saves, setSaves] = useState<SaveGame[]>([]);
   const [loading, setLoading] = useState(true);
@@ -49,7 +58,7 @@ export function MainMenuScreen() {
   }
 
   async function handleDeleteSave(save: SaveGame) {
-    const confirmed = window.confirm(`Deletar "${save.name || `Save #${save.id}`}"?`);
+    const confirmed = window.confirm(t('mainmenu.delete_confirm', { name: save.name || t('mainmenu.save_default', { id: save.id }) }));
     if (!confirmed || !dbHandle) return;
     await deleteSave(dbHandle, save.id);
     setSaves(prev => prev.filter(s => s.id !== save.id));
@@ -57,9 +66,23 @@ export function MainMenuScreen() {
 
   return (
     <View style={commonStyles.screen}>
+      <View style={styles.langToggle}>
+        {(['pt', 'en'] as const).map((lng) => (
+          <TouchableOpacity
+            key={lng}
+            style={[styles.langButton, language === lng && styles.langButtonActive]}
+            onPress={() => handleSetLanguage(lng)}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.langButtonText, language === lng && styles.langButtonTextActive]}>
+              {lng.toUpperCase()}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
       <View style={styles.titleSection}>
         <Text style={styles.title}>FOOTBALL MANAGER</Text>
-        <Text style={styles.subtitle}>Career Mode</Text>
+        <Text style={styles.subtitle}>{t('mainmenu.subtitle')}</Text>
       </View>
 
       <View style={styles.buttonSection}>
@@ -68,14 +91,14 @@ export function MainMenuScreen() {
           onPress={() => navigation.navigate('NewGame')}
           activeOpacity={0.8}
         >
-          <Text style={styles.primaryButtonText}>NEW GAME</Text>
+          <Text style={styles.primaryButtonText}>{t('mainmenu.new_game').toUpperCase()}</Text>
         </TouchableOpacity>
 
         {loading ? (
           <ActivityIndicator color={colors.primary} style={{ marginTop: spacing.lg }} />
         ) : saves.length > 0 ? (
           <View style={styles.savesSection}>
-            <Text style={styles.savesLabel}>LOAD GAME</Text>
+            <Text style={styles.savesLabel}>{t('mainmenu.load_game')}</Text>
             <ScrollView style={styles.savesList} showsVerticalScrollIndicator={false}>
               {saves.map((save) => (
                 <View key={save.id} style={styles.saveCard}>
@@ -84,9 +107,9 @@ export function MainMenuScreen() {
                     onPress={() => handleLoadSave(save)}
                     activeOpacity={0.8}
                   >
-                    <Text style={styles.saveName}>{save.name || `Save #${save.id}`}</Text>
+                    <Text style={styles.saveName}>{save.name || t('mainmenu.save_default', { id: save.id })}</Text>
                     <Text style={styles.saveMeta}>
-                      Season {save.currentSeason} — Week {save.currentWeek}
+                      {t('mainmenu.save_meta', { season: save.currentSeason, week: save.currentWeek })}
                     </Text>
                     <Text style={styles.saveDifficulty}>{save.difficulty}</Text>
                   </TouchableOpacity>
@@ -103,7 +126,7 @@ export function MainMenuScreen() {
           </View>
         ) : (
           <View style={styles.noSavesContainer}>
-            <Text style={styles.noSavesText}>No saved games</Text>
+            <Text style={styles.noSavesText}>{t('mainmenu.no_saves')}</Text>
           </View>
         )}
       </View>
@@ -218,4 +241,21 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     fontSize: fontSize.md,
   },
+  langToggle: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+  },
+  langButton: {
+    paddingVertical: 4,
+    paddingHorizontal: spacing.sm,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  langButtonActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+  langButtonText: { color: colors.textSecondary, fontSize: fontSize.xs, fontWeight: '600' },
+  langButtonTextActive: { color: colors.text },
 });
