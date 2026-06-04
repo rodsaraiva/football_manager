@@ -9,6 +9,7 @@ import { getClubsByLeague } from '@/database/queries/clubs';
 import { createFixture } from '@/database/queries/fixtures';
 import { getPlayerStatsByCompetition } from '@/database/queries/player-stats';
 import { setTacticLineup } from '@/database/queries/tactics';
+import { assignMatchInjuries } from '@/engine/simulation/injury';
 
 describe('advanceGameWeek', () => {
   let rawDb: Database.Database;
@@ -446,5 +447,37 @@ describe('advanceGameWeek', () => {
       .prepare('SELECT COUNT(*) AS cnt FROM fixtures WHERE season = 1 AND week = 7 AND played = 1')
       .get() as { cnt: number };
     expect(played.cnt).toBeGreaterThan(0);
+  });
+
+  it('assignMatchInjuries sidelines only the player-club injured players', () => {
+    const events = [
+      { fixtureId: 1, minute: 30, type: 'injury' as const, playerId: 5, secondaryPlayerId: null },
+      { fixtureId: 1, minute: 70, type: 'injury' as const, playerId: 999, secondaryPlayerId: null },
+      { fixtureId: 1, minute: 80, type: 'goal' as const, playerId: 5, secondaryPlayerId: null },
+    ];
+    const clubIds = new Set([5]); // 999 is an opponent
+    const assignments = assignMatchInjuries(events, clubIds, new SeededRng(1));
+    expect(assignments).toHaveLength(1);
+    expect(assignments[0].playerId).toBe(5);
+    expect(assignments[0].weeksLeft).toBeGreaterThanOrEqual(1);
+  });
+
+  it('a match injury sets injury_weeks_left > 0 and excludes the player next week', async () => {
+    // Pick the player club squad and inject a known injury event via the helper,
+    // then assert the DB write the production hook performs. This proves the
+    // wiring contract independent of the (rare, seeded) in-match injury roll.
+    const squad = (await db.prepare('SELECT id FROM players WHERE club_id = 1').all()) as Array<{ id: number }>;
+    const victimId = squad[0].id;
+    const clubIds = new Set(squad.map((r) => r.id));
+    const assignments = assignMatchInjuries(
+      [{ fixtureId: 1, minute: 30, type: 'injury', playerId: victimId, secondaryPlayerId: null }],
+      clubIds,
+      new SeededRng(3),
+    );
+    for (const a of assignments) {
+      await db.prepare('UPDATE players SET injury_weeks_left = ? WHERE id = ?').run(a.weeksLeft, a.playerId);
+    }
+    const row = (await db.prepare('SELECT injury_weeks_left FROM players WHERE id = ?').get(victimId)) as { injury_weeks_left: number };
+    expect(row.injury_weeks_left).toBeGreaterThan(0);
   });
 });

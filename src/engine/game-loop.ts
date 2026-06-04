@@ -20,6 +20,7 @@ import { updateSaveWeek } from '@/database/queries/saves';
 import { getStaffByClub } from '@/database/queries/staff';
 import { SeededRng } from './rng';
 import { simulateMatch, MatchResult } from './simulation/match-engine';
+import { assignMatchInjuries } from './simulation/injury';
 import { PlayerForStrength } from './simulation/team-strength';
 import { calculateWeeklyIncome, calculateWeeklyExpenses } from './finance/finance-engine';
 import { calculateWeeklyProgression } from './training/progression';
@@ -542,10 +543,17 @@ export async function advanceGameWeek(params: AdvanceWeekParams): Promise<Advanc
     }
     void playerClubSquadIds; // used above via playerSquadRaw
 
-    // 7. Update injuries for player's club
+    // 7. Recover existing injuries first (decrement), THEN apply this match's new
+    // injuries — otherwise the freshly-set duration would be decremented in the
+    // same week (gap-audit:163: injuries were cosmetic, never sidelining a player).
     await db.prepare(
       'UPDATE players SET injury_weeks_left = MAX(0, injury_weeks_left - 1) WHERE injury_weeks_left > 0 AND club_id = ?',
     ).run(playerClubId);
+
+    const playerClubIds = new Set((await getPlayersByClub(db, playerClubId)).map(p => p.id));
+    for (const inj of assignMatchInjuries(matchResult.events, playerClubIds, rng)) {
+      await db.prepare('UPDATE players SET injury_weeks_left = ? WHERE id = ?').run(inj.weeksLeft, inj.playerId);
+    }
   }
 
   // 3. Simulate other AI vs AI matches
