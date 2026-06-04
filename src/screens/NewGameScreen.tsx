@@ -20,6 +20,7 @@ import { getClubsByLeague, getClubById, getClubsByCountry, ClubWithDivision } fr
 import { AMBITION_PROFILES, suggestClubsForProfile, AmbitionProfileId } from '@/engine/newgame/ambition';
 import { createSave } from '@/database/queries/saves';
 import { createFixture } from '@/database/queries/fixtures';
+import { runInTransaction } from '@/database/transaction';
 import { generateSeasonCalendar } from '@/engine/competition/calendar';
 import { RootStackParamList } from '@/navigation/types';
 import { League, Club, Country, Difficulty } from '@/types';
@@ -46,7 +47,7 @@ const COUNTRY_FLAGS: Record<string, string> = {
 export function NewGameScreen() {
   const navigation = useNavigation<NavProp>();
   const { t } = useTranslation();
-  const { db, dbHandle, isReady } = useDatabaseStore();
+  const { dbHandle, isReady } = useDatabaseStore();
   const { startNewGame, setPlayerClub } = useGameStore();
   const { setCurrentObjective } = useBoardStore();
 
@@ -201,84 +202,86 @@ export function NewGameScreen() {
       const club = await getClubById(dbHandle, selectedClub.id);
       if (club) setPlayerClub(club);
 
-      // Clear old season 1 data and generate fresh calendar
+      // Clear old season 1 data and generate fresh calendar — atomic: a partial
+      // failure must not leave a half-wiped/half-built calendar behind.
       try {
-        // Limpa tudo que referencia competitions (FK chain) antes de regenerar o calendário.
-        // Também zera club_finances pra não somar entries do save anterior na tela de Finances.
-        await db!.execAsync(`
-          DELETE FROM match_events WHERE fixture_id IN (SELECT id FROM fixtures WHERE season = 1);
-          DELETE FROM player_stats WHERE competition_id IN (SELECT id FROM competitions WHERE season = 1);
-          DELETE FROM season_player_titles WHERE competition_id IN (SELECT id FROM competitions WHERE season = 1);
-          DELETE FROM season_awards WHERE competition_id IN (SELECT id FROM competitions WHERE season = 1);
-          DELETE FROM season_competition_results WHERE competition_id IN (SELECT id FROM competitions WHERE season = 1);
-          DELETE FROM fixtures WHERE season = 1;
-          DELETE FROM competition_entries;
-          DELETE FROM competitions WHERE season = 1;
-          DELETE FROM club_finances;
-        `);
-        const allLeagues = await getAllLeagues(dbHandle);
-        const clubsByLeague: Record<number, number[]> = {};
-        const championsLeagueClubs: number[] = [];
+        await runInTransaction(dbHandle, async () => {
+          // Limpa tudo que referencia competitions (FK chain) antes de regenerar o calendário.
+          // Também zera club_finances pra não somar entries do save anterior na tela de Finances.
+          await dbHandle.prepare('DELETE FROM match_events WHERE fixture_id IN (SELECT id FROM fixtures WHERE season = 1)').run();
+          await dbHandle.prepare('DELETE FROM player_stats WHERE competition_id IN (SELECT id FROM competitions WHERE season = 1)').run();
+          await dbHandle.prepare('DELETE FROM season_player_titles WHERE competition_id IN (SELECT id FROM competitions WHERE season = 1)').run();
+          await dbHandle.prepare('DELETE FROM season_awards WHERE competition_id IN (SELECT id FROM competitions WHERE season = 1)').run();
+          await dbHandle.prepare('DELETE FROM season_competition_results WHERE competition_id IN (SELECT id FROM competitions WHERE season = 1)').run();
+          await dbHandle.prepare('DELETE FROM fixtures WHERE season = 1').run();
+          await dbHandle.prepare('DELETE FROM competition_entries').run();
+          await dbHandle.prepare('DELETE FROM competitions WHERE season = 1').run();
+          await dbHandle.prepare('DELETE FROM club_finances').run();
 
-        for (const league of allLeagues) {
-          const leagueClubs = await getClubsByLeague(dbHandle, league.id);
-          const sorted = [...leagueClubs].sort((a, b) => b.reputation - a.reputation);
-          clubsByLeague[league.id] = leagueClubs.map((c) => c.id);
-          // Top 2 per league → Champions League (max 8 total)
-          for (const c of sorted.slice(0, 2)) {
-            if (championsLeagueClubs.length < 8) {
-              championsLeagueClubs.push(c.id);
+          const allLeagues = await getAllLeagues(dbHandle);
+          const clubsByLeague: Record<number, number[]> = {};
+          const championsLeagueClubs: number[] = [];
+
+          for (const league of allLeagues) {
+            const leagueClubs = await getClubsByLeague(dbHandle, league.id);
+            const sorted = [...leagueClubs].sort((a, b) => b.reputation - a.reputation);
+            clubsByLeague[league.id] = leagueClubs.map((c) => c.id);
+            // Top 2 per league → Champions League (max 8 total)
+            for (const c of sorted.slice(0, 2)) {
+              if (championsLeagueClubs.length < 8) {
+                championsLeagueClubs.push(c.id);
+              }
             }
           }
-        }
 
-        // Fill CL to 8 if needed
-        if (championsLeagueClubs.length < 8) {
-          const allIds = Object.values(clubsByLeague).flat();
-          for (const id of allIds) {
-            if (!championsLeagueClubs.includes(id) && championsLeagueClubs.length < 8) {
-              championsLeagueClubs.push(id);
+          // Fill CL to 8 if needed
+          if (championsLeagueClubs.length < 8) {
+            const allIds = Object.values(clubsByLeague).flat();
+            for (const id of allIds) {
+              if (!championsLeagueClubs.includes(id) && championsLeagueClubs.length < 8) {
+                championsLeagueClubs.push(id);
+              }
             }
           }
-        }
 
-        const calendar = generateSeasonCalendar({
-          season: 1,
-          leagues: allLeagues,
-          clubsByLeague,
-          championsLeagueClubs,
-        });
-
-        for (const comp of calendar.competitions) {
-          await createCompetition(dbHandle, {
-            id: comp.id,
-            name: comp.name,
-            type: comp.type,
-            format: comp.format,
+          const calendar = generateSeasonCalendar({
             season: 1,
-            leagueId: comp.leagueId,
+            leagues: allLeagues,
+            clubsByLeague,
+            championsLeagueClubs,
           });
-        }
 
-        for (const entry of calendar.entries) {
-          await addCompetitionEntry(dbHandle, {
-            competitionId: entry.competitionId,
-            clubId: entry.clubId,
-            groupName: entry.groupName,
-            seed: entry.seed,
-          });
-        }
+          for (const comp of calendar.competitions) {
+            await createCompetition(dbHandle, {
+              id: comp.id,
+              name: comp.name,
+              type: comp.type,
+              format: comp.format,
+              season: 1,
+              leagueId: comp.leagueId,
+            });
+          }
 
-        // Batch insert dos ~6k fixtures via execAsync — inserts individuais demoram minutos na web.
-        const escape = (v: string | null) => v === null ? 'NULL' : `'${v.replace(/'/g, "''")}'`;
-        const values = calendar.fixtures.map(f =>
-          `(${f.id}, ${f.competitionId}, 1, ${f.week}, ${escape(f.round !== null ? String(f.round) : null)}, ${f.homeClubId}, ${f.awayClubId}, 0)`
-        ).join(',\n');
-        await db!.execAsync(
-          `INSERT INTO fixtures (id, competition_id, season, week, round, home_club_id, away_club_id, played) VALUES ${values};`
-        );
+          for (const entry of calendar.entries) {
+            await addCompetitionEntry(dbHandle, {
+              competitionId: entry.competitionId,
+              clubId: entry.clubId,
+              groupName: entry.groupName,
+              seed: entry.seed,
+            });
+          }
+
+          // Batch insert dos ~6k fixtures num único multi-VALUES — inserts individuais demoram minutos na web.
+          const escape = (v: string | null) => v === null ? 'NULL' : `'${v.replace(/'/g, "''")}'`;
+          const values = calendar.fixtures.map(f =>
+            `(${f.id}, ${f.competitionId}, 1, ${f.week}, ${escape(f.round !== null ? String(f.round) : null)}, ${f.homeClubId}, ${f.awayClubId}, 0)`
+          ).join(',\n');
+          await dbHandle.prepare(
+            `INSERT INTO fixtures (id, competition_id, season, week, round, home_club_id, away_club_id, played) VALUES ${values}`
+          ).run();
+        });
       } catch (err) {
-        console.error('[NewGame] calendar generation failed:', err);
+        console.error('[NewGame] calendar generation failed (rolled back):', err);
       }
 
       navigation.navigate('Game');

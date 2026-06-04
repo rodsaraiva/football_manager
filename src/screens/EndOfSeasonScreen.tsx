@@ -30,6 +30,7 @@ import { getPlayersByClub } from '@/database/queries/players';
 import { generateYouthPlayers } from '@/engine/youth/youth-academy';
 import { returnExpiredLoans } from '@/engine/transfer/loan-returns';
 import { SeededRng } from '@/engine/rng';
+import { runInTransaction } from '@/database/transaction';
 import { computeReputationDelta } from '@/engine/board/reputation-engine';
 import { generateObjective } from '@/engine/board/objective-generator';
 import { computeTrustDelta } from '@/engine/board/trust-engine';
@@ -332,6 +333,7 @@ export function EndOfSeasonScreen() {
       // for anything referring to the finished year.
       const newSeason = season;
 
+      await runInTransaction(dbHandle, async () => {
       // 1. Age all non-retired players (aposentados têm club_id=NULL e is_free_agent=0;
       // sem o filtro, ganhariam +1 de idade toda virada).
       await dbHandle
@@ -514,18 +516,22 @@ export function EndOfSeasonScreen() {
         }
       }
 
-      // Reset to new season — season pointer is already correct, just flip
+      });
+
+      // Runs only after COMMIT — season pointer is already correct, just flip
       // the flag and make sure we're on week 1 of the new season.
       setPendingAnnouncedRetirementIds([]);
       setNewSeason(false);
       updateWeek(newSeason, 1);
+      navigation.navigate('Game');
     } catch (err) {
-      // Still proceed even if calendar generation failed
-      setNewSeason(false);
-      updateWeek(season, 1);
+      // The transaction rolled the DB back to the pre-rollover state.
+      // Do NOT advance the week / mark the season started — let the user retry.
+      console.error('[EndOfSeason] rollover failed, rolled back:', err);
+      setStarting(false);
+      return;
     } finally {
       setStarting(false);
-      navigation.navigate('Game');
     }
   }
 
