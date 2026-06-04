@@ -6,6 +6,7 @@ import { DbHandle } from '@/database/queries/players';
 export function createTestDb(): Database.Database {
   const db = new Database(':memory:');
   createAllTables(db);
+  db.pragma('foreign_keys = ON');
   return db;
 }
 
