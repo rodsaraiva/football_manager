@@ -11,6 +11,7 @@ import {
   SubstitutionStrategy,
 } from '@/types';
 import { DbHandle } from './players';
+import { runInTransaction } from '../transaction';
 
 interface TacticRow {
   id: number;
@@ -147,13 +148,15 @@ export async function setTacticLineup(
   starters: number[],
   bench: number[],
 ): Promise<void> {
-  await db.prepare('DELETE FROM tactic_lineup WHERE tactic_id = ?').run(tacticId);
-  const all = [...starters, ...bench];
-  for (let i = 0; i < all.length; i++) {
-    await db.prepare(
-      'INSERT INTO tactic_lineup (tactic_id, slot_index, player_id) VALUES (?, ?, ?)',
-    ).run(tacticId, i, all[i]);
-  }
+  await runInTransaction(db, async () => {
+    await db.prepare('DELETE FROM tactic_lineup WHERE tactic_id = ?').run(tacticId);
+    const all = [...starters, ...bench];
+    for (let i = 0; i < all.length; i++) {
+      await db.prepare(
+        'INSERT INTO tactic_lineup (tactic_id, slot_index, player_id) VALUES (?, ?, ?)',
+      ).run(tacticId, i, all[i]);
+    }
+  });
 }
 
 export async function getTacticLineup(
