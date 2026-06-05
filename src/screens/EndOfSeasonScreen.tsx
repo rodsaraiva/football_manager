@@ -14,155 +14,20 @@ import { useGameStore } from '@/store/game-store';
 import { useDatabaseStore } from '@/store/database-store';
 import { RootStackParamList } from '@/navigation/types';
 import { getClubsByLeague } from '@/database/queries/clubs';
-import {
-  getCompetitionsBySeason,
-  getAllLeagues,
-  createCompetition,
-  addCompetitionEntry,
-} from '@/database/queries/leagues';
-import { getFixturesByClub, createFixture } from '@/database/queries/fixtures';
+import { getCompetitionsBySeason } from '@/database/queries/leagues';
+import { getFixturesByClub } from '@/database/queries/fixtures';
 import { getFinancesBySeason } from '@/database/queries/finances';
 import { calculateStandings } from '@/engine/competition/standings';
-import { generateSeasonCalendar } from '@/engine/competition/calendar';
 import { Fixture } from '@/types';
-import { recalculatePotential } from '@/engine/training/potential';
-import { getPlayersByClub } from '@/database/queries/players';
-import { generateYouthPlayers } from '@/engine/youth/youth-academy';
-import { returnExpiredLoans } from '@/engine/transfer/loan-returns';
 import { SeededRng } from '@/engine/rng';
-import { runInTransaction } from '@/database/transaction';
-import { computeReputationDelta } from '@/engine/board/reputation-engine';
-import { generateObjective } from '@/engine/board/objective-generator';
-import { computeTrustDelta } from '@/engine/board/trust-engine';
-import {
-  insertReputationHistory,
-  getReputationHistory,
-  upsertBoardObjective,
-  getBoardObjective,
-  insertTrustHistory,
-  getSaveBoardTrust,
-  updateSaveBoardTrust,
-} from '@/database/queries/board';
+import { processSeasonEndBoard } from '@/engine/board/season-end-board';
+import { rolloverSeason } from '@/engine/season-rollover';
+import { processAssistantsSeasonEnd } from '@/engine/assistant/season-end-assistants';
 import { useBoardStore } from '@/store/board-store';
 import { TrustConsequence, TrustOutcome } from '@/types/board';
 import { useAssistantStore } from '@/store/assistant-store';
-import { getAssistantsBySave, updateAssistantSeasonEnd, deleteAssistant } from '@/database/queries/assistants';
-import { processAssistantSeasonEnd } from '@/engine/assistant/assistant-engine';
 
 type NavProp = NativeStackNavigationProp<RootStackParamList>;
-
-interface ProcessBoardArgs {
-  dbHandle: import('@/database/queries/players').DbHandle;
-  clubId: number;
-  saveId: number;
-  endedSeason: number;
-  newSeason: number;
-  leaguePosition: number | null;
-  totalTeams: number;
-  currentReputation: number;
-  budgetBalance: number;
-  wasRelegated: boolean;
-  wasPromoted: boolean;
-  wonLeague: boolean;
-  wonCup: boolean;
-  setCurrentObjective: (obj: import('@/types/board').BoardObjective | null) => void;
-  setCurrentTrust: (trust: number) => void;
-  setLastTrustResult: (outcome: TrustOutcome, consequence: TrustConsequence) => void;
-  setReputationHistory: (history: import('@/types/board').ReputationHistoryEntry[]) => void;
-  setBoardEval: (v: {
-    oldRep: number; newRep: number; delta: number;
-    trust: number; outcome: TrustOutcome; consequence: TrustConsequence;
-    objectiveDescription: string;
-  } | null) => void;
-}
-
-async function processSeasonEndBoard(args: ProcessBoardArgs): Promise<void> {
-  const {
-    dbHandle, clubId, saveId, endedSeason, newSeason,
-    leaguePosition, totalTeams, currentReputation, budgetBalance,
-    wasRelegated, wasPromoted, wonLeague, wonCup,
-    setCurrentObjective, setCurrentTrust, setLastTrustResult, setReputationHistory, setBoardEval,
-  } = args;
-
-  // 1. Compute reputation delta
-  const repResult = computeReputationDelta({
-    currentReputation,
-    leaguePosition: leaguePosition ?? Math.ceil(totalTeams / 2),
-    totalTeams,
-    wonLeague, wonCup, wasRelegated, wasPromoted,
-    budgetBalance,
-    squadAverageOverall: 70,
-    staffAverageAbility: 10,
-  });
-
-  // 2. Persist reputation history + update club
-  await insertReputationHistory(dbHandle, {
-    clubId, season: endedSeason, reputation: repResult.newReputation, delta: repResult.delta,
-  }).catch(() => {});
-  await dbHandle.prepare('UPDATE clubs SET reputation = ? WHERE id = ?').run(repResult.newReputation, clubId);
-
-  // 3. Fetch current trust + compute trust delta
-  const currentTrust = await getSaveBoardTrust(dbHandle, saveId);
-  const prevObjective = await getBoardObjective(dbHandle, clubId, endedSeason);
-
-  const trustResult = computeTrustDelta({
-    currentTrust,
-    objectiveType: prevObjective?.type ?? 'no_relegation',
-    objectiveTarget: prevObjective?.target ?? null,
-    leaguePosition,
-    totalTeams,
-    wonCup, wasRelegated, wasPromoted,
-    reputationDelta: repResult.delta,
-    budgetBalance: args.budgetBalance,
-  });
-
-  // 4. Persist trust history + update save
-  await insertTrustHistory(dbHandle, {
-    clubId, season: endedSeason, trust: trustResult.newTrust, outcome: trustResult.outcome,
-  }).catch(() => {});
-  await updateSaveBoardTrust(dbHandle, saveId, trustResult.newTrust);
-
-  // 5. Apply budget consequence
-  if (trustResult.consequence === 'budget_cut') {
-    await dbHandle.prepare('UPDATE clubs SET budget = CAST(budget * 0.8 AS INTEGER) WHERE id = ?').run(clubId);
-  } else if (trustResult.consequence === 'budget_bonus') {
-    await dbHandle.prepare('UPDATE clubs SET budget = CAST(budget * 1.1 AS INTEGER) WHERE id = ?').run(clubId);
-  }
-
-  // 6. Generate objective for the NEW season
-  const objective = generateObjective({
-    clubReputation: repResult.newReputation,
-    currentLeaguePosition: leaguePosition,
-    totalTeams,
-    divisionLevel: 1,
-    wasRelegated, wasPromoted,
-    rng: new SeededRng(newSeason * 31337 + clubId),
-  });
-  await upsertBoardObjective(dbHandle, {
-    clubId, season: newSeason,
-    type: objective.type, target: objective.target, description: objective.description,
-  });
-
-  // 7. Update stores
-  const fullObjective = await getBoardObjective(dbHandle, clubId, newSeason);
-  const repHistory = await getReputationHistory(dbHandle, clubId);
-
-  setCurrentObjective(fullObjective);
-  setCurrentTrust(trustResult.newTrust);
-  setLastTrustResult(trustResult.outcome, trustResult.consequence);
-  setReputationHistory(repHistory);
-
-  // 8. Set board eval for UI display (shown before Continue is pressed)
-  setBoardEval({
-    oldRep: currentReputation,
-    newRep: repResult.newReputation,
-    delta: repResult.delta,
-    trust: trustResult.newTrust,
-    outcome: trustResult.outcome,
-    consequence: trustResult.consequence,
-    objectiveDescription: objective.description,
-  });
-}
 
 interface SeasonStats {
   played: number;
@@ -276,32 +141,45 @@ export function EndOfSeasonScreen() {
           expenses,
         });
 
-        // Board evaluation — compute and persist once; guard prevents re-runs on re-renders
+        // Board evaluation — engine computes/persists; the screen just wires stores + UI.
+        // Guard prevents re-runs on re-renders.
         if (currentSave && !boardProcessed) {
           setBoardProcessed(true);
           const relegatedRow = await dbHandle
             .prepare('SELECT id FROM season_relegated WHERE season = ? AND club_id = ? LIMIT 1')
             .get(endedSeason, playerClubId) as { id: number } | undefined;
-          await processSeasonEndBoard({
-            dbHandle,
-            clubId: playerClubId,
-            saveId: currentSave.id,
-            endedSeason,
-            newSeason: season,
-            leaguePosition,
-            totalTeams,
-            currentReputation: playerClub.reputation,
-            budgetBalance: income - expenses,
-            wasRelegated: relegatedRow != null,
-            wasPromoted: false,
-            wonLeague: leaguePosition === 1,
-            wonCup: false,
-            setCurrentObjective,
-            setCurrentTrust,
-            setLastTrustResult,
-            setReputationHistory,
-            setBoardEval,
-          }).catch(() => {});
+          try {
+            const boardResult = await processSeasonEndBoard({
+              dbHandle,
+              clubId: playerClubId,
+              saveId: currentSave.id,
+              endedSeason,
+              newSeason: season,
+              leaguePosition,
+              totalTeams,
+              currentReputation: playerClub.reputation,
+              budgetBalance: income - expenses,
+              wasRelegated: relegatedRow != null,
+              wasPromoted: false,
+              wonLeague: leaguePosition === 1,
+              wonCup: false,
+            });
+            setCurrentObjective(boardResult.newObjective);
+            setCurrentTrust(boardResult.newTrust);
+            setLastTrustResult(boardResult.outcome, boardResult.consequence);
+            setReputationHistory(boardResult.reputationHistory);
+            setBoardEval({
+              oldRep: boardResult.oldReputation,
+              newRep: boardResult.newReputation,
+              delta: boardResult.reputationDelta,
+              trust: boardResult.newTrust,
+              outcome: boardResult.outcome,
+              consequence: boardResult.consequence,
+              objectiveDescription: boardResult.objectiveDescription,
+            });
+          } catch {
+            // Board eval is best-effort; stats still render.
+          }
         }
       } catch (e) {
         // Fallback empty stats
@@ -328,194 +206,25 @@ export function EndOfSeasonScreen() {
     setStarting(true);
 
     try {
-      // The store's `season` is already the new season (set by advanceGameWeek).
-      // Use that as the starting point for the new calendar; use endedSeason
-      // for anything referring to the finished year.
+      // advanceGameWeek already advanced the season pointer; `season` is the new year.
       const newSeason = season;
 
-      await runInTransaction(dbHandle, async () => {
-      // 1. Age all non-retired players (aposentados têm club_id=NULL e is_free_agent=0;
-      // sem o filtro, ganhariam +1 de idade toda virada).
-      await dbHandle
-        .prepare('UPDATE players SET age = age + 1 WHERE club_id IS NOT NULL OR is_free_agent = 1')
-        .run();
-
-      // 1b. Process assistants: age++, seasons++, retire those who reached retirement age
+      // Assistants: age/retire loop lives in the engine now; refresh the store with the result.
       if (currentSave) {
-        const assistants = await getAssistantsBySave(dbHandle, currentSave.id);
-        for (const assistant of assistants) {
-          const result = processAssistantSeasonEnd(assistant);
-          if (result.retired) {
-            await deleteAssistant(dbHandle, assistant.id);
-          } else {
-            await updateAssistantSeasonEnd(
-              dbHandle, assistant.id,
-              result.newAge, result.newSeasonsAtClub, result.willRetireNextSeason,
-            );
-          }
-        }
-        const updated = await getAssistantsBySave(dbHandle, currentSave.id);
-        setAssistants(updated);
+        const updatedAssistants = await processAssistantsSeasonEnd(dbHandle, currentSave.id);
+        setAssistants(updatedAssistants);
       }
 
-      // 2. Contract expiry — mark players whose contract ended with this season as free agents.
-      // Restrict to club_id IS NOT NULL so retired players (club_id=NULL, is_free_agent=0)
-      // are not accidentally flipped to is_free_agent=1.
-      await dbHandle.prepare('UPDATE players SET is_free_agent = 1 WHERE contract_end <= ? AND club_id IS NOT NULL').run(endedSeason);
-
-      // 2b. Return loaned players to their parent clubs
-      await returnExpiredLoans(dbHandle, endedSeason);
-
-      // 3. Dynamic potential recalculation for player's club squad
-      if (playerClubId) {
-        const squad = await getPlayersByClub(dbHandle, playerClubId);
-        for (const player of squad) {
-          const seasonStats = await dbHandle.prepare(
-            'SELECT avg_rating, minutes_played FROM player_stats WHERE player_id = ? AND season = ?',
-          ).get(player.id, endedSeason) as { avg_rating: number; minutes_played: number } | undefined;
-
-          if (!seasonStats) continue;
-
-          const minutesPercent = Math.min(100, (seasonStats.minutes_played / (38 * 90)) * 100);
-
-          const result = recalculatePotential({
-            basePotential: player.basePotential,
-            effectivePotential: player.effectivePotential,
-            currentOverall: 70, // simplified — use average of attributes
-            seasonRatings: [{ avgRating: seasonStats.avg_rating, minutesPercent }],
-          });
-
-          if (result.newEffectivePotential !== player.effectivePotential) {
-            await dbHandle.prepare('UPDATE players SET effective_potential = ? WHERE id = ?').run(
-              result.newEffectivePotential,
-              player.id,
-            );
-          }
-        }
-      }
-
-      // 4. Youth academy generation
-      if (playerClubId) {
-        const youth = generateYouthPlayers({
-          clubId: playerClubId,
-          academyLevel: playerClub?.youthAcademy ?? 3,
-          youthCoachBonus: 5, // simplified
-          countryCode: 'EN', // simplified
-          rng: new SeededRng(newSeason * 7777),
-        });
-
-        const maxIdRow = await dbHandle.prepare('SELECT MAX(id) as maxId FROM players').get() as { maxId: number };
-        let nextId = (maxIdRow?.maxId ?? 0) + 1;
-
-        for (const y of youth) {
-          await dbHandle.prepare(
-            'INSERT INTO players (id, name, nationality, age, position, secondary_position, club_id, wage, contract_end, market_value, base_potential, effective_potential, morale, fitness, injury_weeks_left, is_free_agent) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-          ).run(
-            nextId, y.name, 'Local', y.age, y.position, null,
-            playerClubId, 5000, newSeason + 3, 100000,
-            y.basePotential, y.basePotential, 70, 100, 0, 0,
-          );
-
-          const a = y.attributes;
-          await dbHandle.prepare(
-            'INSERT INTO player_attributes (player_id, finishing, passing, crossing, dribbling, heading, long_shots, free_kicks, vision, composure, decisions, positioning, aggression, leadership, pace, stamina, strength, agility, jumping) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-          ).run(
-            nextId, a.finishing, a.passing, a.crossing, a.dribbling, a.heading,
-            a.longShots, a.freeKicks, a.vision, a.composure, a.decisions,
-            a.positioning, a.aggression, a.leadership, a.pace, a.stamina,
-            a.strength, a.agility, a.jumping,
-          );
-
-          nextId++;
-        }
-      }
-
-      // Generate calendar for the new season
-      const leagues = await getAllLeagues(dbHandle);
-      const clubsByLeague: Record<number, number[]> = {};
-      const championsLeagueClubs: number[] = [];
-
-      for (const league of leagues) {
-        const clubs = await getClubsByLeague(dbHandle, league.id);
-        const sorted = [...clubs].sort((a, b) => b.reputation - a.reputation);
-        clubsByLeague[league.id] = clubs.map((c) => c.id);
-        // Top 2 clubs per league go to Champions League (up to 8 total)
-        if (championsLeagueClubs.length < 8) {
-          for (const club of sorted.slice(0, 2)) {
-            if (championsLeagueClubs.length < 8) {
-              championsLeagueClubs.push(club.id);
-            }
-          }
-        }
-      }
-
-      // Ensure we have at least 8 for Champions League
-      if (championsLeagueClubs.length < 8) {
-        const allIds = Object.values(clubsByLeague).flat();
-        for (const id of allIds) {
-          if (!championsLeagueClubs.includes(id) && championsLeagueClubs.length < 8) {
-            championsLeagueClubs.push(id);
-          }
-        }
-      }
-
-      const calendar = generateSeasonCalendar({
-        season: newSeason,
-        leagues,
-        clubsByLeague,
-        championsLeagueClubs,
-      });
-
-      // Persist competitions
-      for (const comp of calendar.competitions) {
-        try {
-          await createCompetition(dbHandle, {
-            id: comp.id + newSeason * 10000,
-            name: comp.name,
-            type: comp.type,
-            format: comp.format,
-            season: newSeason,
-            leagueId: comp.leagueId,
-          });
-        } catch {
-          // May already exist
-        }
-      }
-
-      // Persist entries
-      for (const entry of calendar.entries) {
-        const compId = entry.competitionId + newSeason * 10000;
-        try {
-          await addCompetitionEntry(dbHandle, {
-            competitionId: compId,
-            clubId: entry.clubId,
-            groupName: entry.groupName,
-            seed: entry.seed,
-          });
-        } catch {
-          // May already exist
-        }
-      }
-
-      // Persist fixtures
-      for (const fixture of calendar.fixtures) {
-        const compId = fixture.competitionId + newSeason * 10000;
-        const fixtureId = fixture.id + newSeason * 100000;
-        try {
-          await createFixture(dbHandle, {
-            id: fixtureId,
-            competitionId: compId,
-            season: newSeason,
-            week: fixture.week,
-            round: typeof fixture.round === 'number' ? String(fixture.round) : fixture.round,
-            homeClubId: fixture.homeClubId,
-            awayClubId: fixture.awayClubId,
-          });
-        } catch {
-          // May already exist
-        }
-      }
-
+      // Transactional rollover: age players, expire contracts, return loans,
+      // recalc potential, generate youth, regenerate the new-season calendar.
+      await rolloverSeason({
+        dbHandle,
+        playerClubId,
+        saveId: currentSave?.id ?? -1,
+        endedSeason,
+        newSeason,
+        youthAcademyLevel: playerClub?.youthAcademy ?? 3,
+        rng: new SeededRng(newSeason * 7777),
       });
 
       // Runs only after COMMIT — season pointer is already correct, just flip
@@ -525,11 +234,9 @@ export function EndOfSeasonScreen() {
       updateWeek(newSeason, 1);
       navigation.navigate('Game');
     } catch (err) {
-      // The transaction rolled the DB back to the pre-rollover state.
+      // rolloverSeason rolled the DB back to the pre-rollover state.
       // Do NOT advance the week / mark the season started — let the user retry.
       console.error('[EndOfSeason] rollover failed, rolled back:', err);
-      setStarting(false);
-      return;
     } finally {
       setStarting(false);
     }

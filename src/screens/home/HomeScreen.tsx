@@ -27,6 +27,7 @@ import { getPlayerById, getPlayersByClub, getPlayersAboutToRetire } from '@/data
 import { getActiveTactic } from '@/database/queries/tactics';
 import { getBoardObjective, getSaveBoardTrust, getReputationHistory } from '@/database/queries/board';
 import { advanceGameWeek } from '@/engine/game-loop';
+import { resolveAdvanceReload } from '@/engine/advance-reload';
 import { ensureSeasonFixtures } from '@/engine/competition/calendar';
 import { FORMATION_ROWS } from '@/engine/formations';
 import { calculateOverall } from '@/utils/overall';
@@ -235,13 +236,13 @@ export function HomeScreen() {
       const updatedClub = await getClubById(dbHandle, playerClubId);
       if (updatedClub) setPlayerClub(updatedClub);
 
-      // Reload recent results
-      const fetchSeasonForRecents = result.isSeasonEnd ? season : result.newSeason;
-      const allFixtures = await getFixturesByClub(dbHandle, playerClubId, fetchSeasonForRecents);
+      // Reload recent results — decisão de reload extraída p/ helper puro testável.
+      const reload = resolveAdvanceReload({ result, season });
+      const allFixtures = await getFixturesByClub(dbHandle, playerClubId, reload.fetchSeasonForRecents);
       const played = allFixtures.filter(f => f.played);
       setRecentResults(played.slice(-5));
 
-      if (result.isSeasonEnd) setNewSeason(true);
+      if (reload.shouldStartNewSeason) setNewSeason(true);
       if (result.retiringPlayerIds.length > 0) {
         setLastRetiredPlayerIds(result.retiringPlayerIds);
       }
