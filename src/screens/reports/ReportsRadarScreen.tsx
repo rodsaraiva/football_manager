@@ -53,7 +53,8 @@ function computePositionAvgFromMap(
 
 export function ReportsRadarScreen() {
   const route = useRoute<RadarRouteProps>();
-  const { playerClub, playerClubId } = useGameStore();
+  const { playerClub, playerClubId, currentSave } = useGameStore();
+  const saveId = currentSave?.id;
   const { dbHandle } = useDatabaseStore();
 
   const [squad, setSquad] = useState<SquadPlayer[]>([]);
@@ -69,10 +70,10 @@ export function ReportsRadarScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      if (!dbHandle || !playerClub || !playerClubId) return;
+      if (!dbHandle || !playerClub || !playerClubId || saveId == null) return;
       setLoading(true);
       (async () => {
-        const ownSquad = await getPlayersWithAttributesByClub(dbHandle, playerClubId);
+        const ownSquad = await getPlayersWithAttributesByClub(dbHandle, saveId, playerClubId);
         const s: SquadPlayer[] = ownSquad.map((p) => ({
           id: p.id,
           name: p.name,
@@ -90,10 +91,10 @@ export function ReportsRadarScreen() {
           setPlayerAId(s[0].id);
         }
 
-        const leagueClubs = await getClubsByLeague(dbHandle, playerClub.leagueId);
+        const leagueClubs = await getClubsByLeague(dbHandle, saveId, playerClub.leagueId);
         const byPos = new Map<Position, PlayerAttributes[]>();
         const rosters = await Promise.all(
-          leagueClubs.map((c) => getPlayersWithAttributesByClub(dbHandle, c.id)),
+          leagueClubs.map((c) => getPlayersWithAttributesByClub(dbHandle, saveId, c.id)),
         );
         for (const roster of rosters) {
           for (const p of roster) {

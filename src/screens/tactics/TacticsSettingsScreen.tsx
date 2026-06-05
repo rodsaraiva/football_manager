@@ -89,7 +89,9 @@ function humanize(s: string): string {
 
 export function TacticsSettingsScreen() {
   const playerClubId = useGameStore((s) => s.playerClubId);
+  const currentSave = useGameStore((s) => s.currentSave);
   const dbHandle = useDatabaseStore((s) => s.dbHandle);
+  const saveId = currentSave?.id;
 
   const [tactic, setTactic] = useState<Tactic | null>(null);
   const [loading, setLoading] = useState(true);
@@ -104,13 +106,13 @@ export function TacticsSettingsScreen() {
   const [subStrategy, setSubStrategy] = useState<SubstitutionStrategy>('balanced');
 
   useEffect(() => {
-    if (!dbHandle || playerClubId === null) {
+    if (!dbHandle || playerClubId === null || saveId == null) {
       setLoading(false);
       return;
     }
     (async () => {
       try {
-        const activeTactic = await getActiveTactic(dbHandle, playerClubId);
+        const activeTactic = await getActiveTactic(dbHandle, saveId, playerClubId);
         if (activeTactic) {
           setTactic(activeTactic);
           setMentality(activeTactic.mentality);
@@ -128,13 +130,13 @@ export function TacticsSettingsScreen() {
   }, [dbHandle, playerClubId]);
 
   const handleSave = useCallback(async () => {
-    if (!dbHandle || !tactic) {
+    if (!dbHandle || !tactic || saveId == null) {
       Alert.alert('Error', 'No active tactic found.');
       return;
     }
     setSaving(true);
     try {
-      await updateTactic(dbHandle, tactic.id, {
+      await updateTactic(dbHandle, saveId, tactic.id, {
         mentality,
         pressing,
         passingStyle,
@@ -149,7 +151,7 @@ export function TacticsSettingsScreen() {
     } finally {
       setSaving(false);
     }
-  }, [dbHandle, tactic, mentality, pressing, passingStyle, tempo, width, attackFocus, subStrategy]);
+  }, [dbHandle, saveId, tactic, mentality, pressing, passingStyle, tempo, width, attackFocus, subStrategy]);
 
   if (loading) {
     return (

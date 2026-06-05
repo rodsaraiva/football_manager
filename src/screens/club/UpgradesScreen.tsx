@@ -54,13 +54,14 @@ interface UpgradeCardProps {
   config: FacilityConfig;
   budget: number;
   clubId: number;
+  saveId: number;
   season: number;
   week: number;
   dbHandle: DbHandle;
   onUpgradeComplete: () => void;
 }
 
-function UpgradeCard({ config, budget, clubId, season, week, dbHandle, onUpgradeComplete }: UpgradeCardProps) {
+function UpgradeCard({ config, budget, clubId, saveId, season, week, dbHandle, onUpgradeComplete }: UpgradeCardProps) {
   const isMaxed = config.currentLevel >= MAX_LEVEL;
   const upgradeCost = isMaxed ? null : calculateUpgradeCost(config.type, config.currentLevel);
   const canAfford = !isMaxed && upgradeCost != null && budget >= upgradeCost.cost;
@@ -71,7 +72,7 @@ function UpgradeCard({ config, budget, clubId, season, week, dbHandle, onUpgrade
       Alert.alert('Insufficient Budget', `You need ${formatCost(upgradeCost.cost)} to upgrade ${config.label}.`);
       return;
     }
-    const result = await applyUpgrade(dbHandle, clubId, config.type, config.currentLevel, season, week);
+    const result = await applyUpgrade(dbHandle, saveId, clubId, config.type, config.currentLevel, season, week);
     if (!result.success) {
       Alert.alert('Upgrade Failed', result.reason ?? 'Unknown error');
       return;
@@ -131,15 +132,16 @@ function UpgradeCard({ config, budget, clubId, season, week, dbHandle, onUpgrade
 }
 
 export function UpgradesScreen() {
-  const { playerClubId, season, week } = useGameStore();
+  const { playerClubId, season, week, currentSave } = useGameStore();
   const { dbHandle } = useDatabaseStore();
   const [club, setClub] = useState<Club | null>(null);
+  const saveId = currentSave?.id;
 
   const load = useCallback(async () => {
-    if (!dbHandle || playerClubId == null) return;
-    const loaded = await getClubById(dbHandle, playerClubId);
+    if (!dbHandle || playerClubId == null || saveId == null) return;
+    const loaded = await getClubById(dbHandle, saveId, playerClubId);
     setClub(loaded);
-  }, [dbHandle, playerClubId]);
+  }, [dbHandle, playerClubId, saveId]);
 
   useEffect(() => {
     load();
@@ -205,6 +207,7 @@ export function UpgradesScreen() {
           config={fac}
           budget={club.budget}
           clubId={playerClubId!}
+          saveId={saveId!}
           season={season}
           week={week}
           dbHandle={dbHandle!}

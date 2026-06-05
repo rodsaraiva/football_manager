@@ -45,22 +45,23 @@ const STATUS_META: Record<OfferStatus, { label: string; color: string; icon: str
 };
 
 export function OffersSentScreen() {
-  const { playerClubId, season, week } = useGameStore();
+  const { playerClubId, season, week, currentSave } = useGameStore();
+  const saveId = currentSave?.id;
   const { dbHandle } = useDatabaseStore();
   const [rows, setRows] = useState<OfferRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
   const load = useCallback(async () => {
-    if (!dbHandle || playerClubId === null) {
+    if (!dbHandle || playerClubId === null || saveId == null) {
       setLoading(false);
       return;
     }
-    const offers = await getOffersByOfferingClub(dbHandle, playerClubId);
+    const offers = await getOffersByOfferingClub(dbHandle, saveId, playerClubId);
     const hydrated: OfferRow[] = [];
     for (const o of offers) {
-      const player = await getPlayerById(dbHandle, o.playerId);
-      const sellingClub = await getClubById(dbHandle, o.sellingClubId);
+      const player = await getPlayerById(dbHandle, saveId, o.playerId);
+      const sellingClub = await getClubById(dbHandle, saveId, o.sellingClubId);
       hydrated.push({
         offer: o,
         playerName: player?.name ?? `Player #${o.playerId}`,
@@ -71,7 +72,7 @@ export function OffersSentScreen() {
     }
     setRows(hydrated);
     setLoading(false);
-  }, [dbHandle, playerClubId]);
+  }, [dbHandle, playerClubId, saveId]);
 
   // Reload whenever the screen is focused (e.g. returning after advancing week)
   useFocusEffect(
@@ -93,7 +94,7 @@ export function OffersSentScreen() {
 
   const handleAcceptCounter = useCallback(
     async (row: OfferRow) => {
-      if (!dbHandle) return;
+      if (!dbHandle || saveId == null) return;
       Alert.alert(
         'Accept counter-offer?',
         `${row.sellingClubName} countered with ${formatMoney(row.offer.feeOffered)} for ${row.playerName}. Accept?`,
@@ -102,7 +103,7 @@ export function OffersSentScreen() {
           {
             text: 'Accept',
             onPress: async () => {
-              const res = await acceptCounterOffer(dbHandle, row.offer.id, season, week);
+              const res = await acceptCounterOffer(dbHandle, saveId, row.offer.id, season, week);
               if (!res.success) {
                 Alert.alert('Unable to accept', res.reason ?? 'Unknown error');
               } else {
@@ -114,22 +115,22 @@ export function OffersSentScreen() {
         ],
       );
     },
-    [dbHandle, season, week, load],
+    [dbHandle, saveId, season, week, load],
   );
 
   const handleRejectCounter = useCallback(
     async (row: OfferRow) => {
-      if (!dbHandle) return;
-      await updateOfferStatus(dbHandle, row.offer.id, 'rejected', week);
+      if (!dbHandle || saveId == null) return;
+      await updateOfferStatus(dbHandle, saveId, row.offer.id, 'rejected', week);
       await load();
     },
-    [dbHandle, week, load],
+    [dbHandle, saveId, week, load],
   );
 
   const handleDismiss = useCallback(
     async (row: OfferRow) => {
-      if (!dbHandle) return;
-      await deleteOffer(dbHandle, row.offer.id);
+      if (!dbHandle || saveId == null) return;
+      await deleteOffer(dbHandle, saveId, row.offer.id);
       await load();
     },
     [dbHandle, load],

@@ -40,17 +40,18 @@ type TFn = (key: TKey, vars?: Record<string, string | number>) => string;
 
 export function NewsScreen() {
   const { t } = useTranslation();
-  const { playerClub, playerClubId, season, week, lastRetiredPlayerIds, pendingAnnouncedRetirementIds } = useGameStore();
+  const { playerClub, playerClubId, season, week, lastRetiredPlayerIds, pendingAnnouncedRetirementIds, currentSave } = useGameStore();
   const { dbHandle } = useDatabaseStore();
 
   const [news, setNews] = useState<NewsItem[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!dbHandle || !playerClub) {
+    if (!dbHandle || !playerClub || !currentSave) {
       setLoading(false);
       return;
     }
+    const saveId = currentSave.id;
 
     (async () => {
       try {
@@ -58,7 +59,7 @@ export function NewsScreen() {
 
         // ── Core league data ────────────────────────────────────────────
         const league: League | null = await getLeagueById(dbHandle, playerClub.leagueId);
-        const leagueClubs = await getClubsByLeague(dbHandle, playerClub.leagueId);
+        const leagueClubs = await getClubsByLeague(dbHandle, saveId, playerClub.leagueId);
         const clubMap = new Map<number, Club>();
         for (const c of leagueClubs) clubMap.set(c.id, c);
         const clubIds = leagueClubs.map((c) => c.id);
@@ -68,7 +69,7 @@ export function NewsScreen() {
           clubMap.set(playerClubId, playerClub);
         }
 
-        const competitions = await getCompetitionsBySeason(dbHandle, season);
+        const competitions = await getCompetitionsBySeason(dbHandle, saveId, season);
         const leagueComp = competitions.find(
           (c) => c.leagueId === playerClub.leagueId && c.type === 'league',
         );
@@ -76,7 +77,7 @@ export function NewsScreen() {
         // ── Load all played league fixtures up to current week ─────────
         const allPlayedFixtures: Fixture[] = [];
         for (let w = 1; w <= week; w++) {
-          const wf = await getFixturesByWeek(dbHandle, season, w);
+          const wf = await getFixturesByWeek(dbHandle, saveId, season, w);
           const lf = leagueComp
             ? wf.filter((f) => f.competitionId === leagueComp.id && f.played)
             : wf.filter((f) => f.played);
@@ -87,7 +88,7 @@ export function NewsScreen() {
         const playerNames = new Map<number, string>();
         const playerToClub = new Map<number, number>();
         for (const club of leagueClubs) {
-          const players = await getPlayersByClub(dbHandle, club.id);
+          const players = await getPlayersByClub(dbHandle, saveId, club.id);
           for (const p of players) {
             playerNames.set(p.id, p.name);
             playerToClub.set(p.id, club.id);
@@ -107,7 +108,7 @@ export function NewsScreen() {
 
         // ── 2. Last round results header + high-scoring matches ───────
         const resultsWeek = week > 1 ? week - 1 : week;
-        const lastWeekFixturesAll = await getFixturesByWeek(dbHandle, season, resultsWeek);
+        const lastWeekFixturesAll = await getFixturesByWeek(dbHandle, saveId, season, resultsWeek);
         const lastWeekLeagueFixtures = leagueComp
           ? lastWeekFixturesAll.filter((f) => f.competitionId === leagueComp.id && f.played)
           : lastWeekFixturesAll.filter((f) => f.played);
@@ -170,7 +171,7 @@ export function NewsScreen() {
         }
 
         // ── 5. Relevant transfers (big fees) ──────────────────────────
-        const transfers = await getTransfersBySeason(dbHandle, season);
+        const transfers = await getTransfersBySeason(dbHandle, saveId, season);
         items.push(...generateRelevantTransfers(transfers, playerNames, clubMap));
 
         // ── 6. Streaks for player's club ──────────────────────────────
@@ -183,7 +184,7 @@ export function NewsScreen() {
 
         // ── 7. Injuries / morale / contracts (squad items) ────────────
         if (playerClubId) {
-          const squad = await getPlayersByClub(dbHandle, playerClubId);
+          const squad = await getPlayersByClub(dbHandle, saveId, playerClubId);
           const injured = squad.filter((p) => p.injuryWeeksLeft > 0);
           if (injured.length > 0) {
             items.push({
@@ -285,7 +286,7 @@ export function NewsScreen() {
 
         // ── 9. Season recap — shown only on week 1 of a new season ──────
         if (week === 1 && season > 1 && playerClub) {
-          const prevSummary = await getSeasonSummary(dbHandle, season - 1);
+          const prevSummary = await getSeasonSummary(dbHandle, saveId, season - 1);
           items.push(
             ...generateSeasonRecap({
               previousSeason: season - 1,
@@ -350,7 +351,7 @@ export function NewsScreen() {
         setLoading(false);
       }
     })();
-  }, [dbHandle, playerClub, playerClubId, season, week]);
+  }, [dbHandle, playerClub, playerClubId, season, week, currentSave]);
 
   if (loading) {
     return (

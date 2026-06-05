@@ -155,7 +155,8 @@ export function HomeScreen() {
 
   // Load player names and show modal after match
   useEffect(() => {
-    if (!lastMatchResult || !dbHandle) return;
+    if (!lastMatchResult || !dbHandle || !currentSave) return;
+    const saveId = currentSave.id;
     (async () => {
       const ids = new Set<number>();
       for (const evt of lastMatchResult.events) {
@@ -165,14 +166,14 @@ export function HomeScreen() {
       const names: Record<number, string> = {};
       for (const id of ids) {
         try {
-          const p = await getPlayerById(dbHandle, id);
+          const p = await getPlayerById(dbHandle, saveId, id);
           if (p) names[id] = p.name;
         } catch { /* ignore */ }
       }
       setPlayerNames(names);
       setShowMatchModal(true);
     })();
-  }, [lastMatchResult, dbHandle]);
+  }, [lastMatchResult, dbHandle, currentSave]);
 
   // Load board state from DB once per save load (guard: store empty + not yet loaded)
   useEffect(() => {
@@ -429,20 +430,21 @@ export function HomeScreen() {
             style={styles.scoutButton}
             activeOpacity={0.7}
             onPress={async () => {
-              if (!dbHandle || !nextOpponent) return;
+              if (!dbHandle || !nextOpponent || !currentSave) return;
+              const saveId = currentSave.id;
               setLoadingOpponent(true);
               setShowOpponentModal(true);
               try {
-                const players = await getPlayersByClub(dbHandle, nextOpponent.club.id);
+                const players = await getPlayersByClub(dbHandle, saveId, nextOpponent.club.id);
                 const squad: Array<{ name: string; position: Position; overall: number }> = [];
                 for (const p of players) {
-                  const full = await getPlayerById(dbHandle, p.id);
+                  const full = await getPlayerById(dbHandle, saveId, p.id);
                   if (full) {
                     squad.push({ name: full.name, position: full.position, overall: calculateOverall(full.attributes, full.position) });
                   }
                 }
                 setOpponentSquad(squad);
-                const tactic = await getActiveTactic(dbHandle, nextOpponent.club.id);
+                const tactic = await getActiveTactic(dbHandle, saveId, nextOpponent.club.id);
                 setOpponentFormation(tactic?.formation ?? '4-4-2');
               } catch { /* ignore */ }
               setLoadingOpponent(false);

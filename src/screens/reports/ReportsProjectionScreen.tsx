@@ -35,8 +35,9 @@ const DEF_POS: Position[] = ['CB', 'LB', 'RB'];
 const avg = (xs: number[]) => (xs.length === 0 ? 60 : xs.reduce((s, v) => s + v, 0) / xs.length);
 
 export function ReportsProjectionScreen() {
-  const { playerClub, playerClubId, season, week } = useGameStore();
+  const { playerClub, playerClubId, season, week, currentSave } = useGameStore();
   const { dbHandle } = useDatabaseStore();
+  const saveId = currentSave?.id;
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [projection, setProjection] = useState<ProjectedStanding[]>([]);
@@ -46,13 +47,13 @@ export function ReportsProjectionScreen() {
   >([]);
 
   const load = useCallback(async () => {
-    if (!dbHandle || !playerClub || !playerClubId) {
+    if (!dbHandle || !playerClub || !playerClubId || saveId == null) {
       setLoading(false);
       return;
     }
     setLoading(true);
     try {
-      const leagueClubs = await getClubsByLeague(dbHandle, playerClub.leagueId);
+      const leagueClubs = await getClubsByLeague(dbHandle, saveId, playerClub.leagueId);
       const clubIds = leagueClubs.map((c) => c.id);
 
       const namesMap = new Map<number, string>();
@@ -62,14 +63,14 @@ export function ReportsProjectionScreen() {
       setClubNames(namesMap);
 
       // Locate league competition
-      const comps = await getCompetitionsBySeason(dbHandle, season);
+      const comps = await getCompetitionsBySeason(dbHandle, saveId, season);
       const leagueComp = comps.find((c) => c.leagueId === playerClub.leagueId && c.type === 'league');
 
       // Gather all fixtures
       const allFixtures: Fixture[] = [];
       const seen = new Set<number>();
       for (const cid of clubIds) {
-        const fxs = await getFixturesByClub(dbHandle, cid, season);
+        const fxs = await getFixturesByClub(dbHandle, saveId, cid, season);
         for (const f of fxs) {
           if (!seen.has(f.id) && (!leagueComp || f.competitionId === leagueComp.id)) {
             seen.add(f.id);
@@ -87,7 +88,7 @@ export function ReportsProjectionScreen() {
       const overallByClub = new Map<number, number>();
       await Promise.all(
         leagueClubs.map(async (c) => {
-          const squad = await getPlayersWithAttributesByClub(dbHandle, c.id);
+          const squad = await getPlayersWithAttributesByClub(dbHandle, saveId, c.id);
           const overalls = squad
             .filter((p) => p.injuryWeeksLeft === 0)
             .map((p) => calculateOverall(p.attributes, p.position));

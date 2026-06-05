@@ -98,25 +98,25 @@ export function MyListingsScreen() {
   }
 
   async function handleBlurAskingPrice() {
-    if (!dbHandle || !editPlayer || !isTransferListed) return;
+    if (!dbHandle || !editPlayer || !isTransferListed || saveId == null) return;
     const price = askingPriceText.trim() ? parseInt(askingPriceText.replace(/\D/g, ''), 10) : null;
-    await setTransferListing(dbHandle, editPlayer.id, true, Number.isFinite(price) ? price : null);
+    await setTransferListing(dbHandle, saveId, editPlayer.id, true, Number.isFinite(price) ? price : null);
   }
 
   async function handleToggleLoan(next: boolean) {
     setIsLoanListedLocal(next);
-    if (!dbHandle || !editPlayer) return;
+    if (!dbHandle || !editPlayer || saveId == null) return;
     const sharePct = loanShareText.trim() ? parseInt(loanShareText.replace(/\D/g, ''), 10) : 50;
     const clamped = Math.max(0, Math.min(100, Number.isFinite(sharePct) ? sharePct : 50));
-    await setLoanListing(dbHandle, editPlayer.id, next, next ? clamped / 100 : null);
+    await setLoanListing(dbHandle, saveId, editPlayer.id, next, next ? clamped / 100 : null);
     await refreshEditPlayer(editPlayer.id);
   }
 
   async function handleBlurLoanShare() {
-    if (!dbHandle || !editPlayer || !isLoanListed) return;
+    if (!dbHandle || !editPlayer || !isLoanListed || saveId == null) return;
     const sharePct = loanShareText.trim() ? parseInt(loanShareText.replace(/\D/g, ''), 10) : 50;
     const clamped = Math.max(0, Math.min(100, Number.isFinite(sharePct) ? sharePct : 50));
-    await setLoanListing(dbHandle, editPlayer.id, true, clamped / 100);
+    await setLoanListing(dbHandle, saveId, editPlayer.id, true, clamped / 100);
   }
 
   const FILTERS: FilterMode[] = ['Todos', 'Listados', 'Não listados'];

@@ -107,7 +107,7 @@ export function AssistantHiringScreen() {
               wagePerMonth: candidate.wagePerMonth,
               willRetireNextSeason: false,
             });
-            await addFinanceEntry(dbHandle, {
+            await addFinanceEntry(dbHandle, currentSave.id, {
               clubId: playerClubId,
               season,
               week: 1,

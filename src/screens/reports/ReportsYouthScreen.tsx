@@ -35,7 +35,8 @@ const FILTER_LABELS: Record<PositionFilter, string> = {
 
 export function ReportsYouthScreen() {
   const navigation = useNavigation<NavProp>();
-  const { playerClubId, season, week } = useGameStore();
+  const { playerClubId, season, week, currentSave } = useGameStore();
+  const saveId = currentSave?.id;
   const { dbHandle } = useDatabaseStore();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -44,13 +45,13 @@ export function ReportsYouthScreen() {
   const [filter, setFilter] = useState<PositionFilter>('ALL');
 
   const load = React.useCallback(async () => {
-    if (!dbHandle || !playerClubId) {
+    if (!dbHandle || !playerClubId || saveId == null) {
       setLoading(false);
       return;
     }
     setLoading(true);
     try {
-      const fullPlayers = await getPlayersWithAttributesByClub(dbHandle, playerClubId);
+      const fullPlayers = await getPlayersWithAttributesByClub(dbHandle, saveId, playerClubId);
       const squad: SquadPlayer[] = fullPlayers.map((full) => ({
         id: full.id,
         name: full.name,
@@ -71,7 +72,7 @@ export function ReportsYouthScreen() {
         : top11.reduce((s, p) => s + p.overall, 0) / top11.length;
       setSquadAvgStarter(starterAvg);
 
-      const allFixtures = await getFixturesByClub(dbHandle, playerClubId, season);
+      const allFixtures = await getFixturesByClub(dbHandle, saveId, playerClubId, season);
       const recent = allFixtures
         .filter((f) => f.played && f.week < week)
         .sort((a, b) => b.week - a.week)

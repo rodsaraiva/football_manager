@@ -54,7 +54,8 @@ const STATUS_META: Record<OfferStatus, { label: string; color: string; icon: str
 };
 
 export function OffersReceivedScreen() {
-  const { playerClubId, season, week } = useGameStore();
+  const { playerClubId, season, week, currentSave } = useGameStore();
+  const saveId = currentSave?.id;
   const { dbHandle } = useDatabaseStore();
   const [rows, setRows] = useState<OfferRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -63,15 +64,15 @@ export function OffersReceivedScreen() {
   const [counterFeeStr, setCounterFeeStr] = useState('');
 
   const load = useCallback(async () => {
-    if (!dbHandle || playerClubId === null) {
+    if (!dbHandle || playerClubId === null || saveId == null) {
       setLoading(false);
       return;
     }
-    const offers = await getOffersBySellingClub(dbHandle, playerClubId);
+    const offers = await getOffersBySellingClub(dbHandle, saveId, playerClubId);
     const hydrated: OfferRow[] = [];
     for (const o of offers) {
-      const player = await getPlayerById(dbHandle, o.playerId);
-      const suitor = await getClubById(dbHandle, o.offeringClubId);
+      const player = await getPlayerById(dbHandle, saveId, o.playerId);
+      const suitor = await getClubById(dbHandle, saveId, o.offeringClubId);
       hydrated.push({
         offer: o,
         playerName: player?.name ?? `Player #${o.playerId}`,
@@ -84,7 +85,7 @@ export function OffersReceivedScreen() {
     }
     setRows(hydrated);
     setLoading(false);
-  }, [dbHandle, playerClubId]);
+  }, [dbHandle, playerClubId, saveId]);
 
   useFocusEffect(
     useCallback(() => {
@@ -105,7 +106,7 @@ export function OffersReceivedScreen() {
 
   const handleAccept = useCallback(
     (row: OfferRow) => {
-      if (!dbHandle) return;
+      if (!dbHandle || saveId == null) return;
       Alert.alert(
         'Accept offer?',
         `Sell ${row.playerName} to ${row.offeringClubName} for ${formatMoney(row.offer.feeOffered)}?`,
@@ -115,7 +116,7 @@ export function OffersReceivedScreen() {
             text: 'Sell',
             style: 'destructive',
             onPress: async () => {
-              const res = await acceptIncomingOffer(dbHandle, row.offer.id, season, week);
+              const res = await acceptIncomingOffer(dbHandle, saveId, row.offer.id, season, week);
               if (!res.success) {
                 Alert.alert('Error', res.reason ?? 'Could not complete transfer');
               } else {
@@ -127,16 +128,16 @@ export function OffersReceivedScreen() {
         ],
       );
     },
-    [dbHandle, season, week, load],
+    [dbHandle, saveId, season, week, load],
   );
 
   const handleReject = useCallback(
     async (row: OfferRow) => {
-      if (!dbHandle) return;
-      await rejectIncomingOffer(dbHandle, row.offer.id, week);
+      if (!dbHandle || saveId == null) return;
+      await rejectIncomingOffer(dbHandle, saveId, row.offer.id, week);
       await load();
     },
-    [dbHandle, week, load],
+    [dbHandle, saveId, week, load],
   );
 
   const openCounter = useCallback((row: OfferRow) => {
@@ -145,26 +146,26 @@ export function OffersReceivedScreen() {
   }, []);
 
   const submitCounter = useCallback(async () => {
-    if (!dbHandle || !counterRow) return;
+    if (!dbHandle || !counterRow || saveId == null) return;
     const newFee = parseNumber(counterFeeStr);
     if (newFee <= counterRow.offer.feeOffered) {
       Alert.alert('Invalid counter', 'Your asking price must be higher than the current offer.');
       return;
     }
-    await counterIncomingOffer(dbHandle, counterRow.offer.id, newFee);
+    await counterIncomingOffer(dbHandle, saveId, counterRow.offer.id, newFee);
     setCounterRow(null);
     setCounterFeeStr('');
     Alert.alert('Counter sent', 'The buying club will respond next week.');
     await load();
-  }, [dbHandle, counterRow, counterFeeStr, load]);
+  }, [dbHandle, saveId, counterRow, counterFeeStr, load]);
 
   const handleDismiss = useCallback(
     async (row: OfferRow) => {
-      if (!dbHandle) return;
-      await deleteOffer(dbHandle, row.offer.id);
+      if (!dbHandle || saveId == null) return;
+      await deleteOffer(dbHandle, saveId, row.offer.id);
       await load();
     },
-    [dbHandle, load],
+    [dbHandle, saveId, load],
   );
 
   if (loading) {

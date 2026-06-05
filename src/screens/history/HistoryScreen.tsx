@@ -13,8 +13,9 @@ import { useDatabaseStore } from '@/store/database-store';
 import { getSeasonSummary, SeasonCompetitionSummary } from '@/database/queries/history';
 
 export function HistoryScreen() {
-  const { season: currentSeason } = useGameStore();
+  const { season: currentSeason, currentSave } = useGameStore();
   const { dbHandle } = useDatabaseStore();
+  const saveId = currentSave?.id;
 
   const defaultSeason = currentSeason > 1 ? currentSeason - 1 : 1;
   const [selectedSeason, setSelectedSeason] = useState<number>(defaultSeason);
@@ -25,11 +26,11 @@ export function HistoryScreen() {
   for (let s = 1; s < currentSeason; s++) seasons.push(s);
 
   useEffect(() => {
-    if (!dbHandle) return;
+    if (!dbHandle || saveId == null) return;
     let cancelled = false;
     setLoading(true);
     (async () => {
-      const data = await getSeasonSummary(dbHandle, selectedSeason);
+      const data = await getSeasonSummary(dbHandle, saveId, selectedSeason);
       if (!cancelled) {
         setSummary(data);
         setLoading(false);
@@ -38,7 +39,7 @@ export function HistoryScreen() {
     return () => {
       cancelled = true;
     };
-  }, [dbHandle, selectedSeason]);
+  }, [dbHandle, saveId, selectedSeason]);
 
   if (seasons.length === 0) {
     return (

@@ -138,7 +138,9 @@ type SelectedPlayer = {
 export function TacticsScreen() {
   const { t } = useTranslation();
   const playerClubId = useGameStore((s) => s.playerClubId);
+  const currentSave = useGameStore((s) => s.currentSave);
   const dbHandle = useDatabaseStore((s) => s.dbHandle);
+  const saveId = currentSave?.id;
 
   const [tactic, setTactic] = useState<Tactic | null>(null);
   const [squad, setSquad] = useState<PlayerWithOvr[]>([]);
@@ -169,34 +171,34 @@ export function TacticsScreen() {
 
   async function handleToggleTransferListing(next: boolean) {
     setIsTransferListedLocal(next);
-    if (!dbHandle || !detailPlayer) return;
+    if (!dbHandle || !detailPlayer || saveId == null) return;
     const price = askingPriceText.trim() ? parseInt(askingPriceText.replace(/\D/g, ''), 10) : null;
-    await setTransferListing(dbHandle, detailPlayer.id, next, Number.isFinite(price) ? price : null);
-    const updated = await getPlayerById(dbHandle, detailPlayer.id);
+    await setTransferListing(dbHandle, saveId, detailPlayer.id, next, Number.isFinite(price) ? price : null);
+    const updated = await getPlayerById(dbHandle, saveId, detailPlayer.id);
     if (updated) setDetailPlayer({ ...updated, overall: calculateOverall(updated.attributes, updated.position) });
   }
 
   async function handleBlurAskingPrice() {
-    if (!dbHandle || !detailPlayer || !isTransferListed) return;
+    if (!dbHandle || !detailPlayer || !isTransferListed || saveId == null) return;
     const price = askingPriceText.trim() ? parseInt(askingPriceText.replace(/\D/g, ''), 10) : null;
-    await setTransferListing(dbHandle, detailPlayer.id, true, Number.isFinite(price) ? price : null);
+    await setTransferListing(dbHandle, saveId, detailPlayer.id, true, Number.isFinite(price) ? price : null);
   }
 
   async function handleToggleLoanListing(next: boolean) {
     setIsLoanListedLocal(next);
-    if (!dbHandle || !detailPlayer) return;
+    if (!dbHandle || !detailPlayer || saveId == null) return;
     const sharePct = loanShareText.trim() ? parseInt(loanShareText.replace(/\D/g, ''), 10) : 50;
     const clamped = Math.max(0, Math.min(100, Number.isFinite(sharePct) ? sharePct : 50));
-    await setLoanListing(dbHandle, detailPlayer.id, next, next ? clamped / 100 : null);
-    const updated = await getPlayerById(dbHandle, detailPlayer.id);
+    await setLoanListing(dbHandle, saveId, detailPlayer.id, next, next ? clamped / 100 : null);
+    const updated = await getPlayerById(dbHandle, saveId, detailPlayer.id);
     if (updated) setDetailPlayer({ ...updated, overall: calculateOverall(updated.attributes, updated.position) });
   }
 
   async function handleBlurLoanShare() {
-    if (!dbHandle || !detailPlayer || !isLoanListed) return;
+    if (!dbHandle || !detailPlayer || !isLoanListed || saveId == null) return;
     const sharePct = loanShareText.trim() ? parseInt(loanShareText.replace(/\D/g, ''), 10) : 50;
     const clamped = Math.max(0, Math.min(100, Number.isFinite(sharePct) ? sharePct : 50));
-    await setLoanListing(dbHandle, detailPlayer.id, true, clamped / 100);
+    await setLoanListing(dbHandle, saveId, detailPlayer.id, true, clamped / 100);
   }
 
   // Refs for latest state (needed by DOM drag event handlers to avoid stale closures)
@@ -211,11 +213,11 @@ export function TacticsScreen() {
 
   // ─── Load data ─────────────────────────────────────────────────────────────
   useEffect(() => {
-    if (!dbHandle || playerClubId === null) { setLoading(false); return; }
+    if (!dbHandle || playerClubId === null || saveId == null) { setLoading(false); return; }
     setLoading(true);
     (async () => {
       try {
-        const activeTactic = await getActiveTactic(dbHandle, playerClubId);
+        const activeTactic = await getActiveTactic(dbHandle, saveId, playerClubId);
         setTactic(activeTactic);
         if (activeTactic) {
           setSelectedFormation(activeTactic.formation);
@@ -223,17 +225,17 @@ export function TacticsScreen() {
           setSubStrategy(activeTactic.subStrategy);
         }
 
-        const basePlayers = await getPlayersByClub(dbHandle, playerClubId);
+        const basePlayers = await getPlayersByClub(dbHandle, saveId, playerClubId);
         const withAttrs: PlayerWithOvr[] = [];
         for (const p of basePlayers) {
-          const full = await getPlayerById(dbHandle, p.id);
+          const full = await getPlayerById(dbHandle, saveId, p.id);
           if (full) withAttrs.push({ ...full, overall: calculateOverall(full.attributes, full.position) });
         }
         setSquad(withAttrs);
 
         // Load saved lineup if available
         if (activeTactic) {
-          const savedLineup = await getTacticLineup(dbHandle, activeTactic.id);
+          const savedLineup = await getTacticLineup(dbHandle, saveId, activeTactic.id);
           if (savedLineup) {
             const byId = new Map(withAttrs.map(p => [p.id, p]));
             const formation = activeTactic.formation;
@@ -254,7 +256,7 @@ export function TacticsScreen() {
         }
       } finally { setLoading(false); }
     })();
-  }, [dbHandle, playerClubId]);
+  }, [dbHandle, saveId, playerClubId]);
 
   // ─── Derived state ─────────────────────────────────────────────────────────
   const displayLineup = useMemo(
@@ -303,8 +305,9 @@ export function TacticsScreen() {
     // not overwrite a previously-complete lineup with an incomplete one, and must
     // not feed the engine a squad smaller than required.
     if (starterIds.length < 11) return;
+    if (saveId == null) return;
     const benchIdList = bench.map(p => p.id);
-    setTacticLineup(dbHandle, tacticVal.id, starterIds, benchIdList).catch(() => {});
+    setTacticLineup(dbHandle, saveId, tacticVal.id, starterIds, benchIdList).catch(() => {});
   }, [lineup, bench, dbHandle]);
 
   // ─── Handlers ──────────────────────────────────────────────────────────────
@@ -313,29 +316,29 @@ export function TacticsScreen() {
     setShowFormationDropdown(false);
     setLineup(null);
     benchInitialized.current = false; // allow bench to rebuild
-    if (!dbHandle || !tactic) return;
+    if (!dbHandle || !tactic || saveId == null) return;
     try {
-      await updateTactic(dbHandle, tactic.id, { formation });
+      await updateTactic(dbHandle, saveId, tactic.id, { formation });
       setTactic(prev => prev ? { ...prev, formation } : prev);
     } catch { /* ignore */ }
-  }, [dbHandle, tactic]);
+  }, [dbHandle, saveId, tactic]);
 
   const handleAttackFocusChange = useCallback(async (value: AttackFocus) => {
     setAttackFocus(value);
     setShowAttackFocusDropdown(false);
-    if (!dbHandle || !tactic) return;
+    if (!dbHandle || !tactic || saveId == null) return;
     try {
-      await updateTactic(dbHandle, tactic.id, { attackFocus: value });
+      await updateTactic(dbHandle, saveId, tactic.id, { attackFocus: value });
       setTactic(prev => prev ? { ...prev, attackFocus: value } : prev);
     } catch { /* ignore */ }
-  }, [dbHandle, tactic]);
+  }, [dbHandle, saveId, tactic]);
 
   const handleSubStrategyChange = useCallback(async (value: SubstitutionStrategy) => {
     setSubStrategy(value);
     setShowSubStrategyDropdown(false);
-    if (!dbHandle || !tactic) return;
+    if (!dbHandle || !tactic || saveId == null) return;
     try {
-      await updateTactic(dbHandle, tactic.id, { subStrategy: value });
+      await updateTactic(dbHandle, saveId, tactic.id, { subStrategy: value });
       setTactic(prev => prev ? { ...prev, subStrategy: value } : prev);
     } catch { /* ignore */ }
   }, [dbHandle, tactic]);

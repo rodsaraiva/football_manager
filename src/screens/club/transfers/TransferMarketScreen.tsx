@@ -39,7 +39,9 @@ export function TransferMarketScreen() {
   const playerClubId = useGameStore((s) => s.playerClubId);
   const season = useGameStore((s) => s.season);
   const week = useGameStore((s) => s.week);
+  const currentSave = useGameStore((s) => s.currentSave);
   const dbHandle = useDatabaseStore((s) => s.dbHandle);
+  const saveId = currentSave?.id;
 
   const [players, setPlayers] = useState<PlayerWithOverall[]>([]);
   const [loading, setLoading] = useState(true);
@@ -49,19 +51,19 @@ export function TransferMarketScreen() {
   const [buyerBudget, setBuyerBudget] = useState(0);
 
   const loadPlayers = useCallback(async () => {
-    if (!dbHandle || playerClubId === null) {
+    if (!dbHandle || playerClubId === null || saveId == null) {
       setLoading(false);
       return;
     }
     setLoading(true);
     try {
       const filters = positionFilter !== 'All' ? { position: positionFilter as Position } : {};
-      const results = (await searchPlayers(dbHandle, filters)).filter(
+      const results = (await searchPlayers(dbHandle, saveId, filters)).filter(
         (p) => p.clubId !== playerClubId && !p.isFreeAgent,
       );
       const withOverall: PlayerWithOverall[] = [];
       for (const p of results) {
-        const full = await getPlayerById(dbHandle, p.id);
+        const full = await getPlayerById(dbHandle, saveId, p.id);
         const overall = full ? calculateOverall(full.attributes, full.position) : 50;
         withOverall.push({ ...p, overall });
       }
@@ -70,7 +72,7 @@ export function TransferMarketScreen() {
     } finally {
       setLoading(false);
     }
-  }, [dbHandle, playerClubId, positionFilter]);
+  }, [dbHandle, playerClubId, saveId, positionFilter]);
 
   useEffect(() => {
     loadPlayers();
@@ -78,12 +80,12 @@ export function TransferMarketScreen() {
 
   // Load buyer budget whenever modal opens
   useEffect(() => {
-    if (!selectedPlayer || !dbHandle || playerClubId === null) return;
+    if (!selectedPlayer || !dbHandle || playerClubId === null || saveId == null) return;
     (async () => {
-      const club = await getClubById(dbHandle, playerClubId);
+      const club = await getClubById(dbHandle, saveId, playerClubId);
       setBuyerBudget(club?.budget ?? 0);
     })();
-  }, [selectedPlayer, dbHandle, playerClubId]);
+  }, [selectedPlayer, dbHandle, playerClubId, saveId]);
 
   const handleOpenOffer = useCallback((player: PlayerWithOverall) => {
     setSelectedPlayer(player);
@@ -100,13 +102,13 @@ export function TransferMarketScreen() {
       kind: 'transfer' | 'loan',
       loanDurationSeasons?: number,
     ) => {
-      if (!dbHandle || playerClubId === null || !selectedPlayer) return;
+      if (!dbHandle || playerClubId === null || !selectedPlayer || saveId == null) return;
       if (selectedPlayer.clubId === null) {
         Alert.alert('Error', 'This player has no club (free agent). Use the Free Agents screen.');
         return;
       }
       try {
-        await createOffer(dbHandle, {
+        await createOffer(dbHandle, saveId, {
           playerId: selectedPlayer.id,
           offeringClubId: playerClubId,
           sellingClubId: selectedPlayer.clubId,
@@ -130,7 +132,7 @@ export function TransferMarketScreen() {
         Alert.alert('Error', `Failed to submit offer: ${(e as Error).message}`);
       }
     },
-    [dbHandle, playerClubId, selectedPlayer, season, week],
+    [dbHandle, playerClubId, saveId, selectedPlayer, season, week],
   );
 
   return (

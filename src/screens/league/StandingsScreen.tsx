@@ -11,7 +11,8 @@ import { Fixture } from '@/types';
 import StandingsTable from '@/components/StandingsTable';
 
 export function StandingsScreen() {
-  const { playerClub, playerClubId, season, week } = useGameStore();
+  const { playerClub, playerClubId, season, week, currentSave } = useGameStore();
+  const saveId = currentSave?.id;
   const { dbHandle } = useDatabaseStore();
 
   const [entries, setEntries] = useState<StandingsEntry[]>([]);
@@ -20,7 +21,7 @@ export function StandingsScreen() {
   const [leagueName, setLeagueName] = useState('League Table');
 
   useEffect(() => {
-    if (!dbHandle || !playerClub) {
+    if (!dbHandle || !playerClub || saveId == null) {
       setLoading(false);
       return;
     }
@@ -29,7 +30,7 @@ export function StandingsScreen() {
       const leagueId = playerClub.leagueId;
 
       // Load all clubs in the league
-      const leagueClubs = await getClubsByLeague(dbHandle, leagueId);
+      const leagueClubs = await getClubsByLeague(dbHandle, saveId, leagueId);
       const clubIds = leagueClubs.map((c) => c.id);
       const namesMap: Record<number, string> = {};
       for (const c of leagueClubs) {
@@ -38,7 +39,7 @@ export function StandingsScreen() {
       setClubNames(namesMap);
 
       // Find the league competition for this season
-      const competitions = await getCompetitionsBySeason(dbHandle, season);
+      const competitions = await getCompetitionsBySeason(dbHandle, saveId, season);
       const leagueComp = competitions.find(
         (comp) => comp.leagueId === leagueId && comp.type === 'league',
       );
@@ -50,7 +51,7 @@ export function StandingsScreen() {
       // Collect all played fixtures for the competition up to current week
       const playedFixtures: Fixture[] = [];
       for (let w = 1; w <= week; w++) {
-        const weekFixtures = await getFixturesByWeek(dbHandle, season, w);
+        const weekFixtures = await getFixturesByWeek(dbHandle, saveId, season, w);
         const leagueFixtures = leagueComp
           ? weekFixtures.filter((f) => f.competitionId === leagueComp.id && f.played)
           : weekFixtures.filter((f) => f.played);

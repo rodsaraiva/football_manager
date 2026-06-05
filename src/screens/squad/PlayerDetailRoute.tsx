@@ -3,6 +3,7 @@ import { View, ActivityIndicator } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { colors, commonStyles } from '@/theme';
 import { useDatabaseStore } from '@/store/database-store';
+import { useGameStore } from '@/store/game-store';
 import { getPlayerById } from '@/database/queries/players';
 import { Player, PlayerAttributes } from '@/types';
 import { RootStackParamList } from '@/navigation/types';
@@ -14,16 +15,17 @@ export function PlayerDetailRoute() {
   const route = useRoute<DetailRoute>();
   const navigation = useNavigation();
   const dbHandle = useDatabaseStore((s) => s.dbHandle);
+  const saveId = useGameStore((s) => s.currentSave?.id);
   const playerId = route.params.playerId;
 
   const [player, setPlayer] = useState<(Player & { attributes: PlayerAttributes }) | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!dbHandle) return;
+    if (!dbHandle || saveId == null) return;
     let cancelled = false;
     (async () => {
-      const loaded = await getPlayerById(dbHandle, playerId);
+      const loaded = await getPlayerById(dbHandle, saveId, playerId);
       if (!cancelled) {
         setPlayer(loaded);
         setLoading(false);
@@ -32,7 +34,7 @@ export function PlayerDetailRoute() {
     return () => {
       cancelled = true;
     };
-  }, [dbHandle, playerId]);
+  }, [dbHandle, saveId, playerId]);
 
   if (loading) {
     return (

@@ -65,15 +65,16 @@ function StaffCard({ item }: { item: Staff }) {
 }
 
 export function StaffScreen() {
-  const { playerClubId, week } = useGameStore();
+  const { playerClubId, week, currentSave } = useGameStore();
   const { dbHandle } = useDatabaseStore();
   const [staff, setStaff] = useState<Staff[]>([]);
+  const saveId = currentSave?.id;
 
   const load = useCallback(async () => {
-    if (!dbHandle || playerClubId == null) return;
-    const loaded = await getStaffByClub(dbHandle, playerClubId);
+    if (!dbHandle || playerClubId == null || saveId == null) return;
+    const loaded = await getStaffByClub(dbHandle, saveId, playerClubId);
     setStaff(loaded);
-  }, [dbHandle, playerClubId]);
+  }, [dbHandle, playerClubId, saveId]);
 
   useEffect(() => {
     load();

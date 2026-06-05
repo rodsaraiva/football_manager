@@ -54,19 +54,19 @@ function HubCard({ icon, title, subtitle, onPress, accent, badge }: HubCardProps
 
 export function ReportsHubScreen() {
   const navigation = useNavigation<NavProp>();
-  const { playerClubId, season } = useGameStore();
+  const { playerClubId, season, currentSave, playerClub } = useGameStore();
   const { dbHandle } = useDatabaseStore();
+  const saveId = currentSave?.id;
   const [contractAlertCount, setContractAlertCount] = useState(0);
   const [nextOpponentName, setNextOpponentName] = useState<string | null>(null);
-  const { playerClub } = useGameStore();
   const { t } = useTranslation();
 
   useFocusEffect(
     React.useCallback(() => {
-      if (!dbHandle || !playerClubId) return;
+      if (!dbHandle || !playerClubId || saveId == null) return;
 
       // Load contract alerts
-      getPlayersWithAttributesByClub(dbHandle, playerClubId).then((fullPlayers) => {
+      getPlayersWithAttributesByClub(dbHandle, saveId, playerClubId).then((fullPlayers) => {
         const squad: SquadPlayer[] = fullPlayers.map((full) => ({
           id: full.id,
           name: full.name,
@@ -86,15 +86,15 @@ export function ReportsHubScreen() {
 
       // Load next opponent name for hub card subtitle
       if (playerClub) {
-        getNextFixtureForClub(dbHandle, playerClubId, season).then(async (fixture) => {
+        getNextFixtureForClub(dbHandle, saveId, playerClubId, season).then(async (fixture) => {
           if (!fixture) { setNextOpponentName(null); return; }
           const opponentId = fixture.homeClubId === playerClubId ? fixture.awayClubId : fixture.homeClubId;
-          const leagueClubs = await getClubsByLeague(dbHandle, playerClub.leagueId);
+          const leagueClubs = await getClubsByLeague(dbHandle, saveId, playerClub.leagueId);
           const opp = leagueClubs.find((c) => c.id === opponentId);
           setNextOpponentName(opp?.shortName ?? opp?.name ?? null);
         }).catch(() => setNextOpponentName(null));
       }
-    }, [dbHandle, playerClubId, playerClub, season]),
+    }, [dbHandle, playerClubId, playerClub, season, saveId]),
   );
 
   return (

@@ -78,16 +78,17 @@ function awardLabel(a: SeasonAward): string {
 export default function PlayerDetailScreen({ player, onBack }: PlayerDetailScreenProps) {
   const { dbHandle } = useDatabaseStore();
   const playerClubId = useGameStore((s) => s.playerClubId);
+  const saveId = useGameStore((s) => s.currentSave?.id);
   const navigation = useNavigation<NavProp>();
   const [awards, setAwards] = useState<SeasonAward[]>([]);
   const [titles, setTitles] = useState<PlayerTitle[]>([]);
   useEffect(() => {
-    if (!dbHandle || !player) return;
+    if (!dbHandle || !player || saveId == null) return;
     let cancelled = false;
     (async () => {
       const [a, t] = await Promise.all([
-        getPlayerAwards(dbHandle, player.id),
-        getPlayerTitles(dbHandle, player.id),
+        getPlayerAwards(dbHandle, saveId, player.id),
+        getPlayerTitles(dbHandle, saveId, player.id),
       ]);
       if (!cancelled) { setAwards(a); setTitles(t); }
     })();
@@ -105,30 +106,30 @@ export default function PlayerDetailScreen({ player, onBack }: PlayerDetailScree
 
   async function handleToggleTransferListing(next: boolean) {
     setIsTransferListedLocal(next);
-    if (!dbHandle || !player) return;
+    if (!dbHandle || !player || saveId == null) return;
     const price = askingPriceText.trim() ? parseInt(askingPriceText.replace(/\D/g, ''), 10) : null;
-    await setTransferListing(dbHandle, player.id, next, Number.isFinite(price) ? price : null);
+    await setTransferListing(dbHandle, saveId, player.id, next, Number.isFinite(price) ? price : null);
   }
 
   async function handleBlurAskingPrice() {
-    if (!dbHandle || !player || !isTransferListed) return;
+    if (!dbHandle || !player || !isTransferListed || saveId == null) return;
     const price = askingPriceText.trim() ? parseInt(askingPriceText.replace(/\D/g, ''), 10) : null;
-    await setTransferListing(dbHandle, player.id, true, Number.isFinite(price) ? price : null);
+    await setTransferListing(dbHandle, saveId, player.id, true, Number.isFinite(price) ? price : null);
   }
 
   async function handleToggleLoanListing(next: boolean) {
     setIsLoanListedLocal(next);
-    if (!dbHandle || !player) return;
+    if (!dbHandle || !player || saveId == null) return;
     const sharePct = loanShareText.trim() ? parseInt(loanShareText.replace(/\D/g, ''), 10) : 50;
     const clamped = Math.max(0, Math.min(100, Number.isFinite(sharePct) ? sharePct : 50));
-    await setLoanListing(dbHandle, player.id, next, next ? clamped / 100 : null);
+    await setLoanListing(dbHandle, saveId, player.id, next, next ? clamped / 100 : null);
   }
 
   async function handleBlurLoanShare() {
-    if (!dbHandle || !player || !isLoanListed) return;
+    if (!dbHandle || !player || !isLoanListed || saveId == null) return;
     const sharePct = loanShareText.trim() ? parseInt(loanShareText.replace(/\D/g, ''), 10) : 50;
     const clamped = Math.max(0, Math.min(100, Number.isFinite(sharePct) ? sharePct : 50));
-    await setLoanListing(dbHandle, player.id, true, clamped / 100);
+    await setLoanListing(dbHandle, saveId, player.id, true, clamped / 100);
   }
 
   if (!player) {

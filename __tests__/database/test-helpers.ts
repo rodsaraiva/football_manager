@@ -48,8 +48,22 @@ export function createTestDbHandle(db: Database.Database): DbHandle {
   };
 }
 
+/**
+ * Seeds a single-save world (save_id = 1) with RAW (un-offset) ids, so existing tests can
+ * keep referencing data.clubs[i].id / data.players[i].id directly and just pass saveId = 1
+ * to the scoped queries. Runs with FK off because of the circular clubs<->save_games FK.
+ */
+export const TEST_SAVE_ID = 1;
+
 export function seedTestDb(db: Database.Database): void {
   const data = generateSeedData(42);
+  const fkWasOn = db.pragma('foreign_keys', { simple: true }) === 1;
+  db.pragma('foreign_keys = OFF');
+
+  // The single save that owns this world. player_club_id points at the first club (raw id).
+  db.prepare(
+    "INSERT OR IGNORE INTO save_games (id, name, current_season, current_week, player_club_id, difficulty, board_trust, created_at, updated_at) VALUES (1, 'Test', 1, 1, ?, 'normal', 50, '', '')",
+  ).run(data.clubs[0].id);
 
   // Insert countries
   const insertCountry = db.prepare(
@@ -70,15 +84,15 @@ export function seedTestDb(db: Database.Database): void {
 
   // Insert clubs
   const insertClub = db.prepare(
-    `INSERT INTO clubs (id, name, short_name, country_id, league_id, reputation, budget, wage_budget,
+    `INSERT INTO clubs (id, save_id, name, short_name, country_id, league_id, reputation, budget, wage_budget,
       stadium_name, stadium_capacity, training_facilities, youth_academy, medical_department,
       primary_color, secondary_color)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   );
   for (const c of data.clubs) {
     const clamp5 = (v: number) => Math.max(1, Math.min(5, v));
     insertClub.run(
-      c.id, c.name, c.shortName, c.countryId, c.leagueId, c.reputation, c.budget, c.wageBudget,
+      c.id, TEST_SAVE_ID, c.name, c.shortName, c.countryId, c.leagueId, c.reputation, c.budget, c.wageBudget,
       c.stadiumName, c.stadiumCapacity, clamp5(c.trainingFacilities), clamp5(c.youthAcademy), clamp5(c.medicalDepartment),
       c.primaryColor, c.secondaryColor,
     );
@@ -86,14 +100,14 @@ export function seedTestDb(db: Database.Database): void {
 
   // Insert players
   const insertPlayer = db.prepare(
-    `INSERT INTO players (id, name, nationality, age, position, secondary_position, club_id, wage,
+    `INSERT INTO players (id, save_id, name, nationality, age, position, secondary_position, club_id, wage,
       contract_end, market_value, base_potential, effective_potential, morale, fitness,
       injury_weeks_left, is_free_agent)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   );
   for (const p of data.players) {
     insertPlayer.run(
-      p.id, p.name, p.nationality, p.age, p.position, p.secondaryPosition ?? null,
+      p.id, TEST_SAVE_ID, p.name, p.nationality, p.age, p.position, p.secondaryPosition ?? null,
       p.clubId, p.wage, p.contractEnd, p.marketValue, p.basePotential, p.effectivePotential,
       p.morale, p.fitness, p.injuryWeeksLeft, p.isFreeAgent ? 1 : 0,
     );
@@ -101,14 +115,14 @@ export function seedTestDb(db: Database.Database): void {
 
   // Insert player attributes
   const insertAttr = db.prepare(
-    `INSERT INTO player_attributes (player_id, finishing, passing, crossing, dribbling, heading,
+    `INSERT INTO player_attributes (player_id, save_id, finishing, passing, crossing, dribbling, heading,
       long_shots, free_kicks, vision, composure, decisions, positioning, aggression, leadership,
       pace, stamina, strength, agility, jumping)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   );
   for (const a of data.playerAttributes) {
     insertAttr.run(
-      a.playerId, a.finishing, a.passing, a.crossing, a.dribbling, a.heading,
+      a.playerId, TEST_SAVE_ID, a.finishing, a.passing, a.crossing, a.dribbling, a.heading,
       a.longShots, a.freeKicks, a.vision, a.composure, a.decisions, a.positioning,
       a.aggression, a.leadership, a.pace, a.stamina, a.strength, a.agility, a.jumping,
     );
@@ -116,23 +130,25 @@ export function seedTestDb(db: Database.Database): void {
 
   // Insert staff
   const insertStaff = db.prepare(
-    `INSERT INTO staff (id, name, role, club_id, ability, wage, contract_end)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO staff (id, save_id, name, role, club_id, ability, wage, contract_end)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
   );
   for (const s of data.staff) {
     const clamp20 = (v: number) => Math.max(1, Math.min(20, v));
-    insertStaff.run(s.id, s.name, s.role, s.clubId, clamp20(s.ability), s.wage, s.contractEnd);
+    insertStaff.run(s.id, TEST_SAVE_ID, s.name, s.role, s.clubId, clamp20(s.ability), s.wage, s.contractEnd);
   }
 
   // Insert tactics
   const insertTactic = db.prepare(
-    `INSERT INTO tactics (id, club_id, name, is_active, formation, mentality, pressing, passing_style, tempo, width)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO tactics (id, save_id, club_id, name, is_active, formation, mentality, pressing, passing_style, tempo, width)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   );
   for (const t of data.tactics) {
     insertTactic.run(
-      t.id, t.clubId, t.name, t.isActive ? 1 : 0,
+      t.id, TEST_SAVE_ID, t.clubId, t.name, t.isActive ? 1 : 0,
       t.formation, t.mentality, t.pressing, t.passingStyle, t.tempo, t.width,
     );
   }
+
+  if (fkWasOn) db.pragma('foreign_keys = ON');
 }

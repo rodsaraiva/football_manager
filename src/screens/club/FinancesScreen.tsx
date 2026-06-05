@@ -86,26 +86,27 @@ function TransactionItem({ item }: { item: ClubFinance }) {
 }
 
 export function FinancesScreen() {
-  const { playerClubId, playerClub, setPlayerClub, season, week } = useGameStore();
+  const { playerClubId, playerClub, setPlayerClub, season, week, currentSave } = useGameStore();
   const { dbHandle } = useDatabaseStore();
   const [finances, setFinances] = useState<ClubFinance[]>([]);
   const [liveBudget, setLiveBudget] = useState<number | null>(null);
+  const saveId = currentSave?.id;
 
   const load = useCallback(async () => {
-    if (!dbHandle || playerClubId == null) return;
+    if (!dbHandle || playerClubId == null || saveId == null) return;
     // Re-fetch the club so the budget figure is always fresh, even if the
     // user came here without hitting Home (where the store is refreshed).
-    const club = await getClubById(dbHandle, playerClubId);
+    const club = await getClubById(dbHandle, saveId, playerClubId);
     if (club) {
       setLiveBudget(club.budget);
       setPlayerClub(club);
     }
-    const entries = await getFinancesBySeason(dbHandle, playerClubId, season);
+    const entries = await getFinancesBySeason(dbHandle, saveId, playerClubId, season);
     // Sort ascending by week so the "Transactions" list reads chronologically
     // when reversed at render time.
     entries.sort((a, b) => a.week - b.week);
     setFinances(entries);
-  }, [dbHandle, playerClubId, season, setPlayerClub]);
+  }, [dbHandle, playerClubId, saveId, season, setPlayerClub]);
 
   // Run on mount and whenever any of the inputs change (incl. week, so the
   // screen refreshes after the user advances time while it was still on the

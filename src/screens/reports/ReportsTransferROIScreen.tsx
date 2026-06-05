@@ -39,7 +39,8 @@ function formatCurrency(value: number): string {
 }
 
 export function ReportsTransferROIScreen() {
-  const { playerClubId } = useGameStore();
+  const { playerClubId, currentSave } = useGameStore();
+  const saveId = currentSave?.id;
   const { dbHandle } = useDatabaseStore();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -47,13 +48,13 @@ export function ReportsTransferROIScreen() {
   const [tab, setTab] = useState<Tab>('signings');
 
   const load = useCallback(async () => {
-    if (!dbHandle || !playerClubId) {
+    if (!dbHandle || !playerClubId || saveId == null) {
       setLoading(false);
       return;
     }
     setLoading(true);
     try {
-      const transfers = await getTransfersByClub(dbHandle, playerClubId);
+      const transfers = await getTransfersByClub(dbHandle, saveId, playerClubId);
       if (transfers.length === 0) {
         setReport({ signings: [], sales: [] });
         return;
@@ -63,7 +64,7 @@ export function ReportsTransferROIScreen() {
       const playerIds = [...new Set(transfers.map((t) => t.playerId))];
 
       // Load player data — preferring club players, then individual lookups
-      const currentSquad = await getPlayersWithAttributesByClub(dbHandle, playerClubId);
+      const currentSquad = await getPlayersWithAttributesByClub(dbHandle, saveId, playerClubId);
       const playersById = new Map<number, PlayerForROI>();
 
       for (const p of currentSquad) {
@@ -81,7 +82,7 @@ export function ReportsTransferROIScreen() {
       const missing = playerIds.filter((id) => !playersById.has(id));
       await Promise.all(
         missing.map(async (id) => {
-          const full = await getPlayerById(dbHandle, id);
+          const full = await getPlayerById(dbHandle, saveId, id);
           if (full) {
             playersById.set(full.id, {
               id: full.id,
@@ -99,7 +100,7 @@ export function ReportsTransferROIScreen() {
       const statsByPlayerId = new Map<number, PlayerStats[]>();
       await Promise.all(
         playerIds.map(async (id) => {
-          const stats = await getPlayerStatsForPlayer(dbHandle, id);
+          const stats = await getPlayerStatsForPlayer(dbHandle, saveId, id);
           statsByPlayerId.set(id, stats);
         }),
       );

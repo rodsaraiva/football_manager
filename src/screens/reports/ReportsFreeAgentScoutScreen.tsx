@@ -244,15 +244,15 @@ export function ReportsFreeAgentScoutScreen() {
   });
 
   const load = useCallback(async () => {
-    if (!dbHandle || !playerClubId) {
+    if (!dbHandle || !playerClubId || saveId == null) {
       setLoading(false);
       return;
     }
     setLoading(true);
     try {
       const [freeAgentsWithAttrs, squadWithAttrs] = await Promise.all([
-        getFreeAgentsWithAttributes(dbHandle),
-        getPlayersWithAttributesByClub(dbHandle, playerClubId),
+        getFreeAgentsWithAttributes(dbHandle, saveId),
+        getPlayersWithAttributesByClub(dbHandle, saveId, playerClubId),
       ]);
 
       // Compute wage budget remaining

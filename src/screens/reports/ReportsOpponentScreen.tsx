@@ -27,22 +27,23 @@ import { buildOpponentReport, OpponentReport } from '@/engine/reports/opponent-r
 import { MatchEvent } from '@/types';
 
 export function ReportsOpponentScreen() {
-  const { playerClubId, playerClub, season } = useGameStore();
+  const { playerClubId, playerClub, season, currentSave } = useGameStore();
   const { dbHandle } = useDatabaseStore();
+  const saveId = currentSave?.id;
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [report, setReport] = useState<OpponentReport | null>(null);
   const [noFixture, setNoFixture] = useState(false);
 
   const load = useCallback(async () => {
-    if (!dbHandle || !playerClubId || !playerClub) {
+    if (!dbHandle || !playerClubId || !playerClub || saveId == null) {
       setLoading(false);
       return;
     }
     setLoading(true);
     setNoFixture(false);
     try {
-      const nextFixture = await getNextFixtureForClub(dbHandle, playerClubId, season);
+      const nextFixture = await getNextFixtureForClub(dbHandle, saveId, playerClubId, season);
       if (!nextFixture) {
         setNoFixture(true);
         setReport(null);
@@ -53,9 +54,9 @@ export function ReportsOpponentScreen() {
         nextFixture.homeClubId === playerClubId ? nextFixture.awayClubId : nextFixture.homeClubId;
 
       const [opponentClub, opponentPlayers, recentFixtures] = await Promise.all([
-        getClubById(dbHandle, opponentId),
-        getPlayersWithAttributesByClub(dbHandle, opponentId),
-        getRecentFixturesForClub(dbHandle, opponentId, season, 5),
+        getClubById(dbHandle, saveId, opponentId),
+        getPlayersWithAttributesByClub(dbHandle, saveId, opponentId),
+        getRecentFixturesForClub(dbHandle, saveId, opponentId, season, 5),
       ]);
 
       if (!opponentClub) {
@@ -93,7 +94,7 @@ export function ReportsOpponentScreen() {
     } finally {
       setLoading(false);
     }
-  }, [dbHandle, playerClubId, playerClub, season]);
+  }, [dbHandle, playerClubId, playerClub, season, saveId]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);

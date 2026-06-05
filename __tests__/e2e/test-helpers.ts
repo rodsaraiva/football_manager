@@ -6,7 +6,7 @@
  * UI layer.
  */
 import Database from 'better-sqlite3';
-import { createTestDb, seedTestDb, createTestDbHandle } from '../database/test-helpers';
+import { createTestDb, seedTestDb, createTestDbHandle, TEST_SAVE_ID } from '../database/test-helpers';
 import { DbHandle } from '@/database/queries/players';
 import { generateSeasonCalendar } from '@/engine/competition/calendar';
 import {
@@ -22,6 +22,7 @@ import { SeededRng } from '@/engine/rng';
 export interface E2EContext {
   rawDb: Database.Database;
   db: DbHandle;
+  saveId: number;
   playerClubId: number;
   season: number;
   week: number;
@@ -44,7 +45,7 @@ export async function createE2EContext(
   const leagues = await getAllLeagues(db);
   const clubsByLeague: Record<number, number[]> = {};
   for (const league of leagues) {
-    const clubs = await getClubsByLeague(db, league.id);
+    const clubs = await getClubsByLeague(db, TEST_SAVE_ID, league.id);
     clubsByLeague[league.id] = clubs.map((c) => c.id);
   }
   const calendar = generateSeasonCalendar({
@@ -54,7 +55,7 @@ export async function createE2EContext(
     championsLeagueClubs: [1, 2, 3, 4, 21, 22, 23, 24],
   });
   for (const comp of calendar.competitions) {
-    await createCompetition(db, {
+    await createCompetition(db, TEST_SAVE_ID, {
       id: comp.id,
       name: comp.name,
       type: comp.type,
@@ -64,10 +65,10 @@ export async function createE2EContext(
     });
   }
   for (const entry of calendar.entries) {
-    await addCompetitionEntry(db, entry);
+    await addCompetitionEntry(db, TEST_SAVE_ID, entry);
   }
   for (const fixture of calendar.fixtures) {
-    await createFixture(db, {
+    await createFixture(db, TEST_SAVE_ID, {
       id: fixture.id,
       competitionId: fixture.competitionId,
       season: fixture.season,
@@ -78,7 +79,7 @@ export async function createE2EContext(
     });
   }
 
-  return { rawDb, db, playerClubId, season, week: 1 };
+  return { rawDb, db, saveId: TEST_SAVE_ID, playerClubId, season, week: 1 };
 }
 
 /**
@@ -91,7 +92,7 @@ export async function stepWeek(ctx: E2EContext, seed = 42): Promise<AdvanceWeekR
     season: ctx.season,
     week: ctx.week,
     playerClubId: ctx.playerClubId,
-    saveId: -1,
+    saveId: ctx.saveId,
     rng,
   });
   ctx.season = result.newSeason;

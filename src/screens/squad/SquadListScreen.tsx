@@ -46,6 +46,7 @@ function matchesFilter(position: Position, filter: FilterCategory): boolean {
 
 export function SquadListScreen() {
   const playerClubId = useGameStore((s) => s.playerClubId);
+  const saveId = useGameStore((s) => s.currentSave?.id);
   const dbHandle = useDatabaseStore((s) => s.dbHandle);
 
   const [players, setPlayers] = useState<PlayerWithAttributes[]>([]);
@@ -54,17 +55,17 @@ export function SquadListScreen() {
   const [selectedPlayerId, setSelectedPlayerId] = useState<number | null>(null);
 
   useEffect(() => {
-    if (!dbHandle || playerClubId === null) {
+    if (!dbHandle || playerClubId === null || saveId == null) {
       setLoading(false);
       return;
     }
     setLoading(true);
     (async () => {
       try {
-        const basePlayers = await getPlayersByClub(dbHandle, playerClubId);
+        const basePlayers = await getPlayersByClub(dbHandle, saveId, playerClubId);
         const withAttributes: PlayerWithAttributes[] = [];
         for (const p of basePlayers) {
-          const full = await getPlayerById(dbHandle, p.id);
+          const full = await getPlayerById(dbHandle, saveId, p.id);
           if (full) {
             withAttributes.push({
               ...full,

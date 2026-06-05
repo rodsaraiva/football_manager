@@ -50,27 +50,28 @@ function HubCard({ icon, title, subtitle, onPress, accent }: HubCardProps) {
 
 export function ClubOverviewScreen() {
   const { t } = useTranslation();
-  const { playerClubId, week } = useGameStore();
+  const { playerClubId, week, currentSave } = useGameStore();
+  const saveId = currentSave?.id;
   const { dbHandle } = useDatabaseStore();
   const navigation = useNavigation<NavProp>();
   const [club, setClub] = useState<Club | null>(null);
   const [trophies, setTrophies] = useState<ClubTrophySummary[]>([]);
 
   useEffect(() => {
-    if (!dbHandle || playerClubId == null) return;
+    if (!dbHandle || playerClubId == null || saveId == null) return;
     let cancelled = false;
     (async () => {
-      const t = await getClubTrophies(dbHandle, playerClubId);
+      const t = await getClubTrophies(dbHandle, saveId, playerClubId);
       if (!cancelled) setTrophies(t);
     })();
     return () => { cancelled = true; };
   }, [dbHandle, playerClubId]);
 
   const load = useCallback(async () => {
-    if (!dbHandle || playerClubId == null) return;
-    const loaded = await getClubById(dbHandle, playerClubId);
+    if (!dbHandle || playerClubId == null || saveId == null) return;
+    const loaded = await getClubById(dbHandle, saveId, playerClubId);
     setClub(loaded);
-  }, [dbHandle, playerClubId]);
+  }, [dbHandle, playerClubId, saveId]);
 
   useEffect(() => {
     load();

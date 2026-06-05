@@ -15,13 +15,14 @@ import { useTranslation } from '@/i18n';
 import { colors, spacing, fontSize, commonStyles } from '@/theme';
 import { useDatabaseStore } from '@/store/database-store';
 import { useGameStore } from '@/store/game-store';
-import { getAllLeagues, getAllCountries, createCompetition, addCompetitionEntry } from '@/database/queries/leagues';
-import { getClubsByLeague, getClubById, getClubsByCountry, ClubWithDivision } from '@/database/queries/clubs';
+import { getAllLeagues, getAllCountries } from '@/database/queries/leagues';
+import { getClubById, ClubWithDivision } from '@/database/queries/clubs';
 import { AMBITION_PROFILES, suggestClubsForProfile, AmbitionProfileId } from '@/engine/newgame/ambition';
 import { createSave } from '@/database/queries/saves';
-import { createFixture } from '@/database/queries/fixtures';
-import { runInTransaction } from '@/database/transaction';
-import { generateSeasonCalendar } from '@/engine/competition/calendar';
+import { ensureSeasonFixtures } from '@/engine/competition/calendar';
+import { generateSeedData } from '../../scripts/generate-seed-data';
+import { generateWorldSeedSQLForSave } from '@/database/seed';
+import { saveOffset } from '@/database/constants';
 import { RootStackParamList } from '@/navigation/types';
 import { League, Club, Country, Difficulty } from '@/types';
 import { generateAssistant } from '@/engine/assistant/assistant-engine';
@@ -47,9 +48,13 @@ const COUNTRY_FLAGS: Record<string, string> = {
 export function NewGameScreen() {
   const navigation = useNavigation<NavProp>();
   const { t } = useTranslation();
-  const { dbHandle, isReady } = useDatabaseStore();
+  const { db, dbHandle, isReady } = useDatabaseStore();
   const { startNewGame, setPlayerClub } = useGameStore();
   const { setCurrentObjective } = useBoardStore();
+
+  // Clubs/players live per-save now (no global club seed), so the picker reads the
+  // canonical seed in memory. handleStartGame reuses this same data to seed the new save.
+  const seedData = React.useMemo(() => generateSeedData(2026), []);
 
   const [step, setStep] = useState<Step>('ambition');
   const [selectedProfile, setSelectedProfile] = useState<AmbitionProfileId | null>(null);
@@ -100,17 +105,20 @@ export function NewGameScreen() {
     });
   }
 
-  async function handleSelectLeague(league: League) {
-    if (!dbHandle) return;
+  function seedClubToClub(c: (typeof seedData)['clubs'][number]): Club {
+    return {
+      id: c.id, name: c.name, shortName: c.shortName, countryId: c.countryId, leagueId: c.leagueId,
+      reputation: c.reputation, budget: c.budget, wageBudget: c.wageBudget,
+      stadiumName: c.stadiumName, stadiumCapacity: c.stadiumCapacity,
+      trainingFacilities: c.trainingFacilities, youthAcademy: c.youthAcademy,
+      medicalDepartment: c.medicalDepartment, primaryColor: c.primaryColor, secondaryColor: c.secondaryColor,
+    };
+  }
+
+  function handleSelectLeague(league: League) {
     setSelectedLeague(league);
-    try {
-      const teamList = await getClubsByLeague(dbHandle, league.id);
-      console.log('[NewGame] clubs for league', league.id, league.name, ':', teamList.length);
-      setClubs(teamList);
-    } catch (err) {
-      console.error('[NewGame] getClubsByLeague failed:', err);
-      setClubs([]);
-    }
+    const teamList = seedData.clubs.filter((c) => c.leagueId === league.id).map(seedClubToClub);
+    setClubs(teamList);
     setStep('team');
   }
 
@@ -124,15 +132,13 @@ export function NewGameScreen() {
     setStep('country');
   }
 
-  async function handleSelectCountry(country: Country) {
-    if (!dbHandle || !selectedProfile) return;
-    try {
-      const countryClubs = await getClubsByCountry(dbHandle, country.id);
-      setSuggestions(suggestClubsForProfile(selectedProfile, countryClubs));
-    } catch (err) {
-      console.error('[NewGame] getClubsByCountry failed:', err);
-      setSuggestions([]);
-    }
+  function handleSelectCountry(country: Country) {
+    if (!selectedProfile) return;
+    const divisionByLeague = new Map(leagues.map((l) => [l.id, l.divisionLevel]));
+    const countryClubs: ClubWithDivision[] = seedData.clubs
+      .filter((c) => c.countryId === country.id)
+      .map((c) => ({ ...seedClubToClub(c), divisionLevel: divisionByLeague.get(c.leagueId) ?? 1 }));
+    setSuggestions(suggestClubsForProfile(selectedProfile, countryClubs));
     setStep('suggestions');
   }
 
@@ -150,19 +156,28 @@ export function NewGameScreen() {
   }
 
   async function handleStartGame() {
-    if (!dbHandle || !selectedClub) return;
+    if (!db || !dbHandle || !selectedClub) return;
     setStarting(true);
     try {
       const managerName = 'Manager';
+      // Bootstrap has a circular FK (save_games.player_club_id <-> clubs.save_id), so the seed
+      // runs with FK enforcement off (production runs it on). PRAGMA can't change in a transaction.
+      await db.execAsync('PRAGMA foreign_keys = OFF;');
       const saveId = await createSave(dbHandle, {
         name: `${managerName} at ${selectedClub.name}`,
-        playerClubId: selectedClub.id,
+        playerClubId: selectedClub.id, // placeholder; rewritten to the per-save offset id below
         difficulty,
         currentSeason: 1,
         currentWeek: 1,
       });
+      const playerClubId = saveOffset(saveId) + selectedClub.id;
+      await dbHandle.prepare('UPDATE save_games SET player_club_id = ? WHERE id = ?').run(playerClubId, saveId);
 
-      startNewGame(saveId, selectedClub.id, 1, 1);
+      // Seed THIS save's own world (clubs/players/staff/tactics with offset ids).
+      await db.execAsync(generateWorldSeedSQLForSave(seedData, saveId));
+      await db.execAsync('PRAGMA foreign_keys = ON;');
+
+      startNewGame(saveId, playerClubId, 1, 1);
 
       // Generate season-1 board objective
       const boardRng = new SeededRng(saveId * 999);
@@ -175,8 +190,8 @@ export function NewGameScreen() {
         wasPromoted: false,
         rng: boardRng,
       });
-      await upsertBoardObjective(dbHandle, {
-        clubId: selectedClub.id,
+      await upsertBoardObjective(dbHandle, saveId, {
+        clubId: playerClubId,
         season: 1,
         type: s1Objective.type,
         target: s1Objective.target,
@@ -184,7 +199,7 @@ export function NewGameScreen() {
       });
       setCurrentObjective({
         id: 0,
-        clubId: selectedClub.id,
+        clubId: playerClubId,
         season: 1,
         type: s1Objective.type,
         target: s1Objective.target,
@@ -195,94 +210,15 @@ export function NewGameScreen() {
       const assistantRoles: AssistantRole[] = ['squad', 'financial', 'youth'];
       const assistantRng = new SeededRng(saveId * 13337);
       for (const role of assistantRoles) {
-        const generated = generateAssistant({ role, clubId: selectedClub.id, saveId, rng: assistantRng });
+        const generated = generateAssistant({ role, clubId: playerClubId, saveId, rng: assistantRng });
         await insertAssistant(dbHandle, generated);
       }
 
-      const club = await getClubById(dbHandle, selectedClub.id);
+      const club = await getClubById(dbHandle, saveId, playerClubId);
       if (club) setPlayerClub(club);
 
-      // Clear old season 1 data and generate fresh calendar — atomic: a partial
-      // failure must not leave a half-wiped/half-built calendar behind.
-      try {
-        await runInTransaction(dbHandle, async () => {
-          // Limpa tudo que referencia competitions (FK chain) antes de regenerar o calendário.
-          // Também zera club_finances pra não somar entries do save anterior na tela de Finances.
-          await dbHandle.prepare('DELETE FROM match_events WHERE fixture_id IN (SELECT id FROM fixtures WHERE season = 1)').run();
-          await dbHandle.prepare('DELETE FROM player_stats WHERE competition_id IN (SELECT id FROM competitions WHERE season = 1)').run();
-          await dbHandle.prepare('DELETE FROM season_player_titles WHERE competition_id IN (SELECT id FROM competitions WHERE season = 1)').run();
-          await dbHandle.prepare('DELETE FROM season_awards WHERE competition_id IN (SELECT id FROM competitions WHERE season = 1)').run();
-          await dbHandle.prepare('DELETE FROM season_competition_results WHERE competition_id IN (SELECT id FROM competitions WHERE season = 1)').run();
-          await dbHandle.prepare('DELETE FROM fixtures WHERE season = 1').run();
-          await dbHandle.prepare('DELETE FROM competition_entries').run();
-          await dbHandle.prepare('DELETE FROM competitions WHERE season = 1').run();
-          await dbHandle.prepare('DELETE FROM club_finances').run();
-
-          const allLeagues = await getAllLeagues(dbHandle);
-          const clubsByLeague: Record<number, number[]> = {};
-          const championsLeagueClubs: number[] = [];
-
-          for (const league of allLeagues) {
-            const leagueClubs = await getClubsByLeague(dbHandle, league.id);
-            const sorted = [...leagueClubs].sort((a, b) => b.reputation - a.reputation);
-            clubsByLeague[league.id] = leagueClubs.map((c) => c.id);
-            // Top 2 per league → Champions League (max 8 total)
-            for (const c of sorted.slice(0, 2)) {
-              if (championsLeagueClubs.length < 8) {
-                championsLeagueClubs.push(c.id);
-              }
-            }
-          }
-
-          // Fill CL to 8 if needed
-          if (championsLeagueClubs.length < 8) {
-            const allIds = Object.values(clubsByLeague).flat();
-            for (const id of allIds) {
-              if (!championsLeagueClubs.includes(id) && championsLeagueClubs.length < 8) {
-                championsLeagueClubs.push(id);
-              }
-            }
-          }
-
-          const calendar = generateSeasonCalendar({
-            season: 1,
-            leagues: allLeagues,
-            clubsByLeague,
-            championsLeagueClubs,
-          });
-
-          for (const comp of calendar.competitions) {
-            await createCompetition(dbHandle, {
-              id: comp.id,
-              name: comp.name,
-              type: comp.type,
-              format: comp.format,
-              season: 1,
-              leagueId: comp.leagueId,
-            });
-          }
-
-          for (const entry of calendar.entries) {
-            await addCompetitionEntry(dbHandle, {
-              competitionId: entry.competitionId,
-              clubId: entry.clubId,
-              groupName: entry.groupName,
-              seed: entry.seed,
-            });
-          }
-
-          // Batch insert dos ~6k fixtures num único multi-VALUES — inserts individuais demoram minutos na web.
-          const escape = (v: string | null) => v === null ? 'NULL' : `'${v.replace(/'/g, "''")}'`;
-          const values = calendar.fixtures.map(f =>
-            `(${f.id}, ${f.competitionId}, 1, ${f.week}, ${escape(f.round !== null ? String(f.round) : null)}, ${f.homeClubId}, ${f.awayClubId}, 0)`
-          ).join(',\n');
-          await dbHandle.prepare(
-            `INSERT INTO fixtures (id, competition_id, season, week, round, home_club_id, away_club_id, played) VALUES ${values}`
-          ).run();
-        });
-      } catch (err) {
-        console.error('[NewGame] calendar generation failed (rolled back):', err);
-      }
+      // Generate the season-1 calendar for THIS save (scoped + offset internally).
+      await ensureSeasonFixtures(dbHandle, saveId, 1);
 
       navigation.navigate('Game');
     } catch (err) {

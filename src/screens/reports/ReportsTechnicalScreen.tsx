@@ -31,7 +31,8 @@ type NavProp = NativeStackNavigationProp<RootStackParamList>;
 
 export function ReportsTechnicalScreen() {
   const navigation = useNavigation<NavProp>();
-  const { playerClubId, season, week } = useGameStore();
+  const { playerClubId, season, week, currentSave } = useGameStore();
+  const saveId = currentSave?.id;
   const { dbHandle } = useDatabaseStore();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -42,14 +43,14 @@ export function ReportsTechnicalScreen() {
   const [lineEfficiency, setLineEfficiency] = useState<LineEfficiency[]>([]);
 
   const load = React.useCallback(async () => {
-    if (!dbHandle || !playerClubId) {
+    if (!dbHandle || !playerClubId || saveId == null) {
       setLoading(false);
       return;
     }
     setLoading(true);
     try {
       // Squad (single batch query)
-      const fullPlayers = await getPlayersWithAttributesByClub(dbHandle, playerClubId);
+      const fullPlayers = await getPlayersWithAttributesByClub(dbHandle, saveId, playerClubId);
       const squad: SquadPlayer[] = fullPlayers.map((full) => ({
         id: full.id,
         name: full.name,
@@ -66,7 +67,7 @@ export function ReportsTechnicalScreen() {
       }));
 
       // Recent fixtures (configurable window)
-      const allFixtures = await getFixturesByClub(dbHandle, playerClubId, season);
+      const allFixtures = await getFixturesByClub(dbHandle, saveId, playerClubId, season);
       const recent = allFixtures
         .filter((f) => f.played && f.week < week)
         .sort((a, b) => b.week - a.week)
@@ -81,9 +82,9 @@ export function ReportsTechnicalScreen() {
 
       // Matchday squad (11 titulares + até 8 suplentes) para squadSummary
       let matchdaySquadIds: Set<number> | undefined;
-      const activeTactic = await getActiveTactic(dbHandle, playerClubId);
+      const activeTactic = await getActiveTactic(dbHandle, saveId, playerClubId);
       if (activeTactic) {
-        const lineup = await getTacticLineup(dbHandle, activeTactic.id);
+        const lineup = await getTacticLineup(dbHandle, saveId, activeTactic.id);
         if (lineup) {
           const ids = [...lineup.starterIds, ...lineup.benchIds].filter((id) => id != null);
           if (ids.length > 0) {
@@ -107,7 +108,7 @@ export function ReportsTechnicalScreen() {
     } finally {
       setLoading(false);
     }
-  }, [dbHandle, playerClubId, season, week, windowSize]);
+  }, [dbHandle, playerClubId, saveId, season, week, windowSize]);
 
   const onRefresh = React.useCallback(async () => {
     setRefreshing(true);
