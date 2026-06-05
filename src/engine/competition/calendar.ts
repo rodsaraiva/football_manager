@@ -225,16 +225,22 @@ export async function ensureSeasonFixtures(
       seed: entry.seed,
     });
   }
-  for (const fixture of calendar.fixtures) {
-    await createFixture(db, saveId, {
-      id: fixture.id + fixtureIdOffset,
-      competitionId: fixture.competitionId + compIdOffset,
-      season,
-      week: fixture.week,
-      round: fixture.round !== null ? String(fixture.round) : null,
-      homeClubId: fixture.homeClubId,
-      awayClubId: fixture.awayClubId,
-    });
+  // Batch-insert all (~6k) fixtures in a single statement. Per-row createFixture awaits
+  // one round-trip each, which takes ~minutes on expo-sqlite web; one literal multi-VALUES
+  // INSERT is a single round-trip. The season wipe above guarantees no id collisions.
+  if (calendar.fixtures.length > 0) {
+    const esc = (v: string | null) => (v === null ? 'NULL' : `'${v.replace(/'/g, "''")}'`);
+    const values = calendar.fixtures
+      .map((f) => {
+        const round = f.round !== null ? String(f.round) : null;
+        return `(${f.id + fixtureIdOffset}, ${saveId}, ${f.competitionId + compIdOffset}, ${season}, ${f.week}, ${esc(round)}, ${f.homeClubId}, ${f.awayClubId}, 0)`;
+      })
+      .join(',');
+    await db
+      .prepare(
+        `INSERT INTO fixtures (id, save_id, competition_id, season, week, round, home_club_id, away_club_id, played) VALUES ${values}`,
+      )
+      .run();
   }
 
   return true;

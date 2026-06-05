@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import * as SQLite from 'expo-sqlite';
-import { SCHEMA_SQL } from '@/database/schema';
+import { SCHEMA_SQL, SAVE_ID_INDEXES_SQL } from '@/database/schema';
 import { generateReferenceSeedSQL } from '@/database/seed';
 import { generateSeedData } from '../../scripts/generate-seed-data';
 import { DbHandle } from '@/database/queries/players';
@@ -188,6 +188,10 @@ export const useDatabaseStore = create<DatabaseStore>((set) => ({
       // Save isolation: add save_id to legacy world tables (idempotent) and adopt
       // orphan rows when a single save exists. Fresh DBs already have the columns.
       await migrateSaveIdAsync(db);
+
+      // Composite save_id indexes — created only now, after the columns are guaranteed
+      // to exist (on legacy DBs they were just added by the migration above).
+      await db.execAsync(SAVE_ID_INDEXES_SQL);
 
       // Seed ONLY the global reference tables (countries + leagues) when empty. Each save
       // seeds its own world (clubs/players/...) via NewGameScreen → save isolation means the

@@ -394,7 +394,11 @@ CREATE INDEX IF NOT EXISTS idx_comp_entries_club      ON competition_entries(clu
 CREATE INDEX IF NOT EXISTS idx_player_stats_season    ON player_stats(season, competition_id);
 CREATE INDEX IF NOT EXISTS idx_transfer_offers_status ON transfer_offers(status);
 CREATE INDEX IF NOT EXISTS idx_transfer_offers_club   ON transfer_offers(offering_club_id);
+`;
 
+// Composite save_id indexes are created AFTER the save_id migration (database-store),
+// because on a legacy DB the columns don't exist yet when SCHEMA_SQL runs.
+export const SAVE_ID_INDEXES_SQL = `
 CREATE INDEX IF NOT EXISTS idx_players_save_club         ON players(save_id, club_id);
 CREATE INDEX IF NOT EXISTS idx_fixtures_save_season_week ON fixtures(save_id, season, week);
 CREATE INDEX IF NOT EXISTS idx_fixtures_save_comp        ON fixtures(save_id, competition_id);
