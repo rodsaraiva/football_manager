@@ -13,6 +13,7 @@ import {
   addCompetitionEntry,
 } from '@/database/queries/leagues';
 import { createFixture } from '@/database/queries/fixtures';
+import { saveOffset } from '@/database/constants';
 
 export interface SeasonCalendar {
   competitions: Competition[];
@@ -156,30 +157,31 @@ export function generateSeasonCalendar(options: GenerateSeasonCalendarOptions): 
  */
 export async function ensureSeasonFixtures(
   db: DbHandle,
+  saveId: number,
   season: number,
 ): Promise<boolean> {
   // Heuristic: a healthy season has hundreds of fixtures (5 leagues × ~20 clubs ×
   // 38 weeks + cup + CL). If we see fewer than 100, treat it as a botched/partial
   // generation from an old buggy save and regenerate from scratch.
   const existing = await db
-    .prepare('SELECT COUNT(*) AS cnt FROM fixtures WHERE season = ?')
-    .get(season) as { cnt: number };
+    .prepare('SELECT COUNT(*) AS cnt FROM fixtures WHERE save_id = ? AND season = ?')
+    .get(saveId, season) as { cnt: number };
   if (existing.cnt >= 100) {
     return false;
   }
 
-  // Wipe any partial state for this season before regenerating.
-  await db.prepare('DELETE FROM match_events WHERE fixture_id IN (SELECT id FROM fixtures WHERE season = ?)').run(season);
-  await db.prepare('DELETE FROM fixtures WHERE season = ?').run(season);
-  await db.prepare('DELETE FROM competition_entries WHERE competition_id IN (SELECT id FROM competitions WHERE season = ?)').run(season);
-  await db.prepare('DELETE FROM competitions WHERE season = ?').run(season);
+  // Wipe partial state for THIS save's season only.
+  await db.prepare('DELETE FROM match_events WHERE fixture_id IN (SELECT id FROM fixtures WHERE save_id = ? AND season = ?)').run(saveId, season);
+  await db.prepare('DELETE FROM fixtures WHERE save_id = ? AND season = ?').run(saveId, season);
+  await db.prepare('DELETE FROM competition_entries WHERE competition_id IN (SELECT id FROM competitions WHERE save_id = ? AND season = ?)').run(saveId, season);
+  await db.prepare('DELETE FROM competitions WHERE save_id = ? AND season = ?').run(saveId, season);
 
-  const allLeagues = await getAllLeagues(db);
+  const allLeagues = await getAllLeagues(db); // reference, unscoped
   const clubsByLeague: Record<number, number[]> = {};
   const championsLeagueClubs: number[] = [];
 
   for (const league of allLeagues) {
-    const leagueClubs = await getClubsByLeague(db, league.id);
+    const leagueClubs = await getClubsByLeague(db, saveId, league.id);
     const sorted = [...leagueClubs].sort((a, b) => b.reputation - a.reputation);
     clubsByLeague[league.id] = leagueClubs.map(c => c.id);
     for (const c of sorted.slice(0, 2)) {
@@ -197,15 +199,16 @@ export async function ensureSeasonFixtures(
     }
   }
 
+  // clubsByLeague already carries per-save club ids (saveOffset applied by getClubsByLeague).
   const calendar = generateSeasonCalendar({ season, leagues: allLeagues, clubsByLeague, championsLeagueClubs });
 
-  // Season 1 uses raw IDs (matches NewGameScreen). Season 2+ offsets IDs to
-  // avoid UNIQUE constraint collisions with prior seasons (matches EndOfSeasonScreen).
-  const compIdOffset = season > 1 ? season * 10000 : 0;
-  const fixtureIdOffset = season > 1 ? season * 100000 : 0;
+  // Per-season spacing inside the save's id space (eliminates season-1 cross-save collision).
+  const off = saveOffset(saveId);
+  const compIdOffset = off + (season > 1 ? season * 10000 : 0);
+  const fixtureIdOffset = off + (season > 1 ? season * 100000 : 0);
 
   for (const comp of calendar.competitions) {
-    await createCompetition(db, {
+    await createCompetition(db, saveId, {
       id: comp.id + compIdOffset,
       name: comp.name,
       type: comp.type,
@@ -215,7 +218,7 @@ export async function ensureSeasonFixtures(
     });
   }
   for (const entry of calendar.entries) {
-    await addCompetitionEntry(db, {
+    await addCompetitionEntry(db, saveId, {
       competitionId: entry.competitionId + compIdOffset,
       clubId: entry.clubId,
       groupName: entry.groupName,
@@ -223,7 +226,7 @@ export async function ensureSeasonFixtures(
     });
   }
   for (const fixture of calendar.fixtures) {
-    await createFixture(db, {
+    await createFixture(db, saveId, {
       id: fixture.id + fixtureIdOffset,
       competitionId: fixture.competitionId + compIdOffset,
       season,
