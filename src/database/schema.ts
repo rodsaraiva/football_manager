@@ -49,6 +49,7 @@ CREATE TABLE IF NOT EXISTS leagues (
 
 CREATE TABLE IF NOT EXISTS clubs (
   id                  INTEGER PRIMARY KEY,
+  save_id             INTEGER NOT NULL REFERENCES save_games(id),
   name                TEXT    NOT NULL,
   short_name          TEXT    NOT NULL,
   country_id          INTEGER NOT NULL REFERENCES countries(id),
@@ -67,6 +68,7 @@ CREATE TABLE IF NOT EXISTS clubs (
 
 CREATE TABLE IF NOT EXISTS players (
   id                 INTEGER PRIMARY KEY,
+  save_id            INTEGER NOT NULL REFERENCES save_games(id),
   name               TEXT    NOT NULL,
   nationality        TEXT    NOT NULL,
   age                INTEGER NOT NULL,
@@ -94,6 +96,7 @@ CREATE TABLE IF NOT EXISTS players (
 
 CREATE TABLE IF NOT EXISTS player_attributes (
   player_id   INTEGER PRIMARY KEY REFERENCES players(id),
+  save_id     INTEGER NOT NULL REFERENCES save_games(id),
   finishing   INTEGER NOT NULL,
   passing     INTEGER NOT NULL,
   crossing    INTEGER NOT NULL,
@@ -116,6 +119,7 @@ CREATE TABLE IF NOT EXISTS player_attributes (
 
 CREATE TABLE IF NOT EXISTS player_stats (
   player_id      INTEGER NOT NULL REFERENCES players(id),
+  save_id        INTEGER NOT NULL REFERENCES save_games(id),
   season         INTEGER NOT NULL,
   competition_id INTEGER NOT NULL REFERENCES competitions(id),
   appearances    INTEGER NOT NULL DEFAULT 0,
@@ -130,6 +134,7 @@ CREATE TABLE IF NOT EXISTS player_stats (
 
 CREATE TABLE IF NOT EXISTS staff (
   id           INTEGER PRIMARY KEY,
+  save_id      INTEGER NOT NULL REFERENCES save_games(id),
   name         TEXT    NOT NULL,
   role         TEXT    NOT NULL,
   club_id      INTEGER REFERENCES clubs(id),
@@ -140,6 +145,7 @@ CREATE TABLE IF NOT EXISTS staff (
 
 CREATE TABLE IF NOT EXISTS club_finances (
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  save_id     INTEGER NOT NULL REFERENCES save_games(id),
   club_id     INTEGER NOT NULL REFERENCES clubs(id),
   season      INTEGER NOT NULL,
   week        INTEGER NOT NULL,
@@ -150,6 +156,7 @@ CREATE TABLE IF NOT EXISTS club_finances (
 
 CREATE TABLE IF NOT EXISTS competitions (
   id        INTEGER PRIMARY KEY,
+  save_id   INTEGER NOT NULL REFERENCES save_games(id),
   name      TEXT    NOT NULL,
   type      TEXT    NOT NULL,
   format    TEXT    NOT NULL,
@@ -159,6 +166,7 @@ CREATE TABLE IF NOT EXISTS competitions (
 
 CREATE TABLE IF NOT EXISTS competition_entries (
   competition_id INTEGER NOT NULL REFERENCES competitions(id),
+  save_id        INTEGER NOT NULL REFERENCES save_games(id),
   club_id        INTEGER NOT NULL REFERENCES clubs(id),
   group_name     TEXT,
   seed           INTEGER NOT NULL DEFAULT 0,
@@ -167,6 +175,7 @@ CREATE TABLE IF NOT EXISTS competition_entries (
 
 CREATE TABLE IF NOT EXISTS fixtures (
   id            INTEGER PRIMARY KEY,
+  save_id       INTEGER NOT NULL REFERENCES save_games(id),
   competition_id INTEGER NOT NULL REFERENCES competitions(id),
   season        INTEGER NOT NULL,
   week          INTEGER NOT NULL,
@@ -190,6 +199,7 @@ CREATE TABLE IF NOT EXISTS match_events (
 
 CREATE TABLE IF NOT EXISTS transfers (
   id           INTEGER PRIMARY KEY AUTOINCREMENT,
+  save_id      INTEGER NOT NULL REFERENCES save_games(id),
   player_id    INTEGER NOT NULL REFERENCES players(id),
   season       INTEGER NOT NULL,
   from_club_id INTEGER REFERENCES clubs(id),
@@ -202,6 +212,7 @@ CREATE TABLE IF NOT EXISTS transfers (
 
 CREATE TABLE IF NOT EXISTS transfer_offers (
   id              INTEGER PRIMARY KEY AUTOINCREMENT,
+  save_id         INTEGER NOT NULL REFERENCES save_games(id),
   player_id       INTEGER NOT NULL REFERENCES players(id),
   offering_club_id INTEGER NOT NULL REFERENCES clubs(id),
   selling_club_id INTEGER NOT NULL REFERENCES clubs(id),
@@ -218,6 +229,7 @@ CREATE TABLE IF NOT EXISTS transfer_offers (
 
 CREATE TABLE IF NOT EXISTS transfer_blocks (
   id                INTEGER PRIMARY KEY AUTOINCREMENT,
+  save_id           INTEGER NOT NULL REFERENCES save_games(id),
   player_id         INTEGER NOT NULL REFERENCES players(id),
   offering_club_id  INTEGER NOT NULL REFERENCES clubs(id),
   blocked_until_season INTEGER NOT NULL,
@@ -226,6 +238,7 @@ CREATE TABLE IF NOT EXISTS transfer_blocks (
 
 CREATE TABLE IF NOT EXISTS tactics (
   id            INTEGER PRIMARY KEY,
+  save_id       INTEGER NOT NULL REFERENCES save_games(id),
   club_id       INTEGER NOT NULL REFERENCES clubs(id),
   name          TEXT    NOT NULL,
   is_active     INTEGER NOT NULL DEFAULT 0,
@@ -271,24 +284,27 @@ CREATE TABLE IF NOT EXISTS save_games (
 
 CREATE TABLE IF NOT EXISTS season_competition_results (
   id                INTEGER PRIMARY KEY AUTOINCREMENT,
+  save_id           INTEGER NOT NULL REFERENCES save_games(id),
   season            INTEGER NOT NULL,
   competition_id    INTEGER NOT NULL REFERENCES competitions(id),
   champion_club_id  INTEGER NOT NULL REFERENCES clubs(id),
   runner_up_club_id INTEGER REFERENCES clubs(id),
-  UNIQUE(season, competition_id)
+  UNIQUE(save_id, season, competition_id)
 );
 
 CREATE TABLE IF NOT EXISTS season_relegated (
   id             INTEGER PRIMARY KEY AUTOINCREMENT,
+  save_id        INTEGER NOT NULL REFERENCES save_games(id),
   season         INTEGER NOT NULL,
   league_id      INTEGER NOT NULL REFERENCES leagues(id),
   club_id        INTEGER NOT NULL REFERENCES clubs(id),
   final_position INTEGER NOT NULL,
-  UNIQUE(season, league_id, club_id)
+  UNIQUE(save_id, season, league_id, club_id)
 );
 
 CREATE TABLE IF NOT EXISTS season_awards (
   id             INTEGER PRIMARY KEY AUTOINCREMENT,
+  save_id        INTEGER NOT NULL REFERENCES save_games(id),
   season         INTEGER NOT NULL,
   competition_id INTEGER NOT NULL REFERENCES competitions(id),
   award_type     TEXT    NOT NULL CHECK(award_type IN ('top_scorer','top_assister','mvp','breakthrough')),
@@ -296,44 +312,48 @@ CREATE TABLE IF NOT EXISTS season_awards (
   player_id      INTEGER NOT NULL REFERENCES players(id),
   club_id        INTEGER NOT NULL REFERENCES clubs(id),
   value          REAL    NOT NULL,
-  UNIQUE(season, competition_id, award_type, rank)
+  UNIQUE(save_id, season, competition_id, award_type, rank)
 );
 
 CREATE TABLE IF NOT EXISTS season_player_titles (
   id             INTEGER PRIMARY KEY AUTOINCREMENT,
+  save_id        INTEGER NOT NULL REFERENCES save_games(id),
   season         INTEGER NOT NULL,
   competition_id INTEGER NOT NULL REFERENCES competitions(id),
   club_id        INTEGER NOT NULL REFERENCES clubs(id),
   player_id      INTEGER NOT NULL REFERENCES players(id),
-  UNIQUE(season, competition_id, player_id)
+  UNIQUE(save_id, season, competition_id, player_id)
 );
 
 CREATE TABLE IF NOT EXISTS club_reputation_history (
   id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  save_id    INTEGER NOT NULL REFERENCES save_games(id),
   club_id    INTEGER NOT NULL REFERENCES clubs(id),
   season     INTEGER NOT NULL,
   reputation INTEGER NOT NULL CHECK (reputation BETWEEN 1 AND 100),
   delta      INTEGER NOT NULL,
-  UNIQUE(club_id, season)
+  UNIQUE(save_id, club_id, season)
 );
 
 CREATE TABLE IF NOT EXISTS board_objectives (
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  save_id     INTEGER NOT NULL REFERENCES save_games(id),
   club_id     INTEGER NOT NULL REFERENCES clubs(id),
   season      INTEGER NOT NULL,
   type        TEXT    NOT NULL,
   target      INTEGER,
   description TEXT    NOT NULL,
-  UNIQUE(club_id, season)
+  UNIQUE(save_id, club_id, season)
 );
 
 CREATE TABLE IF NOT EXISTS board_trust_history (
   id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  save_id    INTEGER NOT NULL REFERENCES save_games(id),
   club_id    INTEGER NOT NULL REFERENCES clubs(id),
   season     INTEGER NOT NULL,
   trust      INTEGER NOT NULL CHECK (trust BETWEEN 0 AND 100),
   outcome    TEXT    NOT NULL,
-  UNIQUE(club_id, season)
+  UNIQUE(save_id, club_id, season)
 );
 
 CREATE TABLE IF NOT EXISTS assistants (
@@ -374,6 +394,14 @@ CREATE INDEX IF NOT EXISTS idx_comp_entries_club      ON competition_entries(clu
 CREATE INDEX IF NOT EXISTS idx_player_stats_season    ON player_stats(season, competition_id);
 CREATE INDEX IF NOT EXISTS idx_transfer_offers_status ON transfer_offers(status);
 CREATE INDEX IF NOT EXISTS idx_transfer_offers_club   ON transfer_offers(offering_club_id);
+
+CREATE INDEX IF NOT EXISTS idx_players_save_club         ON players(save_id, club_id);
+CREATE INDEX IF NOT EXISTS idx_fixtures_save_season_week ON fixtures(save_id, season, week);
+CREATE INDEX IF NOT EXISTS idx_fixtures_save_comp        ON fixtures(save_id, competition_id);
+CREATE INDEX IF NOT EXISTS idx_finances_save_club        ON club_finances(save_id, club_id);
+CREATE INDEX IF NOT EXISTS idx_clubs_save_league         ON clubs(save_id, league_id);
+CREATE INDEX IF NOT EXISTS idx_player_stats_save_comp    ON player_stats(save_id, season, competition_id);
+CREATE INDEX IF NOT EXISTS idx_tactics_save_club         ON tactics(save_id, club_id);
 `;
 
 export interface DbExec {
