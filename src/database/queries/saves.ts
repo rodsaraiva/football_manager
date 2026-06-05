@@ -78,6 +78,29 @@ export async function updateSaveWeek(
   ).run(currentSeason, currentWeek, now, saveId);
 }
 
+// Children before parents (clubs last) — but the clubs<->save_games FK cycle means no
+// topological order satisfies FK-on. We disable FK for the wipe (PRAGMA can't change inside
+// a transaction, so this runs un-transacted) and restore it after. In tests FK is already off.
+const DELETE_BY_SAVE_TABLES = [
+  'player_attributes', 'players', 'club_finances', 'competition_entries', 'fixtures',
+  'transfers', 'transfer_offers', 'transfer_blocks', 'tactics', 'staff', 'board_objectives',
+  'board_trust_history', 'club_reputation_history', 'season_competition_results',
+  'season_relegated', 'season_awards', 'season_player_titles', 'player_stats',
+  'competitions', 'assistants', 'clubs',
+];
+
 export async function deleteSave(db: DbHandle, saveId: number): Promise<void> {
-  await db.prepare('DELETE FROM save_games WHERE id = ?').run(saveId);
+  await db.prepare('PRAGMA foreign_keys = OFF').run();
+  try {
+    // owner-derived tables first (no own save_id): match_events via fixtures, tactic_* via tactics
+    await db.prepare('DELETE FROM match_events WHERE fixture_id IN (SELECT id FROM fixtures WHERE save_id = ?)').run(saveId);
+    await db.prepare('DELETE FROM tactic_positions WHERE tactic_id IN (SELECT id FROM tactics WHERE save_id = ?)').run(saveId);
+    await db.prepare('DELETE FROM tactic_lineup WHERE tactic_id IN (SELECT id FROM tactics WHERE save_id = ?)').run(saveId);
+    for (const t of DELETE_BY_SAVE_TABLES) {
+      await db.prepare(`DELETE FROM ${t} WHERE save_id = ?`).run(saveId);
+    }
+    await db.prepare('DELETE FROM save_games WHERE id = ?').run(saveId);
+  } finally {
+    await db.prepare('PRAGMA foreign_keys = ON').run();
+  }
 }
