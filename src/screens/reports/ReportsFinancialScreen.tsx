@@ -37,27 +37,28 @@ function formatMoney(n: number): string {
 
 export function ReportsFinancialScreen() {
   const navigation = useNavigation<NavProp>();
-  const { playerClubId, season, week } = useGameStore();
+  const { playerClubId, season, week, currentSave } = useGameStore();
   const { dbHandle } = useDatabaseStore();
+  const saveId = currentSave?.id;
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [report, setReport] = useState<FinancialReport | null>(null);
 
   const load = React.useCallback(async () => {
-    if (!dbHandle || !playerClubId) {
+    if (!dbHandle || !playerClubId || saveId == null) {
       setLoading(false);
       return;
     }
     setLoading(true);
     try {
-      const club = await getClubById(dbHandle, playerClubId);
+      const club = await getClubById(dbHandle, saveId, playerClubId);
       if (!club) return;
 
-      const entries = await getFinancesBySeason(dbHandle, playerClubId, season);
+      const entries = await getFinancesBySeason(dbHandle, saveId, playerClubId, season);
       const prevEntries = season > 1
-        ? await getFinancesBySeason(dbHandle, playerClubId, season - 1)
+        ? await getFinancesBySeason(dbHandle, saveId, playerClubId, season - 1)
         : [];
-      const squad = await getPlayersByClub(dbHandle, playerClubId);
+      const squad = await getPlayersByClub(dbHandle, saveId, playerClubId);
       const totalWages = squad.reduce((sum, p) => sum + p.wage, 0);
 
       const r = buildFinancialReport({
@@ -78,7 +79,7 @@ export function ReportsFinancialScreen() {
     } finally {
       setLoading(false);
     }
-  }, [dbHandle, playerClubId, season, week]);
+  }, [dbHandle, playerClubId, season, week, saveId]);
 
   const onRefresh = React.useCallback(async () => {
     setRefreshing(true);

@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import * as SQLite from 'expo-sqlite';
 import { SCHEMA_SQL } from '@/database/schema';
-import { generateSeedSQL } from '@/database/seed';
+import { generateReferenceSeedSQL } from '@/database/seed';
 import { generateSeedData } from '../../scripts/generate-seed-data';
 import { DbHandle } from '@/database/queries/players';
 import { migrateSaveIdAsync } from '@/database/migration';
@@ -189,16 +189,15 @@ export const useDatabaseStore = create<DatabaseStore>((set) => ({
       // orphan rows when a single save exists. Fresh DBs already have the columns.
       await migrateSaveIdAsync(db);
 
-      // Seed if DB is missing data (check both countries and clubs to catch partial seeds)
+      // Seed ONLY the global reference tables (countries + leagues) when empty. Each save
+      // seeds its own world (clubs/players/...) via NewGameScreen → save isolation means the
+      // boot path must NOT wipe or seed world tables globally (that erased other saves).
       const countryCount = await db.getFirstAsync<{ cnt: number }>('SELECT COUNT(*) as cnt FROM countries');
-      const clubCount = await db.getFirstAsync<{ cnt: number }>('SELECT COUNT(*) as cnt FROM clubs');
-      if (!countryCount || countryCount.cnt === 0 || !clubCount || clubCount.cnt === 0) {
-        // Clear any partial data before re-seeding
-        await db.execAsync('DELETE FROM tactics; DELETE FROM staff; DELETE FROM player_attributes; DELETE FROM players; DELETE FROM clubs; DELETE FROM leagues; DELETE FROM countries;');
-        console.log('[DB] Seeding database...');
-        const seedSQL = generateSeedSQL(generateSeedData(2026));
-        await db.execAsync(seedSQL);
-        console.log('[DB] Seeding complete!');
+      if (!countryCount || countryCount.cnt === 0) {
+        await db.execAsync('DELETE FROM leagues; DELETE FROM countries;');
+        console.log('[DB] Seeding reference tables...');
+        await db.execAsync(generateReferenceSeedSQL(generateSeedData(2026)));
+        console.log('[DB] Reference seed complete!');
       }
 
       const handle = wrapExpoDb(db);

@@ -65,15 +65,16 @@ export function EndOfSeasonScreen() {
   const endedSeason = season - 1;
 
   useEffect(() => {
-    if (!dbHandle || !playerClub || !playerClubId) {
+    if (!dbHandle || !playerClub || !playerClubId || !currentSave) {
       setLoading(false);
       return;
     }
+    const saveId = currentSave.id;
 
     (async () => {
       try {
         // Get all club fixtures for the season that just ended
-        const allFixtures = await getFixturesByClub(dbHandle, playerClubId, endedSeason);
+        const allFixtures = await getFixturesByClub(dbHandle, saveId, playerClubId, endedSeason);
         const played = allFixtures.filter((f) => f.played);
 
         let wins = 0;
@@ -94,10 +95,10 @@ export function EndOfSeasonScreen() {
         }
 
         // Compute league standings for player's club
-        const leagueClubs = await getClubsByLeague(dbHandle, playerClub.leagueId);
+        const leagueClubs = await getClubsByLeague(dbHandle, saveId, playerClub.leagueId);
         const clubIds = leagueClubs.map((c) => c.id);
 
-        const competitions = await getCompetitionsBySeason(dbHandle, endedSeason);
+        const competitions = await getCompetitionsBySeason(dbHandle, saveId, endedSeason);
         const leagueComp = competitions.find(
           (comp) => comp.leagueId === playerClub.leagueId && comp.type === 'league',
         );
@@ -109,7 +110,7 @@ export function EndOfSeasonScreen() {
           // Collect all played league fixtures across all league clubs
           const fixtureSet = new Map<number, Fixture>();
           for (const clubId of clubIds) {
-            const clubFixtures = await getFixturesByClub(dbHandle, clubId, endedSeason);
+            const clubFixtures = await getFixturesByClub(dbHandle, saveId, clubId, endedSeason);
             for (const f of clubFixtures) {
               if (f.competitionId === leagueComp.id && f.played && !fixtureSet.has(f.id)) {
                 fixtureSet.set(f.id, f);
@@ -124,7 +125,7 @@ export function EndOfSeasonScreen() {
 
         // Financial summary — sum positive (income) and negative (expenses) entries
         // separately. getSeasonBalance returns only the net, which hid one side.
-        const finances = await getFinancesBySeason(dbHandle, playerClubId, endedSeason);
+        const finances = await getFinancesBySeason(dbHandle, saveId, playerClubId, endedSeason);
         const income = finances.filter((f) => f.amount > 0).reduce((s, f) => s + f.amount, 0);
         const expenses = finances.filter((f) => f.amount < 0).reduce((s, f) => s + Math.abs(f.amount), 0);
 
@@ -143,7 +144,7 @@ export function EndOfSeasonScreen() {
 
         // Board evaluation — engine computes/persists; the screen just wires stores + UI.
         // Guard prevents re-runs on re-renders.
-        if (currentSave && !boardProcessed) {
+        if (!boardProcessed) {
           setBoardProcessed(true);
           const relegatedRow = await dbHandle
             .prepare('SELECT id FROM season_relegated WHERE season = ? AND club_id = ? LIMIT 1')

@@ -15,6 +15,7 @@ import { DbHandle } from '@/database/queries/players';
  */
 export async function returnExpiredLoans(
   db: DbHandle,
+  saveId: number,
   season: number,
 ): Promise<number> {
   // Find loans whose loan_end has been reached and the player hasn't been
@@ -23,11 +24,12 @@ export async function returnExpiredLoans(
     .prepare(
       `SELECT t.id, t.player_id, t.from_club_id, t.to_club_id, t.loan_end, t.wage_offered
        FROM transfers t
-       WHERE t.type = 'loan'
+       WHERE t.save_id = ?
+         AND t.type = 'loan'
          AND t.loan_end IS NOT NULL
          AND t.loan_end <= ?`,
     )
-    .all(season)) as Array<{
+    .all(saveId, season)) as Array<{
     id: number;
     player_id: number;
     from_club_id: number | null;
@@ -42,19 +44,19 @@ export async function returnExpiredLoans(
 
     // Only return if the player is still at the borrowing club
     const player = (await db
-      .prepare('SELECT club_id FROM players WHERE id = ?')
-      .get(loan.player_id)) as { club_id: number | null } | undefined;
+      .prepare('SELECT club_id FROM players WHERE save_id = ? AND id = ?')
+      .get(saveId, loan.player_id)) as { club_id: number | null } | undefined;
     if (!player || player.club_id !== loan.to_club_id) continue;
 
     // Move back to parent club. We don't touch wage here (parent decides).
     await db
-      .prepare('UPDATE players SET club_id = ? WHERE id = ?')
-      .run(loan.from_club_id, loan.player_id);
+      .prepare('UPDATE players SET club_id = ? WHERE save_id = ? AND id = ?')
+      .run(loan.from_club_id, saveId, loan.player_id);
 
     // Neutralize the loan record so it isn't returned again
     await db
-      .prepare('UPDATE transfers SET loan_end = NULL WHERE id = ?')
-      .run(loan.id);
+      .prepare('UPDATE transfers SET loan_end = NULL WHERE save_id = ? AND id = ?')
+      .run(saveId, loan.id);
 
     returned++;
   }

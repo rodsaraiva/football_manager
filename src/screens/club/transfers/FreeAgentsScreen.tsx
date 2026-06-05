@@ -46,8 +46,9 @@ function parseNumber(input: string): number {
 }
 
 export function FreeAgentsScreen() {
-  const { playerClubId, season, week } = useGameStore();
+  const { playerClubId, season, week, currentSave } = useGameStore();
   const { dbHandle } = useDatabaseStore();
+  const saveId = currentSave?.id;
 
   const [agents, setAgents] = useState<FreeAgentWithOverall[]>([]);
   const [loading, setLoading] = useState(true);
@@ -60,16 +61,16 @@ export function FreeAgentsScreen() {
   const [years, setYears] = useState(3);
 
   const load = useCallback(async () => {
-    if (!dbHandle) {
+    if (!dbHandle || saveId == null) {
       setLoading(false);
       return;
     }
     setLoading(true);
     try {
-      const fa = await getFreeAgents(dbHandle);
+      const fa = await getFreeAgents(dbHandle, saveId);
       const hydrated: FreeAgentWithOverall[] = [];
       for (const p of fa) {
-        const full = await getPlayerById(dbHandle, p.id);
+        const full = await getPlayerById(dbHandle, saveId, p.id);
         const overall = full ? calculateOverall(full.attributes, full.position) : 50;
         hydrated.push({ ...p, overall });
       }
@@ -78,7 +79,7 @@ export function FreeAgentsScreen() {
     } finally {
       setLoading(false);
     }
-  }, [dbHandle]);
+  }, [dbHandle, saveId]);
 
   useFocusEffect(
     useCallback(() => {
@@ -108,9 +109,9 @@ export function FreeAgentsScreen() {
   }, []);
 
   const handleSubmitSigning = useCallback(async () => {
-    if (!dbHandle || !selected || playerClubId === null) return;
+    if (!dbHandle || !selected || playerClubId === null || saveId == null) return;
     const wage = parseNumber(wageStr);
-    const res = await signFreeAgent(dbHandle, {
+    const res = await signFreeAgent(dbHandle, saveId, {
       playerId: selected.id,
       clubId: playerClubId,
       wageOffered: wage,
@@ -126,7 +127,7 @@ export function FreeAgentsScreen() {
     } else {
       Alert.alert('Could not sign', res.reason ?? 'Unknown error');
     }
-  }, [dbHandle, selected, playerClubId, wageStr, years, season, week, handleCloseSign, load]);
+  }, [dbHandle, selected, playerClubId, saveId, wageStr, years, season, week, handleCloseSign, load]);
 
   if (loading) {
     return (

@@ -26,32 +26,33 @@ const DEF_POS: Position[] = ['CB', 'LB', 'RB'];
 const avg = (xs: number[]) => (xs.length === 0 ? 0 : xs.reduce((s, v) => s + v, 0) / xs.length);
 
 export function ReportsAnalyticsScreen() {
-  const { playerClub, playerClubId, season, week } = useGameStore();
+  const { playerClub, playerClubId, season, week, currentSave } = useGameStore();
   const { dbHandle } = useDatabaseStore();
+  const saveId = currentSave?.id;
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [report, setReport] = useState<AnalyticsReport | null>(null);
 
   const load = React.useCallback(async () => {
-    if (!dbHandle || !playerClub || !playerClubId) {
+    if (!dbHandle || !playerClub || !playerClubId || saveId == null) {
       setLoading(false);
       return;
     }
     setLoading(true);
     try {
       // Collect every club in the same league
-      const leagueClubs = await getClubsByLeague(dbHandle, playerClub.leagueId);
+      const leagueClubs = await getClubsByLeague(dbHandle, saveId, playerClub.leagueId);
       const clubIds = leagueClubs.map((c) => c.id);
 
       // Locate the league competition to filter fixtures
-      const comps = await getCompetitionsBySeason(dbHandle, season);
+      const comps = await getCompetitionsBySeason(dbHandle, saveId, season);
       const leagueComp = comps.find((c) => c.leagueId === playerClub.leagueId && c.type === 'league');
 
       // Gather all played fixtures for the league this season
       const allFixtures: Fixture[] = [];
       const seen = new Set<number>();
       for (const cid of clubIds) {
-        const fxs = await getFixturesByClub(dbHandle, cid, season);
+        const fxs = await getFixturesByClub(dbHandle, saveId, cid, season);
         for (const f of fxs) {
           if (!seen.has(f.id) && f.played && (!leagueComp || f.competitionId === leagueComp.id)) {
             seen.add(f.id);
@@ -65,7 +66,7 @@ export function ReportsAnalyticsScreen() {
       // Compute squad overall per club using a single batch query per club.
       const samples: ClubSample[] = await Promise.all(
         leagueClubs.map(async (c) => {
-          const squad = await getPlayersWithAttributesByClub(dbHandle, c.id);
+          const squad = await getPlayersWithAttributesByClub(dbHandle, saveId, c.id);
           const overalls: number[] = [];
           const attackOv: number[] = [];
           const midOv: number[] = [];
@@ -108,7 +109,7 @@ export function ReportsAnalyticsScreen() {
     } finally {
       setLoading(false);
     }
-  }, [dbHandle, playerClub, playerClubId, season, week]);
+  }, [dbHandle, playerClub, playerClubId, season, week, saveId]);
 
   const onRefresh = React.useCallback(async () => {
     setRefreshing(true);

@@ -37,6 +37,7 @@ interface SuitorClub {
  */
 export async function generateAiOffersForPlayerClub(
   db: DbHandle,
+  saveId: number,
   playerClubId: number,
   rng: SeededRng,
   season: number = 0,
@@ -51,9 +52,9 @@ export async function generateAiOffersForPlayerClub(
               a.vision, a.composure, a.decisions, a.positioning, a.aggression, a.leadership,
               a.pace, a.stamina, a.strength, a.agility, a.jumping
        FROM players p JOIN player_attributes a ON a.player_id = p.id
-       WHERE p.club_id = ? AND p.is_free_agent = 0`,
+       WHERE p.save_id = ? AND p.club_id = ? AND p.is_free_agent = 0`,
     )
-    .all(playerClubId)) as Array<{
+    .all(saveId, playerClubId)) as Array<{
     id: number;
     position: string;
     market_value: number;
@@ -127,10 +128,10 @@ export async function generateAiOffersForPlayerClub(
   const suitors = (await db
     .prepare(
       `SELECT id, reputation, budget FROM clubs
-       WHERE id != ? AND budget > 1000000
+       WHERE save_id = ? AND id != ? AND budget > 1000000
        ORDER BY RANDOM() LIMIT 10`,
     )
-    .all(playerClubId)) as SuitorClub[];
+    .all(saveId, playerClubId)) as SuitorClub[];
 
   if (suitors.length === 0) return 0;
 
@@ -168,13 +169,13 @@ export async function generateAiOffersForPlayerClub(
             const existing = (await db
               .prepare(
                 `SELECT id FROM transfer_offers
-                 WHERE player_id = ? AND offering_club_id = ? AND status IN ('pending','countered')
+                 WHERE save_id = ? AND player_id = ? AND offering_club_id = ? AND status IN ('pending','countered')
                    AND (offer_type IS NULL OR offer_type = 'transfer')
                  LIMIT 1`,
               )
-              .get(player.id, suitor.id)) as { id: number } | undefined;
+              .get(saveId, player.id, suitor.id)) as { id: number } | undefined;
 
-            if (!existing && !(await isClubBlocked(db, player.id, suitor.id, season, week))) {
+            if (!existing && !(await isClubBlocked(db, saveId, player.id, suitor.id, season, week))) {
               let feeOffered: number;
               if (hasAskingPrice) {
                 // Bid within [0.7 * askingPrice, 1.0 * askingPrice]
@@ -193,7 +194,7 @@ export async function generateAiOffersForPlayerClub(
               const wageMultiplier = 1.0 + rng.nextFloat(0, 0.3);
               const wageOffered = Math.round(player.wage * wageMultiplier);
 
-              await createOffer(db, {
+              await createOffer(db, saveId, {
                 playerId: player.id,
                 offeringClubId: suitor.id,
                 sellingClubId: playerClubId,
@@ -218,9 +219,9 @@ export async function generateAiOffersForPlayerClub(
           // Check suitor has fewer than 2 players at this position (slot need)
           const posCount = (await db
             .prepare(
-              `SELECT COUNT(*) as cnt FROM players WHERE club_id = ? AND position = ? AND is_free_agent = 0`,
+              `SELECT COUNT(*) as cnt FROM players WHERE save_id = ? AND club_id = ? AND position = ? AND is_free_agent = 0`,
             )
-            .get(suitor.id, player.position)) as { cnt: number } | undefined;
+            .get(saveId, suitor.id, player.position)) as { cnt: number } | undefined;
           const hasSlotNeed = !posCount || posCount.cnt < 2;
 
           if (hasSlotNeed) {
@@ -228,20 +229,20 @@ export async function generateAiOffersForPlayerClub(
             const existingLoan = (await db
               .prepare(
                 `SELECT id FROM transfer_offers
-                 WHERE player_id = ? AND offering_club_id = ? AND status IN ('pending','countered')
+                 WHERE save_id = ? AND player_id = ? AND offering_club_id = ? AND status IN ('pending','countered')
                    AND offer_type = 'loan'
                  LIMIT 1`,
               )
-              .get(player.id, suitor.id)) as { id: number } | undefined;
+              .get(saveId, player.id, suitor.id)) as { id: number } | undefined;
 
-            if (!existingLoan && !(await isClubBlocked(db, player.id, suitor.id, season, week))) {
+            if (!existingLoan && !(await isClubBlocked(db, saveId, player.id, suitor.id, season, week))) {
               // Loan fee is zero; wage contribution is determined by loanWageShare.
               // loanWageShare is the fraction the borrowing club pays (0..1).
               // Default to 50/50 if not set.
               const wageShare = player.loanWageShare ?? 0.5;
               const wageOffered = Math.round(player.wage * wageShare);
 
-              await createOffer(db, {
+              await createOffer(db, saveId, {
                 playerId: player.id,
                 offeringClubId: suitor.id,
                 sellingClubId: playerClubId,

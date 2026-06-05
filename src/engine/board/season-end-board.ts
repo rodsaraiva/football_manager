@@ -57,12 +57,12 @@ export async function processSeasonEndBoard(p: SeasonEndBoardParams): Promise<Se
   });
 
   // 2. Persist reputation history + update club.
-  await insertReputationHistory(db, { clubId, season: endedSeason, reputation: repResult.newReputation, delta: repResult.delta }).catch(() => {});
-  await db.prepare('UPDATE clubs SET reputation = ? WHERE id = ?').run(repResult.newReputation, clubId);
+  await insertReputationHistory(db, saveId, { clubId, season: endedSeason, reputation: repResult.newReputation, delta: repResult.delta }).catch(() => {});
+  await db.prepare('UPDATE clubs SET reputation = ? WHERE save_id = ? AND id = ?').run(repResult.newReputation, saveId, clubId);
 
   // 3. Trust delta.
   const currentTrust = await getSaveBoardTrust(db, saveId);
-  const prevObjective = await getBoardObjective(db, clubId, endedSeason);
+  const prevObjective = await getBoardObjective(db, saveId, clubId, endedSeason);
   const trustResult = computeTrustDelta({
     currentTrust,
     objectiveType: prevObjective?.type ?? 'no_relegation',
@@ -75,14 +75,14 @@ export async function processSeasonEndBoard(p: SeasonEndBoardParams): Promise<Se
   });
 
   // 4. Persist trust history + update save.
-  await insertTrustHistory(db, { clubId, season: endedSeason, trust: trustResult.newTrust, outcome: trustResult.outcome }).catch(() => {});
+  await insertTrustHistory(db, saveId, { clubId, season: endedSeason, trust: trustResult.newTrust, outcome: trustResult.outcome }).catch(() => {});
   await updateSaveBoardTrust(db, saveId, trustResult.newTrust);
 
   // 5. Budget consequence.
   if (trustResult.consequence === 'budget_cut') {
-    await db.prepare('UPDATE clubs SET budget = CAST(budget * 0.8 AS INTEGER) WHERE id = ?').run(clubId);
+    await db.prepare('UPDATE clubs SET budget = CAST(budget * 0.8 AS INTEGER) WHERE save_id = ? AND id = ?').run(saveId, clubId);
   } else if (trustResult.consequence === 'budget_bonus') {
-    await db.prepare('UPDATE clubs SET budget = CAST(budget * 1.1 AS INTEGER) WHERE id = ?').run(clubId);
+    await db.prepare('UPDATE clubs SET budget = CAST(budget * 1.1 AS INTEGER) WHERE save_id = ? AND id = ?').run(saveId, clubId);
   }
 
   // 6. Objective for the NEW season.
@@ -94,11 +94,11 @@ export async function processSeasonEndBoard(p: SeasonEndBoardParams): Promise<Se
     wasRelegated, wasPromoted,
     rng: new SeededRng(newSeason * 31337 + clubId),
   });
-  await upsertBoardObjective(db, { clubId, season: newSeason, type: objective.type, target: objective.target, description: objective.description });
+  await upsertBoardObjective(db, saveId, { clubId, season: newSeason, type: objective.type, target: objective.target, description: objective.description });
 
   // 7. Read back for the caller.
-  const newObjective = await getBoardObjective(db, clubId, newSeason);
-  const reputationHistory = await getReputationHistory(db, clubId);
+  const newObjective = await getBoardObjective(db, saveId, clubId, newSeason);
+  const reputationHistory = await getReputationHistory(db, saveId, clubId);
 
   return {
     oldReputation: currentReputation,

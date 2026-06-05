@@ -34,6 +34,7 @@ function weekDiff(
  */
 export async function blockClubFromPlayer(
   db: DbHandle,
+  saveId: number,
   playerId: number,
   offeringClubId: number,
   currentSeason: number,
@@ -44,15 +45,16 @@ export async function blockClubFromPlayer(
   const wrappedWeek = untilWeek % 46 || 46;
   await db
     .prepare(
-      `INSERT INTO transfer_blocks (player_id, offering_club_id, blocked_until_season, blocked_until_week)
-       VALUES (?, ?, ?, ?)`,
+      `INSERT INTO transfer_blocks (save_id, player_id, offering_club_id, blocked_until_season, blocked_until_week)
+       VALUES (?, ?, ?, ?, ?)`,
     )
-    .run(playerId, offeringClubId, untilSeason, wrappedWeek);
+    .run(saveId, playerId, offeringClubId, untilSeason, wrappedWeek);
 }
 
 /** Returns true if this club is currently blocked from bidding on this player. */
 export async function isClubBlocked(
   db: DbHandle,
+  saveId: number,
   playerId: number,
   offeringClubId: number,
   currentSeason: number,
@@ -61,9 +63,9 @@ export async function isClubBlocked(
   const rows = (await db
     .prepare(
       `SELECT blocked_until_season, blocked_until_week FROM transfer_blocks
-       WHERE player_id = ? AND offering_club_id = ?`,
+       WHERE save_id = ? AND player_id = ? AND offering_club_id = ?`,
     )
-    .all(playerId, offeringClubId)) as Array<{
+    .all(saveId, playerId, offeringClubId)) as Array<{
     blocked_until_season: number;
     blocked_until_week: number;
   }>;
@@ -81,16 +83,17 @@ export async function isClubBlocked(
  */
 export async function prunExpiredBlocks(
   db: DbHandle,
+  saveId: number,
   currentSeason: number,
   currentWeek: number,
 ): Promise<void> {
   await db
     .prepare(
       `DELETE FROM transfer_blocks
-       WHERE (blocked_until_season < ?)
-          OR (blocked_until_season = ? AND blocked_until_week <= ?)`,
+       WHERE save_id = ? AND ((blocked_until_season < ?)
+          OR (blocked_until_season = ? AND blocked_until_week <= ?))`,
     )
-    .run(currentSeason, currentSeason, currentWeek);
+    .run(saveId, currentSeason, currentSeason, currentWeek);
 }
 
 // ─── Offer expiration ──────────────────────────────────────────────────────
@@ -101,16 +104,17 @@ export async function prunExpiredBlocks(
  */
 export async function expireStaleOffers(
   db: DbHandle,
+  saveId: number,
   currentSeason: number,
   currentWeek: number,
 ): Promise<number> {
   const stale = (await db
     .prepare(
       `SELECT id, created_season, created_week, response_week FROM transfer_offers
-       WHERE status IN ('pending', 'countered')
+       WHERE save_id = ? AND status IN ('pending', 'countered')
          AND created_season IS NOT NULL AND created_week IS NOT NULL`,
     )
-    .all()) as Array<{
+    .all(saveId)) as Array<{
     id: number;
     created_season: number;
     created_week: number;
@@ -138,20 +142,20 @@ export async function expireStaleOffers(
 // ─── Round counting ────────────────────────────────────────────────────────
 
 /** Increments the round counter for a given offer. */
-export async function incrementOfferRound(db: DbHandle, offerId: number): Promise<number> {
+export async function incrementOfferRound(db: DbHandle, saveId: number, offerId: number): Promise<number> {
   await db
-    .prepare('UPDATE transfer_offers SET round_count = round_count + 1 WHERE id = ?')
-    .run(offerId);
+    .prepare('UPDATE transfer_offers SET round_count = round_count + 1 WHERE save_id = ? AND id = ?')
+    .run(saveId, offerId);
   const row = (await db
-    .prepare('SELECT round_count FROM transfer_offers WHERE id = ?')
-    .get(offerId)) as { round_count: number };
+    .prepare('SELECT round_count FROM transfer_offers WHERE save_id = ? AND id = ?')
+    .get(saveId, offerId)) as { round_count: number };
   return row.round_count;
 }
 
 /** Has this offer exceeded the maximum negotiation rounds? */
-export async function hasExceededMaxRounds(db: DbHandle, offerId: number): Promise<boolean> {
+export async function hasExceededMaxRounds(db: DbHandle, saveId: number, offerId: number): Promise<boolean> {
   const row = (await db
-    .prepare('SELECT round_count FROM transfer_offers WHERE id = ?')
-    .get(offerId)) as { round_count: number } | undefined;
+    .prepare('SELECT round_count FROM transfer_offers WHERE save_id = ? AND id = ?')
+    .get(saveId, offerId)) as { round_count: number } | undefined;
   return !!row && row.round_count >= MAX_NEGOTIATION_ROUNDS;
 }

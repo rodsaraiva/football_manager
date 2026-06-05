@@ -34,6 +34,7 @@ export interface ApplyUpgradeResult {
  */
 export async function applyUpgrade(
   db: DbHandle,
+  saveId: number,
   clubId: number,
   facilityType: FacilityType,
   currentLevel: number,
@@ -48,8 +49,8 @@ export async function applyUpgrade(
 
   // Read current budget
   const clubRow = await db
-    .prepare('SELECT budget FROM clubs WHERE id = ?')
-    .get(clubId) as { budget: number } | undefined;
+    .prepare('SELECT budget FROM clubs WHERE save_id = ? AND id = ?')
+    .get(saveId, clubId) as { budget: number } | undefined;
 
   if (!clubRow) {
     return { success: false, reason: 'Club not found' };
@@ -63,20 +64,20 @@ export async function applyUpgrade(
 
   // Debit budget
   await db
-    .prepare('UPDATE clubs SET budget = budget - ? WHERE id = ?')
-    .run(cost, clubId);
+    .prepare('UPDATE clubs SET budget = budget - ? WHERE save_id = ? AND id = ?')
+    .run(cost, saveId, clubId);
 
   // Bump facility level — stadium is handled separately (capacity-based) so only
   // training / youth / medical have a direct integer column.
   if (facilityType !== 'stadium') {
     const column = FACILITY_COLUMN[facilityType as Exclude<FacilityType, 'stadium'>];
     await db
-      .prepare(`UPDATE clubs SET ${column} = MIN(${MAX_LEVEL}, ${column} + 1) WHERE id = ?`)
-      .run(clubId);
+      .prepare(`UPDATE clubs SET ${column} = MIN(${MAX_LEVEL}, ${column} + 1) WHERE save_id = ? AND id = ?`)
+      .run(saveId, clubId);
   }
 
   // Write ledger entry
-  await addFinanceEntry(db, {
+  await addFinanceEntry(db, saveId, {
     clubId,
     season,
     week,

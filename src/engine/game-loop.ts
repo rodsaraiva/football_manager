@@ -46,9 +46,11 @@ import {
 
 async function persistMatchStats(
   db: DbHandle,
+  saveId: number,
   fixture: Fixture,
   result: MatchResult,
 ): Promise<void> {
+  // saveId needed for upsertPlayerStats scoping
   // Derive per-player tallies from the match events (PlayerRating only carries
   // playerId + rating; goals/assists/cards must be counted from events).
   const tallyFor = (playerId: number) => {
@@ -88,7 +90,7 @@ async function persistMatchStats(
   const allRatings = [...result.homeRatings, ...result.awayRatings];
   for (const r of allRatings) {
     const tally = tallyFor(r.playerId);
-    await upsertPlayerStats(db, {
+    await upsertPlayerStats(db, saveId, {
       playerId: r.playerId,
       season: fixture.season,
       competitionId: fixture.competitionId,
@@ -189,9 +191,10 @@ async function simulateAiMatch(
   fixture: Fixture,
   rng: SeededRng,
   db: DbHandle,
+  saveId: number,
 ): Promise<{ homeGoals: number; awayGoals: number }> {
-  const home = await getClubById(db, fixture.homeClubId);
-  const away = await getClubById(db, fixture.awayClubId);
+  const home = await getClubById(db, saveId, fixture.homeClubId);
+  const away = await getClubById(db, saveId, fixture.awayClubId);
   const homeRep = home?.reputation ?? 50;
   const awayRep = away?.reputation ?? 50;
 
@@ -210,11 +213,11 @@ async function simulateAiMatch(
 
 // ─── Player data helpers ──────────────────────────────────────────────────────
 
-async function loadSquadWithAttributes(db: DbHandle, clubId: number): Promise<PlayerForPick[]> {
-  const players = await getPlayersByClub(db, clubId);
+async function loadSquadWithAttributes(db: DbHandle, saveId: number, clubId: number): Promise<PlayerForPick[]> {
+  const players = await getPlayersByClub(db, saveId, clubId);
   const result: PlayerForPick[] = [];
   for (const p of players) {
-    const full = await getPlayerById(db, p.id);
+    const full = await getPlayerById(db, saveId, p.id);
     if (full) {
       result.push({
         id: full.id,
@@ -236,24 +239,24 @@ function isTransferWindow(week: number): boolean {
   return (week >= 1 && week <= 6) || (week >= 23 && week <= 26);
 }
 
-export async function processAiTransfers(db: DbHandle, season: number, week: number, rng: SeededRng): Promise<void> {
+export async function processAiTransfers(db: DbHandle, saveId: number, season: number, week: number, rng: SeededRng): Promise<void> {
   if (!isTransferWindow(week)) return;
 
   const clubs = await db.prepare(
-    'SELECT id, reputation, budget FROM clubs ORDER BY RANDOM() LIMIT 5',
-  ).all() as Array<{ id: number; reputation: number; budget: number }>;
+    'SELECT id, reputation, budget FROM clubs WHERE save_id = ? ORDER BY RANDOM() LIMIT 5',
+  ).all(saveId) as Array<{ id: number; reputation: number; budget: number }>;
 
   for (const club of clubs) {
     const squadRows = await db.prepare(
-      'SELECT position FROM players WHERE club_id = ?',
-    ).all(club.id) as Array<{ position: string }>;
+      'SELECT position FROM players WHERE save_id = ? AND club_id = ?',
+    ).all(saveId, club.id) as Array<{ position: string }>;
 
     const available = await db.prepare(
       `SELECT p.id, p.position, p.market_value, p.wage, p.club_id as from_club_id, c.reputation as club_reputation
-       FROM players p JOIN clubs c ON p.club_id = c.id
-       WHERE p.club_id != ? AND p.is_free_agent = 0
+       FROM players p JOIN clubs c ON p.club_id = c.id AND c.save_id = p.save_id
+       WHERE p.save_id = ? AND p.club_id != ? AND p.is_free_agent = 0
        ORDER BY RANDOM() LIMIT 20`,
-    ).all(club.id) as Array<{
+    ).all(saveId, club.id) as Array<{
       id: number;
       position: string;
       market_value: number;
@@ -283,23 +286,26 @@ export async function processAiTransfers(db: DbHandle, season: number, week: num
       if (!player) continue;
 
       // Move player to buying club
-      await db.prepare('UPDATE players SET club_id = ?, wage = ? WHERE id = ?').run(
+      await db.prepare('UPDATE players SET club_id = ?, wage = ? WHERE save_id = ? AND id = ?').run(
         club.id,
         result.offeredWage,
+        saveId,
         result.targetPlayerId,
       );
       // Deduct fee from buyer
-      await db.prepare('UPDATE clubs SET budget = budget - ? WHERE id = ?').run(
+      await db.prepare('UPDATE clubs SET budget = budget - ? WHERE save_id = ? AND id = ?').run(
         result.offeredFee,
+        saveId,
         club.id,
       );
       // Add fee to seller
-      await db.prepare('UPDATE clubs SET budget = budget + ? WHERE id = ?').run(
+      await db.prepare('UPDATE clubs SET budget = budget + ? WHERE save_id = ? AND id = ?').run(
         result.offeredFee,
+        saveId,
         player.from_club_id,
       );
       // Write finance ledger entries for both clubs
-      await addFinanceEntry(db, {
+      await addFinanceEntry(db, saveId, {
         clubId: club.id,
         season,
         week,
@@ -307,7 +313,7 @@ export async function processAiTransfers(db: DbHandle, season: number, week: num
         amount: -result.offeredFee,
         description: `Transfer fee paid for player #${result.targetPlayerId}`,
       });
-      await addFinanceEntry(db, {
+      await addFinanceEntry(db, saveId, {
         clubId: player.from_club_id,
         season,
         week,
@@ -325,7 +331,7 @@ export async function advanceGameWeek(params: AdvanceWeekParams): Promise<Advanc
   const { dbHandle: db, season, week, playerClubId, saveId, rng } = params;
 
   // 1. Get fixtures for this week
-  const fixtures = await getFixturesByWeek(db, season, week);
+  const fixtures = await getFixturesByWeek(db, saveId, season, week);
 
   // 2. Simulate the player's match with the real engine
   let playerMatchResult: MatchResult | null = null;
@@ -334,17 +340,17 @@ export async function advanceGameWeek(params: AdvanceWeekParams): Promise<Advanc
   );
 
   if (playerFixture) {
-    const homeSquadRaw = await loadSquadWithAttributes(db, playerFixture.homeClubId);
-    const awaySquadRaw = await loadSquadWithAttributes(db, playerFixture.awayClubId);
+    const homeSquadRaw = await loadSquadWithAttributes(db, saveId, playerFixture.homeClubId);
+    const awaySquadRaw = await loadSquadWithAttributes(db, saveId, playerFixture.awayClubId);
 
-    const homeTactic = await getActiveTactic(db, playerFixture.homeClubId);
-    const awayTactic = await getActiveTactic(db, playerFixture.awayClubId);
+    const homeTactic = await getActiveTactic(db, saveId, playerFixture.homeClubId);
+    const awayTactic = await getActiveTactic(db, saveId, playerFixture.awayClubId);
 
     const homeFormation = homeTactic?.formation ?? '4-4-2';
     const awayFormation = awayTactic?.formation ?? '4-4-2';
 
-    const homeLineupSaved = homeTactic ? await getTacticLineup(db, homeTactic.id) : null;
-    const awayLineupSaved = awayTactic ? await getTacticLineup(db, awayTactic.id) : null;
+    const homeLineupSaved = homeTactic ? await getTacticLineup(db, saveId, homeTactic.id) : null;
+    const awayLineupSaved = awayTactic ? await getTacticLineup(db, saveId, awayTactic.id) : null;
 
     function buildSquadFromSavedIds(
       savedIds: number[],
@@ -417,8 +423,8 @@ export async function advanceGameWeek(params: AdvanceWeekParams): Promise<Advanc
           .slice(0, 8)
           .map(p => ({ id: p.id, position: p.position, secondaryPosition: p.secondaryPosition, attributes: p.attributes, morale: p.morale, fitness: p.fitness }));
 
-    const homeClub = await getClubById(db, playerFixture.homeClubId);
-    const awayClub = await getClubById(db, playerFixture.awayClubId);
+    const homeClub = await getClubById(db, saveId, playerFixture.homeClubId);
+    const awayClub = await getClubById(db, saveId, playerFixture.awayClubId);
 
     const defaultTactic = {
       id: 0,
@@ -451,6 +457,7 @@ export async function advanceGameWeek(params: AdvanceWeekParams): Promise<Advanc
     // Persist result
     await updateFixtureResult(
       db,
+      saveId,
       playerFixture.id,
       matchResult.homeGoals,
       matchResult.awayGoals,
@@ -470,15 +477,15 @@ export async function advanceGameWeek(params: AdvanceWeekParams): Promise<Advanc
     playerMatchResult = matchResult;
 
     // Persist per-player stats for this real-engine match
-    await persistMatchStats(db, playerFixture, matchResult);
+    await persistMatchStats(db, saveId, playerFixture, matchResult);
 
     // 5. Apply player progression for player's squad (home or away)
     const playerSquadRaw =
       playerFixture.homeClubId === playerClubId ? homeSquadRaw : awaySquadRaw;
-    const playerClubData = await getClubById(db, playerClubId);
+    const playerClubData = await getClubById(db, saveId, playerClubId);
     const trainingFacilityLevel = playerClubData?.trainingFacilities ?? 3;
 
-    const playerClubPlayers = await getPlayersByClub(db, playerClubId);
+    const playerClubPlayers = await getPlayersByClub(db, saveId, playerClubId);
     for (const p of playerSquadRaw) {
       const fullPlayer = playerClubPlayers.find(pl => pl.id === p.id);
       const progression = calculateWeeklyProgression({
@@ -539,7 +546,7 @@ export async function advanceGameWeek(params: AdvanceWeekParams): Promise<Advanc
         const gain = rng.nextInt(5, 15);
         newFitness = Math.min(100, p.fitness + gain);
       }
-      await db.prepare('UPDATE players SET fitness = ? WHERE id = ?').run(newFitness, p.id);
+      await db.prepare('UPDATE players SET fitness = ? WHERE save_id = ? AND id = ?').run(newFitness, saveId, p.id);
     }
     void playerClubSquadIds; // used above via playerSquadRaw
 
@@ -547,46 +554,46 @@ export async function advanceGameWeek(params: AdvanceWeekParams): Promise<Advanc
     // injuries — otherwise the freshly-set duration would be decremented in the
     // same week (gap-audit:163: injuries were cosmetic, never sidelining a player).
     await db.prepare(
-      'UPDATE players SET injury_weeks_left = MAX(0, injury_weeks_left - 1) WHERE injury_weeks_left > 0 AND club_id = ?',
-    ).run(playerClubId);
+      'UPDATE players SET injury_weeks_left = MAX(0, injury_weeks_left - 1) WHERE save_id = ? AND injury_weeks_left > 0 AND club_id = ?',
+    ).run(saveId, playerClubId);
 
-    const playerClubIds = new Set((await getPlayersByClub(db, playerClubId)).map(p => p.id));
+    const playerClubIds = new Set((await getPlayersByClub(db, saveId, playerClubId)).map(p => p.id));
     for (const inj of assignMatchInjuries(matchResult.events, playerClubIds, rng)) {
-      await db.prepare('UPDATE players SET injury_weeks_left = ? WHERE id = ?').run(inj.weeksLeft, inj.playerId);
+      await db.prepare('UPDATE players SET injury_weeks_left = ? WHERE save_id = ? AND id = ?').run(inj.weeksLeft, saveId, inj.playerId);
     }
   }
 
   // 3. Simulate other AI vs AI matches
   for (const fixture of fixtures) {
     if (fixture.id === playerFixture?.id) continue;
-    const { homeGoals, awayGoals } = await simulateAiMatch(fixture, rng, db);
-    await updateFixtureResult(db, fixture.id, homeGoals, awayGoals);
+    const { homeGoals, awayGoals } = await simulateAiMatch(fixture, rng, db, saveId);
+    await updateFixtureResult(db, saveId, fixture.id, homeGoals, awayGoals);
   }
 
   // 3b. Process AI transfers during transfer windows
-  await processAiTransfers(db, season, week, rng);
+  await processAiTransfers(db, saveId, season, week, rng);
 
   // 3c. AI clubs submit offers for the player's squad (in-window only)
   if (isTransferWindow(week)) {
-    await generateAiOffersForPlayerClub(db, playerClubId, rng, season, week);
+    await generateAiOffersForPlayerClub(db, saveId, playerClubId, rng, season, week);
   }
 
   // 3d. Process pending offers submitted by the player (always, not gated by window)
-  await processPendingOffers(db, season, week, playerClubId);
+  await processPendingOffers(db, saveId, season, week, playerClubId);
 
   // 3e. Expire stale offers (no response within 2 weeks) and prune old blocks
-  await expireStaleOffers(db, season, week);
-  await prunExpiredBlocks(db, season, week);
+  await expireStaleOffers(db, saveId, season, week);
+  await prunExpiredBlocks(db, saveId, season, week);
 
   // 4. Process weekly finances for player's club
-  const playerClub = await getClubById(db, playerClubId);
+  const playerClub = await getClubById(db, saveId, playerClubId);
   let updatedBudget = playerClub?.budget ?? 0;
 
   if (playerClub) {
-    const players = await getPlayersByClub(db, playerClubId);
+    const players = await getPlayersByClub(db, saveId, playerClubId);
     const totalPlayerWages = players.reduce((sum, p) => sum + p.wage, 0);
 
-    const staffList = await getStaffByClub(db, playerClubId);
+    const staffList = await getStaffByClub(db, saveId, playerClubId);
     const totalStaffWages = staffList.reduce((sum, s) => sum + s.wage, 0);
 
     const hasHomeMatch = playerFixture?.homeClubId === playerClubId;
@@ -614,7 +621,7 @@ export async function advanceGameWeek(params: AdvanceWeekParams): Promise<Advanc
     });
 
     // Add finance entries
-    await addFinanceEntry(db, {
+    await addFinanceEntry(db, saveId, {
       clubId: playerClubId,
       season,
       week,
@@ -623,7 +630,7 @@ export async function advanceGameWeek(params: AdvanceWeekParams): Promise<Advanc
       description: 'Weekly TV rights income',
     });
 
-    await addFinanceEntry(db, {
+    await addFinanceEntry(db, saveId, {
       clubId: playerClubId,
       season,
       week,
@@ -633,7 +640,7 @@ export async function advanceGameWeek(params: AdvanceWeekParams): Promise<Advanc
     });
 
     if (hasHomeMatch && income.ticket > 0) {
-      await addFinanceEntry(db, {
+      await addFinanceEntry(db, saveId, {
         clubId: playerClubId,
         season,
         week,
@@ -643,7 +650,7 @@ export async function advanceGameWeek(params: AdvanceWeekParams): Promise<Advanc
       });
     }
 
-    await addFinanceEntry(db, {
+    await addFinanceEntry(db, saveId, {
       clubId: playerClubId,
       season,
       week,
@@ -652,7 +659,7 @@ export async function advanceGameWeek(params: AdvanceWeekParams): Promise<Advanc
       description: 'Weekly wages (players + staff)',
     });
 
-    await addFinanceEntry(db, {
+    await addFinanceEntry(db, saveId, {
       clubId: playerClubId,
       season,
       week,
@@ -674,7 +681,7 @@ export async function advanceGameWeek(params: AdvanceWeekParams): Promise<Advanc
         totalAssistantWages += a.wagePerMonth;
       }
       if (totalAssistantWages > 0) {
-        await addFinanceEntry(db, {
+        await addFinanceEntry(db, saveId, {
           clubId: playerClubId,
           season,
           week,
@@ -686,7 +693,7 @@ export async function advanceGameWeek(params: AdvanceWeekParams): Promise<Advanc
       }
     }
 
-    await updateClubBudget(db, playerClubId, updatedBudget);
+    await updateClubBudget(db, saveId, playerClubId, updatedBudget);
   }
 
   // 4b. Generate assistant comment (max 1 per week, 15% chance)
@@ -756,17 +763,17 @@ export async function advanceGameWeek(params: AdvanceWeekParams): Promise<Advanc
   if (isSeasonEnd) {
     // Aposentadoria anunciada fira independente de clube — flag persiste após transferência.
     const announced = await db.prepare(
-      'SELECT id FROM players WHERE club_id IS NOT NULL AND will_retire_at_season_end = 1',
-    ).all() as Array<{ id: number }>;
+      'SELECT id FROM players WHERE save_id = ? AND club_id IS NOT NULL AND will_retire_at_season_end = 1',
+    ).all(saveId) as Array<{ id: number }>;
     for (const row of announced) {
-      await retirePlayer(db, row.id);
+      await retirePlayer(db, saveId, row.id);
       retiringPlayerIds.push(row.id);
     }
 
     // Compulsório (max_age) em todos os clubes, incluindo IA.
     const allPlayers = await db.prepare(
-      'SELECT id, name, age, is_free_agent FROM players WHERE club_id IS NOT NULL',
-    ).all() as Array<{ id: number; name: string; age: number; is_free_agent: number }>;
+      'SELECT id, name, age, is_free_agent FROM players WHERE save_id = ? AND club_id IS NOT NULL',
+    ).all(saveId) as Array<{ id: number; name: string; age: number; is_free_agent: number }>;
     const compulsory = detectCompulsoryRetirements(
       allPlayers.map((p) => ({
         id: p.id,
@@ -776,15 +783,15 @@ export async function advanceGameWeek(params: AdvanceWeekParams): Promise<Advanc
       })),
     );
     for (const d of compulsory) {
-      await retirePlayer(db, d.playerId);
+      await retirePlayer(db, saveId, d.playerId);
       if (!retiringPlayerIds.includes(d.playerId)) retiringPlayerIds.push(d.playerId);
     }
 
     // Reset flag+streak pros remanescentes começarem a próxima temporada limpos.
     // Restrito a quem está em clube — aposentados (club_id=NULL) ficam fora da rotina ativa.
     await db.prepare(
-      'UPDATE players SET will_retire_at_season_end = 0, consecutive_low_morale_weeks = 0 WHERE club_id IS NOT NULL',
-    ).run();
+      'UPDATE players SET will_retire_at_season_end = 0, consecutive_low_morale_weeks = 0 WHERE save_id = ? AND club_id IS NOT NULL',
+    ).run(saveId);
 
     await archiveSeason(db, season);
   }

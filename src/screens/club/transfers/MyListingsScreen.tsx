@@ -36,7 +36,9 @@ function formatMoney(n: number): string {
 
 export function MyListingsScreen() {
   const playerClubId = useGameStore((s) => s.playerClubId);
+  const currentSave = useGameStore((s) => s.currentSave);
   const dbHandle = useDatabaseStore((s) => s.dbHandle);
+  const saveId = currentSave?.id;
 
   const [players, setPlayers] = useState<PlayerWithOvr[]>([]);
   const [loading, setLoading] = useState(true);
@@ -58,8 +60,8 @@ export function MyListingsScreen() {
   }, [editPlayer?.id]);
 
   const load = useCallback(async () => {
-    if (!dbHandle || playerClubId === null) { setLoading(false); return; }
-    const base = await getPlayersWithAttributesByClub(dbHandle, playerClubId);
+    if (!dbHandle || playerClubId === null || saveId == null) { setLoading(false); return; }
+    const base = await getPlayersWithAttributesByClub(dbHandle, saveId, playerClubId);
     const withOvr: PlayerWithOvr[] = base.map((p) => ({
       ...p,
       overall: calculateOverall(p.attributes, p.position),
@@ -67,7 +69,7 @@ export function MyListingsScreen() {
     withOvr.sort((a, b) => b.overall - a.overall);
     setPlayers(withOvr);
     setLoading(false);
-  }, [dbHandle, playerClubId]);
+  }, [dbHandle, playerClubId, saveId]);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
@@ -78,8 +80,8 @@ export function MyListingsScreen() {
   }, [load]);
 
   async function refreshEditPlayer(id: number) {
-    if (!dbHandle) return;
-    const updated = await getPlayerById(dbHandle, id);
+    if (!dbHandle || saveId == null) return;
+    const updated = await getPlayerById(dbHandle, saveId, id);
     if (updated) {
       const withOvr = { ...updated, overall: calculateOverall(updated.attributes, updated.position) };
       setEditPlayer(withOvr);
@@ -89,9 +91,9 @@ export function MyListingsScreen() {
 
   async function handleToggleTransfer(next: boolean) {
     setIsTransferListedLocal(next);
-    if (!dbHandle || !editPlayer) return;
+    if (!dbHandle || !editPlayer || saveId == null) return;
     const price = askingPriceText.trim() ? parseInt(askingPriceText.replace(/\D/g, ''), 10) : null;
-    await setTransferListing(dbHandle, editPlayer.id, next, Number.isFinite(price) ? price : null);
+    await setTransferListing(dbHandle, saveId, editPlayer.id, next, Number.isFinite(price) ? price : null);
     await refreshEditPlayer(editPlayer.id);
   }
 

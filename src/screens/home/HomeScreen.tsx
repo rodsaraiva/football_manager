@@ -80,62 +80,57 @@ export function HomeScreen() {
 
   // Load club data, reset stale fixtures, and load recent results on save load
   useEffect(() => {
-    if (!dbHandle || !playerClubId) return;
+    if (!dbHandle || !playerClubId || !currentSave) return;
+    const saveId = currentSave.id;
     (async () => {
       // Load player club if not set
       if (!playerClub) {
-        const club = await getClubById(dbHandle, playerClubId);
+        const club = await getClubById(dbHandle, saveId, playerClubId);
         if (club) setPlayerClub(club);
       }
 
       // Rescue old saves: if no fixtures exist for the season, generate them now.
       // This fixes saves created before calendar generation was correctly awaited.
       try {
-        await ensureSeasonFixtures(dbHandle, season);
+        await ensureSeasonFixtures(dbHandle, saveId, season);
       } catch { /* non-fatal */ }
-
-      // Reset fixtures that were played by a different save (week >= current save week)
-      // This prevents results from other saves leaking into this one.
-      try {
-        await dbHandle.prepare(
-          'UPDATE fixtures SET played = 0, home_goals = NULL, away_goals = NULL, attendance = NULL WHERE season = ? AND week >= ? AND played = 1',
-        ).run(season, week);
-      } catch { /* ignore */ }
 
       // Load recent results for current save (only weeks before current)
       try {
-        const allFixtures = await getFixturesByClub(dbHandle, playerClubId, season);
+        const allFixtures = await getFixturesByClub(dbHandle, saveId, playerClubId, season);
         const played = allFixtures.filter(f => f.played && f.week < week);
         setRecentResults(played.slice(-5));
       } catch { /* ignore */ }
     })();
-  }, [dbHandle, playerClubId, season, week]);
+  }, [dbHandle, playerClubId, currentSave, season, week]);
 
   // Load retiring player names when IDs become available
   useEffect(() => {
-    if (!dbHandle || !playerClubId || pendingAnnouncedRetirementIds.length === 0) {
+    if (!dbHandle || !playerClubId || !currentSave || pendingAnnouncedRetirementIds.length === 0) {
       setAnnouncedRetirees([]);
       return;
     }
+    const saveId = currentSave.id;
     (async () => {
-      const players = await getPlayersAboutToRetire(dbHandle, playerClubId);
+      const players = await getPlayersAboutToRetire(dbHandle, saveId, playerClubId);
       setAnnouncedRetirees(players.map(p => ({ id: p.id, name: p.name, age: p.age })));
     })();
-  }, [dbHandle, playerClubId, pendingAnnouncedRetirementIds]);
+  }, [dbHandle, playerClubId, currentSave, pendingAnnouncedRetirementIds]);
 
   // Load next match opponent
   useEffect(() => {
-    if (!dbHandle || !playerClubId) return;
+    if (!dbHandle || !playerClubId || !currentSave) return;
+    const saveId = currentSave.id;
     (async () => {
       try {
-        const weekFixtures = await getFixturesByWeek(dbHandle, season, week);
+        const weekFixtures = await getFixturesByWeek(dbHandle, saveId, season, week);
         const myFixture = weekFixtures.find(
           f => !f.played && (f.homeClubId === playerClubId || f.awayClubId === playerClubId),
         );
         if (myFixture) {
           const isHome = myFixture.homeClubId === playerClubId;
           const oppId = isHome ? myFixture.awayClubId : myFixture.homeClubId;
-          const oppClub = await getClubById(dbHandle, oppId);
+          const oppClub = await getClubById(dbHandle, saveId, oppId);
           if (oppClub) setNextOpponent({ club: oppClub, isHome });
         } else {
           setNextOpponent(null);
@@ -144,7 +139,7 @@ export function HomeScreen() {
         setNextOpponent(null);
       }
     })();
-  }, [dbHandle, playerClubId, season, week]);
+  }, [dbHandle, playerClubId, currentSave, season, week]);
 
   // Reset board-loaded flag when switching saves
   useEffect(() => {
@@ -186,9 +181,9 @@ export function HomeScreen() {
     boardLoadedRef.current = true;
     (async () => {
       const [obj, trust, history] = await Promise.all([
-        getBoardObjective(dbHandle, playerClubId, season),
+        getBoardObjective(dbHandle, currentSave.id, playerClubId, season),
         getSaveBoardTrust(dbHandle, currentSave.id),
-        getReputationHistory(dbHandle, playerClubId),
+        getReputationHistory(dbHandle, currentSave.id, playerClubId),
       ]);
       if (obj) setCurrentObjective(obj);
       setCurrentTrust(trust);
@@ -201,14 +196,14 @@ export function HomeScreen() {
     setAdvancing(true);
     try {
       // Resolve opponent name from fixture before simulating
-      const weekFixtures = await getFixturesByWeek(dbHandle, season, week);
+      const weekFixtures = await getFixturesByWeek(dbHandle, currentSave.id, season, week);
       const myFixture = weekFixtures.find(
         f => !f.played && (f.homeClubId === playerClubId || f.awayClubId === playerClubId),
       );
       if (myFixture) {
         const isHome = myFixture.homeClubId === playerClubId;
         const oppId = isHome ? myFixture.awayClubId : myFixture.homeClubId;
-        const oppClub = await getClubById(dbHandle, oppId);
+        const oppClub = await getClubById(dbHandle, currentSave.id, oppId);
         if (oppClub) {
           setMatchOpponentName(oppClub.name);
           setLastMatchContext(isHome, oppClub.name);
@@ -233,12 +228,12 @@ export function HomeScreen() {
       }
 
       // Reload club data
-      const updatedClub = await getClubById(dbHandle, playerClubId);
+      const updatedClub = await getClubById(dbHandle, currentSave.id, playerClubId);
       if (updatedClub) setPlayerClub(updatedClub);
 
       // Reload recent results — decisão de reload extraída p/ helper puro testável.
       const reload = resolveAdvanceReload({ result, season });
-      const allFixtures = await getFixturesByClub(dbHandle, playerClubId, reload.fetchSeasonForRecents);
+      const allFixtures = await getFixturesByClub(dbHandle, currentSave.id, playerClubId, reload.fetchSeasonForRecents);
       const played = allFixtures.filter(f => f.played);
       setRecentResults(played.slice(-5));
 

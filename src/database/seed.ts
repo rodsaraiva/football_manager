@@ -129,6 +129,19 @@ export function generateSeedSQL(data: SeedData): string {
   return stmts.join('\n');
 }
 
+/** SQL-string variant of the global reference tables (countries + leagues) for execAsync. */
+export function generateReferenceSeedSQL(data: SeedData): string {
+  const stmts: string[] = ['BEGIN TRANSACTION;'];
+  for (const c of data.countries) {
+    stmts.push(`INSERT INTO countries (id, name, code, continent) VALUES (${c.id}, ${esc(c.name)}, ${esc(c.code)}, ${esc(c.continent)});`);
+  }
+  for (const l of data.leagues) {
+    stmts.push(`INSERT INTO leagues (id, name, country_id, division_level, num_teams, promotion_spots, relegation_spots) VALUES (${l.id}, ${esc(l.name)}, ${l.countryId}, ${l.divisionLevel}, ${l.numTeams}, ${l.promotionSpots}, ${l.relegationSpots});`);
+  }
+  stmts.push('COMMIT;');
+  return stmts.join('\n');
+}
+
 /** SQL-string variant of seedWorldForSave for execAsync on web (offset ids + save_id). */
 export function generateWorldSeedSQLForSave(data: SeedData, saveId: number): string {
   const off = saveOffset(saveId);

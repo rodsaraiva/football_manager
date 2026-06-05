@@ -37,6 +37,7 @@ export interface SignFreeAgentResult {
  */
 export async function signFreeAgent(
   db: DbHandle,
+  saveId: number,
   input: SignFreeAgentInput,
 ): Promise<SignFreeAgentResult> {
   const { playerId, clubId, wageOffered, contractYears, playerOverall, season, week } = input;
@@ -48,15 +49,15 @@ export async function signFreeAgent(
 
   // Verify player is a free agent
   const player = (await db
-    .prepare('SELECT id, is_free_agent FROM players WHERE id = ?')
-    .get(playerId)) as { id: number; is_free_agent: number } | undefined;
+    .prepare('SELECT id, is_free_agent FROM players WHERE save_id = ? AND id = ?')
+    .get(saveId, playerId)) as { id: number; is_free_agent: number } | undefined;
   if (!player) return { success: false, reason: 'Player not found.' };
   if (player.is_free_agent !== 1) return { success: false, reason: 'Player is not a free agent.' };
 
   // Verify club budget can sustain at least a few weeks of wages
   const club = (await db
-    .prepare('SELECT budget FROM clubs WHERE id = ?')
-    .get(clubId)) as { budget: number } | undefined;
+    .prepare('SELECT budget FROM clubs WHERE save_id = ? AND id = ?')
+    .get(saveId, clubId)) as { budget: number } | undefined;
   if (!club) return { success: false, reason: 'Club not found.' };
   if (club.budget < wageOffered * 4) {
     return { success: false, reason: 'Budget too low to sustain this wage.' };
@@ -75,12 +76,12 @@ export async function signFreeAgent(
   await db
     .prepare(
       `UPDATE players SET club_id = ?, wage = ?, contract_end = ?, is_free_agent = 0
-       WHERE id = ?`,
+       WHERE save_id = ? AND id = ?`,
     )
-    .run(clubId, wageOffered, contractEnd, playerId);
+    .run(clubId, wageOffered, contractEnd, saveId, playerId);
 
   // Record as free-transfer in transfers table
-  await createTransfer(db, {
+  await createTransfer(db, saveId, {
     playerId,
     season,
     fromClubId: null,
@@ -92,8 +93,8 @@ export async function signFreeAgent(
 
   // Signing bonus (small) recorded in finances
   const bonus = Math.round(wageOffered * 4); // 4 weeks worth
-  await db.prepare('UPDATE clubs SET budget = budget - ? WHERE id = ?').run(bonus, clubId);
-  await addFinanceEntry(db, {
+  await db.prepare('UPDATE clubs SET budget = budget - ? WHERE save_id = ? AND id = ?').run(bonus, saveId, clubId);
+  await addFinanceEntry(db, saveId, {
     clubId,
     season,
     week,

@@ -15,6 +15,7 @@ import { TransferType } from '@/types';
  */
 export async function executeAcceptedTransfer(
   db: DbHandle,
+  saveId: number,
   params: {
     offerId: number;
     playerId: number;
@@ -43,17 +44,17 @@ export async function executeAcceptedTransfer(
 
   // Move player to the buying club, update wage, reset free-agent flag
   await db
-    .prepare('UPDATE players SET club_id = ?, wage = ?, is_free_agent = 0 WHERE id = ?')
-    .run(toClubId, wageOffered, playerId);
+    .prepare('UPDATE players SET club_id = ?, wage = ?, is_free_agent = 0 WHERE save_id = ? AND id = ?')
+    .run(toClubId, wageOffered, saveId, playerId);
 
   // Transfer funds between clubs
   if (fee > 0) {
-    await db.prepare('UPDATE clubs SET budget = budget - ? WHERE id = ?').run(fee, toClubId);
-    await db.prepare('UPDATE clubs SET budget = budget + ? WHERE id = ?').run(fee, fromClubId);
+    await db.prepare('UPDATE clubs SET budget = budget - ? WHERE save_id = ? AND id = ?').run(fee, saveId, toClubId);
+    await db.prepare('UPDATE clubs SET budget = budget + ? WHERE save_id = ? AND id = ?').run(fee, saveId, fromClubId);
   }
 
   // Record the transfer
-  await createTransfer(db, {
+  await createTransfer(db, saveId, {
     playerId,
     season,
     fromClubId,
@@ -67,7 +68,7 @@ export async function executeAcceptedTransfer(
   // Finance entries (skip for zero-fee loans)
   if (fee > 0) {
     const label = offerType === 'loan' ? 'Loan fee' : 'Transfer fee';
-    await addFinanceEntry(db, {
+    await addFinanceEntry(db, saveId, {
       clubId: toClubId,
       season,
       week,
@@ -75,7 +76,7 @@ export async function executeAcceptedTransfer(
       amount: -fee,
       description: `${label} paid for player #${playerId}`,
     });
-    await addFinanceEntry(db, {
+    await addFinanceEntry(db, saveId, {
       clubId: fromClubId,
       season,
       week,
@@ -86,7 +87,7 @@ export async function executeAcceptedTransfer(
   }
 
   // Mark offer as accepted (in case it wasn't already)
-  await updateOfferStatus(db, offerId, 'accepted', week);
+  await updateOfferStatus(db, saveId, offerId, 'accepted', week);
 }
 
 /**
@@ -102,6 +103,7 @@ export async function executeAcceptedTransfer(
  */
 export async function processPendingOffers(
   db: DbHandle,
+  saveId: number,
   season: number,
   week: number,
   playerClubId: number | null = null,
@@ -110,9 +112,9 @@ export async function processPendingOffers(
   if (playerClubId !== null) {
     const userCounters = (await db
       .prepare(
-        "SELECT * FROM transfer_offers WHERE status = 'countered' AND selling_club_id = ?",
+        "SELECT * FROM transfer_offers WHERE save_id = ? AND status = 'countered' AND selling_club_id = ?",
       )
-      .all(playerClubId)) as Array<{
+      .all(saveId, playerClubId)) as Array<{
       id: number;
       player_id: number;
       offering_club_id: number;
@@ -126,17 +128,17 @@ export async function processPendingOffers(
     for (const counter of userCounters) {
       // Load original player market value to judge how aggressive the ask is
       const player = (await db
-        .prepare('SELECT market_value FROM players WHERE id = ?')
-        .get(counter.player_id)) as { market_value: number } | undefined;
+        .prepare('SELECT market_value FROM players WHERE save_id = ? AND id = ?')
+        .get(saveId, counter.player_id)) as { market_value: number } | undefined;
       if (!player) {
-        await updateOfferStatus(db, counter.id, 'rejected', week);
+        await updateOfferStatus(db, saveId, counter.id, 'rejected', week);
         continue;
       }
       const buyer = (await db
-        .prepare('SELECT budget FROM clubs WHERE id = ?')
-        .get(counter.offering_club_id)) as { budget: number } | undefined;
+        .prepare('SELECT budget FROM clubs WHERE save_id = ? AND id = ?')
+        .get(saveId, counter.offering_club_id)) as { budget: number } | undefined;
       if (!buyer) {
-        await updateOfferStatus(db, counter.id, 'rejected', week);
+        await updateOfferStatus(db, saveId, counter.id, 'rejected', week);
         continue;
       }
 
@@ -144,14 +146,14 @@ export async function processPendingOffers(
       const canAfford = buyer.budget >= counter.fee_offered;
       // Buyer walks away if the demand is excessive (>140% of market) or unaffordable
       if (!canAfford || ratio > 1.4) {
-        await updateOfferStatus(db, counter.id, 'rejected', week);
+        await updateOfferStatus(db, saveId, counter.id, 'rejected', week);
         // Block this (buyer, player) pairing temporarily to avoid instant re-bidding
-        await blockClubFromPlayer(db, counter.player_id, counter.offering_club_id, season, week);
+        await blockClubFromPlayer(db, saveId, counter.player_id, counter.offering_club_id, season, week);
         continue;
       }
 
       // Otherwise, match the counter and close the deal
-      await executeAcceptedTransfer(db, {
+      await executeAcceptedTransfer(db, saveId, {
         offerId: counter.id,
         playerId: counter.player_id,
         fromClubId: counter.selling_club_id,
@@ -166,7 +168,7 @@ export async function processPendingOffers(
     }
   }
 
-  const pending = await getPendingOffers(db);
+  const pending = await getPendingOffers(db, saveId);
   if (pending.length === 0) return;
 
   for (const offer of pending) {
@@ -177,9 +179,9 @@ export async function processPendingOffers(
     // Load player + club details
     const player = await db
       .prepare(
-        'SELECT id, club_id, market_value, age, wage, contract_end, is_free_agent FROM players WHERE id = ?',
+        'SELECT id, club_id, market_value, age, wage, contract_end, is_free_agent FROM players WHERE save_id = ? AND id = ?',
       )
-      .get(offer.playerId) as
+      .get(saveId, offer.playerId) as
       | {
           id: number;
           club_id: number | null;
@@ -192,20 +194,20 @@ export async function processPendingOffers(
       | undefined;
 
     if (!player) {
-      await updateOfferStatus(db, offer.id, 'rejected', week);
+      await updateOfferStatus(db, saveId, offer.id, 'rejected', week);
       continue;
     }
 
     // If player is a free agent, this path shouldn't be used — free agents
     // are signed directly (handled elsewhere). Reject to avoid weirdness.
     if (player.is_free_agent === 1 || player.club_id === null) {
-      await updateOfferStatus(db, offer.id, 'rejected', week);
+      await updateOfferStatus(db, saveId, offer.id, 'rejected', week);
       continue;
     }
 
     // If player has already moved to offering club for any reason, reject
     if (player.club_id === offer.offeringClubId) {
-      await updateOfferStatus(db, offer.id, 'rejected', week);
+      await updateOfferStatus(db, saveId, offer.id, 'rejected', week);
       continue;
     }
 
@@ -213,10 +215,10 @@ export async function processPendingOffers(
     const [{ same_pos_count }] = (await db
       .prepare(
         `SELECT COUNT(*) as same_pos_count FROM players
-         WHERE club_id = ? AND id != ?
-           AND position = (SELECT position FROM players WHERE id = ?)`,
+         WHERE save_id = ? AND club_id = ? AND id != ?
+           AND position = (SELECT position FROM players WHERE save_id = ? AND id = ?)`,
       )
-      .all(player.club_id, player.id, player.id)) as Array<{ same_pos_count: number }>;
+      .all(saveId, player.club_id, player.id, saveId, player.id)) as Array<{ same_pos_count: number }>;
 
     // Without a starting-lineup signal in the schema, assume the player is a
     // starter (the AI will favour keeping him) and say a replacement exists if
@@ -235,12 +237,12 @@ export async function processPendingOffers(
     });
 
     // Track round: if we've hit the cap, collapse to accept/reject (no more counters)
-    await incrementOfferRound(db, offer.id);
-    const maxedOut = await hasExceededMaxRounds(db, offer.id);
+    await incrementOfferRound(db, saveId, offer.id);
+    const maxedOut = await hasExceededMaxRounds(db, saveId, offer.id);
 
     if (result.decision === 'accept') {
       // Execute immediately
-      await executeAcceptedTransfer(db, {
+      await executeAcceptedTransfer(db, saveId, {
         offerId: offer.id,
         playerId: offer.playerId,
         fromClubId: player.club_id,
@@ -254,15 +256,15 @@ export async function processPendingOffers(
       });
     } else if (result.decision === 'reject' || (maxedOut && result.decision === 'counter')) {
       // Firm rejection: block this club from bidding on this player for a while
-      await updateOfferStatus(db, offer.id, 'rejected', week);
-      await blockClubFromPlayer(db, offer.playerId, offer.offeringClubId, season, week);
+      await updateOfferStatus(db, saveId, offer.id, 'rejected', week);
+      await blockClubFromPlayer(db, saveId, offer.playerId, offer.offeringClubId, season, week);
     } else {
       // counter — still in negotiation window
       await db
         .prepare(
-          "UPDATE transfer_offers SET status = 'countered', response_week = ?, fee_offered = ? WHERE id = ?",
+          "UPDATE transfer_offers SET status = 'countered', response_week = ?, fee_offered = ? WHERE save_id = ? AND id = ?",
         )
-        .run(week, result.counterFee ?? offer.feeOffered, offer.id);
+        .run(week, result.counterFee ?? offer.feeOffered, saveId, offer.id);
     }
   }
 }
@@ -273,13 +275,14 @@ export async function processPendingOffers(
  */
 export async function acceptIncomingOffer(
   db: DbHandle,
+  saveId: number,
   offerId: number,
   season: number,
   week: number,
 ): Promise<{ success: boolean; reason?: string }> {
   const row = await db
-    .prepare('SELECT * FROM transfer_offers WHERE id = ?')
-    .get(offerId) as
+    .prepare('SELECT * FROM transfer_offers WHERE save_id = ? AND id = ?')
+    .get(saveId, offerId) as
     | {
         id: number;
         player_id: number;
@@ -296,7 +299,7 @@ export async function acceptIncomingOffer(
   if (!row) return { success: false, reason: 'Offer not found' };
   if (row.status !== 'pending') return { success: false, reason: 'Offer is not pending' };
 
-  await executeAcceptedTransfer(db, {
+  await executeAcceptedTransfer(db, saveId, {
     offerId: row.id,
     playerId: row.player_id,
     fromClubId: row.selling_club_id,
@@ -317,10 +320,11 @@ export async function acceptIncomingOffer(
  */
 export async function rejectIncomingOffer(
   db: DbHandle,
+  saveId: number,
   offerId: number,
   week: number,
 ): Promise<void> {
-  await updateOfferStatus(db, offerId, 'rejected', week);
+  await updateOfferStatus(db, saveId, offerId, 'rejected', week);
 }
 
 /**
@@ -331,14 +335,15 @@ export async function rejectIncomingOffer(
  */
 export async function counterIncomingOffer(
   db: DbHandle,
+  saveId: number,
   offerId: number,
   newFee: number,
 ): Promise<void> {
   // Mark status 'countered' and update fee — the AI buyer will see this next
   // week and decide whether to match.
   await db
-    .prepare("UPDATE transfer_offers SET status = 'countered', fee_offered = ? WHERE id = ?")
-    .run(newFee, offerId);
+    .prepare("UPDATE transfer_offers SET status = 'countered', fee_offered = ? WHERE save_id = ? AND id = ?")
+    .run(newFee, saveId, offerId);
 }
 
 /**
@@ -348,13 +353,14 @@ export async function counterIncomingOffer(
  */
 export async function acceptCounterOffer(
   db: DbHandle,
+  saveId: number,
   offerId: number,
   season: number,
   week: number,
 ): Promise<{ success: boolean; reason?: string }> {
   const row = await db
-    .prepare('SELECT * FROM transfer_offers WHERE id = ?')
-    .get(offerId) as
+    .prepare('SELECT * FROM transfer_offers WHERE save_id = ? AND id = ?')
+    .get(saveId, offerId) as
     | {
         id: number;
         player_id: number;
@@ -373,15 +379,15 @@ export async function acceptCounterOffer(
 
   // Check buyer still has budget
   const buyer = await db
-    .prepare('SELECT budget FROM clubs WHERE id = ?')
-    .get(row.offering_club_id) as { budget: number } | undefined;
+    .prepare('SELECT budget FROM clubs WHERE save_id = ? AND id = ?')
+    .get(saveId, row.offering_club_id) as { budget: number } | undefined;
 
   if (!buyer) return { success: false, reason: 'Buying club not found' };
   if (buyer.budget < row.fee_offered) {
     return { success: false, reason: 'Insufficient budget to meet counter-offer' };
   }
 
-  await executeAcceptedTransfer(db, {
+  await executeAcceptedTransfer(db, saveId, {
     offerId: row.id,
     playerId: row.player_id,
     fromClubId: row.selling_club_id,

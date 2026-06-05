@@ -230,8 +230,9 @@ function FiltersBar({ filters, onChange, maxBudget }: FiltersBarProps) {
 // ─── Main Screen ─────────────────────────────────────────────────────────────
 
 export function ReportsFreeAgentScoutScreen() {
-  const { playerClubId, playerClub } = useGameStore();
+  const { playerClubId, playerClub, currentSave } = useGameStore();
   const { dbHandle } = useDatabaseStore();
+  const saveId = currentSave?.id;
   const navigation = useNavigation<NavProp>();
 
   const [loading, setLoading] = useState(true);
