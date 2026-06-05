@@ -60,14 +60,15 @@ export interface CreateFixtureInput {
   awayClubId: number;
 }
 
-export async function createFixture(db: DbHandle, input: CreateFixtureInput): Promise<number> {
+export async function createFixture(db: DbHandle, saveId: number, input: CreateFixtureInput): Promise<number> {
   const result = await db
     .prepare(
-      `INSERT INTO fixtures (id, competition_id, season, week, round, home_club_id, away_club_id, played)
-       VALUES (?, ?, ?, ?, ?, ?, ?, 0)`,
+      `INSERT INTO fixtures (id, save_id, competition_id, season, week, round, home_club_id, away_club_id, played)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)`,
     )
     .run(
       input.id,
+      saveId,
       input.competitionId,
       input.season,
       input.week,
@@ -78,30 +79,31 @@ export async function createFixture(db: DbHandle, input: CreateFixtureInput): Pr
   return Number(result.lastInsertRowid);
 }
 
-export async function getFixturesByWeek(db: DbHandle, season: number, week: number): Promise<Fixture[]> {
+export async function getFixturesByWeek(db: DbHandle, saveId: number, season: number, week: number): Promise<Fixture[]> {
   const rows = await db
-    .prepare('SELECT * FROM fixtures WHERE season = ? AND week = ?')
-    .all(season, week) as FixtureRow[];
+    .prepare('SELECT * FROM fixtures WHERE save_id = ? AND season = ? AND week = ?')
+    .all(saveId, season, week) as FixtureRow[];
   return rows.map(rowToFixture);
 }
 
-export async function getFixturesByClub(db: DbHandle, clubId: number, season: number): Promise<Fixture[]> {
+export async function getFixturesByClub(db: DbHandle, saveId: number, clubId: number, season: number): Promise<Fixture[]> {
   const rows = await db
-    .prepare('SELECT * FROM fixtures WHERE season = ? AND (home_club_id = ? OR away_club_id = ?)')
-    .all(season, clubId, clubId) as FixtureRow[];
+    .prepare('SELECT * FROM fixtures WHERE save_id = ? AND season = ? AND (home_club_id = ? OR away_club_id = ?)')
+    .all(saveId, season, clubId, clubId) as FixtureRow[];
   return rows.map(rowToFixture);
 }
 
 export async function updateFixtureResult(
   db: DbHandle,
+  saveId: number,
   fixtureId: number,
   homeGoals: number,
   awayGoals: number,
   attendance?: number,
 ): Promise<void> {
   await db.prepare(
-    'UPDATE fixtures SET home_goals = ?, away_goals = ?, played = 1, attendance = ? WHERE id = ?',
-  ).run(homeGoals, awayGoals, attendance ?? null, fixtureId);
+    'UPDATE fixtures SET home_goals = ?, away_goals = ?, played = 1, attendance = ? WHERE save_id = ? AND id = ?',
+  ).run(homeGoals, awayGoals, attendance ?? null, saveId, fixtureId);
 }
 
 export interface AddMatchEventInput {
@@ -131,17 +133,18 @@ export async function getMatchEvents(db: DbHandle, fixtureId: number): Promise<M
  */
 export async function getNextFixtureForClub(
   db: DbHandle,
+  saveId: number,
   clubId: number,
   season: number,
 ): Promise<Fixture | null> {
   const row = await db
     .prepare(
       `SELECT * FROM fixtures
-       WHERE played = 0 AND season = ? AND (home_club_id = ? OR away_club_id = ?)
+       WHERE save_id = ? AND played = 0 AND season = ? AND (home_club_id = ? OR away_club_id = ?)
        ORDER BY week ASC
        LIMIT 1`,
     )
-    .get(season, clubId, clubId) as FixtureRow | undefined;
+    .get(saveId, season, clubId, clubId) as FixtureRow | undefined;
   return row ? rowToFixture(row) : null;
 }
 
@@ -150,6 +153,7 @@ export async function getNextFixtureForClub(
  */
 export async function getRecentFixturesForClub(
   db: DbHandle,
+  saveId: number,
   clubId: number,
   season: number,
   limit: number = 5,
@@ -157,10 +161,10 @@ export async function getRecentFixturesForClub(
   const rows = await db
     .prepare(
       `SELECT * FROM fixtures
-       WHERE played = 1 AND season = ? AND (home_club_id = ? OR away_club_id = ?)
+       WHERE save_id = ? AND played = 1 AND season = ? AND (home_club_id = ? OR away_club_id = ?)
        ORDER BY week DESC
        LIMIT ?`,
     )
-    .all(season, clubId, clubId, limit) as FixtureRow[];
+    .all(saveId, season, clubId, clubId, limit) as FixtureRow[];
   return rows.map(rowToFixture);
 }

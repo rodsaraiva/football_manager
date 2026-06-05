@@ -39,23 +39,23 @@ function rowToClub(row: ClubRow): Club {
   };
 }
 
-export async function getClubById(db: DbHandle, clubId: number): Promise<Club | null> {
-  const row = await db.prepare('SELECT * FROM clubs WHERE id = ?').get(clubId) as ClubRow | undefined;
+export async function getClubById(db: DbHandle, saveId: number, clubId: number): Promise<Club | null> {
+  const row = await db.prepare('SELECT * FROM clubs WHERE save_id = ? AND id = ?').get(saveId, clubId) as ClubRow | undefined;
   return row ? rowToClub(row) : null;
 }
 
-export async function getClubsByLeague(db: DbHandle, leagueId: number): Promise<Club[]> {
-  const rows = await db.prepare('SELECT * FROM clubs WHERE league_id = ?').all(leagueId) as ClubRow[];
+export async function getClubsByLeague(db: DbHandle, saveId: number, leagueId: number): Promise<Club[]> {
+  const rows = await db.prepare('SELECT * FROM clubs WHERE save_id = ? AND league_id = ?').all(saveId, leagueId) as ClubRow[];
   return rows.map(rowToClub);
 }
 
-export async function getAllClubs(db: DbHandle): Promise<Club[]> {
-  const rows = await db.prepare('SELECT * FROM clubs').all() as ClubRow[];
+export async function getAllClubs(db: DbHandle, saveId: number): Promise<Club[]> {
+  const rows = await db.prepare('SELECT * FROM clubs WHERE save_id = ?').all(saveId) as ClubRow[];
   return rows.map(rowToClub);
 }
 
-export async function updateClubBudget(db: DbHandle, clubId: number, budget: number): Promise<void> {
-  await db.prepare('UPDATE clubs SET budget = ? WHERE id = ?').run(budget, clubId);
+export async function updateClubBudget(db: DbHandle, saveId: number, clubId: number, budget: number): Promise<void> {
+  await db.prepare('UPDATE clubs SET budget = ? WHERE save_id = ? AND id = ?').run(budget, saveId, clubId);
 }
 
 export interface ClubWithDivision extends Club {
@@ -64,18 +64,19 @@ export interface ClubWithDivision extends Club {
 
 export async function getClubsByCountry(
   db: DbHandle,
+  saveId: number,
   countryId: number,
 ): Promise<ClubWithDivision[]> {
   const rows = (await db
     .prepare(
       `SELECT clubs.*, leagues.division_level AS division_level
        FROM clubs JOIN leagues ON clubs.league_id = leagues.id
-       WHERE leagues.country_id = ?`,
+       WHERE clubs.save_id = ? AND leagues.country_id = ?`,
     )
-    .all(countryId)) as Array<ClubRow & { division_level: number }>;
+    .all(saveId, countryId)) as Array<ClubRow & { division_level: number }>;
   return rows.map((r) => ({ ...rowToClub(r), divisionLevel: r.division_level }));
 }
 
-export async function updateClubReputation(db: DbHandle, clubId: number, reputation: number): Promise<void> {
-  await db.prepare('UPDATE clubs SET reputation = ? WHERE id = ?').run(reputation, clubId);
+export async function updateClubReputation(db: DbHandle, saveId: number, clubId: number, reputation: number): Promise<void> {
+  await db.prepare('UPDATE clubs SET reputation = ? WHERE save_id = ? AND id = ?').run(reputation, saveId, clubId);
 }

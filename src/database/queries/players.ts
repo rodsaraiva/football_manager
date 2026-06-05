@@ -109,20 +109,21 @@ function rowToAttributes(row: PlayerAttributesRow): PlayerAttributes {
   };
 }
 
-export async function getPlayersByClub(db: DbHandle, clubId: number): Promise<Player[]> {
+export async function getPlayersByClub(db: DbHandle, saveId: number, clubId: number): Promise<Player[]> {
   const rows = await db
-    .prepare('SELECT * FROM players WHERE club_id = ?')
-    .all(clubId) as PlayerRow[];
+    .prepare('SELECT * FROM players WHERE save_id = ? AND club_id = ?')
+    .all(saveId, clubId) as PlayerRow[];
   return rows.map(rowToPlayer);
 }
 
 export async function getPlayersWithAttributesByClub(
   db: DbHandle,
+  saveId: number,
   clubId: number,
 ): Promise<(Player & { attributes: PlayerAttributes })[]> {
   const playerRows = await db
-    .prepare('SELECT * FROM players WHERE club_id = ?')
-    .all(clubId) as PlayerRow[];
+    .prepare('SELECT * FROM players WHERE save_id = ? AND club_id = ?')
+    .all(saveId, clubId) as PlayerRow[];
   if (playerRows.length === 0) return [];
   const attrRows = await db
     .prepare('SELECT * FROM player_attributes WHERE player_id IN (' + playerRows.map(() => '?').join(',') + ')')
@@ -135,11 +136,12 @@ export async function getPlayersWithAttributesByClub(
 
 export async function getPlayerById(
   db: DbHandle,
+  saveId: number,
   playerId: number,
 ): Promise<(Player & { attributes: PlayerAttributes }) | null> {
   const playerRow = await db
-    .prepare('SELECT * FROM players WHERE id = ?')
-    .get(playerId) as PlayerRow | undefined;
+    .prepare('SELECT * FROM players WHERE save_id = ? AND id = ?')
+    .get(saveId, playerId) as PlayerRow | undefined;
 
   if (!playerRow) return null;
 
@@ -163,9 +165,9 @@ export interface SearchPlayersFilters {
   maxWage?: number;
 }
 
-export async function searchPlayers(db: DbHandle, filters: SearchPlayersFilters): Promise<Player[]> {
-  const conditions: string[] = [];
-  const params: unknown[] = [];
+export async function searchPlayers(db: DbHandle, saveId: number, filters: SearchPlayersFilters): Promise<Player[]> {
+  const conditions: string[] = ['save_id = ?'];
+  const params: unknown[] = [saveId];
 
   if (filters.position !== undefined) {
     conditions.push('position = ?');
@@ -188,29 +190,29 @@ export async function searchPlayers(db: DbHandle, filters: SearchPlayersFilters)
     params.push(filters.maxWage);
   }
 
-  const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
-  const sql = `SELECT * FROM players ${where}`;
+  const sql = `SELECT * FROM players WHERE ${conditions.join(' AND ')}`;
   const rows = await db.prepare(sql).all(...params) as PlayerRow[];
   return rows.map(rowToPlayer);
 }
 
-export async function updatePlayerMorale(db: DbHandle, playerId: number, morale: number): Promise<void> {
-  await db.prepare('UPDATE players SET morale = ? WHERE id = ?').run(morale, playerId);
+export async function updatePlayerMorale(db: DbHandle, saveId: number, playerId: number, morale: number): Promise<void> {
+  await db.prepare('UPDATE players SET morale = ? WHERE save_id = ? AND id = ?').run(morale, saveId, playerId);
 }
 
-export async function getFreeAgents(db: DbHandle): Promise<Player[]> {
+export async function getFreeAgents(db: DbHandle, saveId: number): Promise<Player[]> {
   const rows = await db
-    .prepare('SELECT * FROM players WHERE is_free_agent = 1')
-    .all() as PlayerRow[];
+    .prepare('SELECT * FROM players WHERE save_id = ? AND is_free_agent = 1')
+    .all(saveId) as PlayerRow[];
   return rows.map(rowToPlayer);
 }
 
 export async function getFreeAgentsWithAttributes(
   db: DbHandle,
+  saveId: number,
 ): Promise<(Player & { attributes: PlayerAttributes })[]> {
   const playerRows = await db
-    .prepare('SELECT * FROM players WHERE is_free_agent = 1')
-    .all() as PlayerRow[];
+    .prepare('SELECT * FROM players WHERE save_id = ? AND is_free_agent = 1')
+    .all(saveId) as PlayerRow[];
   if (playerRows.length === 0) return [];
   const attrRows = await db
     .prepare('SELECT * FROM player_attributes WHERE player_id IN (' + playerRows.map(() => '?').join(',') + ')')
@@ -223,46 +225,49 @@ export async function getFreeAgentsWithAttributes(
 
 export async function setTransferListing(
   db: DbHandle,
+  saveId: number,
   playerId: number,
   listed: boolean,
   askingPrice: number | null,
 ): Promise<void> {
   await db
-    .prepare('UPDATE players SET is_transfer_listed = ?, asking_price = ? WHERE id = ?')
-    .run(listed ? 1 : 0, listed ? askingPrice : null, playerId);
+    .prepare('UPDATE players SET is_transfer_listed = ?, asking_price = ? WHERE save_id = ? AND id = ?')
+    .run(listed ? 1 : 0, listed ? askingPrice : null, saveId, playerId);
 }
 
 export async function setLoanListing(
   db: DbHandle,
+  saveId: number,
   playerId: number,
   listed: boolean,
   loanWageShare: number | null,
 ): Promise<void> {
   await db
-    .prepare('UPDATE players SET is_loan_listed = ?, loan_wage_share = ? WHERE id = ?')
-    .run(listed ? 1 : 0, listed ? loanWageShare : null, playerId);
+    .prepare('UPDATE players SET is_loan_listed = ?, loan_wage_share = ? WHERE save_id = ? AND id = ?')
+    .run(listed ? 1 : 0, listed ? loanWageShare : null, saveId, playerId);
 }
 
 // v0.1: sem coluna `is_retired` pra evitar migration agora; o par
 // (club_id=NULL, is_free_agent=0) funciona como marker implícito — jogador
 // some das queries atuais e se distingue de free agent (is_free_agent=1).
-export async function retirePlayer(db: DbHandle, playerId: number): Promise<void> {
+export async function retirePlayer(db: DbHandle, saveId: number, playerId: number): Promise<void> {
   await db
     .prepare(
-      'UPDATE players SET club_id = NULL, is_free_agent = 0, contract_end = 0, wage = 0, is_transfer_listed = 0, is_loan_listed = 0 WHERE id = ?',
+      'UPDATE players SET club_id = NULL, is_free_agent = 0, contract_end = 0, wage = 0, is_transfer_listed = 0, is_loan_listed = 0 WHERE save_id = ? AND id = ?',
     )
-    .run(playerId);
+    .run(saveId, playerId);
 }
 
-export async function getPlayersAboutToRetire(db: DbHandle, clubId: number): Promise<Player[]> {
+export async function getPlayersAboutToRetire(db: DbHandle, saveId: number, clubId: number): Promise<Player[]> {
   const rows = await db
-    .prepare('SELECT * FROM players WHERE club_id = ? AND will_retire_at_season_end = 1')
-    .all(clubId) as PlayerRow[];
+    .prepare('SELECT * FROM players WHERE save_id = ? AND club_id = ? AND will_retire_at_season_end = 1')
+    .all(saveId, clubId) as PlayerRow[];
   return rows.map(rowToPlayer);
 }
 
 export async function getListedPlayers(
   db: DbHandle,
+  saveId: number,
   mode: 'transfer' | 'loan' | 'any',
 ): Promise<Player[]> {
   const where =
@@ -270,7 +275,7 @@ export async function getListedPlayers(
     mode === 'loan'     ? 'is_loan_listed = 1' :
     '(is_transfer_listed = 1 OR is_loan_listed = 1)';
   const rows = await db
-    .prepare(`SELECT * FROM players WHERE ${where}`)
-    .all() as PlayerRow[];
+    .prepare(`SELECT * FROM players WHERE save_id = ? AND ${where}`)
+    .all(saveId) as PlayerRow[];
   return rows.map(rowToPlayer);
 }
