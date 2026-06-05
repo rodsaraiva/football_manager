@@ -82,7 +82,7 @@ describe('ensureSeasonFixtures', () => {
     seedTestDb(rawDb);
     const db = createTestDbHandle(rawDb);
 
-    const result = await ensureSeasonFixtures(db, 1);
+    const result = await ensureSeasonFixtures(db, 1, 1);
     expect(result).toBe(true);
 
     const { cnt } = rawDb.prepare('SELECT COUNT(*) as cnt FROM fixtures WHERE season = 1').get() as { cnt: number };
@@ -94,8 +94,8 @@ describe('ensureSeasonFixtures', () => {
     seedTestDb(rawDb);
     const db = createTestDbHandle(rawDb);
 
-    await ensureSeasonFixtures(db, 1);
-    const result = await ensureSeasonFixtures(db, 1);
+    await ensureSeasonFixtures(db, 1, 1);
+    const result = await ensureSeasonFixtures(db, 1, 1);
     expect(result).toBe(false);
   });
 
@@ -105,10 +105,10 @@ describe('ensureSeasonFixtures', () => {
     const db = createTestDbHandle(rawDb);
 
     // Generate season 1
-    await ensureSeasonFixtures(db, 1);
+    await ensureSeasonFixtures(db, 1, 1);
 
     // Generate season 2 — must not throw and must use offset IDs
-    const result = await ensureSeasonFixtures(db, 2);
+    const result = await ensureSeasonFixtures(db, 1, 2);
     expect(result).toBe(true);
 
     const { cnt } = rawDb.prepare('SELECT COUNT(*) as cnt FROM fixtures WHERE season = 2').get() as { cnt: number };

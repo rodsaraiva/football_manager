@@ -10,6 +10,10 @@ import {
 import { createOffer, getOfferById, getOffersByOfferingClub } from '@/database/queries/transfers';
 
 function seedMinimal(db: import('better-sqlite3').Database): void {
+  db.pragma('foreign_keys = OFF');
+  db.prepare(
+    "INSERT INTO save_games (id, name, current_season, current_week, player_club_id, difficulty, board_trust, created_at, updated_at) VALUES (1,'T',1,1,10,'normal',50,'','')",
+  ).run();
   db.prepare('INSERT INTO countries (id, name, code, continent) VALUES (?, ?, ?, ?)').run(
     1,
     'X',
@@ -21,17 +25,17 @@ function seedMinimal(db: import('better-sqlite3').Database): void {
      VALUES (?, ?, ?, ?, ?, ?, ?)`,
   ).run(1, 'L', 1, 1, 2, 0, 0);
   db.prepare(
-    `INSERT INTO clubs (id, name, short_name, country_id, league_id, reputation, budget, wage_budget,
+    `INSERT INTO clubs (id, save_id, name, short_name, country_id, league_id, reputation, budget, wage_budget,
       stadium_name, stadium_capacity, training_facilities, youth_academy, medical_department,
       primary_color, secondary_color)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-  ).run(10, 'Buyer FC', 'BUY', 1, 1, 70, 100_000_000, 1_000_000, 'S1', 20000, 3, 3, 3, '#1', '#2');
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  ).run(10, 1, 'Buyer FC', 'BUY', 1, 1, 70, 100_000_000, 1_000_000, 'S1', 20000, 3, 3, 3, '#1', '#2');
   db.prepare(
-    `INSERT INTO clubs (id, name, short_name, country_id, league_id, reputation, budget, wage_budget,
+    `INSERT INTO clubs (id, save_id, name, short_name, country_id, league_id, reputation, budget, wage_budget,
       stadium_name, stadium_capacity, training_facilities, youth_academy, medical_department,
       primary_color, secondary_color)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-  ).run(20, 'Seller FC', 'SEL', 1, 1, 60, 50_000_000, 500_000, 'S2', 15000, 3, 3, 3, '#1', '#2');
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  ).run(20, 1, 'Seller FC', 'SEL', 1, 1, 60, 50_000_000, 500_000, 'S2', 15000, 3, 3, 3, '#1', '#2');
 }
 
 function insertPlayer(
@@ -60,12 +64,13 @@ function insertPlayer(
     isFreeAgent = false,
   } = params;
   db.prepare(
-    `INSERT INTO players (id, name, nationality, age, position, secondary_position, club_id, wage,
+    `INSERT INTO players (id, save_id, name, nationality, age, position, secondary_position, club_id, wage,
       contract_end, market_value, base_potential, effective_potential, morale, fitness,
       injury_weeks_left, is_free_agent)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     id,
+    1,
     name,
     'X',
     age,
@@ -94,7 +99,7 @@ describe('offer-processor', () => {
       insertPlayer(db, { id: 1, clubId: 20, marketValue: 10_000_000, position: 'ST' });
       insertPlayer(db, { id: 2, clubId: 20, marketValue: 8_000_000, position: 'ST' });
 
-      await createOffer(h, {
+      await createOffer(h, 1, {
         playerId: 1,
         offeringClubId: 10,
         sellingClubId: 20,
@@ -102,9 +107,9 @@ describe('offer-processor', () => {
         wageOffered: 30_000,
       });
 
-      await processPendingOffers(h, 1, 5);
+      await processPendingOffers(h, 1, 1, 5);
 
-      const offers = await getOffersByOfferingClub(h, 10);
+      const offers = await getOffersByOfferingClub(h, 1, 10);
       expect(offers[0].status).toBe('accepted');
 
       // Player should now belong to buyer
@@ -135,7 +140,7 @@ describe('offer-processor', () => {
       // Only one ST → starter, no replacement
       insertPlayer(db, { id: 1, clubId: 20, marketValue: 10_000_000, position: 'ST' });
 
-      await createOffer(h, {
+      await createOffer(h, 1, {
         playerId: 1,
         offeringClubId: 10,
         sellingClubId: 20,
@@ -143,9 +148,9 @@ describe('offer-processor', () => {
         wageOffered: 30_000,
       });
 
-      await processPendingOffers(h, 1, 5);
+      await processPendingOffers(h, 1, 1, 5);
 
-      const offer = await getOfferById(h, 1);
+      const offer = await getOfferById(h, 1, 1);
       expect(offer!.status).toBe('countered');
       // Counter should be ~110% of market value
       expect(offer!.feeOffered).toBeGreaterThan(10_000_000);
@@ -161,7 +166,7 @@ describe('offer-processor', () => {
       seedMinimal(db);
       insertPlayer(db, { id: 1, clubId: 20, marketValue: 10_000_000, position: 'ST' });
 
-      await createOffer(h, {
+      await createOffer(h, 1, {
         playerId: 1,
         offeringClubId: 10,
         sellingClubId: 20,
@@ -169,9 +174,9 @@ describe('offer-processor', () => {
         wageOffered: 30_000,
       });
 
-      await processPendingOffers(h, 1, 5);
+      await processPendingOffers(h, 1, 1, 5);
 
-      const offer = await getOfferById(h, 1);
+      const offer = await getOfferById(h, 1, 1);
       expect(offer!.status).toBe('rejected');
     });
 
@@ -181,7 +186,7 @@ describe('offer-processor', () => {
       seedMinimal(db);
       insertPlayer(db, { id: 1, clubId: null, marketValue: 5_000_000, isFreeAgent: true });
 
-      await createOffer(h, {
+      await createOffer(h, 1, {
         playerId: 1,
         offeringClubId: 10,
         sellingClubId: 20, // irrelevant here
@@ -189,8 +194,8 @@ describe('offer-processor', () => {
         wageOffered: 20_000,
       });
 
-      await processPendingOffers(h, 1, 5);
-      const offer = await getOfferById(h, 1);
+      await processPendingOffers(h, 1, 1, 5);
+      const offer = await getOfferById(h, 1, 1);
       expect(offer!.status).toBe('rejected');
     });
   });
@@ -203,16 +208,16 @@ describe('offer-processor', () => {
       insertPlayer(db, { id: 1, clubId: 20, marketValue: 10_000_000, position: 'ST' });
 
       // Create offer and process it → will become 'countered'
-      await createOffer(h, {
+      await createOffer(h, 1, {
         playerId: 1,
         offeringClubId: 10,
         sellingClubId: 20,
         feeOffered: 8_500_000,
         wageOffered: 30_000,
       });
-      await processPendingOffers(h, 1, 5);
+      await processPendingOffers(h, 1, 1, 5);
 
-      const result = await acceptCounterOffer(h, 1, 1, 6);
+      const result = await acceptCounterOffer(h, 1, 1, 1, 6);
       expect(result.success).toBe(true);
 
       const player = db.prepare('SELECT club_id FROM players WHERE id = 1').get() as { club_id: number };
@@ -226,19 +231,19 @@ describe('offer-processor', () => {
       insertPlayer(db, { id: 1, clubId: 20, marketValue: 10_000_000, position: 'ST' });
 
       // Submit 85% offer → will be countered at 11M
-      await createOffer(h, {
+      await createOffer(h, 1, {
         playerId: 1,
         offeringClubId: 10,
         sellingClubId: 20,
         feeOffered: 8_500_000,
         wageOffered: 30_000,
       });
-      await processPendingOffers(h, 1, 5);
+      await processPendingOffers(h, 1, 1, 5);
 
       // Reduce buyer budget below counter amount
       db.prepare('UPDATE clubs SET budget = 9000000 WHERE id = 10').run();
 
-      const result = await acceptCounterOffer(h, 1, 1, 6);
+      const result = await acceptCounterOffer(h, 1, 1, 1, 6);
       expect(result.success).toBe(false);
       expect(result.reason).toMatch(/budget/i);
     });
@@ -252,7 +257,7 @@ describe('offer-processor', () => {
       // User is club 10; a rival (club 20) bids for user's player
       insertPlayer(db, { id: 1, clubId: 10, marketValue: 10_000_000, position: 'ST' });
 
-      await createOffer(h, {
+      await createOffer(h, 1, {
         playerId: 1,
         offeringClubId: 20,
         sellingClubId: 10,
@@ -261,9 +266,9 @@ describe('offer-processor', () => {
       });
 
       // Process with user as club 10 — should NOT auto-resolve
-      await processPendingOffers(h, 1, 5, 10);
+      await processPendingOffers(h, 1, 1, 5, 10);
 
-      const offer = await getOfferById(h, 1);
+      const offer = await getOfferById(h, 1, 1);
       expect(offer!.status).toBe('pending');
     });
 
@@ -273,7 +278,7 @@ describe('offer-processor', () => {
       seedMinimal(db);
       insertPlayer(db, { id: 1, clubId: 10, marketValue: 10_000_000, position: 'ST' });
 
-      await createOffer(h, {
+      await createOffer(h, 1, {
         playerId: 1,
         offeringClubId: 20,
         sellingClubId: 10,
@@ -281,7 +286,7 @@ describe('offer-processor', () => {
         wageOffered: 30_000,
       });
 
-      const res = await acceptIncomingOffer(h, 1, 1, 5);
+      const res = await acceptIncomingOffer(h, 1, 1, 1, 5);
       expect(res.success).toBe(true);
 
       const player = db.prepare('SELECT club_id FROM players WHERE id = 1').get() as { club_id: number };
@@ -294,7 +299,7 @@ describe('offer-processor', () => {
       seedMinimal(db);
       insertPlayer(db, { id: 1, clubId: 10, marketValue: 10_000_000, position: 'ST' });
 
-      await createOffer(h, {
+      await createOffer(h, 1, {
         playerId: 1,
         offeringClubId: 20,
         sellingClubId: 10,
@@ -302,8 +307,8 @@ describe('offer-processor', () => {
         wageOffered: 30_000,
       });
 
-      await rejectIncomingOffer(h, 1, 5);
-      const offer = await getOfferById(h, 1);
+      await rejectIncomingOffer(h, 1, 1, 5);
+      const offer = await getOfferById(h, 1, 1);
       expect(offer!.status).toBe('rejected');
     });
 
@@ -313,7 +318,7 @@ describe('offer-processor', () => {
       seedMinimal(db);
       insertPlayer(db, { id: 1, clubId: 10, marketValue: 10_000_000, position: 'ST' });
 
-      await createOffer(h, {
+      await createOffer(h, 1, {
         playerId: 1,
         offeringClubId: 20,
         sellingClubId: 10,
@@ -322,10 +327,10 @@ describe('offer-processor', () => {
       });
 
       // User counters at 12M (120% of market — within 140% threshold)
-      await counterIncomingOffer(h, 1, 12_000_000);
+      await counterIncomingOffer(h, 1, 1, 12_000_000);
 
       // Buyer has 50M budget so can afford. Re-evaluate.
-      await processPendingOffers(h, 1, 6, 10);
+      await processPendingOffers(h, 1, 1, 6, 10);
 
       const player = db.prepare('SELECT club_id FROM players WHERE id = 1').get() as { club_id: number };
       expect(player.club_id).toBe(20);
@@ -337,7 +342,7 @@ describe('offer-processor', () => {
       seedMinimal(db);
       insertPlayer(db, { id: 1, clubId: 10, marketValue: 10_000_000, position: 'ST' });
 
-      await createOffer(h, {
+      await createOffer(h, 1, {
         playerId: 1,
         offeringClubId: 20,
         sellingClubId: 10,
@@ -346,11 +351,11 @@ describe('offer-processor', () => {
       });
 
       // User counters at 20M (200% of market — over threshold)
-      await counterIncomingOffer(h, 1, 20_000_000);
+      await counterIncomingOffer(h, 1, 1, 20_000_000);
 
-      await processPendingOffers(h, 1, 6, 10);
+      await processPendingOffers(h, 1, 1, 6, 10);
 
-      const offer = await getOfferById(h, 1);
+      const offer = await getOfferById(h, 1, 1);
       expect(offer!.status).toBe('rejected');
 
       const player = db.prepare('SELECT club_id FROM players WHERE id = 1').get() as { club_id: number };
@@ -365,7 +370,7 @@ describe('offer-processor', () => {
       seedMinimal(db);
       insertPlayer(db, { id: 1, clubId: 20, marketValue: 10_000_000 });
 
-      await createOffer(h, {
+      await createOffer(h, 1, {
         playerId: 1,
         offeringClubId: 10,
         sellingClubId: 20,
@@ -373,7 +378,7 @@ describe('offer-processor', () => {
         wageOffered: 30_000,
       });
 
-      await executeAcceptedTransfer(h, {
+      await executeAcceptedTransfer(h, 1, {
         offerId: 1,
         playerId: 1,
         fromClubId: 20,

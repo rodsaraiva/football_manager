@@ -13,8 +13,8 @@ describe('player-stats queries', () => {
     // Insert a minimal competition so FK from player_stats.competition_id is satisfied.
     // seedTestDb does not populate competitions (they're created at runtime by the game).
     rawDb.prepare(
-      `INSERT INTO competitions (id, name, type, format, season, league_id)
-       VALUES (1, 'Test Competition', 'league', 'round_robin', 1, 1)`,
+      `INSERT INTO competitions (id, save_id, name, type, format, season, league_id)
+       VALUES (1, 1, 'Test Competition', 'league', 'round_robin', 1, 1)`,
     ).run();
     db = createTestDbHandle(rawDb);
   });
@@ -24,13 +24,13 @@ describe('player-stats queries', () => {
   });
 
   it('inserts a new row when none exists', async () => {
-    await upsertPlayerStats(db, {
+    await upsertPlayerStats(db, 1, {
       playerId: 1, season: 1, competitionId: 1,
       appearances: 1, goals: 2, assists: 1,
       yellowCards: 0, redCards: 0, rating: 8.0, minutesPlayed: 90,
     });
 
-    const rows = await getPlayerStatsByCompetition(db, 1, 1);
+    const rows = await getPlayerStatsByCompetition(db, 1, 1, 1);
     const row = rows.find((r) => r.playerId === 1);
     expect(row).toBeDefined();
     expect(row!.appearances).toBe(1);
@@ -41,13 +41,13 @@ describe('player-stats queries', () => {
   });
 
   it('accumulates a second match and recalculates avg_rating weighted by minutes', async () => {
-    await upsertPlayerStats(db, {
+    await upsertPlayerStats(db, 1, {
       playerId: 1, season: 1, competitionId: 1,
       appearances: 1, goals: 1, assists: 0,
       yellowCards: 1, redCards: 0, rating: 6.0, minutesPlayed: 90,
     });
 
-    const rows = await getPlayerStatsByCompetition(db, 1, 1);
+    const rows = await getPlayerStatsByCompetition(db, 1, 1, 1);
     const row = rows.find((r) => r.playerId === 1)!;
     expect(row.appearances).toBe(2);
     expect(row.goals).toBe(3);
@@ -59,14 +59,14 @@ describe('player-stats queries', () => {
   });
 
   it('isolates stats by (player, season, competition)', async () => {
-    await upsertPlayerStats(db, {
+    await upsertPlayerStats(db, 1, {
       playerId: 1, season: 2, competitionId: 1,
       appearances: 1, goals: 5, assists: 0,
       yellowCards: 0, redCards: 0, rating: 9.0, minutesPlayed: 90,
     });
 
-    const s1 = (await getPlayerStatsByCompetition(db, 1, 1)).find((r) => r.playerId === 1)!;
-    const s2 = (await getPlayerStatsByCompetition(db, 2, 1)).find((r) => r.playerId === 1)!;
+    const s1 = (await getPlayerStatsByCompetition(db, 1, 1, 1)).find((r) => r.playerId === 1)!;
+    const s2 = (await getPlayerStatsByCompetition(db, 1, 2, 1)).find((r) => r.playerId === 1)!;
     expect(s1.goals).toBe(3);
     expect(s2.goals).toBe(5);
   });

@@ -2,7 +2,14 @@ import { createTestDb, createTestDbHandle } from '../../database/test-helpers';
 import { returnExpiredLoans } from '@/engine/transfer/loan-returns';
 import { createTransfer } from '@/database/queries/transfers';
 
+const SAVE_ID = 1;
+
 function seed(db: import('better-sqlite3').Database): void {
+  db.pragma('foreign_keys = OFF');
+  db.prepare(
+    "INSERT OR IGNORE INTO save_games (id, name, current_season, current_week, player_club_id, difficulty, board_trust, created_at, updated_at) VALUES (1, 'Test', 1, 1, 1, 'normal', 50, '', '')",
+  ).run();
+  db.pragma('foreign_keys = ON');
   db.prepare('INSERT INTO countries (id, name, code, continent) VALUES (?, ?, ?, ?)').run(
     1,
     'X',
@@ -15,11 +22,11 @@ function seed(db: import('better-sqlite3').Database): void {
   ).run(1, 'L', 1, 1, 2, 0, 0);
   for (const id of [1, 2]) {
     db.prepare(
-      `INSERT INTO clubs (id, name, short_name, country_id, league_id, reputation, budget, wage_budget,
+      `INSERT INTO clubs (id, save_id, name, short_name, country_id, league_id, reputation, budget, wage_budget,
         stadium_name, stadium_capacity, training_facilities, youth_academy, medical_department,
         primary_color, secondary_color)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    ).run(id, `Club ${id}`, `C${id}`, 1, 1, 60, 10_000_000, 500_000, 'S', 20000, 3, 3, 3, '#1', '#2');
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    ).run(id, SAVE_ID, `Club ${id}`, `C${id}`, 1, 1, 60, 10_000_000, 500_000, 'S', 20000, 3, 3, 3, '#1', '#2');
   }
 }
 
@@ -29,11 +36,11 @@ function insertPlayer(
   clubId: number,
 ): void {
   db.prepare(
-    `INSERT INTO players (id, name, nationality, age, position, secondary_position, club_id, wage,
+    `INSERT INTO players (id, save_id, name, nationality, age, position, secondary_position, club_id, wage,
       contract_end, market_value, base_potential, effective_potential, morale, fitness,
       injury_weeks_left, is_free_agent)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-  ).run(id, `P${id}`, 'X', 25, 'ST', null, clubId, 50_000, 5, 5_000_000, 75, 75, 70, 90, 0, 0);
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  ).run(id, SAVE_ID, `P${id}`, 'X', 25, 'ST', null, clubId, 50_000, 5, 5_000_000, 75, 75, 70, 90, 0, 0);
 }
 
 describe('returnExpiredLoans', () => {
@@ -43,7 +50,7 @@ describe('returnExpiredLoans', () => {
     seed(db);
     // Player 1 starts at club 1 (parent), loaned to club 2 for season 1
     insertPlayer(db, 1, 2);
-    await createTransfer(h, {
+    await createTransfer(h, SAVE_ID, {
       playerId: 1,
       season: 1,
       fromClubId: 1,
@@ -54,7 +61,7 @@ describe('returnExpiredLoans', () => {
       loanEnd: 1, // ends this season
     });
 
-    const returned = await returnExpiredLoans(h, 1);
+    const returned = await returnExpiredLoans(h, SAVE_ID, 1);
     expect(returned).toBe(1);
 
     const player = db.prepare('SELECT club_id FROM players WHERE id = 1').get() as { club_id: number };
@@ -66,7 +73,7 @@ describe('returnExpiredLoans', () => {
     const h = createTestDbHandle(db);
     seed(db);
     insertPlayer(db, 1, 2);
-    await createTransfer(h, {
+    await createTransfer(h, SAVE_ID, {
       playerId: 1,
       season: 1,
       fromClubId: 1,
@@ -77,7 +84,7 @@ describe('returnExpiredLoans', () => {
       loanEnd: 3, // ends in season 3
     });
 
-    const returned = await returnExpiredLoans(h, 1);
+    const returned = await returnExpiredLoans(h, SAVE_ID, 1);
     expect(returned).toBe(0);
 
     const player = db.prepare('SELECT club_id FROM players WHERE id = 1').get() as { club_id: number };
@@ -90,7 +97,7 @@ describe('returnExpiredLoans', () => {
     seed(db);
     insertPlayer(db, 1, 1);
     // Already returned: loan_end cleared
-    await createTransfer(h, {
+    await createTransfer(h, SAVE_ID, {
       playerId: 1,
       season: 1,
       fromClubId: 1,
@@ -101,7 +108,7 @@ describe('returnExpiredLoans', () => {
       loanEnd: null,
     });
 
-    const returned = await returnExpiredLoans(h, 2);
+    const returned = await returnExpiredLoans(h, SAVE_ID, 2);
     expect(returned).toBe(0);
   });
 
@@ -111,13 +118,13 @@ describe('returnExpiredLoans', () => {
     seed(db);
     // Third club — player ended up there via another transfer
     db.prepare(
-      `INSERT INTO clubs (id, name, short_name, country_id, league_id, reputation, budget, wage_budget,
+      `INSERT INTO clubs (id, save_id, name, short_name, country_id, league_id, reputation, budget, wage_budget,
         stadium_name, stadium_capacity, training_facilities, youth_academy, medical_department,
         primary_color, secondary_color)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    ).run(3, 'Club 3', 'C3', 1, 1, 60, 10_000_000, 500_000, 'S', 20000, 3, 3, 3, '#1', '#2');
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    ).run(3, SAVE_ID, 'Club 3', 'C3', 1, 1, 60, 10_000_000, 500_000, 'S', 20000, 3, 3, 3, '#1', '#2');
     insertPlayer(db, 1, 3); // now at club 3
-    await createTransfer(h, {
+    await createTransfer(h, SAVE_ID, {
       playerId: 1,
       season: 1,
       fromClubId: 1,
@@ -128,7 +135,7 @@ describe('returnExpiredLoans', () => {
       loanEnd: 1,
     });
 
-    const returned = await returnExpiredLoans(h, 1);
+    const returned = await returnExpiredLoans(h, SAVE_ID, 1);
     expect(returned).toBe(0);
 
     const player = db.prepare('SELECT club_id FROM players WHERE id = 1').get() as { club_id: number };
@@ -140,7 +147,7 @@ describe('returnExpiredLoans', () => {
     const h = createTestDbHandle(db);
     seed(db);
     insertPlayer(db, 1, 2);
-    await createTransfer(h, {
+    await createTransfer(h, SAVE_ID, {
       playerId: 1,
       season: 1,
       fromClubId: 1,
@@ -151,7 +158,7 @@ describe('returnExpiredLoans', () => {
       loanEnd: 1,
     });
 
-    await returnExpiredLoans(h, 1);
+    await returnExpiredLoans(h, SAVE_ID, 1);
 
     const tr = db.prepare('SELECT loan_end FROM transfers WHERE player_id = 1').get() as {
       loan_end: number | null;
@@ -159,7 +166,7 @@ describe('returnExpiredLoans', () => {
     expect(tr.loan_end).toBeNull();
 
     // Running again is a no-op
-    const again = await returnExpiredLoans(h, 2);
+    const again = await returnExpiredLoans(h, SAVE_ID, 2);
     expect(again).toBe(0);
   });
 });

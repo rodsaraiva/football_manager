@@ -34,10 +34,10 @@ describe('E2E · AI-initiated offers for the player squad', () => {
   async function waitForIncomingOffers(maxWeeks = 6) {
     for (let i = 0; i < maxWeeks && ctx.week <= 6; i++) {
       await stepWeek(ctx, 1000 + i);
-      const offers = await getOffersBySellingClub(ctx.db, ctx.playerClubId);
+      const offers = await getOffersBySellingClub(ctx.db, ctx.saveId, ctx.playerClubId);
       if (offers.some((o) => o.status === 'pending')) return offers;
     }
-    return getOffersBySellingClub(ctx.db, ctx.playerClubId);
+    return getOffersBySellingClub(ctx.db, ctx.saveId, ctx.playerClubId);
   }
 
   it('AI submits offers for the player squad during the transfer window', async () => {
@@ -61,7 +61,7 @@ describe('E2E · AI-initiated offers for the player squad', () => {
     const userBudgetBefore = getClubBudget(ctx, ctx.playerClubId);
     const buyerBudgetBefore = getClubBudget(ctx, target.offeringClubId);
 
-    const res = await acceptIncomingOffer(ctx.db, target.id, ctx.season, ctx.week);
+    const res = await acceptIncomingOffer(ctx.db, ctx.saveId, target.id, ctx.season, ctx.week);
     expect(res.success).toBe(true);
 
     expect(getPlayerClub(ctx, target.playerId)).toBe(target.offeringClubId);
@@ -79,7 +79,7 @@ describe('E2E · AI-initiated offers for the player squad', () => {
 
     const squadBefore = countSquad(ctx, ctx.playerClubId);
 
-    await rejectIncomingOffer(ctx.db, target.id, ctx.week);
+    await rejectIncomingOffer(ctx.db, ctx.saveId, target.id, ctx.week);
 
     const after = ctx.rawDb
       .prepare('SELECT status FROM transfer_offers WHERE id = ?')
@@ -115,7 +115,7 @@ describe('E2E · AI-initiated offers for the player squad', () => {
     expect(target).toBeDefined();
     if (!target) return;
 
-    await counterIncomingOffer(ctx.db, target.id, askFee);
+    await counterIncomingOffer(ctx.db, ctx.saveId, target.id, askFee);
 
     await stepWeek(ctx);
 
@@ -133,7 +133,7 @@ describe('E2E · AI-initiated offers for the player squad', () => {
       .get(target.playerId) as { market_value: number };
     const askFee = Math.round(player.market_value * 2); // way over 140% cap
 
-    await counterIncomingOffer(ctx.db, target.id, askFee);
+    await counterIncomingOffer(ctx.db, ctx.saveId, target.id, askFee);
 
     await stepWeek(ctx);
 
@@ -150,7 +150,7 @@ describe('E2E · AI-initiated offers for the player squad', () => {
     ctx.week = 10;
     await stepWeeks(ctx, 3);
 
-    const offers = await getOffersBySellingClub(ctx.db, ctx.playerClubId);
+    const offers = await getOffersBySellingClub(ctx.db, ctx.saveId, ctx.playerClubId);
     // Might have old offers from seeded state (none), but the system
     // shouldn't be creating new ones outside the window.
     const created = offers.filter((o) => o.status === 'pending');
@@ -171,7 +171,7 @@ describe('E2E · AI-initiated offers for the player squad', () => {
     if (!rival) return;
 
     const { createOffer } = await import('@/database/queries/transfers');
-    const oid = await createOffer(ctx.db, {
+    const oid = await createOffer(ctx.db, ctx.saveId, {
       playerId: rival.id,
       offeringClubId: ctx.playerClubId,
       sellingClubId: rival.club_id,
@@ -185,7 +185,7 @@ describe('E2E · AI-initiated offers for the player squad', () => {
 
     // This offer's seller is NOT the user, so it should be processed.
     const { getOfferById } = await import('@/database/queries/transfers');
-    const o = await getOfferById(ctx.db, oid);
+    const o = await getOfferById(ctx.db, ctx.saveId, oid);
     expect(['accepted', 'rejected', 'countered']).toContain(o!.status);
     expect(o!.status).not.toBe('pending');
   });

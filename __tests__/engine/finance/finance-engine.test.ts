@@ -154,7 +154,7 @@ describe('applyUpgrade', () => {
     // Set budget high enough and current level to 1
     rawDb.prepare('UPDATE clubs SET budget = 50000000, training_facilities = 1 WHERE id = ?').run(clubId);
 
-    await applyUpgrade(db, clubId, 'training', 1, 1, 5);
+    await applyUpgrade(db, 1, clubId, 'training', 1, 1, 5);
 
     const after = (rawDb.prepare('SELECT budget FROM clubs WHERE id = ?').get(clubId) as { budget: number }).budget;
     expect(after).toBe(50000000 - expectedCost);
@@ -164,7 +164,7 @@ describe('applyUpgrade', () => {
     const clubId = 1;
     rawDb.prepare('UPDATE clubs SET budget = 50000000, youth_academy = 2 WHERE id = ?').run(clubId);
 
-    await applyUpgrade(db, clubId, 'youth', 2, 1, 5);
+    await applyUpgrade(db, 1, clubId, 'youth', 2, 1, 5);
 
     const row = rawDb.prepare('SELECT youth_academy FROM clubs WHERE id = ?').get(clubId) as { youth_academy: number };
     expect(row.youth_academy).toBe(3);
@@ -174,7 +174,7 @@ describe('applyUpgrade', () => {
     const clubId = 1;
     rawDb.prepare('UPDATE clubs SET budget = 50000000, medical_department = 1 WHERE id = ?').run(clubId);
 
-    await applyUpgrade(db, clubId, 'medical', 1, 1, 5);
+    await applyUpgrade(db, 1, clubId, 'medical', 1, 1, 5);
 
     const entries = rawDb
       .prepare("SELECT * FROM club_finances WHERE club_id = ? AND type = 'upgrade'")
@@ -188,7 +188,7 @@ describe('applyUpgrade', () => {
     const clubId = 1;
     rawDb.prepare('UPDATE clubs SET budget = 100, training_facilities = 1 WHERE id = ?').run(clubId);
 
-    const result = await applyUpgrade(db, clubId, 'training', 1, 1, 5);
+    const result = await applyUpgrade(db, 1, clubId, 'training', 1, 1, 5);
 
     expect(result.success).toBe(false);
     expect(result.reason).toMatch(/budget/i);
@@ -198,7 +198,7 @@ describe('applyUpgrade', () => {
     const clubId = 1;
     rawDb.prepare('UPDATE clubs SET budget = 50000000, training_facilities = 5 WHERE id = ?').run(clubId);
 
-    const result = await applyUpgrade(db, clubId, 'training', 5, 1, 5);
+    const result = await applyUpgrade(db, 1, clubId, 'training', 5, 1, 5);
 
     expect(result.success).toBe(false);
   });

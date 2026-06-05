@@ -37,7 +37,7 @@ describe('E2E · player-initiated offers', () => {
     const buyerBudgetBefore = getClubBudget(ctx, ctx.playerClubId);
     const sellerBudgetBefore = getClubBudget(ctx, target.club_id);
 
-    const offerId = await createOffer(ctx.db, {
+    const offerId = await createOffer(ctx.db, ctx.saveId, {
       playerId: target.id,
       offeringClubId: ctx.playerClubId,
       sellingClubId: target.club_id,
@@ -72,7 +72,7 @@ describe('E2E · player-initiated offers', () => {
     const target = pickPlayerFromRival(ctx, 'CM');
     if (!target) return;
 
-    const offerId = await createOffer(ctx.db, {
+    const offerId = await createOffer(ctx.db, ctx.saveId, {
       playerId: target.id,
       offeringClubId: ctx.playerClubId,
       sellingClubId: target.club_id,
@@ -84,7 +84,7 @@ describe('E2E · player-initiated offers', () => {
 
     await stepWeek(ctx);
 
-    const offer = await getOfferById(ctx.db, offerId);
+    const offer = await getOfferById(ctx.db, ctx.saveId, offerId);
     expect(offer!.status).toBe('countered');
     // Counter should raise the fee
     expect(offer!.feeOffered).toBeGreaterThan(Math.round(target.market_value * 0.85));
@@ -96,7 +96,7 @@ describe('E2E · player-initiated offers', () => {
     const target = pickPlayerFromRival(ctx, 'CM');
     if (!target) return;
 
-    const offerId = await createOffer(ctx.db, {
+    const offerId = await createOffer(ctx.db, ctx.saveId, {
       playerId: target.id,
       offeringClubId: ctx.playerClubId,
       sellingClubId: target.club_id,
@@ -108,7 +108,7 @@ describe('E2E · player-initiated offers', () => {
 
     await stepWeek(ctx); // → countered
 
-    const res = await acceptCounterOffer(ctx.db, offerId, ctx.season, ctx.week);
+    const res = await acceptCounterOffer(ctx.db, ctx.saveId, offerId, ctx.season, ctx.week);
     expect(res.success).toBe(true);
     expect(getPlayerClub(ctx, target.id)).toBe(ctx.playerClubId);
   });
@@ -125,7 +125,7 @@ describe('E2E · player-initiated offers', () => {
       )
       .run(target.club_id, target.id);
 
-    const offerId = await createOffer(ctx.db, {
+    const offerId = await createOffer(ctx.db, ctx.saveId, {
       playerId: target.id,
       offeringClubId: ctx.playerClubId,
       sellingClubId: target.club_id,
@@ -157,7 +157,7 @@ describe('E2E · player-initiated offers', () => {
     // the expiration pathway itself. We'll create a fresh offer, advance 3
     // weeks (with the AI counter path), and check that if the user never
     // answers the counter, it eventually expires.
-    const offerId = await createOffer(ctx.db, {
+    const offerId = await createOffer(ctx.db, ctx.saveId, {
       playerId: target.id,
       offeringClubId: ctx.playerClubId,
       sellingClubId: target.club_id,
@@ -192,7 +192,7 @@ describe('E2E · player-initiated offers', () => {
       .run(target.club_id, target.id);
 
     // First lowball → rejected + blocked
-    await createOffer(ctx.db, {
+    await createOffer(ctx.db, ctx.saveId, {
       playerId: target.id,
       offeringClubId: ctx.playerClubId,
       sellingClubId: target.club_id,
@@ -225,7 +225,7 @@ describe('E2E · player-initiated offers', () => {
 
     const ids: number[] = [];
     for (const t of [t1, t2, t3]) {
-      const oid = await createOffer(ctx.db, {
+      const oid = await createOffer(ctx.db, ctx.saveId, {
         playerId: t.id,
         offeringClubId: ctx.playerClubId,
         sellingClubId: t.club_id,
@@ -250,7 +250,7 @@ describe('E2E · player-initiated offers', () => {
     const target = pickPlayerFromRival(ctx, 'CM');
     if (!target) return;
 
-    const offerId = await createOffer(ctx.db, {
+    const offerId = await createOffer(ctx.db, ctx.saveId, {
       playerId: target.id,
       offeringClubId: ctx.playerClubId,
       sellingClubId: target.club_id,
@@ -270,7 +270,7 @@ describe('E2E · player-initiated offers', () => {
     ctx.rawDb.prepare("UPDATE transfer_offers SET status = 'pending', round_count = 4 WHERE id = ?").run(offerId);
     await stepWeek(ctx);
 
-    const final = await getOfferById(ctx.db, offerId);
+    const final = await getOfferById(ctx.db, ctx.saveId, offerId);
     // After hitting MAX_NEGOTIATION_ROUNDS, counters turn into rejections.
     expect(['rejected', 'accepted']).toContain(final!.status);
   });

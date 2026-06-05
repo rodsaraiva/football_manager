@@ -186,7 +186,7 @@ describe('E2E · retirement', () => {
     // Aposenta explicitamente um jogador e guarda a idade atual.
     const playerId = pickPlayerInClub(ctx, ctx.playerClubId);
     setPlayerAge(ctx, playerId, 32);
-    await retirePlayer(ctx.db, playerId);
+    await retirePlayer(ctx.db, ctx.saveId, playerId);
     expect(getPlayerClub(ctx, playerId)).toBeNull();
     const ageBefore = (ctx.rawDb
       .prepare('SELECT age FROM players WHERE id = ?')

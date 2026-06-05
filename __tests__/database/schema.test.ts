@@ -39,11 +39,13 @@ describe('Database Schema', () => {
 
   it('can insert and retrieve a player with attributes', () => {
     createAllTables(db);
+    db.pragma('foreign_keys = OFF');
+    db.prepare("INSERT INTO save_games (id, name, current_season, current_week, player_club_id, difficulty, board_trust, created_at, updated_at) VALUES (1, 'T', 1, 1, 1, 'normal', 50, '', '')").run();
     db.prepare("INSERT INTO countries (id, name, code, continent) VALUES (1, 'England', 'EN', 'Europe')").run();
     db.prepare("INSERT INTO leagues (id, name, country_id, division_level, num_teams, promotion_spots, relegation_spots) VALUES (1, 'Premier League', 1, 1, 20, 0, 3)").run();
-    db.prepare("INSERT INTO clubs (id, name, short_name, country_id, league_id, reputation, budget, wage_budget, stadium_name, stadium_capacity, training_facilities, youth_academy, medical_department, primary_color, secondary_color) VALUES (1, 'London FC', 'LON', 1, 1, 85, 100000000, 2000000, 'London Stadium', 60000, 4, 3, 3, '#ff0000', '#ffffff')").run();
-    db.prepare("INSERT INTO players (id, name, nationality, age, position, secondary_position, club_id, wage, contract_end, market_value, base_potential, effective_potential, morale, fitness, injury_weeks_left, is_free_agent) VALUES (1, 'John Smith', 'English', 25, 'ST', NULL, 1, 100000, 3, 50000000, 85, 85, 75, 100, 0, 0)").run();
-    db.prepare("INSERT INTO player_attributes (player_id, finishing, passing, crossing, dribbling, heading, long_shots, free_kicks, vision, composure, decisions, positioning, aggression, leadership, pace, stamina, strength, agility, jumping) VALUES (1, 85, 70, 60, 78, 75, 72, 55, 65, 80, 70, 82, 60, 55, 88, 75, 78, 80, 72)").run();
+    db.prepare("INSERT INTO clubs (id, save_id, name, short_name, country_id, league_id, reputation, budget, wage_budget, stadium_name, stadium_capacity, training_facilities, youth_academy, medical_department, primary_color, secondary_color) VALUES (1, 1, 'London FC', 'LON', 1, 1, 85, 100000000, 2000000, 'London Stadium', 60000, 4, 3, 3, '#ff0000', '#ffffff')").run();
+    db.prepare("INSERT INTO players (id, save_id, name, nationality, age, position, secondary_position, club_id, wage, contract_end, market_value, base_potential, effective_potential, morale, fitness, injury_weeks_left, is_free_agent) VALUES (1, 1, 'John Smith', 'English', 25, 'ST', NULL, 1, 100000, 3, 50000000, 85, 85, 75, 100, 0, 0)").run();
+    db.prepare("INSERT INTO player_attributes (player_id, save_id, finishing, passing, crossing, dribbling, heading, long_shots, free_kicks, vision, composure, decisions, positioning, aggression, leadership, pace, stamina, strength, agility, jumping) VALUES (1, 1, 85, 70, 60, 78, 75, 72, 55, 65, 80, 70, 82, 60, 55, 88, 75, 78, 80, 72)").run();
 
     const player = db.prepare('SELECT * FROM players WHERE id = 1').get() as Record<string, unknown>;
     expect(player.name).toBe('John Smith');

@@ -25,14 +25,14 @@ describe('processSeasonEndBoard', () => {
   afterEach(() => rawDb.close());
 
   it('persists a new objective for the new season (covers the null-objective loop regression)', async () => {
-    expect(await getBoardObjective(db, CLUB, NEW)).toBeNull();
+    expect(await getBoardObjective(db, saveId, CLUB, NEW)).toBeNull();
     const result = await processSeasonEndBoard({
       dbHandle: db, clubId: CLUB, saveId, endedSeason: ENDED, newSeason: NEW,
       leaguePosition: 5, totalTeams: 20, currentReputation: 60, budgetBalance: 1_000_000,
       wasRelegated: false, wasPromoted: false, wonLeague: false, wonCup: false,
     });
     expect(result.newObjective).not.toBeNull();
-    expect(await getBoardObjective(db, CLUB, NEW)).not.toBeNull();
+    expect(await getBoardObjective(db, saveId, CLUB, NEW)).not.toBeNull();
   });
 
   it('applies a budget cut (~20%) when the consequence is budget_cut', async () => {

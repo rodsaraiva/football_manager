@@ -79,7 +79,7 @@ describe('E2E · free agents', () => {
     const overall = getPlayerOverall(ctx, rival.id);
     const wage = freeAgentExpectedWage(overall);
 
-    const res = await signFreeAgent(ctx.db, {
+    const res = await signFreeAgent(ctx.db, ctx.saveId, {
       playerId: rival.id,
       clubId: ctx.playerClubId,
       wageOffered: wage,
@@ -102,7 +102,7 @@ describe('E2E · free agents', () => {
     makeFreeAgent(ctx, rival.id);
     const overall = getPlayerOverall(ctx, rival.id);
 
-    await signFreeAgent(ctx.db, {
+    await signFreeAgent(ctx.db, ctx.saveId, {
       playerId: rival.id,
       clubId: ctx.playerClubId,
       wageOffered: freeAgentExpectedWage(overall),
@@ -128,7 +128,7 @@ describe('E2E · free agents', () => {
     const overall = getPlayerOverall(ctx, rival.id);
 
     const squadBefore = countSquad(ctx, ctx.playerClubId);
-    const res = await signFreeAgent(ctx.db, {
+    const res = await signFreeAgent(ctx.db, ctx.saveId, {
       playerId: rival.id,
       clubId: ctx.playerClubId,
       wageOffered: Math.floor(freeAgentExpectedWage(overall) * 0.5),
@@ -161,7 +161,7 @@ describe('E2E · loan deals', () => {
 
     // Ensure seller has replacements so the deal is acceptable
     // (CM generally has multiple players)
-    const offerId = await createOffer(ctx.db, {
+    const offerId = await createOffer(ctx.db, ctx.saveId, {
       playerId: target.id,
       offeringClubId: ctx.playerClubId,
       sellingClubId: target.club_id,
@@ -186,7 +186,7 @@ describe('E2E · loan deals', () => {
         .prepare('UPDATE players SET club_id = ?, wage = ? WHERE id = ?')
         .run(ctx.playerClubId, Math.round(target.wage * 1.1), target.id);
       const { createTransfer } = await import('@/database/queries/transfers');
-      await createTransfer(ctx.db, {
+      await createTransfer(ctx.db, ctx.saveId, {
         playerId: target.id,
         season: ctx.season,
         fromClubId: target.club_id,
@@ -203,7 +203,7 @@ describe('E2E · loan deals', () => {
 
     // Simulate end-of-season for loan_end = season+1. When that season
     // finishes, returnExpiredLoans should move the player back.
-    const returned = await returnExpiredLoans(ctx.db, ctx.season + 1);
+    const returned = await returnExpiredLoans(ctx.db, ctx.saveId, ctx.season + 1);
     expect(returned).toBeGreaterThanOrEqual(1);
 
     expect(getPlayerClub(ctx, target.id)).toBe(target.club_id);
@@ -218,7 +218,7 @@ describe('E2E · loan deals', () => {
       .prepare('UPDATE players SET club_id = ?, wage = ? WHERE id = ?')
       .run(ctx.playerClubId, target.wage, target.id);
     const { createTransfer } = await import('@/database/queries/transfers');
-    await createTransfer(ctx.db, {
+    await createTransfer(ctx.db, ctx.saveId, {
       playerId: target.id,
       season: ctx.season,
       fromClubId: target.club_id,
@@ -230,12 +230,12 @@ describe('E2E · loan deals', () => {
     });
 
     // First season ends — loan should not yet return (loan_end=season+2)
-    const firstReturn = await returnExpiredLoans(ctx.db, ctx.season);
+    const firstReturn = await returnExpiredLoans(ctx.db, ctx.saveId, ctx.season);
     expect(firstReturn).toBe(0);
     expect(getPlayerClub(ctx, target.id)).toBe(ctx.playerClubId);
 
     // Second season ends — should return now
-    const secondReturn = await returnExpiredLoans(ctx.db, ctx.season + 2);
+    const secondReturn = await returnExpiredLoans(ctx.db, ctx.saveId, ctx.season + 2);
     expect(secondReturn).toBeGreaterThanOrEqual(1);
     expect(getPlayerClub(ctx, target.id)).toBe(target.club_id);
   });
@@ -248,7 +248,7 @@ describe('E2E · loan deals', () => {
       .prepare('UPDATE players SET club_id = ? WHERE id = ?')
       .run(ctx.playerClubId, target.id);
     const { createTransfer } = await import('@/database/queries/transfers');
-    await createTransfer(ctx.db, {
+    await createTransfer(ctx.db, ctx.saveId, {
       playerId: target.id,
       season: ctx.season,
       fromClubId: target.club_id,
@@ -259,8 +259,8 @@ describe('E2E · loan deals', () => {
       loanEnd: ctx.season,
     });
 
-    const first = await returnExpiredLoans(ctx.db, ctx.season);
-    const second = await returnExpiredLoans(ctx.db, ctx.season);
+    const first = await returnExpiredLoans(ctx.db, ctx.saveId, ctx.season);
+    const second = await returnExpiredLoans(ctx.db, ctx.saveId, ctx.season);
     expect(first).toBeGreaterThanOrEqual(1);
     expect(second).toBe(0);
   });

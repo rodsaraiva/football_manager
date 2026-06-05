@@ -5,8 +5,8 @@ import { archiveSeason } from '../../../src/engine/history/season-archiver';
 
 function seedLeagueCompetition(rawDb: Database.Database): void {
   rawDb.prepare(
-    `INSERT INTO competitions (id, name, type, format, season, league_id)
-     VALUES (1, 'Test League', 'league', 'round_robin', 1, 1)`,
+    `INSERT INTO competitions (id, save_id, name, type, format, season, league_id)
+     VALUES (1, 1, 'Test League', 'league', 'round_robin', 1, 1)`,
   ).run();
 }
 
@@ -17,8 +17,8 @@ function seedRoundRobinFixtures(rawDb: Database.Database, competitionId: number,
     for (let j = 0; j < clubs.length; j++) {
       if (i === j) continue;
       rawDb.prepare(
-        `INSERT INTO fixtures (id, competition_id, season, week, round, home_club_id, away_club_id, played)
-         VALUES (?, ?, ?, ?, NULL, ?, ?, 0)`,
+        `INSERT INTO fixtures (id, save_id, competition_id, season, week, round, home_club_id, away_club_id, played)
+         VALUES (?, 1, ?, ?, ?, NULL, ?, ?, 0)`,
       ).run(fid++, competitionId, season, 1, clubs[i].id, clubs[j].id);
     }
   }
@@ -62,7 +62,7 @@ describe('archiveSeason — league titles', () => {
       return [1, 1];
     });
 
-    await archiveSeason(db, 1);
+    await archiveSeason(db, 1, 1);
 
     const result = rawDb
       .prepare('SELECT * FROM season_competition_results WHERE season = ? AND competition_id = ?')
@@ -78,7 +78,7 @@ describe('archiveSeason — league titles', () => {
       return [1, 1];
     });
 
-    await archiveSeason(db, 1);
+    await archiveSeason(db, 1, 1);
 
     const relegated = rawDb
       .prepare('SELECT * FROM season_relegated WHERE season = ? AND league_id = ?')
@@ -89,8 +89,8 @@ describe('archiveSeason — league titles', () => {
 
   it('is idempotent — running twice does not duplicate rows', async () => {
     finishAllFixturesForCompetition(rawDb, 1, 1, () => [1, 1]);
-    await archiveSeason(db, 1);
-    await archiveSeason(db, 1);
+    await archiveSeason(db, 1, 1);
+    await archiveSeason(db, 1, 1);
     const count = (rawDb
       .prepare('SELECT COUNT(*) AS c FROM season_competition_results WHERE season = 1 AND competition_id = 1')
       .get() as { c: number }).c;
@@ -115,21 +115,21 @@ describe('archiveSeason — cup & continental', () => {
   it('writes champion and runner-up from the cup final (highest round)', async () => {
     // Seed a cup competition
     rawDb.prepare(
-      `INSERT INTO competitions (id, name, type, format, season, league_id)
-       VALUES (100, 'Test Cup', 'cup', 'knockout', 1, NULL)`,
+      `INSERT INTO competitions (id, save_id, name, type, format, season, league_id)
+       VALUES (100, 1, 'Test Cup', 'cup', 'knockout', 1, NULL)`,
     ).run();
 
     // Seed two cup fixtures in different rounds
     rawDb.prepare(
-      `INSERT INTO fixtures (id, competition_id, season, week, round, home_club_id, away_club_id, home_goals, away_goals, played)
-       VALUES (9001, 100, 1, 30, '1', 1, 3, 2, 1, 1)`,
+      `INSERT INTO fixtures (id, save_id, competition_id, season, week, round, home_club_id, away_club_id, home_goals, away_goals, played)
+       VALUES (9001, 1, 100, 1, 30, '1', 1, 3, 2, 1, 1)`,
     ).run(); // earlier round
     rawDb.prepare(
-      `INSERT INTO fixtures (id, competition_id, season, week, round, home_club_id, away_club_id, home_goals, away_goals, played)
-       VALUES (9002, 100, 1, 40, '2', 1, 2, 3, 1, 1)`,
+      `INSERT INTO fixtures (id, save_id, competition_id, season, week, round, home_club_id, away_club_id, home_goals, away_goals, played)
+       VALUES (9002, 1, 100, 1, 40, '2', 1, 2, 3, 1, 1)`,
     ).run(); // final — highest round value, club 1 wins
 
-    await archiveSeason(db, 1);
+    await archiveSeason(db, 1, 1);
 
     const result = rawDb
       .prepare('SELECT * FROM season_competition_results WHERE season = 1 AND competition_id = 100')
@@ -141,16 +141,16 @@ describe('archiveSeason — cup & continental', () => {
 
   it('handles a continental competition with no clear runner-up (tie-final fallback)', async () => {
     rawDb.prepare(
-      `INSERT INTO competitions (id, name, type, format, season, league_id)
-       VALUES (200, 'Test Continental', 'continental', 'knockout', 1, NULL)`,
+      `INSERT INTO competitions (id, save_id, name, type, format, season, league_id)
+       VALUES (200, 1, 'Test Continental', 'continental', 'knockout', 1, NULL)`,
     ).run();
     // Only one fixture, and it's a draw — fallback: home as champion
     rawDb.prepare(
-      `INSERT INTO fixtures (id, competition_id, season, week, round, home_club_id, away_club_id, home_goals, away_goals, played)
-       VALUES (9100, 200, 1, 45, '1', 5, 6, 1, 1, 1)`,
+      `INSERT INTO fixtures (id, save_id, competition_id, season, week, round, home_club_id, away_club_id, home_goals, away_goals, played)
+       VALUES (9100, 1, 200, 1, 45, '1', 5, 6, 1, 1, 1)`,
     ).run();
 
-    await archiveSeason(db, 1);
+    await archiveSeason(db, 1, 1);
 
     const result = rawDb
       .prepare('SELECT * FROM season_competition_results WHERE season = 1 AND competition_id = 200')
@@ -170,8 +170,8 @@ describe('archiveSeason — top scorers / assisters', () => {
     seedTestDb(rawDb);
     // Seed a league competition and round-robin fixtures so archiver sees it.
     rawDb.prepare(
-      `INSERT INTO competitions (id, name, type, format, season, league_id)
-       VALUES (1, 'Test League', 'league', 'round_robin', 1, 1)`,
+      `INSERT INTO competitions (id, save_id, name, type, format, season, league_id)
+       VALUES (1, 1, 'Test League', 'league', 'round_robin', 1, 1)`,
     ).run();
     const clubs = rawDb.prepare('SELECT id FROM clubs WHERE league_id = 1').all() as Array<{ id: number }>;
     let fid = 1;
@@ -179,8 +179,8 @@ describe('archiveSeason — top scorers / assisters', () => {
       for (let j = 0; j < clubs.length; j++) {
         if (i === j) continue;
         rawDb.prepare(
-          `INSERT INTO fixtures (id, competition_id, season, week, round, home_club_id, away_club_id, home_goals, away_goals, played)
-           VALUES (?, 1, 1, 1, NULL, ?, ?, 1, 0, 1)`,
+          `INSERT INTO fixtures (id, save_id, competition_id, season, week, round, home_club_id, away_club_id, home_goals, away_goals, played)
+           VALUES (?, 1, 1, 1, 1, NULL, ?, ?, 1, 0, 1)`,
         ).run(fid++, clubs[i].id, clubs[j].id);
       }
     }
@@ -207,7 +207,7 @@ describe('archiveSeason — top scorers / assisters', () => {
        VALUES (1, 80, 'goal', ?, NULL)`,
     ).run(players[2].id);
 
-    await archiveSeason(db, 1);
+    await archiveSeason(db, 1, 1);
 
     const scorers = rawDb.prepare(
       `SELECT rank, player_id, value FROM season_awards
@@ -239,7 +239,7 @@ describe('archiveSeason — top scorers / assisters', () => {
          VALUES (1, ?, 'goal', ?, NULL)`,
       ).run(10 + i, players[i].id);
     }
-    await archiveSeason(db, 1);
+    await archiveSeason(db, 1, 1);
     const scorers = rawDb.prepare(
       `SELECT rank FROM season_awards WHERE season = 1 AND competition_id = 1 AND award_type = 'top_scorer'`,
     ).all() as Array<{ rank: number }>;
@@ -255,8 +255,8 @@ describe('archiveSeason — MVP & breakthrough', () => {
     rawDb = createTestDb();
     seedTestDb(rawDb);
     rawDb.prepare(
-      `INSERT INTO competitions (id, name, type, format, season, league_id)
-       VALUES (1, 'Test League', 'league', 'round_robin', 1, 1)`,
+      `INSERT INTO competitions (id, save_id, name, type, format, season, league_id)
+       VALUES (1, 1, 'Test League', 'league', 'round_robin', 1, 1)`,
     ).run();
     const clubs = rawDb.prepare('SELECT id FROM clubs WHERE league_id = 1').all() as Array<{ id: number }>;
     let fid = 1;
@@ -264,8 +264,8 @@ describe('archiveSeason — MVP & breakthrough', () => {
       for (let j = 0; j < clubs.length; j++) {
         if (i === j) continue;
         rawDb.prepare(
-          `INSERT INTO fixtures (id, competition_id, season, week, round, home_club_id, away_club_id, home_goals, away_goals, played)
-           VALUES (?, 1, 1, 1, NULL, ?, ?, 1, 0, 1)`,
+          `INSERT INTO fixtures (id, save_id, competition_id, season, week, round, home_club_id, away_club_id, home_goals, away_goals, played)
+           VALUES (?, 1, 1, 1, 1, NULL, ?, ?, 1, 0, 1)`,
         ).run(fid++, clubs[i].id, clubs[j].id);
       }
     }
@@ -283,15 +283,15 @@ describe('archiveSeason — MVP & breakthrough', () => {
 
     // Player 10 clears the threshold with rating 8.2; Player 11 has higher rating 9.5 but only 1 appearance.
     rawDb.prepare(
-      `INSERT INTO player_stats (player_id, season, competition_id, appearances, goals, assists, yellow_cards, red_cards, avg_rating, minutes_played)
-       VALUES (10, 1, 1, ?, 0, 0, 0, 0, 8.2, ?)`,
+      `INSERT INTO player_stats (player_id, save_id, season, competition_id, appearances, goals, assists, yellow_cards, red_cards, avg_rating, minutes_played)
+       VALUES (10, 1, 1, 1, ?, 0, 0, 0, 0, 8.2, ?)`,
     ).run(threshold, threshold * 90);
     rawDb.prepare(
-      `INSERT INTO player_stats (player_id, season, competition_id, appearances, goals, assists, yellow_cards, red_cards, avg_rating, minutes_played)
-       VALUES (11, 1, 1, 1, 0, 0, 0, 0, 9.5, 90)`,
+      `INSERT INTO player_stats (player_id, save_id, season, competition_id, appearances, goals, assists, yellow_cards, red_cards, avg_rating, minutes_played)
+       VALUES (11, 1, 1, 1, 1, 0, 0, 0, 0, 9.5, 90)`,
     ).run();
 
-    await archiveSeason(db, 1);
+    await archiveSeason(db, 1, 1);
 
     const mvp = rawDb.prepare(
       `SELECT player_id, club_id, value FROM season_awards
@@ -309,15 +309,15 @@ describe('archiveSeason — MVP & breakthrough', () => {
     rawDb.prepare('UPDATE players SET age = 20 WHERE id = 10').run();
     rawDb.prepare('UPDATE players SET age = 28 WHERE id = 11').run();
     rawDb.prepare(
-      `INSERT INTO player_stats (player_id, season, competition_id, appearances, goals, assists, yellow_cards, red_cards, avg_rating, minutes_played)
-       VALUES (10, 1, 1, ?, 0, 0, 0, 0, 8.0, ?)`,
+      `INSERT INTO player_stats (player_id, save_id, season, competition_id, appearances, goals, assists, yellow_cards, red_cards, avg_rating, minutes_played)
+       VALUES (10, 1, 1, 1, ?, 0, 0, 0, 0, 8.0, ?)`,
     ).run(threshold, threshold * 90);
     rawDb.prepare(
-      `INSERT INTO player_stats (player_id, season, competition_id, appearances, goals, assists, yellow_cards, red_cards, avg_rating, minutes_played)
-       VALUES (11, 1, 1, ?, 0, 0, 0, 0, 9.0, ?)`,
+      `INSERT INTO player_stats (player_id, save_id, season, competition_id, appearances, goals, assists, yellow_cards, red_cards, avg_rating, minutes_played)
+       VALUES (11, 1, 1, 1, ?, 0, 0, 0, 0, 9.0, ?)`,
     ).run(threshold, threshold * 90);
 
-    await archiveSeason(db, 1);
+    await archiveSeason(db, 1, 1);
 
     const breakthrough = rawDb.prepare(
       `SELECT player_id FROM season_awards
@@ -329,7 +329,7 @@ describe('archiveSeason — MVP & breakthrough', () => {
 
   it('does not write MVP if nobody meets the minimum games threshold', async () => {
     // player_stats left empty for competition 1 — nobody eligible.
-    await archiveSeason(db, 1);
+    await archiveSeason(db, 1, 1);
     const mvp = rawDb.prepare(
       `SELECT * FROM season_awards WHERE season = 1 AND competition_id = 1 AND award_type = 'mvp'`,
     ).get();
@@ -345,8 +345,8 @@ describe('archiveSeason — champion squad snapshot', () => {
     rawDb = createTestDb();
     seedTestDb(rawDb);
     rawDb.prepare(
-      `INSERT INTO competitions (id, name, type, format, season, league_id)
-       VALUES (1, 'Test League', 'league', 'round_robin', 1, 1)`,
+      `INSERT INTO competitions (id, save_id, name, type, format, season, league_id)
+       VALUES (1, 1, 'Test League', 'league', 'round_robin', 1, 1)`,
     ).run();
     const clubs = rawDb.prepare('SELECT id FROM clubs WHERE league_id = 1').all() as Array<{ id: number }>;
     let fid = 1;
@@ -354,8 +354,8 @@ describe('archiveSeason — champion squad snapshot', () => {
       for (let j = 0; j < clubs.length; j++) {
         if (i === j) continue;
         rawDb.prepare(
-          `INSERT INTO fixtures (id, competition_id, season, week, round, home_club_id, away_club_id, played)
-           VALUES (?, 1, 1, 1, NULL, ?, ?, 0)`,
+          `INSERT INTO fixtures (id, save_id, competition_id, season, week, round, home_club_id, away_club_id, played)
+           VALUES (?, 1, 1, 1, 1, NULL, ?, ?, 0)`,
         ).run(fid++, clubs[i].id, clubs[j].id);
       }
     }
@@ -376,7 +376,7 @@ describe('archiveSeason — champion squad snapshot', () => {
       rawDb.prepare('UPDATE fixtures SET home_goals = ?, away_goals = ?, played = 1 WHERE id = ?').run(h, a, r.id);
     }
 
-    await archiveSeason(db, 1);
+    await archiveSeason(db, 1, 1);
 
     const squadIds = (rawDb
       .prepare('SELECT id FROM players WHERE club_id = 1')

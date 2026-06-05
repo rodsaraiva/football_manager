@@ -14,7 +14,7 @@ function makeDb() {
   seedTestDb(db);
   // Insert a save_games row for tests
   db.prepare(
-    `INSERT INTO save_games (id, name, current_season, current_week, player_club_id, difficulty, created_at, updated_at)
+    `INSERT OR IGNORE INTO save_games (id, name, current_season, current_week, player_club_id, difficulty, created_at, updated_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(1, 'Test Save', 1, 1, 1, 'normal', '2026-01-01', '2026-01-01');
   return createTestDbHandle(db);
@@ -72,10 +72,10 @@ describe('insertAssistant + getAssistantsBySave', () => {
     const db = createTestDb();
     seedTestDb(db);
     db.prepare(
-      `INSERT INTO save_games (id, name, current_season, current_week, player_club_id, difficulty, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?)`,
+      `INSERT OR IGNORE INTO save_games (id, name, current_season, current_week, player_club_id, difficulty, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?)`,
     ).run(1, 'Save 1', 1, 1, 1, 'normal', '2026-01-01', '2026-01-01');
     db.prepare(
-      `INSERT INTO save_games (id, name, current_season, current_week, player_club_id, difficulty, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?)`,
+      `INSERT OR IGNORE INTO save_games (id, name, current_season, current_week, player_club_id, difficulty, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?)`,
     ).run(2, 'Save 2', 1, 1, 1, 'normal', '2026-01-01', '2026-01-01');
     const handle = createTestDbHandle(db);
 

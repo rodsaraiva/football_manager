@@ -19,12 +19,12 @@ describe('clubs queries', () => {
 
   describe('getClubsByLeague', () => {
     it('returns 20 clubs for league 1', async () => {
-      const clubs = await getClubsByLeague(db, 1);
+      const clubs = await getClubsByLeague(db, 1, 1);
       expect(clubs).toHaveLength(20);
     });
 
     it('returns clubs all belonging to the given league', async () => {
-      const clubs = await getClubsByLeague(db, 1);
+      const clubs = await getClubsByLeague(db, 1, 1);
       for (const c of clubs) {
         expect(c.leagueId).toBe(1);
       }
@@ -33,7 +33,7 @@ describe('clubs queries', () => {
 
   describe('getClubById', () => {
     it('returns the correct club', async () => {
-      const club = await getClubById(db, 1);
+      const club = await getClubById(db, 1, 1);
       expect(club).not.toBeNull();
       expect(club!.id).toBe(1);
       expect(typeof club!.name).toBe('string');
@@ -41,19 +41,19 @@ describe('clubs queries', () => {
     });
 
     it('returns null for non-existent club', async () => {
-      const club = await getClubById(db, 999999);
+      const club = await getClubById(db, 1, 999999);
       expect(club).toBeNull();
     });
   });
 
   describe('getAllClubs', () => {
     it('returns 330 clubs', async () => {
-      const clubs = await getAllClubs(db);
+      const clubs = await getAllClubs(db, 1);
       expect(clubs).toHaveLength(330);
     });
 
     it('returns Club objects with all expected fields', async () => {
-      const clubs = await getAllClubs(db);
+      const clubs = await getAllClubs(db, 1);
       const first = clubs[0];
       expect(typeof first.id).toBe('number');
       expect(typeof first.name).toBe('string');
@@ -65,7 +65,7 @@ describe('clubs queries', () => {
 
   describe('getClubsByCountry', () => {
     it('returns clubs of the country, each with a numeric divisionLevel', async () => {
-      const clubs = await getClubsByCountry(db, 1);
+      const clubs = await getClubsByCountry(db, 1, 1);
       expect(clubs.length).toBeGreaterThan(0);
       for (const c of clubs) {
         expect(c.countryId).toBe(1);
@@ -75,7 +75,7 @@ describe('clubs queries', () => {
     });
 
     it('spans more than one division (country has multiple tiers)', async () => {
-      const clubs = await getClubsByCountry(db, 1);
+      const clubs = await getClubsByCountry(db, 1, 1);
       const divisions = new Set(clubs.map((c) => c.divisionLevel));
       expect(divisions.size).toBeGreaterThanOrEqual(2);
     });
@@ -83,13 +83,13 @@ describe('clubs queries', () => {
 
   describe('updateClubBudget', () => {
     it('changes the budget of a club', async () => {
-      const before = await getClubById(db, 1);
+      const before = await getClubById(db, 1, 1);
       expect(before).not.toBeNull();
 
       const newBudget = 123456789;
-      await updateClubBudget(db, 1, newBudget);
+      await updateClubBudget(db, 1, 1, newBudget);
 
-      const after = await getClubById(db, 1);
+      const after = await getClubById(db, 1, 1);
       expect(after!.budget).toBe(newBudget);
     });
   });

@@ -20,18 +20,23 @@ describe('board queries', () => {
     rawDb = createTestDb();
     db = createTestDbHandle(rawDb);
 
-    // Insert a country, league and club — FK chain required
+    // Disable FK to break the clubs <-> save_games circular dependency during seeding
+    rawDb.pragma('foreign_keys = OFF');
+
     rawDb.prepare(`INSERT INTO countries (id, name, code, continent) VALUES (1, 'England', 'EN', 'Europe')`).run();
     rawDb.prepare(`INSERT INTO leagues (id, name, country_id, division_level, num_teams, promotion_spots, relegation_spots) VALUES (1, 'Premier League', 1, 1, 20, 0, 3)`).run();
     rawDb.prepare(
-      `INSERT INTO clubs (id, name, short_name, country_id, league_id, reputation, budget, wage_budget, stadium_name, stadium_capacity, training_facilities, youth_academy, medical_department, primary_color, secondary_color)
-       VALUES (1, 'Test FC', 'TFC', 1, 1, 25, 1000000, 50000, 'Test Stadium', 20000, 3, 3, 3, '#fff', '#000')`
+      `INSERT INTO save_games (id, name, current_season, current_week, player_club_id, difficulty, board_trust, created_at, updated_at) VALUES (1, 'Test Save', 1, 1, 1, 'normal', 50, '2026-01-01', '2026-01-01')`
     ).run();
-    const saveRes = rawDb.prepare(
-      `INSERT INTO save_games (name, current_season, current_week, player_club_id, difficulty, board_trust, created_at, updated_at) VALUES ('Test Save', 1, 1, 1, 'normal', 50, '2026-01-01', '2026-01-01')`
+    rawDb.prepare(
+      `INSERT INTO clubs (id, save_id, name, short_name, country_id, league_id, reputation, budget, wage_budget, stadium_name, stadium_capacity, training_facilities, youth_academy, medical_department, primary_color, secondary_color)
+       VALUES (1, 1, 'Test FC', 'TFC', 1, 1, 25, 1000000, 50000, 'Test Stadium', 20000, 3, 3, 3, '#fff', '#000')`
     ).run();
+
+    rawDb.pragma('foreign_keys = ON');
+
     clubId = 1;
-    saveId = Number(saveRes.lastInsertRowid);
+    saveId = 1;
   });
 
   afterAll(() => {
@@ -40,7 +45,7 @@ describe('board queries', () => {
 
   describe('upsertBoardObjective + getBoardObjective', () => {
     it('persists and retrieves an objective for a season', async () => {
-      await upsertBoardObjective(db, {
+      await upsertBoardObjective(db, saveId, {
         clubId,
         season: 1,
         type: 'no_relegation',
@@ -48,7 +53,7 @@ describe('board queries', () => {
         description: 'Avoid relegation this season',
       });
 
-      const obj = await getBoardObjective(db, clubId, 1);
+      const obj = await getBoardObjective(db, saveId, clubId, 1);
 
       expect(obj).not.toBeNull();
       expect(obj!.type).toBe('no_relegation');
@@ -59,19 +64,19 @@ describe('board queries', () => {
     });
 
     it('returns null when no objective exists for a season', async () => {
-      const obj = await getBoardObjective(db, clubId, 99);
+      const obj = await getBoardObjective(db, saveId, clubId, 99);
       expect(obj).toBeNull();
     });
 
     it('upsert overwrites existing objective for same club+season', async () => {
-      await upsertBoardObjective(db, {
+      await upsertBoardObjective(db, saveId, {
         clubId,
         season: 2,
         type: 'top_half',
         target: 10,
         description: 'Finish top half',
       });
-      await upsertBoardObjective(db, {
+      await upsertBoardObjective(db, saveId, {
         clubId,
         season: 2,
         type: 'cup_win',
@@ -79,7 +84,7 @@ describe('board queries', () => {
         description: 'Win the cup',
       });
 
-      const obj = await getBoardObjective(db, clubId, 2);
+      const obj = await getBoardObjective(db, saveId, clubId, 2);
       expect(obj!.type).toBe('cup_win');
       expect(obj!.description).toBe('Win the cup');
     });
@@ -113,7 +118,7 @@ describe('board queries', () => {
         rng,
       });
 
-      await upsertBoardObjective(db, {
+      await upsertBoardObjective(db, 1, {
         clubId,
         season: 3,
         type: objective.type,
@@ -121,7 +126,7 @@ describe('board queries', () => {
         description: objective.description,
       });
 
-      const persisted = await getBoardObjective(db, clubId, 3);
+      const persisted = await getBoardObjective(db, 1, clubId, 3);
 
       expect(persisted).not.toBeNull();
       expect(['no_relegation', 'top_half']).toContain(persisted!.type);

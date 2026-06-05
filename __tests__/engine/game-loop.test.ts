@@ -23,7 +23,7 @@ describe('advanceGameWeek', () => {
     const leagues = await getAllLeagues(db);
     const clubsByLeague: Record<number, number[]> = {};
     for (const league of leagues) {
-      const clubs = await getClubsByLeague(db, league.id);
+      const clubs = await getClubsByLeague(db, 1, league.id);
       clubsByLeague[league.id] = clubs.map(c => c.id);
     }
     const calendar = generateSeasonCalendar({
@@ -33,7 +33,7 @@ describe('advanceGameWeek', () => {
       championsLeagueClubs: [1, 2, 3, 4, 21, 22, 23, 24],
     });
     for (const comp of calendar.competitions) {
-      await createCompetition(db, {
+      await createCompetition(db, 1, {
         id: comp.id,
         name: comp.name,
         type: comp.type,
@@ -43,10 +43,10 @@ describe('advanceGameWeek', () => {
       });
     }
     for (const entry of calendar.entries) {
-      await addCompetitionEntry(db, entry);
+      await addCompetitionEntry(db, 1, entry);
     }
     for (const fixture of calendar.fixtures) {
-      await createFixture(db, {
+      await createFixture(db, 1, {
         id: fixture.id,
         competitionId: fixture.competitionId,
         season: fixture.season,
@@ -66,7 +66,7 @@ describe('advanceGameWeek', () => {
       season: 1,
       week: 7, // first week of league fixtures
       playerClubId: 1,
-      saveId: -1, // no save in test
+      saveId: 1,
       rng: new SeededRng(42),
     });
     expect(result.newWeek).toBe(8);
@@ -80,7 +80,7 @@ describe('advanceGameWeek', () => {
       season: 1,
       week: 7,
       playerClubId: 1,
-      saveId: -1,
+      saveId: 1,
       rng: new SeededRng(42),
     });
     if (result.playerMatchResult) {
@@ -98,7 +98,7 @@ describe('advanceGameWeek', () => {
       season: 1,
       week: 7,
       playerClubId: 1,
-      saveId: -1,
+      saveId: 1,
       rng: new SeededRng(42),
     });
     // Check that fixtures for week 7 are now played
@@ -111,7 +111,7 @@ describe('advanceGameWeek', () => {
     const playerSnapshot = rawDb.prepare('SELECT * FROM players').all() as Array<Record<string, unknown>>;
     const attrSnapshot = rawDb.prepare('SELECT * FROM player_attributes').all() as Array<Record<string, unknown>>;
 
-    const r1 = await advanceGameWeek({ dbHandle: db, season: 1, week: 7, playerClubId: 1, saveId: -1, rng: new SeededRng(42) });
+    const r1 = await advanceGameWeek({ dbHandle: db, season: 1, week: 7, playerClubId: 1, saveId: 1, rng: new SeededRng(42) });
 
     // Full reset: fixtures, events, stats, and player attributes/fitness modified by r1
     rawDb.prepare('UPDATE fixtures SET played = 0, home_goals = NULL, away_goals = NULL WHERE season = 1 AND week = 7').run();
@@ -135,7 +135,7 @@ describe('advanceGameWeek', () => {
       );
     }
 
-    const r2 = await advanceGameWeek({ dbHandle: db, season: 1, week: 7, playerClubId: 1, saveId: -1, rng: new SeededRng(42) });
+    const r2 = await advanceGameWeek({ dbHandle: db, season: 1, week: 7, playerClubId: 1, saveId: 1, rng: new SeededRng(42) });
 
     if (r1.playerMatchResult && r2.playerMatchResult) {
       expect(r1.playerMatchResult.homeGoals).toBe(r2.playerMatchResult.homeGoals);
@@ -149,7 +149,7 @@ describe('advanceGameWeek', () => {
       season: 1,
       week: 46,
       playerClubId: 1,
-      saveId: -1,
+      saveId: 1,
       rng: new SeededRng(42),
     });
     expect(result.newWeek).toBe(1);
@@ -175,7 +175,7 @@ describe('advanceGameWeek', () => {
       season: 1,
       week: 46,
       playerClubId: 1,
-      saveId: -1,
+      saveId: 1,
       rng: new SeededRng(42),
     });
 
@@ -193,7 +193,7 @@ describe('advanceGameWeek', () => {
       season: 1,
       week: 7,
       playerClubId: 1,
-      saveId: -1,
+      saveId: 1,
       rng: new SeededRng(42),
     });
 
@@ -207,7 +207,7 @@ describe('advanceGameWeek', () => {
     expect(fixtureRow).toBeDefined();
 
     const competitionId = fixtureRow!.competition_id;
-    const stats = await getPlayerStatsByCompetition(db, 1, competitionId);
+    const stats = await getPlayerStatsByCompetition(db, 1, 1, competitionId);
 
     // Both teams have 11 players rated → at least 22 rows with appearances > 0
     const withAppearances = stats.filter(s => s.appearances > 0);
@@ -228,14 +228,14 @@ describe('advanceGameWeek', () => {
 
     const starterIds = players.slice(0, 11).map(p => p.id);
     const benchIds = players.slice(11, 19).map(p => p.id);
-    await setTacticLineup(db, tacticRow!.id, starterIds, benchIds);
+    await setTacticLineup(db, 1, tacticRow!.id, starterIds, benchIds);
 
     const result = await advanceGameWeek({
       dbHandle: db,
       season: 1,
       week: 7,
       playerClubId: 1,
-      saveId: -1,
+      saveId: 1,
       rng: new SeededRng(42),
     });
 
@@ -271,7 +271,7 @@ describe('advanceGameWeek', () => {
       season: 1,
       week: 7,
       playerClubId: 1,
-      saveId: -1,
+      saveId: 1,
       rng: new SeededRng(42),
     });
 
@@ -301,7 +301,7 @@ describe('advanceGameWeek', () => {
       season: 1,
       week: 7,
       playerClubId: 1,
-      saveId: -1,
+      saveId: 1,
       rng: new SeededRng(42),
     });
 
@@ -346,7 +346,7 @@ describe('advanceGameWeek', () => {
       season: 1,
       week: 7,
       playerClubId: 1,
-      saveId: -1,
+      saveId: 1,
       rng: new SeededRng(42),
     });
 
@@ -380,7 +380,7 @@ describe('advanceGameWeek', () => {
       season: 1,
       week: 7,
       playerClubId: 1,
-      saveId: -1,
+      saveId: 1,
       rng: new SeededRng(42),
     });
 
@@ -398,7 +398,7 @@ describe('advanceGameWeek', () => {
     const fixturesBefore = (rawDb.prepare('SELECT COUNT(*) AS cnt FROM fixtures').get() as { cnt: number }).cnt;
     expect(fixturesBefore).toBe(0);
 
-    const generated = await ensureSeasonFixtures(db, 1);
+    const generated = await ensureSeasonFixtures(db, 1, 1);
     expect(generated).toBe(true);
 
     const fixturesAfter = (rawDb.prepare('SELECT COUNT(*) AS cnt FROM fixtures WHERE season = 1').get() as { cnt: number }).cnt;
@@ -409,7 +409,7 @@ describe('advanceGameWeek', () => {
 
   it('ensureSeasonFixtures: retorna false quando fixtures já existem (idempotente)', async () => {
     // Fixtures already exist from beforeEach
-    const generated = await ensureSeasonFixtures(db, 1);
+    const generated = await ensureSeasonFixtures(db, 1, 1);
     expect(generated).toBe(false);
 
     // Count must remain the same
@@ -426,7 +426,7 @@ describe('advanceGameWeek', () => {
     rawDb.prepare('DELETE FROM competitions').run();
 
     // Rescue: generate fixtures as HomeScreen now does on mount
-    const generated = await ensureSeasonFixtures(db, 1);
+    const generated = await ensureSeasonFixtures(db, 1, 1);
     expect(generated).toBe(true);
 
     const result = await advanceGameWeek({
@@ -434,7 +434,7 @@ describe('advanceGameWeek', () => {
       season: 1,
       week: 7,
       playerClubId: 1,
-      saveId: -1,
+      saveId: 1,
       rng: new SeededRng(42),
     });
 

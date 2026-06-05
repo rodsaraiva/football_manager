@@ -4,6 +4,10 @@ import { SeededRng } from '@/engine/rng';
 import { getOffersBySellingClub } from '@/database/queries/transfers';
 
 function seed(db: import('better-sqlite3').Database): void {
+  db.pragma('foreign_keys = OFF');
+  db.prepare(
+    "INSERT INTO save_games (id, name, current_season, current_week, player_club_id, difficulty, board_trust, created_at, updated_at) VALUES (1,'T',1,1,1,'normal',50,'','')",
+  ).run();
   db.prepare('INSERT INTO countries (id, name, code, continent) VALUES (?, ?, ?, ?)').run(
     1,
     'X',
@@ -17,20 +21,20 @@ function seed(db: import('better-sqlite3').Database): void {
 
   // User club
   db.prepare(
-    `INSERT INTO clubs (id, name, short_name, country_id, league_id, reputation, budget, wage_budget,
+    `INSERT INTO clubs (id, save_id, name, short_name, country_id, league_id, reputation, budget, wage_budget,
       stadium_name, stadium_capacity, training_facilities, youth_academy, medical_department,
       primary_color, secondary_color)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-  ).run(1, 'User FC', 'USR', 1, 1, 70, 100_000_000, 1_000_000, 'S', 20000, 3, 3, 3, '#1', '#2');
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  ).run(1, 1, 'User FC', 'USR', 1, 1, 70, 100_000_000, 1_000_000, 'S', 20000, 3, 3, 3, '#1', '#2');
 
   // Several rival clubs with big budgets
   for (let i = 2; i <= 8; i++) {
     db.prepare(
-      `INSERT INTO clubs (id, name, short_name, country_id, league_id, reputation, budget, wage_budget,
+      `INSERT INTO clubs (id, save_id, name, short_name, country_id, league_id, reputation, budget, wage_budget,
         stadium_name, stadium_capacity, training_facilities, youth_academy, medical_department,
         primary_color, secondary_color)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    ).run(i, `Rival ${i}`, `R${i}`, 1, 1, 75, 200_000_000, 2_000_000, 'S', 20000, 3, 3, 3, '#1', '#2');
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    ).run(i, 1, `Rival ${i}`, `R${i}`, 1, 1, 75, 200_000_000, 2_000_000, 'S', 20000, 3, 3, 3, '#1', '#2');
   }
 }
 
@@ -41,18 +45,18 @@ function insertPlayer(
   overallValue: number,
 ): void {
   db.prepare(
-    `INSERT INTO players (id, name, nationality, age, position, secondary_position, club_id, wage,
+    `INSERT INTO players (id, save_id, name, nationality, age, position, secondary_position, club_id, wage,
       contract_end, market_value, base_potential, effective_potential, morale, fitness,
       injury_weeks_left, is_free_agent)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-  ).run(id, `Player ${id}`, 'X', 25, 'ST', null, clubId, 50_000, 3, 15_000_000, 85, 85, 70, 90, 0, 0);
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  ).run(id, 1, `Player ${id}`, 'X', 25, 'ST', null, clubId, 50_000, 3, 15_000_000, 85, 85, 70, 90, 0, 0);
 
   db.prepare(
-    `INSERT INTO player_attributes (player_id, finishing, passing, crossing, dribbling, heading,
+    `INSERT INTO player_attributes (player_id, save_id, finishing, passing, crossing, dribbling, heading,
       long_shots, free_kicks, vision, composure, decisions, positioning, aggression, leadership,
       pace, stamina, strength, agility, jumping)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-  ).run(id, overallValue, overallValue, overallValue, overallValue, overallValue, overallValue, overallValue, overallValue, overallValue, overallValue, overallValue, overallValue, overallValue, overallValue, overallValue, overallValue, overallValue, overallValue);
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  ).run(id, 1, overallValue, overallValue, overallValue, overallValue, overallValue, overallValue, overallValue, overallValue, overallValue, overallValue, overallValue, overallValue, overallValue, overallValue, overallValue, overallValue, overallValue, overallValue);
 }
 
 describe('generateAiOffersForPlayerClub', () => {
@@ -66,9 +70,9 @@ describe('generateAiOffersForPlayerClub', () => {
       insertPlayer(db, 1, 1, 85);
 
       const rng = new SeededRng(seed);
-      await generateAiOffersForPlayerClub(h, 1, rng);
+      await generateAiOffersForPlayerClub(h, 1, 1, rng);
 
-      const offers = await getOffersBySellingClub(h, 1);
+      const offers = await getOffersBySellingClub(h, 1, 1);
       if (offers.length > 0) gotOffer = true;
     }
     expect(gotOffer).toBe(true);
@@ -85,10 +89,10 @@ describe('generateAiOffersForPlayerClub', () => {
     // the same (player, offering_club) pair.
     for (let i = 0; i < 10; i++) {
       const rng = new SeededRng(i);
-      await generateAiOffersForPlayerClub(h, 1, rng);
+      await generateAiOffersForPlayerClub(h, 1, 1, rng);
     }
 
-    const offers = await getOffersBySellingClub(h, 1);
+    const offers = await getOffersBySellingClub(h, 1, 1);
     const seen = new Set<string>();
     for (const o of offers) {
       if (o.status !== 'pending' && o.status !== 'countered') continue;
@@ -108,10 +112,10 @@ describe('generateAiOffersForPlayerClub', () => {
 
     for (let i = 0; i < 20; i++) {
       const rng = new SeededRng(i);
-      await generateAiOffersForPlayerClub(h, 1, rng);
+      await generateAiOffersForPlayerClub(h, 1, 1, rng);
     }
 
-    const offers = await getOffersBySellingClub(h, 1);
+    const offers = await getOffersBySellingClub(h, 1, 1);
     expect(offers).toHaveLength(0);
   });
 });
@@ -130,12 +134,12 @@ describe('generateAiOffersForPlayerClub – listing behaviour', () => {
     } = {},
   ): void {
     db.prepare(
-      `INSERT INTO players (id, name, nationality, age, position, secondary_position, club_id, wage,
+      `INSERT INTO players (id, save_id, name, nationality, age, position, secondary_position, club_id, wage,
         contract_end, market_value, base_potential, effective_potential, morale, fitness,
         injury_weeks_left, is_free_agent, is_transfer_listed, is_loan_listed, asking_price, loan_wage_share)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     ).run(
-      id, `Player ${id}`, 'X', 25, 'ST', null, clubId, 50_000, 3, 15_000_000, 85, 85, 70, 90, 0, 0,
+      id, 1, `Player ${id}`, 'X', 25, 'ST', null, clubId, 50_000, 3, 15_000_000, 85, 85, 70, 90, 0, 0,
       opts.isTransferListed ? 1 : 0,
       opts.isLoanListed ? 1 : 0,
       opts.askingPrice ?? null,
@@ -143,12 +147,12 @@ describe('generateAiOffersForPlayerClub – listing behaviour', () => {
     );
 
     db.prepare(
-      `INSERT INTO player_attributes (player_id, finishing, passing, crossing, dribbling, heading,
+      `INSERT INTO player_attributes (player_id, save_id, finishing, passing, crossing, dribbling, heading,
         long_shots, free_kicks, vision, composure, decisions, positioning, aggression, leadership,
         pace, stamina, strength, agility, jumping)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     ).run(
-      id, overallValue, overallValue, overallValue, overallValue, overallValue,
+      id, 1, overallValue, overallValue, overallValue, overallValue, overallValue,
       overallValue, overallValue, overallValue, overallValue, overallValue, overallValue,
       overallValue, overallValue, overallValue, overallValue, overallValue, overallValue, overallValue,
     );
@@ -165,8 +169,8 @@ describe('generateAiOffersForPlayerClub – listing behaviour', () => {
       const h1 = createTestDbHandle(db1);
       seed_(db1);
       insertPlayerWithListing(db1, 1, 1, 80, { isTransferListed: true });
-      await generateAiOffersForPlayerClub(h1, 1, new SeededRng(s));
-      const listed = await getOffersBySellingClub(h1, 1);
+      await generateAiOffersForPlayerClub(h1, 1, 1, new SeededRng(s));
+      const listed = await getOffersBySellingClub(h1, 1, 1);
       listedOffers += listed.filter(o => o.offerType !== 'loan').length;
 
       // Unlisted player run — identical seed, same overall
@@ -174,8 +178,8 @@ describe('generateAiOffersForPlayerClub – listing behaviour', () => {
       const h2 = createTestDbHandle(db2);
       seed_(db2);
       insertPlayerWithListing(db2, 1, 1, 80);
-      await generateAiOffersForPlayerClub(h2, 1, new SeededRng(s));
-      const unlisted = await getOffersBySellingClub(h2, 1);
+      await generateAiOffersForPlayerClub(h2, 1, 1, new SeededRng(s));
+      const unlisted = await getOffersBySellingClub(h2, 1, 1);
       unlistedOffers += unlisted.filter(o => o.offerType !== 'loan').length;
     }
 
@@ -197,8 +201,8 @@ describe('generateAiOffersForPlayerClub – listing behaviour', () => {
       });
       // Make all rivals very wealthy so budget gating is never the limiter
       db.prepare('UPDATE clubs SET budget = 100_000_000 WHERE id != 1').run();
-      await generateAiOffersForPlayerClub(h, 1, new SeededRng(s));
-      const offers = await getOffersBySellingClub(h, 1);
+      await generateAiOffersForPlayerClub(h, 1, 1, new SeededRng(s));
+      const offers = await getOffersBySellingClub(h, 1, 1);
       for (const o of offers) {
         if (o.offerType !== 'loan') allFees.push(o.feeOffered);
       }
@@ -224,8 +228,8 @@ describe('generateAiOffersForPlayerClub – listing behaviour', () => {
       const h1 = createTestDbHandle(db1);
       seed_(db1);
       insertPlayerWithListing(db1, 1, 1, 80, { isLoanListed: true, loanWageShare: 0.5 });
-      await generateAiOffersForPlayerClub(h1, 1, new SeededRng(s));
-      const offers1 = await getOffersBySellingClub(h1, 1);
+      await generateAiOffersForPlayerClub(h1, 1, 1, new SeededRng(s));
+      const offers1 = await getOffersBySellingClub(h1, 1, 1);
       loanOffersForListed += offers1.filter(o => o.offerType === 'loan').length;
 
       // Unlisted player — same seed, same overall
@@ -233,8 +237,8 @@ describe('generateAiOffersForPlayerClub – listing behaviour', () => {
       const h2 = createTestDbHandle(db2);
       seed_(db2);
       insertPlayerWithListing(db2, 1, 1, 80);
-      await generateAiOffersForPlayerClub(h2, 1, new SeededRng(s));
-      const offers2 = await getOffersBySellingClub(h2, 1);
+      await generateAiOffersForPlayerClub(h2, 1, 1, new SeededRng(s));
+      const offers2 = await getOffersBySellingClub(h2, 1, 1);
       loanOffersForUnlisted += offers2.filter(o => o.offerType === 'loan').length;
     }
 

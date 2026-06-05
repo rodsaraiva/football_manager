@@ -154,10 +154,10 @@ describe('E2E · full season simulation', () => {
     // Force a block with blocked_until near the start
     ctx.rawDb
       .prepare(
-        `INSERT INTO transfer_blocks (player_id, offering_club_id, blocked_until_season, blocked_until_week)
-         VALUES (?, ?, ?, ?)`,
+        `INSERT INTO transfer_blocks (save_id, player_id, offering_club_id, blocked_until_season, blocked_until_week)
+         VALUES (?, ?, ?, ?, ?)`,
       )
-      .run(1, ctx.playerClubId, 1, 2);
+      .run(ctx.saveId, 1, ctx.playerClubId, 1, 2);
 
     const before = (ctx.rawDb.prepare('SELECT COUNT(*) as c FROM transfer_blocks').get() as {
       c: number;

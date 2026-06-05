@@ -73,7 +73,7 @@ describe('leagues queries', () => {
 
   describe('createCompetition and getCompetitionsBySeason', () => {
     it('creates a competition and retrieves it by season', async () => {
-      await createCompetition(db, {
+      await createCompetition(db, 1, {
         id: 9001,
         name: 'Test Cup',
         type: 'cup',
@@ -82,7 +82,7 @@ describe('leagues queries', () => {
         leagueId: null,
       });
 
-      const comps = await getCompetitionsBySeason(db, 9999);
+      const comps = await getCompetitionsBySeason(db, 1, 9999);
       expect(comps).toHaveLength(1);
       expect(comps[0].id).toBe(9001);
       expect(comps[0].name).toBe('Test Cup');
@@ -93,7 +93,7 @@ describe('leagues queries', () => {
     });
 
     it('returns empty array for season with no competitions', async () => {
-      const comps = await getCompetitionsBySeason(db, 0);
+      const comps = await getCompetitionsBySeason(db, 1, 0);
       expect(comps).toEqual([]);
     });
   });

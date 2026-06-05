@@ -793,7 +793,7 @@ export async function advanceGameWeek(params: AdvanceWeekParams): Promise<Advanc
       'UPDATE players SET will_retire_at_season_end = 0, consecutive_low_morale_weeks = 0 WHERE save_id = ? AND club_id IS NOT NULL',
     ).run(saveId);
 
-    await archiveSeason(db, season);
+    await archiveSeason(db, saveId, season);
   }
   const newWeek = isSeasonEnd ? 1 : week + 1;
   const newSeason = isSeasonEnd ? season + 1 : season;
