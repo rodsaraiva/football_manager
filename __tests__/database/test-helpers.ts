@@ -3,6 +3,8 @@ import { createAllTables } from '@/database/schema';
 import { generateSeedData } from '../../scripts/generate-seed-data';
 import { DbHandle } from '@/database/queries/players';
 
+export { seedReferenceTables, seedWorldForSave } from '@/database/seed';
+
 export function createTestDb(): Database.Database {
   const db = new Database(':memory:');
   createAllTables(db);
