@@ -4,6 +4,7 @@ import { SCHEMA_SQL } from '@/database/schema';
 import { generateSeedSQL } from '@/database/seed';
 import { generateSeedData } from '../../scripts/generate-seed-data';
 import { DbHandle } from '@/database/queries/players';
+import { migrateSaveIdAsync } from '@/database/migration';
 
 interface DatabaseState {
   db: SQLite.SQLiteDatabase | null;
@@ -183,6 +184,10 @@ export const useDatabaseStore = create<DatabaseStore>((set) => ({
           value TEXT NOT NULL
         );
       `);
+
+      // Save isolation: add save_id to legacy world tables (idempotent) and adopt
+      // orphan rows when a single save exists. Fresh DBs already have the columns.
+      await migrateSaveIdAsync(db);
 
       // Seed if DB is missing data (check both countries and clubs to catch partial seeds)
       const countryCount = await db.getFirstAsync<{ cnt: number }>('SELECT COUNT(*) as cnt FROM countries');
