@@ -23,12 +23,12 @@ function rowToStaff(row: StaffRow): Staff {
   };
 }
 
-export async function getStaffByClub(db: DbHandle, clubId: number): Promise<Staff[]> {
-  const rows = await db.prepare('SELECT * FROM staff WHERE club_id = ?').all(clubId) as StaffRow[];
+export async function getStaffByClub(db: DbHandle, saveId: number, clubId: number): Promise<Staff[]> {
+  const rows = await db.prepare('SELECT * FROM staff WHERE save_id = ? AND club_id = ?').all(saveId, clubId) as StaffRow[];
   return rows.map(rowToStaff);
 }
 
-export async function getStaffByRole(db: DbHandle, role: StaffRole): Promise<Staff[]> {
-  const rows = await db.prepare('SELECT * FROM staff WHERE role = ?').all(role) as StaffRow[];
+export async function getStaffByRole(db: DbHandle, saveId: number, role: StaffRole): Promise<Staff[]> {
+  const rows = await db.prepare('SELECT * FROM staff WHERE save_id = ? AND role = ?').all(saveId, role) as StaffRow[];
   return rows.map(rowToStaff);
 }

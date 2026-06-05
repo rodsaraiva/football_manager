@@ -69,17 +69,17 @@ function rowToTacticPosition(row: TacticPositionRow): TacticPosition {
   };
 }
 
-export async function getActiveTactic(db: DbHandle, clubId: number): Promise<Tactic | null> {
+export async function getActiveTactic(db: DbHandle, saveId: number, clubId: number): Promise<Tactic | null> {
   const row = await db
-    .prepare('SELECT * FROM tactics WHERE club_id = ? AND is_active = 1')
-    .get(clubId) as TacticRow | undefined;
+    .prepare('SELECT * FROM tactics WHERE save_id = ? AND club_id = ? AND is_active = 1')
+    .get(saveId, clubId) as TacticRow | undefined;
   return row ? rowToTactic(row) : null;
 }
 
-export async function getTacticPositions(db: DbHandle, tacticId: number): Promise<TacticPosition[]> {
+export async function getTacticPositions(db: DbHandle, saveId: number, tacticId: number): Promise<TacticPosition[]> {
   const rows = await db
-    .prepare('SELECT * FROM tactic_positions WHERE tactic_id = ? ORDER BY slot ASC')
-    .all(tacticId) as TacticPositionRow[];
+    .prepare('SELECT tp.* FROM tactic_positions tp JOIN tactics t ON t.id = tp.tactic_id WHERE t.save_id = ? AND tp.tactic_id = ? ORDER BY tp.slot ASC')
+    .all(saveId, tacticId) as TacticPositionRow[];
   return rows.map(rowToTacticPosition);
 }
 
@@ -95,7 +95,7 @@ export interface UpdateTacticInput {
   name?: string;
 }
 
-export async function updateTactic(db: DbHandle, tacticId: number, updates: UpdateTacticInput): Promise<void> {
+export async function updateTactic(db: DbHandle, saveId: number, tacticId: number, updates: UpdateTacticInput): Promise<void> {
   const fields: string[] = [];
   const params: unknown[] = [];
 
@@ -138,17 +138,24 @@ export async function updateTactic(db: DbHandle, tacticId: number, updates: Upda
 
   if (fields.length === 0) return;
 
-  params.push(tacticId);
-  await db.prepare(`UPDATE tactics SET ${fields.join(', ')} WHERE id = ?`).run(...params);
+  params.push(saveId, tacticId);
+  await db.prepare(`UPDATE tactics SET ${fields.join(', ')} WHERE save_id = ? AND id = ?`).run(...params);
 }
 
 export async function setTacticLineup(
   db: DbHandle,
+  saveId: number,
   tacticId: number,
   starters: number[],
   bench: number[],
 ): Promise<void> {
   await runInTransaction(db, async () => {
+    // Guard: verify the tactic belongs to this save before mutating lineup
+    const tactic = await db
+      .prepare('SELECT id FROM tactics WHERE save_id = ? AND id = ?')
+      .get(saveId, tacticId) as { id: number } | undefined;
+    if (!tactic) return;
+
     await db.prepare('DELETE FROM tactic_lineup WHERE tactic_id = ?').run(tacticId);
     const all = [...starters, ...bench];
     for (let i = 0; i < all.length; i++) {
@@ -161,8 +168,15 @@ export async function setTacticLineup(
 
 export async function getTacticLineup(
   db: DbHandle,
+  saveId: number,
   tacticId: number,
 ): Promise<{ starterIds: number[]; benchIds: number[] } | null> {
+  // Guard: verify the tactic belongs to this save
+  const tactic = await db
+    .prepare('SELECT id FROM tactics WHERE save_id = ? AND id = ?')
+    .get(saveId, tacticId) as { id: number } | undefined;
+  if (!tactic) return null;
+
   const rows = await db
     .prepare('SELECT slot_index, player_id FROM tactic_lineup WHERE tactic_id = ? ORDER BY slot_index ASC')
     .all(tacticId) as { slot_index: number; player_id: number }[];

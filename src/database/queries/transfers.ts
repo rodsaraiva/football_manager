@@ -66,13 +66,14 @@ export interface CreateTransferInput {
   loanEnd?: number | null;
 }
 
-export async function createTransfer(db: DbHandle, input: CreateTransferInput): Promise<number> {
+export async function createTransfer(db: DbHandle, saveId: number, input: CreateTransferInput): Promise<number> {
   const result = await db
     .prepare(
-      `INSERT INTO transfers (player_id, season, from_club_id, to_club_id, fee, wage_offered, type, loan_end)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO transfers (save_id, player_id, season, from_club_id, to_club_id, fee, wage_offered, type, loan_end)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .run(
+      saveId,
       input.playerId,
       input.season,
       input.fromClubId ?? null,
@@ -85,20 +86,17 @@ export async function createTransfer(db: DbHandle, input: CreateTransferInput): 
   return Number(result.lastInsertRowid);
 }
 
-export async function getTransfersBySeason(db: DbHandle, season: number): Promise<Transfer[]> {
+export async function getTransfersBySeason(db: DbHandle, saveId: number, season: number): Promise<Transfer[]> {
   const rows = await db
-    .prepare('SELECT * FROM transfers WHERE season = ?')
-    .all(season) as TransferRow[];
+    .prepare('SELECT * FROM transfers WHERE save_id = ? AND season = ?')
+    .all(saveId, season) as TransferRow[];
   return rows.map(rowToTransfer);
 }
 
-/**
- * Returns all transfers where the club was either the buying or selling side.
- */
-export async function getTransfersByClub(db: DbHandle, clubId: number): Promise<Transfer[]> {
+export async function getTransfersByClub(db: DbHandle, saveId: number, clubId: number): Promise<Transfer[]> {
   const rows = await db
-    .prepare('SELECT * FROM transfers WHERE to_club_id = ? OR from_club_id = ? ORDER BY season DESC, id DESC')
-    .all(clubId, clubId) as TransferRow[];
+    .prepare('SELECT * FROM transfers WHERE save_id = ? AND (to_club_id = ? OR from_club_id = ?) ORDER BY season DESC, id DESC')
+    .all(saveId, clubId, clubId) as TransferRow[];
   return rows.map(rowToTransfer);
 }
 
@@ -114,16 +112,17 @@ export interface CreateOfferInput {
   createdWeek?: number | null;
 }
 
-export async function createOffer(db: DbHandle, input: CreateOfferInput): Promise<number> {
+export async function createOffer(db: DbHandle, saveId: number, input: CreateOfferInput): Promise<number> {
   const type = input.offerType ?? 'transfer';
   const result = await db
     .prepare(
       `INSERT INTO transfer_offers
-         (player_id, offering_club_id, selling_club_id, fee_offered, wage_offered, status,
+         (save_id, player_id, offering_club_id, selling_club_id, fee_offered, wage_offered, status,
           offer_type, loan_end, created_season, created_week, round_count)
-       VALUES (?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?, 0)`,
+       VALUES (?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?, 0)`,
     )
     .run(
+      saveId,
       input.playerId,
       input.offeringClubId,
       input.sellingClubId,
@@ -137,58 +136,62 @@ export async function createOffer(db: DbHandle, input: CreateOfferInput): Promis
   return Number(result.lastInsertRowid);
 }
 
-export async function getPendingOffers(db: DbHandle): Promise<TransferOffer[]> {
+export async function getPendingOffers(db: DbHandle, saveId: number): Promise<TransferOffer[]> {
   const rows = await db
-    .prepare("SELECT * FROM transfer_offers WHERE status = 'pending'")
-    .all() as TransferOfferRow[];
+    .prepare("SELECT * FROM transfer_offers WHERE save_id = ? AND status = 'pending'")
+    .all(saveId) as TransferOfferRow[];
   return rows.map(rowToTransferOffer);
 }
 
-export async function getOffersByOfferingClub(db: DbHandle, clubId: number): Promise<TransferOffer[]> {
+export async function getOffersByOfferingClub(db: DbHandle, saveId: number, clubId: number): Promise<TransferOffer[]> {
   const rows = await db
-    .prepare('SELECT * FROM transfer_offers WHERE offering_club_id = ? ORDER BY id DESC')
-    .all(clubId) as TransferOfferRow[];
+    .prepare('SELECT * FROM transfer_offers WHERE save_id = ? AND offering_club_id = ? ORDER BY id DESC')
+    .all(saveId, clubId) as TransferOfferRow[];
   return rows.map(rowToTransferOffer);
 }
 
-export async function getOffersBySellingClub(db: DbHandle, clubId: number): Promise<TransferOffer[]> {
+export async function getOffersBySellingClub(db: DbHandle, saveId: number, clubId: number): Promise<TransferOffer[]> {
   const rows = await db
-    .prepare('SELECT * FROM transfer_offers WHERE selling_club_id = ? ORDER BY id DESC')
-    .all(clubId) as TransferOfferRow[];
+    .prepare('SELECT * FROM transfer_offers WHERE save_id = ? AND selling_club_id = ? ORDER BY id DESC')
+    .all(saveId, clubId) as TransferOfferRow[];
   return rows.map(rowToTransferOffer);
 }
 
-export async function getOfferById(db: DbHandle, offerId: number): Promise<TransferOffer | null> {
+export async function getOfferById(db: DbHandle, saveId: number, offerId: number): Promise<TransferOffer | null> {
   const row = await db
-    .prepare('SELECT * FROM transfer_offers WHERE id = ?')
-    .get(offerId) as TransferOfferRow | undefined;
+    .prepare('SELECT * FROM transfer_offers WHERE save_id = ? AND id = ?')
+    .get(saveId, offerId) as TransferOfferRow | undefined;
   return row ? rowToTransferOffer(row) : null;
 }
 
 export async function updateOfferStatus(
   db: DbHandle,
+  saveId: number,
   offerId: number,
   status: OfferStatus,
   responseWeek?: number,
 ): Promise<void> {
-  await db.prepare('UPDATE transfer_offers SET status = ?, response_week = ? WHERE id = ?').run(
+  await db.prepare('UPDATE transfer_offers SET status = ?, response_week = ? WHERE save_id = ? AND id = ?').run(
     status,
     responseWeek ?? null,
+    saveId,
     offerId,
   );
 }
 
 export async function updateOfferFee(
   db: DbHandle,
+  saveId: number,
   offerId: number,
   feeOffered: number,
 ): Promise<void> {
-  await db.prepare('UPDATE transfer_offers SET fee_offered = ? WHERE id = ?').run(
+  await db.prepare('UPDATE transfer_offers SET fee_offered = ? WHERE save_id = ? AND id = ?').run(
     feeOffered,
+    saveId,
     offerId,
   );
 }
 
-export async function deleteOffer(db: DbHandle, offerId: number): Promise<void> {
-  await db.prepare('DELETE FROM transfer_offers WHERE id = ?').run(offerId);
+export async function deleteOffer(db: DbHandle, saveId: number, offerId: number): Promise<void> {
+  await db.prepare('DELETE FROM transfer_offers WHERE save_id = ? AND id = ?').run(saveId, offerId);
 }

@@ -42,20 +42,21 @@ export interface UpsertPlayerStatsInput {
   minutesPlayed: number;   // this match's minutes
 }
 
-export async function upsertPlayerStats(db: DbHandle, input: UpsertPlayerStatsInput): Promise<void> {
+export async function upsertPlayerStats(db: DbHandle, saveId: number, input: UpsertPlayerStatsInput): Promise<void> {
   const existing = await db
-    .prepare('SELECT * FROM player_stats WHERE player_id = ? AND season = ? AND competition_id = ?')
-    .get(input.playerId, input.season, input.competitionId) as PlayerStatsRow | undefined;
+    .prepare('SELECT * FROM player_stats WHERE save_id = ? AND player_id = ? AND season = ? AND competition_id = ?')
+    .get(saveId, input.playerId, input.season, input.competitionId) as PlayerStatsRow | undefined;
 
   if (!existing) {
     await db
       .prepare(
         `INSERT INTO player_stats
-          (player_id, season, competition_id, appearances, goals, assists,
+          (save_id, player_id, season, competition_id, appearances, goals, assists,
            yellow_cards, red_cards, avg_rating, minutes_played)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .run(
+        saveId,
         input.playerId, input.season, input.competitionId,
         input.appearances, input.goals, input.assists,
         input.yellowCards, input.redCards, input.rating, input.minutesPlayed,
@@ -79,33 +80,35 @@ export async function upsertPlayerStats(db: DbHandle, input: UpsertPlayerStatsIn
         red_cards = red_cards + ?,
         avg_rating = ?,
         minutes_played = ?
-       WHERE player_id = ? AND season = ? AND competition_id = ?`,
+       WHERE save_id = ? AND player_id = ? AND season = ? AND competition_id = ?`,
     )
     .run(
       input.appearances, input.goals, input.assists,
       input.yellowCards, input.redCards,
       newAvgRating, newMinutes,
-      input.playerId, input.season, input.competitionId,
+      saveId, input.playerId, input.season, input.competitionId,
     );
 }
 
 export async function getPlayerStatsByCompetition(
   db: DbHandle,
+  saveId: number,
   season: number,
   competitionId: number,
 ): Promise<PlayerStats[]> {
   const rows = await db
-    .prepare('SELECT * FROM player_stats WHERE season = ? AND competition_id = ?')
-    .all(season, competitionId) as PlayerStatsRow[];
+    .prepare('SELECT * FROM player_stats WHERE save_id = ? AND season = ? AND competition_id = ?')
+    .all(saveId, season, competitionId) as PlayerStatsRow[];
   return rows.map(rowToPlayerStats);
 }
 
 export async function getPlayerStatsForPlayer(
   db: DbHandle,
+  saveId: number,
   playerId: number,
 ): Promise<PlayerStats[]> {
   const rows = await db
-    .prepare('SELECT * FROM player_stats WHERE player_id = ? ORDER BY season ASC, competition_id ASC')
-    .all(playerId) as PlayerStatsRow[];
+    .prepare('SELECT * FROM player_stats WHERE save_id = ? AND player_id = ? ORDER BY season ASC, competition_id ASC')
+    .all(saveId, playerId) as PlayerStatsRow[];
   return rows.map(rowToPlayerStats);
 }

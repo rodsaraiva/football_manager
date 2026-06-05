@@ -83,6 +83,7 @@ function mapAward(row: AwardRow): SeasonAward {
 
 export async function getSeasonSummary(
   db: DbHandle,
+  saveId: number,
   season: number,
 ): Promise<SeasonCompetitionSummary[]> {
   const results = (await db
@@ -91,10 +92,10 @@ export async function getSeasonSummary(
               r.champion_club_id, r.runner_up_club_id
        FROM season_competition_results r
        LEFT JOIN competitions c ON c.id = r.competition_id
-       WHERE r.season = ?
+       WHERE r.save_id = ? AND r.season = ?
        ORDER BY r.competition_id ASC`,
     )
-    .all(season)) as ResultRow[];
+    .all(saveId, season)) as ResultRow[];
 
   const awards = (await db
     .prepare(
@@ -102,19 +103,19 @@ export async function getSeasonSummary(
               a.award_type, a.rank, a.player_id, a.club_id, a.value
        FROM season_awards a
        LEFT JOIN competitions c ON c.id = a.competition_id
-       WHERE a.season = ?
+       WHERE a.save_id = ? AND a.season = ?
        ORDER BY a.competition_id ASC, a.award_type ASC, a.rank ASC`,
     )
-    .all(season)) as AwardRow[];
+    .all(saveId, season)) as AwardRow[];
 
   const relegated = (await db
     .prepare(
       `SELECT season, league_id, club_id, final_position
        FROM season_relegated
-       WHERE season = ?
+       WHERE save_id = ? AND season = ?
        ORDER BY final_position ASC`,
     )
-    .all(season)) as RelegatedRow[];
+    .all(saveId, season)) as RelegatedRow[];
 
   return results.map((r) => {
     const compAwards = awards.filter((a) => a.competition_id === r.competition_id);
@@ -139,16 +140,17 @@ export async function getSeasonSummary(
 
 export async function getCompetitionHistory(
   db: DbHandle,
+  saveId: number,
   competitionId: number,
 ): Promise<CompetitionHistoryEntry[]> {
   const rows = (await db
     .prepare(
       `SELECT season, competition_id, champion_club_id, runner_up_club_id
        FROM season_competition_results
-       WHERE competition_id = ?
+       WHERE save_id = ? AND competition_id = ?
        ORDER BY season ASC`,
     )
-    .all(competitionId)) as Array<{
+    .all(saveId, competitionId)) as Array<{
       season: number;
       competition_id: number;
       champion_club_id: number;
@@ -164,6 +166,7 @@ export async function getCompetitionHistory(
 
 export async function getClubTrophies(
   db: DbHandle,
+  saveId: number,
   clubId: number,
 ): Promise<ClubTrophySummary[]> {
   const rows = (await db
@@ -172,10 +175,10 @@ export async function getClubTrophies(
               r.champion_club_id, r.runner_up_club_id
        FROM season_competition_results r
        LEFT JOIN competitions c ON c.id = r.competition_id
-       WHERE r.champion_club_id = ? OR r.runner_up_club_id = ?
+       WHERE r.save_id = ? AND (r.champion_club_id = ? OR r.runner_up_club_id = ?)
        ORDER BY r.competition_id ASC, r.season ASC`,
     )
-    .all(clubId, clubId)) as Array<{
+    .all(saveId, clubId, clubId)) as Array<{
       competition_id: number;
       competition_name: string | null;
       season: number;
@@ -211,6 +214,7 @@ export async function getClubTrophies(
 
 export async function getPlayerAwards(
   db: DbHandle,
+  saveId: number,
   playerId: number,
 ): Promise<SeasonAward[]> {
   const rows = (await db
@@ -219,15 +223,16 @@ export async function getPlayerAwards(
               a.award_type, a.rank, a.player_id, a.club_id, a.value
        FROM season_awards a
        LEFT JOIN competitions c ON c.id = a.competition_id
-       WHERE a.player_id = ?
+       WHERE a.save_id = ? AND a.player_id = ?
        ORDER BY a.season ASC, a.competition_id ASC, a.award_type ASC, a.rank ASC`,
     )
-    .all(playerId)) as AwardRow[];
+    .all(saveId, playerId)) as AwardRow[];
   return rows.map(mapAward);
 }
 
 export async function getPlayerTitles(
   db: DbHandle,
+  saveId: number,
   playerId: number,
 ): Promise<PlayerTitle[]> {
   const rows = (await db
@@ -235,10 +240,10 @@ export async function getPlayerTitles(
       `SELECT t.season, t.competition_id, c.name AS competition_name, t.club_id, t.player_id
        FROM season_player_titles t
        LEFT JOIN competitions c ON c.id = t.competition_id
-       WHERE t.player_id = ?
+       WHERE t.save_id = ? AND t.player_id = ?
        ORDER BY t.season ASC, t.competition_id ASC`,
     )
-    .all(playerId)) as Array<{
+    .all(saveId, playerId)) as Array<{
       season: number;
       competition_id: number;
       competition_name: string | null;

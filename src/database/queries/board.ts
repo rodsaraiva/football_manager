@@ -30,17 +30,18 @@ interface BoardTrustRow {
 
 export async function insertReputationHistory(
   db: DbHandle,
+  saveId: number,
   entry: Omit<ReputationHistoryEntry, 'id'>,
 ): Promise<void> {
   await db
-    .prepare('INSERT INTO club_reputation_history (club_id, season, reputation, delta) VALUES (?, ?, ?, ?)')
-    .run(entry.clubId, entry.season, entry.reputation, entry.delta);
+    .prepare('INSERT INTO club_reputation_history (save_id, club_id, season, reputation, delta) VALUES (?, ?, ?, ?, ?)')
+    .run(saveId, entry.clubId, entry.season, entry.reputation, entry.delta);
 }
 
-export async function getReputationHistory(db: DbHandle, clubId: number): Promise<ReputationHistoryEntry[]> {
+export async function getReputationHistory(db: DbHandle, saveId: number, clubId: number): Promise<ReputationHistoryEntry[]> {
   const rows = (await db
-    .prepare('SELECT * FROM club_reputation_history WHERE club_id = ? ORDER BY season DESC')
-    .all(clubId)) as ReputationHistoryRow[];
+    .prepare('SELECT * FROM club_reputation_history WHERE save_id = ? AND club_id = ? ORDER BY season DESC')
+    .all(saveId, clubId)) as ReputationHistoryRow[];
   return rows.map((r) => ({ id: r.id, clubId: r.club_id, season: r.season, reputation: r.reputation, delta: r.delta }));
 }
 
@@ -48,23 +49,25 @@ export async function getReputationHistory(db: DbHandle, clubId: number): Promis
 
 export async function upsertBoardObjective(
   db: DbHandle,
+  saveId: number,
   obj: Omit<BoardObjective, 'id'>,
 ): Promise<void> {
   await db
     .prepare(
-      'INSERT OR REPLACE INTO board_objectives (club_id, season, type, target, description) VALUES (?, ?, ?, ?, ?)',
+      'INSERT OR REPLACE INTO board_objectives (save_id, club_id, season, type, target, description) VALUES (?, ?, ?, ?, ?, ?)',
     )
-    .run(obj.clubId, obj.season, obj.type, obj.target ?? null, obj.description);
+    .run(saveId, obj.clubId, obj.season, obj.type, obj.target ?? null, obj.description);
 }
 
 export async function getBoardObjective(
   db: DbHandle,
+  saveId: number,
   clubId: number,
   season: number,
 ): Promise<BoardObjective | null> {
   const row = (await db
-    .prepare('SELECT * FROM board_objectives WHERE club_id = ? AND season = ?')
-    .get(clubId, season)) as BoardObjectiveRow | undefined;
+    .prepare('SELECT * FROM board_objectives WHERE save_id = ? AND club_id = ? AND season = ?')
+    .get(saveId, clubId, season)) as BoardObjectiveRow | undefined;
   if (!row) return null;
   return {
     id: row.id,
@@ -80,17 +83,18 @@ export async function getBoardObjective(
 
 export async function insertTrustHistory(
   db: DbHandle,
+  saveId: number,
   entry: Omit<BoardTrustEntry, 'id'>,
 ): Promise<void> {
   await db
-    .prepare('INSERT INTO board_trust_history (club_id, season, trust, outcome) VALUES (?, ?, ?, ?)')
-    .run(entry.clubId, entry.season, entry.trust, entry.outcome);
+    .prepare('INSERT INTO board_trust_history (save_id, club_id, season, trust, outcome) VALUES (?, ?, ?, ?, ?)')
+    .run(saveId, entry.clubId, entry.season, entry.trust, entry.outcome);
 }
 
-export async function getTrustHistory(db: DbHandle, clubId: number): Promise<BoardTrustEntry[]> {
+export async function getTrustHistory(db: DbHandle, saveId: number, clubId: number): Promise<BoardTrustEntry[]> {
   const rows = (await db
-    .prepare('SELECT * FROM board_trust_history WHERE club_id = ? ORDER BY season DESC')
-    .all(clubId)) as BoardTrustRow[];
+    .prepare('SELECT * FROM board_trust_history WHERE save_id = ? AND club_id = ? ORDER BY season DESC')
+    .all(saveId, clubId)) as BoardTrustRow[];
   return rows.map((r) => ({
     id: r.id,
     clubId: r.club_id,
