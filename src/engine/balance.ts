@@ -36,3 +36,17 @@ export const ASSISTANT_CANDIDATE_POOL_SIZE = 5;
 export const ASSISTANT_COMMENT_CHANCE_PER_WEEK = 0.15;
 // seasonsAtClub thresholds to reach each star level (index = star - 1)
 export const ASSISTANT_QUALITY_THRESHOLDS = [0, 2, 4, 7, 10] as const;
+
+// ─── Match consequences (injuries, suspensions) ──────────────────────────────
+// Weighted injury duration in weeks. Index 0 → 1 week, biased toward short knocks.
+// Weights sum is arbitrary; sampling is proportional. 1-2w ~60%, 3-5w ~30%, 6-8w ~10%.
+export const INJURY_DURATION_WEIGHTS: readonly number[] = [35, 25, 14, 9, 7, 4, 3, 3];
+//                                                          1w  2w  3w 4w 5w 6w 7w 8w
+export const RED_SUSPENSION_WEEKS = 1;
+export const YELLOW_SUSPENSION_THRESHOLD = 5; // every 5 yellows in a season ⇒ 1-week ban
+export const YELLOW_SUSPENSION_WEEKS = 1;
+
+// ─── Tactics → match outcome ─────────────────────────────────────────────────
+// Pressing modifier on attack, centred on medium (pressFactor 0.5).
+// high(0.8) ⇒ +3.6% attack, low(0.3) ⇒ -2.4% attack.
+export const PRESSING_ATTACK_GAIN = 0.12;
