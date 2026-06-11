@@ -33,6 +33,7 @@ interface PlayerRow {
   loan_wage_share: number | null;
   consecutive_low_morale_weeks: number;
   will_retire_at_season_end: number;
+  suspension_weeks_left: number;
 }
 
 interface PlayerAttributesRow {
@@ -74,6 +75,7 @@ function rowToPlayer(row: PlayerRow): Player {
     morale: row.morale,
     fitness: row.fitness,
     injuryWeeksLeft: row.injury_weeks_left,
+    suspensionWeeksLeft: row.suspension_weeks_left ?? 0,
     isFreeAgent: row.is_free_agent === 1,
     preferredFoot: (row.preferred_foot === 'left' ? 'left' : 'right') as Foot,
     weakFootAbility: row.weak_foot_ability ?? 3,
@@ -278,4 +280,17 @@ export async function getListedPlayers(
     .prepare(`SELECT * FROM players WHERE save_id = ? AND ${where}`)
     .all(saveId) as PlayerRow[];
   return rows.map(rowToPlayer);
+}
+
+// Uma nova lesão sobrescreve a duração restante (a pancada mais recente define).
+// id é PK global (offset por save), então dispensa saveId.
+export async function setPlayerInjury(db: DbHandle, playerId: number, weeks: number): Promise<void> {
+  await db.prepare('UPDATE players SET injury_weeks_left = ? WHERE id = ?').run(weeks, playerId);
+}
+
+// Suspensões acumulam (um vermelho durante uma suspensão estende a punição).
+export async function setPlayerSuspension(db: DbHandle, playerId: number, weeks: number): Promise<void> {
+  await db
+    .prepare('UPDATE players SET suspension_weeks_left = suspension_weeks_left + ? WHERE id = ?')
+    .run(weeks, playerId);
 }

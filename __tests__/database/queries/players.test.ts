@@ -8,7 +8,10 @@ import {
   updatePlayerMorale,
   getFreeAgents,
   getPlayersAboutToRetire,
+  setPlayerInjury,
+  setPlayerSuspension,
 } from '@/database/queries/players';
+import { TEST_SAVE_ID } from '../test-helpers';
 
 describe('players queries', () => {
   let rawDb: Database.Database;
@@ -199,5 +202,39 @@ describe('players queries', () => {
       rawDb.prepare('DELETE FROM player_attributes WHERE player_id = 99999').run();
       rawDb.prepare('DELETE FROM players WHERE id = 99999').run();
     });
+  });
+});
+
+describe('suspension_weeks_left column + helpers', () => {
+  let rawDb: ReturnType<typeof createTestDb>;
+  let db: ReturnType<typeof createTestDbHandle>;
+
+  beforeEach(() => {
+    rawDb = createTestDb();
+    seedTestDb(rawDb);
+    db = createTestDbHandle(rawDb);
+  });
+  afterEach(() => rawDb.close());
+
+  it('seeded players default to suspension_weeks_left = 0 and expose suspensionWeeksLeft', async () => {
+    const p = await getPlayerById(db, TEST_SAVE_ID, 1);
+    expect(p).not.toBeNull();
+    expect(p!.suspensionWeeksLeft).toBe(0);
+    const row = rawDb.prepare('SELECT suspension_weeks_left AS s FROM players WHERE id = 1').get() as { s: number };
+    expect(row.s).toBe(0);
+  });
+
+  it('setPlayerInjury overwrites injury_weeks_left', async () => {
+    await setPlayerInjury(db, 1, 3);
+    expect((await getPlayerById(db, TEST_SAVE_ID, 1))!.injuryWeeksLeft).toBe(3);
+    await setPlayerInjury(db, 1, 1);
+    expect((await getPlayerById(db, TEST_SAVE_ID, 1))!.injuryWeeksLeft).toBe(1);
+  });
+
+  it('setPlayerSuspension accumulates suspension_weeks_left', async () => {
+    await setPlayerSuspension(db, 1, 1);
+    await setPlayerSuspension(db, 1, 2);
+    const row = rawDb.prepare('SELECT suspension_weeks_left AS s FROM players WHERE id = 1').get() as { s: number };
+    expect(row.s).toBe(3);
   });
 });

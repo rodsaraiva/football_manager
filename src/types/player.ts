@@ -42,6 +42,7 @@ export interface Player {
   morale: number;
   fitness: number;
   injuryWeeksLeft: number;
+  suspensionWeeksLeft: number;
   isFreeAgent: boolean;
   preferredFoot: Foot;
   weakFootAbility: number; // 1-5
