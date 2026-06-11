@@ -345,3 +345,47 @@ describe('simulateMatch', () => {
     }
   });
 });
+
+describe('goal calibration & home/attendance effects', () => {
+  it('averages ~2.5 goals/match over 2000 balanced matches (gap #5)', () => {
+    let total = 0;
+    const N = 2000;
+    for (let seed = 0; seed < N; seed++) {
+      const input = makeInput(70, 70);
+      input.rng = new SeededRng(seed);
+      const r = simulateMatch(input);
+      total += r.homeGoals + r.awayGoals;
+    }
+    const avg = total / N;
+    expect(avg).toBeGreaterThanOrEqual(2.35);
+    expect(avg).toBeLessThanOrEqual(2.65);
+  });
+
+  it('home side wins more than the away side over 2000 equal-squad matches (gap #1)', () => {
+    let homeWins = 0, awayWins = 0;
+    const N = 2000;
+    for (let seed = 0; seed < N; seed++) {
+      const input = makeInput(70, 70);
+      input.rng = new SeededRng(seed);
+      const r = simulateMatch(input);
+      if (r.homeGoals > r.awayGoals) homeWins++;
+      else if (r.awayGoals > r.homeGoals) awayWins++;
+    }
+    expect(homeWins).toBeGreaterThan(awayWins);
+    const homeWinRate = homeWins / N;
+    expect(homeWinRate).toBeGreaterThanOrEqual(0.40);
+    expect(homeWinRate).toBeLessThanOrEqual(0.55);
+  });
+
+  it('higher attendance yields more home goals on average (gap #1 attendance)', () => {
+    const N = 1500;
+    let bigHomeGoals = 0, smallHomeGoals = 0;
+    for (let seed = 0; seed < N; seed++) {
+      const big = makeInput(70, 70); big.rng = new SeededRng(seed); big.attendance = 60000;
+      const small = makeInput(70, 70); small.rng = new SeededRng(seed); small.attendance = 1000;
+      bigHomeGoals += simulateMatch(big).homeGoals;
+      smallHomeGoals += simulateMatch(small).homeGoals;
+    }
+    expect(bigHomeGoals).toBeGreaterThan(smallHomeGoals);
+  });
+});

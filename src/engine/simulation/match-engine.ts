@@ -45,18 +45,18 @@ export interface MatchResult {
   attendance: number;
 }
 
-// ─── Constants (tuned for 30 blocks × 3 min, ~2.5 goals/match) ──────────────
+// ─── Constants (tuned for 30 blocks × 3 min, ~2.5 goals/match; recalibrated 2026-06-11) ──
 
 const TOTAL_BLOCKS = 30;
 const HALF_BLOCK = 15;
 
-const GOAL_BASE_PROB = 0.016;
+const GOAL_BASE_PROB = 0.013;      // was 0.016 — recalibrated to ~2.5 goals/match
 const SHOT_BASE_PROB = 0.10;       // #2: probability of generating any shot attempt
 const YELLOW_BASE_PROB = 0.008;
 const RED_DIRECT_PROB = 0.0005;
 const INJURY_PROB = 0.002;
-const PENALTY_PROB = 0.003;
-const CORNER_GOAL_PROB = 0.05;
+const PENALTY_PROB = 0.0025;       // was 0.003
+const CORNER_GOAL_PROB = 0.04;     // was 0.05
 const FREEKICK_GOAL_PROB = 0.03;
 const ASSIST_CHANCE = 0.70;
 const MAX_SUBS = 5;
@@ -437,13 +437,15 @@ function runBlock(
 
   // ── #2: xG-based shot resolution ──────────────────────────────────────
   // Base attack probability (replaces old GOAL_BASE_PROB direct goal path)
+  const pressingChanceMod = 1 + (team.strength.pressing - 0.5) * 0.10;
   const attackP =
     GOAL_BASE_PROB * 6 *          // scaled up: was goalP, now shot prob
     tempo *
     (team.strength.attack / Math.max(opp.strength.defense, 1)) *
     focus.openPlayGoalMult *
     form.attackMult *
-    momentumAttackMult /
+    momentumAttackMult *
+    pressingChanceMod /
     Math.max(0.5, oppForm.defenseMult);
 
   if (rng.next() < attackP) {
