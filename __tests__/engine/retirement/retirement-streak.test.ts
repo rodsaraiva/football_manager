@@ -14,20 +14,20 @@ import {
 
 describe('isInAnnounceWindow', () => {
   it('retorna true para semanas dentro da janela', () => {
-    // SEASON_END=46, OPEN_OFFSET=20, CLOSE_OFFSET=10 ⇒ janela [26..36]
-    expect(isInAnnounceWindow(26)).toBe(true);
-    expect(isInAnnounceWindow(30)).toBe(true);
-    expect(isInAnnounceWindow(36)).toBe(true);
+    // SEASON_END=58, OPEN_OFFSET=20, CLOSE_OFFSET=10 ⇒ janela [38..48]
+    expect(isInAnnounceWindow(38)).toBe(true);
+    expect(isInAnnounceWindow(43)).toBe(true);
+    expect(isInAnnounceWindow(48)).toBe(true);
   });
 
   it('retorna false antes da janela', () => {
     expect(isInAnnounceWindow(10)).toBe(false);
-    expect(isInAnnounceWindow(25)).toBe(false);
+    expect(isInAnnounceWindow(37)).toBe(false);
   });
 
   it('retorna false depois da janela', () => {
-    expect(isInAnnounceWindow(37)).toBe(false);
-    expect(isInAnnounceWindow(46)).toBe(false);
+    expect(isInAnnounceWindow(49)).toBe(false);
+    expect(isInAnnounceWindow(58)).toBe(false);
   });
 
   it('limites derivados das constantes', () => {
@@ -44,7 +44,7 @@ describe('shouldAnnounceRetirement', () => {
   const baseInput = {
     age: 35,
     streak: RETIREMENT_LOW_MORALE_STREAK_THRESHOLD,
-    currentWeek: 30,
+    currentWeek: 40, // dentro da janela [38..48]
     alreadyAnnounced: false,
   };
 
@@ -67,7 +67,7 @@ describe('shouldAnnounceRetirement', () => {
   });
 
   it('não dispara fora da janela (depois)', () => {
-    expect(shouldAnnounceRetirement({ ...baseInput, currentWeek: 40 })).toBe(false);
+    expect(shouldAnnounceRetirement({ ...baseInput, currentWeek: 50 })).toBe(false);
   });
 
   it('não dispara com idade abaixo do mínimo', () => {

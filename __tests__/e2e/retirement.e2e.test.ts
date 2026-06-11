@@ -57,7 +57,7 @@ describe('E2E · retirement', () => {
     const playerId = pickPlayerInClub(ctx, ctx.playerClubId);
     setPlayerAgeAndMorale(ctx, playerId, 35, 30);
 
-    // Pular direto pra semana anterior à janela. Janela = [26..36] (SEASON_END=46, 20..10 antes).
+    // Arrancar bem antes da janela pra acumular streak. Janela = [38..48] (SEASON_END=58, 20..10 antes).
     setWeek(ctx, 23);
 
     let announcedWeek = -1;
@@ -121,7 +121,7 @@ describe('E2E · retirement', () => {
     const playerId = pickPlayerInClub(ctx, ctx.playerClubId);
     setPlayerAgeAndMorale(ctx, playerId, 35, 80); // começa alta
 
-    setWeek(ctx, 37); // logo depois da janela (36 é último dia)
+    setWeek(ctx, 50); // logo depois da janela (48 é último dia, SEASON_END=58)
     setPlayerMorale(ctx, playerId, 30);
     for (let i = 0; i < 5; i++) {
       setPlayerMorale(ctx, playerId, 30);

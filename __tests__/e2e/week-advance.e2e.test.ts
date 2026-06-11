@@ -81,8 +81,8 @@ describe('E2E · week advancement', () => {
     ctx2.rawDb.close();
   });
 
-  it('wraps season at week 46', async () => {
-    ctx.week = 46;
+  it('wraps season at week 58', async () => {
+    ctx.week = 58;
     const result = await stepWeek(ctx);
     expect(result.newSeason).toBe(2);
     expect(result.newWeek).toBe(1);
