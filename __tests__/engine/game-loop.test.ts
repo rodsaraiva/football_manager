@@ -148,11 +148,11 @@ describe('advanceGameWeek', () => {
     }
   });
 
-  it('wraps season at week 46', async () => {
+  it('wraps season at week 58', async () => {
     const result = await advanceGameWeek({
       dbHandle: db,
       season: 1,
-      week: 46,
+      week: 58,
       playerClubId: 1,
       saveId: 1,
       rng: new SeededRng(42),
@@ -162,7 +162,7 @@ describe('advanceGameWeek', () => {
     expect(result.isSeasonEnd).toBe(true);
   });
 
-  it('archives the season automatically when advancing past week 46', async () => {
+  it('archives the season automatically when advancing past week 58', async () => {
     // The beforeEach has already seeded a full calendar for season 1.
     // League fixtures run from week 7 to week 44 (20-team double round-robin).
     // Pre-mark one league fixture from week 7 as played so the archiver has
@@ -178,7 +178,7 @@ describe('advanceGameWeek', () => {
     await advanceGameWeek({
       dbHandle: db,
       season: 1,
-      week: 46,
+      week: 58,
       playerClubId: 1,
       saveId: 1,
       rng: new SeededRng(42),

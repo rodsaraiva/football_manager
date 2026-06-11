@@ -76,8 +76,8 @@ describe('advanceWeek', () => {
     expect(updated!.newFitness).toBeLessThan(90);
   });
 
-  it('wraps to next season at week 46', () => {
-    const input = makeMinimalInput({ week: 46 });
+  it('wraps to next season at week 58', () => {
+    const input = makeMinimalInput({ week: 58 });
     const result = advanceWeek(input);
     expect(result.newWeek).toBe(1);
     expect(result.newSeason).toBe(2);

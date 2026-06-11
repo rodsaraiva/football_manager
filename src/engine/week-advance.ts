@@ -43,7 +43,7 @@ export interface WeekAdvanceResult {
   fitnessUpdates: { playerId: number; newFitness: number }[];
 }
 
-const SEASON_LENGTH = 46;
+const SEASON_LENGTH = 58;
 
 export function advanceWeek(input: WeekAdvanceInput): WeekAdvanceResult {
   const { season, week, allClubs, injuredPlayers, playerFitness, rng } = input;

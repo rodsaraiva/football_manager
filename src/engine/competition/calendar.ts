@@ -14,6 +14,7 @@ import {
 } from '@/database/queries/leagues';
 import { createFixture } from '@/database/queries/fixtures';
 import { saveOffset } from '@/database/constants';
+import { KNOCKOUT_START_WEEK } from '@/engine/balance';
 
 export interface SeasonCalendar {
   competitions: Competition[];
@@ -100,7 +101,7 @@ export function generateSeasonCalendar(options: GenerateSeasonCalendarOptions): 
       const fixtures = generateKnockoutRound(firstRoundTeams, {
         competitionId,
         season,
-        week: 10,
+        week: KNOCKOUT_START_WEEK,
         round: 1,
       });
       allFixtureInputs.push(...fixtures);
@@ -134,11 +135,13 @@ export function generateSeasonCalendar(options: GenerateSeasonCalendarOptions): 
       entries.push({ competitionId: clCompetitionId, clubId, groupName, seed: seed + 1 });
     });
 
-    // Group stage fixtures: round-robin starting at week 13
+    // Group stage fixtures: round-robin in the post-league band (no league collision).
+    // 4 clubs → 6 rounds run weeks 47-52, before the CL knockout (seeded dynamically
+    // by round-progression at week 53+).
     const fixtures = generateRoundRobin(groupClubs, {
       competitionId: clCompetitionId,
       season,
-      startWeek: 13,
+      startWeek: KNOCKOUT_START_WEEK,
     });
     allFixtureInputs.push(...fixtures);
   });

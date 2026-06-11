@@ -23,7 +23,10 @@ export const RETIREMENT_LOW_MORALE_STREAK_THRESHOLD = 3;
 // Ex.: SEASON_END=46, OPEN_OFFSET=20, CLOSE_OFFSET=10 ⇒ janela semanas 26..36 inclusive.
 export const RETIREMENT_ANNOUNCE_WINDOW_OPEN_OFFSET = 20;
 export const RETIREMENT_ANNOUNCE_WINDOW_CLOSE_OFFSET = 10;
-export const SEASON_END_WEEK = 46;
+export const SEASON_END_WEEK = 58;
+// First week of the post-league knockout band (cups + CL knockout). Keeps a
+// 2-week buffer after the last league week (44) so no club is double-booked.
+export const KNOCKOUT_START_WEEK = 47;
 
 // Assistants
 export const ASSISTANT_RETIREMENT_MIN_AGE = 60;
