@@ -77,3 +77,35 @@ describe('calculateTeamStrength', () => {
     expect(result.defense).toBeGreaterThan(result.attack);
   });
 });
+
+describe('home advantage applies to every sector (gap #1)', () => {
+  it('isHome:true raises attack, midfield AND defense vs isHome:false', () => {
+    const players = [
+      makePlayer(1, 'GK', 70), makePlayer(2, 'CB', 70), makePlayer(3, 'CB', 70),
+      makePlayer(4, 'LB', 70), makePlayer(5, 'RB', 70), makePlayer(6, 'CM', 70),
+      makePlayer(7, 'CM', 70), makePlayer(8, 'LM', 70), makePlayer(9, 'RM', 70),
+      makePlayer(10, 'ST', 70), makePlayer(11, 'ST', 70),
+    ];
+    const home = calculateTeamStrength({ players, tactic: defaultTactic, isHome: true });
+    const away = calculateTeamStrength({ players, tactic: defaultTactic, isHome: false });
+    expect(home.attack).toBeGreaterThan(away.attack);
+    expect(home.midfield).toBeGreaterThan(away.midfield);
+    expect(home.defense).toBeGreaterThan(away.defense);
+  });
+});
+
+describe('pressing modifies attack (gap #4)', () => {
+  const players = [
+    makePlayer(1, 'GK', 70), makePlayer(2, 'CB', 70), makePlayer(3, 'CB', 70),
+    makePlayer(4, 'LB', 70), makePlayer(5, 'RB', 70), makePlayer(6, 'CM', 70),
+    makePlayer(7, 'CM', 70), makePlayer(8, 'LM', 70), makePlayer(9, 'RM', 70),
+    makePlayer(10, 'ST', 70), makePlayer(11, 'ST', 70),
+  ];
+  it('high > medium > low pressing for the same squad', () => {
+    const low = calculateTeamStrength({ players, tactic: { ...defaultTactic, pressing: 'low' }, isHome: false });
+    const med = calculateTeamStrength({ players, tactic: { ...defaultTactic, pressing: 'medium' }, isHome: false });
+    const high = calculateTeamStrength({ players, tactic: { ...defaultTactic, pressing: 'high' }, isHome: false });
+    expect(high.attack).toBeGreaterThan(med.attack);
+    expect(med.attack).toBeGreaterThan(low.attack);
+  });
+});

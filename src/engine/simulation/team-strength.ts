@@ -1,6 +1,7 @@
 import { calculateOverall } from '@/utils/overall';
 import { PlayerAttributes, Position } from '@/types';
 import { Tactic, Mentality, Pressing, PassingStyle, Tempo, Width } from '@/types/tactic';
+import { PRESSING_ATTACK_GAIN } from '@/engine/balance';
 
 export interface PlayerForStrength {
   id: number;
@@ -101,16 +102,16 @@ export function calculateTeamStrength(input: TeamStrengthInput): TeamStrength {
   }
 
   const mentalityMod = MENTALITY_MOD[tactic.mentality];
-  let defense = average(defenseRatings) * (1 + mentalityMod.defense);
-  let midfield = average(midfieldRatings);
-  let attack = average(attackRatings) * (1 + mentalityMod.attack);
+  const homeFactor = isHome ? homeAdv : 1;
+  const pressFactor = PRESSING_MOD[tactic.pressing]; // 0.3 | 0.5 | 0.8, centred at 0.5
+  const pressAttackMod = 1 + (pressFactor - 0.5) * PRESSING_ATTACK_GAIN;
+
+  let defense = average(defenseRatings) * (1 + mentalityMod.defense) * homeFactor;
+  let midfield = average(midfieldRatings) * homeFactor;
+  let attack = average(attackRatings) * (1 + mentalityMod.attack) * homeFactor * pressAttackMod;
 
   const sectors = [defense, midfield, attack].filter((v) => v > 0);
-  let overall = average(sectors);
-
-  if (isHome) {
-    overall *= homeAdv;
-  }
+  let overall = average(sectors); // already reflects homeFactor via the sectors
 
   // Reduce strength per missing player (red cards remove players)
   const playerPenalty = Math.max(0, 11 - players.length) * 0.08;
