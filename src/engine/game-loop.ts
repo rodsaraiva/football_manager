@@ -1,5 +1,5 @@
 import { DbHandle } from '@/database/queries/players';
-import { getPlayersByClub, getPlayerById } from '@/database/queries/players';
+import { getPlayersByClub, getPlayerById, setPlayerSuspension } from '@/database/queries/players';
 import { getAssistantsBySave } from '@/database/queries/assistants';
 import { maybeGenerateComment } from './assistant/comment-generator';
 import { AssistantComment } from '@/types/assistant';
@@ -21,6 +21,7 @@ import { getStaffByClub } from '@/database/queries/staff';
 import { SeededRng } from './rng';
 import { simulateMatch, MatchResult } from './simulation/match-engine';
 import { assignMatchInjuries } from './simulation/injury';
+import { resolveMatchSuspensions } from './simulation/match-consequences';
 import { PlayerForStrength } from './simulation/team-strength';
 import { calculateWeeklyIncome, calculateWeeklyExpenses } from './finance/finance-engine';
 import { calculateWeeklyProgression } from './training/progression';
@@ -138,6 +139,7 @@ interface PlayerForPick {
   morale: number;
   fitness: number;
   injuryWeeksLeft: number;
+  suspensionWeeksLeft: number;
 }
 
 const POSITION_GROUP: Record<string, string> = {
@@ -154,7 +156,7 @@ function pickStartingEleven(players: PlayerForPick[], formation: string): Player
   for (const slot of slots) {
     const targetGroup = POSITION_GROUP[slot] ?? 'MID';
     const candidates = players
-      .filter(p => !selected.has(p.id) && p.fitness > 30 && p.injuryWeeksLeft === 0)
+      .filter(p => !selected.has(p.id) && p.fitness > 30 && p.injuryWeeksLeft === 0 && p.suspensionWeeksLeft === 0)
       .map(p => {
         const base = calculateOverall(p.attributes, slot);
         let bonus = 0;
@@ -227,6 +229,7 @@ async function loadSquadWithAttributes(db: DbHandle, saveId: number, clubId: num
         morale: full.morale,
         fitness: full.fitness,
         injuryWeeksLeft: full.injuryWeeksLeft,
+        suspensionWeeksLeft: full.suspensionWeeksLeft,
       });
     }
   }
@@ -364,13 +367,13 @@ export async function advanceGameWeek(params: AdvanceWeekParams): Promise<Advanc
       for (let i = 0; i < slots.length; i++) {
         const pid = savedIds[i];
         const p = pid != null ? byId.get(pid) : undefined;
-        if (p && p.injuryWeeksLeft === 0 && p.fitness > 30 && !usedIds.has(p.id)) {
+        if (p && p.injuryWeeksLeft === 0 && p.suspensionWeeksLeft === 0 && p.fitness > 30 && !usedIds.has(p.id)) {
           usedIds.add(p.id);
           result.push({ id: p.id, position: slots[i], secondaryPosition: p.secondaryPosition, attributes: p.attributes, morale: p.morale, fitness: p.fitness });
         } else {
           // fallback: best available for this slot
           const fallback = rawPlayers
-            .filter(q => !usedIds.has(q.id) && q.injuryWeeksLeft === 0 && q.fitness > 30)
+            .filter(q => !usedIds.has(q.id) && q.injuryWeeksLeft === 0 && q.suspensionWeeksLeft === 0 && q.fitness > 30)
             .sort((a, b) => {
               const target = POSITION_GROUP[slots[i]] ?? 'MID';
               const scoreA = calculateOverall(a.attributes, slots[i]) + (a.position === slots[i] ? 15 : POSITION_GROUP[a.position] === target ? 3 : -10);
@@ -405,7 +408,7 @@ export async function advanceGameWeek(params: AdvanceWeekParams): Promise<Advanc
       const byId = new Map(rawPlayers.map(p => [p.id, p]));
       return savedIds
         .map(id => byId.get(id))
-        .filter((p): p is PlayerForPick => p != null && !startIds.has(p.id) && p.injuryWeeksLeft === 0 && p.fitness > 30)
+        .filter((p): p is PlayerForPick => p != null && !startIds.has(p.id) && p.injuryWeeksLeft === 0 && p.suspensionWeeksLeft === 0 && p.fitness > 30)
         .slice(0, 8)
         .map(p => ({ id: p.id, position: p.position, secondaryPosition: p.secondaryPosition, attributes: p.attributes, morale: p.morale, fitness: p.fitness }));
     }
@@ -413,13 +416,13 @@ export async function advanceGameWeek(params: AdvanceWeekParams): Promise<Advanc
     const homeBench: PlayerForStrength[] = homeLineupSaved
       ? buildBenchFromSavedIds(homeLineupSaved.benchIds, homeSquadRaw, homeStartIds)
       : homeSquadRaw
-          .filter(p => !homeStartIds.has(p.id) && p.injuryWeeksLeft === 0 && p.fitness > 30)
+          .filter(p => !homeStartIds.has(p.id) && p.injuryWeeksLeft === 0 && p.suspensionWeeksLeft === 0 && p.fitness > 30)
           .slice(0, 8)
           .map(p => ({ id: p.id, position: p.position, secondaryPosition: p.secondaryPosition, attributes: p.attributes, morale: p.morale, fitness: p.fitness }));
     const awayBench: PlayerForStrength[] = awayLineupSaved
       ? buildBenchFromSavedIds(awayLineupSaved.benchIds, awaySquadRaw, awayStartIds)
       : awaySquadRaw
-          .filter(p => !awayStartIds.has(p.id) && p.injuryWeeksLeft === 0 && p.fitness > 30)
+          .filter(p => !awayStartIds.has(p.id) && p.injuryWeeksLeft === 0 && p.suspensionWeeksLeft === 0 && p.fitness > 30)
           .slice(0, 8)
           .map(p => ({ id: p.id, position: p.position, secondaryPosition: p.secondaryPosition, attributes: p.attributes, morale: p.morale, fitness: p.fitness }));
 
@@ -560,6 +563,30 @@ export async function advanceGameWeek(params: AdvanceWeekParams): Promise<Advanc
     const playerClubIds = new Set((await getPlayersByClub(db, saveId, playerClubId)).map(p => p.id));
     for (const inj of assignMatchInjuries(matchResult.events, playerClubIds, rng)) {
       await db.prepare('UPDATE players SET injury_weeks_left = ? WHERE save_id = ? AND id = ?').run(inj.weeksLeft, saveId, inj.playerId);
+    }
+
+    // 8. Suspensions: tick down current bans first, THEN apply this match's cards
+    // (same decrement-before-apply ordering as injuries, so a fresh ban survives).
+    await db.prepare(
+      'UPDATE players SET suspension_weeks_left = MAX(0, suspension_weeks_left - 1) WHERE save_id = ? AND suspension_weeks_left > 0 AND club_id = ?',
+    ).run(saveId, playerClubId);
+
+    // priorYellows = season-to-date yellows BEFORE this match. persistMatchStats
+    // already wrote this match's yellows, so subtract them out of the threshold check.
+    const priorYellowsBySeason = new Map<number, number>();
+    for (const pid of playerClubIds) {
+      const row = await db.prepare(
+        'SELECT COALESCE(SUM(yellow_cards), 0) AS y FROM player_stats WHERE save_id = ? AND player_id = ? AND season = ?',
+      ).get(saveId, pid, playerFixture.season) as { y: number };
+      const thisMatchYellows = matchResult.events.filter(
+        e => e.type === 'yellow' && e.playerId === pid,
+      ).length;
+      priorYellowsBySeason.set(pid, Math.max(0, row.y - thisMatchYellows));
+    }
+    for (const s of resolveMatchSuspensions(matchResult.events, priorYellowsBySeason, rng)) {
+      if (playerClubIds.has(s.playerId)) {
+        await setPlayerSuspension(db, s.playerId, s.weeks);
+      }
     }
   }
 
@@ -790,7 +817,7 @@ export async function advanceGameWeek(params: AdvanceWeekParams): Promise<Advanc
     // Reset flag+streak pros remanescentes começarem a próxima temporada limpos.
     // Restrito a quem está em clube — aposentados (club_id=NULL) ficam fora da rotina ativa.
     await db.prepare(
-      'UPDATE players SET will_retire_at_season_end = 0, consecutive_low_morale_weeks = 0 WHERE save_id = ? AND club_id IS NOT NULL',
+      'UPDATE players SET will_retire_at_season_end = 0, consecutive_low_morale_weeks = 0, suspension_weeks_left = 0, injury_weeks_left = 0 WHERE save_id = ? AND club_id IS NOT NULL',
     ).run(saveId);
 
     await archiveSeason(db, saveId, season);

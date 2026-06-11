@@ -11,6 +11,47 @@ import { getPlayerStatsByCompetition } from '@/database/queries/player-stats';
 import { setTacticLineup } from '@/database/queries/tactics';
 import { assignMatchInjuries } from '@/engine/simulation/injury';
 
+// Builds + persists the season-1 calendar for a freshly-seeded DB. Extracted so
+// per-seed probe DBs (suspension tests) can reuse the exact beforeEach setup.
+async function buildCalendar(db: DbHandle): Promise<void> {
+  const leagues = await getAllLeagues(db);
+  const clubsByLeague: Record<number, number[]> = {};
+  for (const league of leagues) {
+    const clubs = await getClubsByLeague(db, 1, league.id);
+    clubsByLeague[league.id] = clubs.map(c => c.id);
+  }
+  const calendar = generateSeasonCalendar({
+    season: 1,
+    leagues,
+    clubsByLeague,
+    championsLeagueClubs: [1, 2, 3, 4, 21, 22, 23, 24],
+  });
+  for (const comp of calendar.competitions) {
+    await createCompetition(db, 1, {
+      id: comp.id,
+      name: comp.name,
+      type: comp.type,
+      format: comp.format,
+      season: comp.season,
+      leagueId: comp.leagueId,
+    });
+  }
+  for (const entry of calendar.entries) {
+    await addCompetitionEntry(db, 1, entry);
+  }
+  for (const fixture of calendar.fixtures) {
+    await createFixture(db, 1, {
+      id: fixture.id,
+      competitionId: fixture.competitionId,
+      season: fixture.season,
+      week: fixture.week,
+      round: fixture.round as string | null,
+      homeClubId: fixture.homeClubId,
+      awayClubId: fixture.awayClubId,
+    });
+  }
+}
+
 describe('advanceGameWeek', () => {
   let rawDb: Database.Database;
   let db: DbHandle;
@@ -19,43 +60,7 @@ describe('advanceGameWeek', () => {
     rawDb = createTestDb();
     seedTestDb(rawDb);
     db = createTestDbHandle(rawDb);
-    // Generate season calendar and persist fixtures
-    const leagues = await getAllLeagues(db);
-    const clubsByLeague: Record<number, number[]> = {};
-    for (const league of leagues) {
-      const clubs = await getClubsByLeague(db, 1, league.id);
-      clubsByLeague[league.id] = clubs.map(c => c.id);
-    }
-    const calendar = generateSeasonCalendar({
-      season: 1,
-      leagues,
-      clubsByLeague,
-      championsLeagueClubs: [1, 2, 3, 4, 21, 22, 23, 24],
-    });
-    for (const comp of calendar.competitions) {
-      await createCompetition(db, 1, {
-        id: comp.id,
-        name: comp.name,
-        type: comp.type,
-        format: comp.format,
-        season: comp.season,
-        leagueId: comp.leagueId,
-      });
-    }
-    for (const entry of calendar.entries) {
-      await addCompetitionEntry(db, 1, entry);
-    }
-    for (const fixture of calendar.fixtures) {
-      await createFixture(db, 1, {
-        id: fixture.id,
-        competitionId: fixture.competitionId,
-        season: fixture.season,
-        week: fixture.week,
-        round: fixture.round as string | null,
-        homeClubId: fixture.homeClubId,
-        awayClubId: fixture.awayClubId,
-      });
-    }
+    await buildCalendar(db);
   });
 
   afterEach(() => rawDb.close());
@@ -479,5 +484,66 @@ describe('advanceGameWeek', () => {
     }
     const row = (await db.prepare('SELECT injury_weeks_left FROM players WHERE id = ?').get(victimId)) as { injury_weeks_left: number };
     expect(row.injury_weeks_left).toBeGreaterThan(0);
+  });
+
+  it('um jogador suspenso não é escalado na semana seguinte', async () => {
+    // Suspende um jogador de linha do clube 1 que normalmente entraria.
+    const candidate = rawDb
+      .prepare("SELECT id FROM players WHERE club_id = 1 AND position != 'GK' ORDER BY id ASC LIMIT 1")
+      .get() as { id: number };
+    rawDb.prepare('UPDATE players SET suspension_weeks_left = 1 WHERE id = ?').run(candidate.id);
+
+    const res = await advanceGameWeek({
+      dbHandle: db, season: 1, week: 7, playerClubId: 1, saveId: 1, rng: new SeededRng(42),
+    });
+    const fixtureRow = rawDb
+      .prepare('SELECT home_club_id FROM fixtures WHERE season = 1 AND week = 7 AND (home_club_id = 1 OR away_club_id = 1)')
+      .get() as { home_club_id: number };
+    const ratings = fixtureRow.home_club_id === 1
+      ? res.playerMatchResult!.homeRatings
+      : res.playerMatchResult!.awayRatings;
+    const ratedIds = new Set(ratings.map(r => r.playerId));
+    expect(ratedIds.has(candidate.id)).toBe(false);
+  });
+
+  it('decrementa suspensões existentes do clube após a semana', async () => {
+    const benchPlayer = rawDb
+      .prepare('SELECT id FROM players WHERE club_id = 1 ORDER BY id DESC LIMIT 1')
+      .get() as { id: number };
+    rawDb.prepare('UPDATE players SET suspension_weeks_left = 2 WHERE id = ?').run(benchPlayer.id);
+
+    await advanceGameWeek({ dbHandle: db, season: 1, week: 7, playerClubId: 1, saveId: 1, rng: new SeededRng(42) });
+
+    const after = rawDb
+      .prepare('SELECT suspension_weeks_left AS s FROM players WHERE id = ?')
+      .get(benchPlayer.id) as { s: number };
+    expect(after.s).toBe(1); // 2 → 1 (decremento rodou, sem re-bump na mesma semana)
+  });
+
+  it('um cartão vermelho na partida persiste suspensão para jogador do clube', async () => {
+    const club1Ids = new Set(
+      (rawDb.prepare('SELECT id FROM players WHERE club_id = 1').all() as { id: number }[]).map(r => r.id),
+    );
+    let found = false;
+    for (let seed = 0; seed < 400 && !found; seed++) {
+      const probe = createTestDb();
+      seedTestDb(probe);
+      const probeDb = createTestDbHandle(probe);
+      await buildCalendar(probeDb);
+      const res = await advanceGameWeek({
+        dbHandle: probeDb, season: 1, week: 7, playerClubId: 1, saveId: 1, rng: new SeededRng(seed),
+      });
+      const reds = (res.playerMatchResult?.events ?? []).filter(
+        e => e.type === 'red' && club1Ids.has(e.playerId),
+      );
+      if (reds.length > 0) {
+        const pid = reds[0].playerId;
+        const row = probe.prepare('SELECT suspension_weeks_left AS s FROM players WHERE id = ?').get(pid) as { s: number };
+        expect(row.s).toBeGreaterThanOrEqual(1);
+        found = true;
+      }
+      probe.close();
+    }
+    expect(found).toBe(true); // existe seed cujo vermelho de clube-1 vira suspensão persistida
   });
 });
