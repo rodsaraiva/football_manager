@@ -24,6 +24,7 @@ const EVENT_ICONS: Record<MatchEventType, string> = {
   shot_on_target: '🎯',
   shot_off_target: '💨',
   save: '🧤',
+  penalty_shootout: '🥅',
 };
 
 export default function MatchEventItem({

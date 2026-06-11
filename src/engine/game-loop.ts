@@ -22,6 +22,7 @@ import { SeededRng } from './rng';
 import { simulateMatch, MatchResult } from './simulation/match-engine';
 import { assignMatchInjuries } from './simulation/injury';
 import { resolveMatchSuspensions } from './simulation/match-consequences';
+import { maybeGenerateNextKnockoutRound } from './competition/round-progression';
 import { PlayerForStrength } from './simulation/team-strength';
 import { calculateWeeklyIncome, calculateWeeklyExpenses } from './finance/finance-engine';
 import { calculateWeeklyProgression } from './training/progression';
@@ -596,6 +597,9 @@ export async function advanceGameWeek(params: AdvanceWeekParams): Promise<Advanc
     const { homeGoals, awayGoals } = await simulateAiMatch(fixture, rng, db, saveId);
     await updateFixtureResult(db, saveId, fixture.id, homeGoals, awayGoals);
   }
+
+  // 3a. Advance any knockout competition whose current round just finished.
+  await maybeGenerateNextKnockoutRound(db, saveId, season, week, rng);
 
   // 3b. Process AI transfers during transfer windows
   await processAiTransfers(db, saveId, season, week, rng);
