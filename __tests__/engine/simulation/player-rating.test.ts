@@ -87,3 +87,37 @@ describe('calculatePlayerRatings', () => {
     expect(cleanSheet).toBeGreaterThan(conceded);
   });
 });
+
+describe('secondary-goal branch is removed (gap #6)', () => {
+  const players: PlayerMatchInput[] = [
+    { id: 1, overall: 70, position: 'ST' },
+    { id: 2, overall: 70, position: 'CM' },
+  ];
+
+  it('a goal with a non-null secondaryPlayerId does NOT bonus the secondary player', () => {
+    const events: MatchEvent[] = [
+      { fixtureId: 1, minute: 10, type: 'goal', playerId: 1, secondaryPlayerId: 2 },
+    ];
+    const withSecondary = calculatePlayerRatings(players, events, false, 0, new SeededRng(7));
+    const noSecondary = calculatePlayerRatings(
+      players,
+      [{ fixtureId: 1, minute: 10, type: 'goal', playerId: 1, secondaryPlayerId: null }],
+      false, 0, new SeededRng(7),
+    );
+    const p2A = withSecondary.find(r => r.playerId === 2)!.rating;
+    const p2B = noSecondary.find(r => r.playerId === 2)!.rating;
+    expect(p2A).toBe(p2B);
+  });
+
+  it('an assist event still gives +0.5 exactly once', () => {
+    const events: MatchEvent[] = [
+      { fixtureId: 1, minute: 10, type: 'goal', playerId: 1, secondaryPlayerId: null },
+      { fixtureId: 1, minute: 10, type: 'assist', playerId: 2, secondaryPlayerId: 1 },
+    ];
+    const noAssist = calculatePlayerRatings(players, [], false, 0, new SeededRng(7));
+    const withAssist = calculatePlayerRatings(players, events, false, 0, new SeededRng(7));
+    const p2NoAssist = noAssist.find(r => r.playerId === 2)!.rating;
+    const p2WithAssist = withAssist.find(r => r.playerId === 2)!.rating;
+    expect(Math.round((p2WithAssist - p2NoAssist) * 10) / 10).toBe(0.5);
+  });
+});

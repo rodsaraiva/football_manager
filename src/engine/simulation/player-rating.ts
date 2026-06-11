@@ -49,13 +49,6 @@ export function calculatePlayerRatings(
       }
     }
 
-    // Check secondary (assists via secondaryPlayerId on goals)
-    for (const e of events) {
-      if (e.secondaryPlayerId === player.id && e.type === 'goal') {
-        rating += 0.5;
-      }
-    }
-
     // Win bonus
     if (teamWon) rating += 0.3;
 
