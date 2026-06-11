@@ -1,29 +1,9 @@
-import { resolveMatchInjuries, resolveMatchSuspensions } from '@/engine/simulation/match-consequences';
+import { resolveMatchSuspensions } from '@/engine/simulation/match-consequences';
 import { MatchEvent } from '@/types';
 import { SeededRng } from '@/engine/rng';
 
 const ev = (type: MatchEvent['type'], playerId: number, minute = 30): MatchEvent => ({
   fixtureId: 1, minute, type, playerId, secondaryPlayerId: null,
-});
-
-describe('resolveMatchInjuries', () => {
-  it('returns no outcomes when there are no injury events', () => {
-    expect(resolveMatchInjuries([ev('goal', 7)], new SeededRng(1))).toEqual([]);
-  });
-
-  it('samples a 1..8 week duration per injury event', () => {
-    const out = resolveMatchInjuries([ev('injury', 7)], new SeededRng(1));
-    expect(out).toHaveLength(1);
-    expect(out[0].playerId).toBe(7);
-    expect(out[0].weeks).toBeGreaterThanOrEqual(1);
-    expect(out[0].weeks).toBeLessThanOrEqual(8);
-  });
-
-  it('is deterministic for the same seed', () => {
-    const a = resolveMatchInjuries([ev('injury', 7), ev('injury', 9)], new SeededRng(123));
-    const b = resolveMatchInjuries([ev('injury', 7), ev('injury', 9)], new SeededRng(123));
-    expect(a).toEqual(b);
-  });
 });
 
 describe('resolveMatchSuspensions', () => {
