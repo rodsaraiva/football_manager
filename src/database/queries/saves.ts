@@ -85,7 +85,7 @@ const DELETE_BY_SAVE_TABLES = [
   'player_attributes', 'players', 'club_finances', 'competition_entries', 'fixtures',
   'transfers', 'transfer_offers', 'transfer_blocks', 'tactics', 'staff', 'board_objectives',
   'board_trust_history', 'club_reputation_history', 'season_competition_results',
-  'season_relegated', 'season_awards', 'season_player_titles', 'player_stats',
+  'season_relegated', 'season_promoted', 'season_awards', 'season_player_titles', 'player_stats',
   'competitions', 'assistants', 'clubs',
 ];
 

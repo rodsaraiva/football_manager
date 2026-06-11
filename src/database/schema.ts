@@ -20,6 +20,7 @@ export const TABLE_NAMES: string[] = [
   'save_games',
   'season_competition_results',
   'season_relegated',
+  'season_promoted',
   'season_awards',
   'season_player_titles',
   'club_reputation_history',
@@ -303,6 +304,16 @@ CREATE TABLE IF NOT EXISTS season_relegated (
   UNIQUE(save_id, season, league_id, club_id)
 );
 
+CREATE TABLE IF NOT EXISTS season_promoted (
+  id             INTEGER PRIMARY KEY AUTOINCREMENT,
+  save_id        INTEGER NOT NULL REFERENCES save_games(id),
+  season         INTEGER NOT NULL,
+  league_id      INTEGER NOT NULL REFERENCES leagues(id),
+  club_id        INTEGER NOT NULL REFERENCES clubs(id),
+  final_position INTEGER NOT NULL,
+  UNIQUE(save_id, season, league_id, club_id)
+);
+
 CREATE TABLE IF NOT EXISTS season_awards (
   id             INTEGER PRIMARY KEY AUTOINCREMENT,
   save_id        INTEGER NOT NULL REFERENCES save_games(id),
@@ -381,6 +392,7 @@ CREATE INDEX IF NOT EXISTS idx_awards_player        ON season_awards(player_id);
 CREATE INDEX IF NOT EXISTS idx_awards_season_comp   ON season_awards(season, competition_id);
 CREATE INDEX IF NOT EXISTS idx_results_season       ON season_competition_results(season);
 CREATE INDEX IF NOT EXISTS idx_relegated_season     ON season_relegated(season);
+CREATE INDEX IF NOT EXISTS idx_promoted_season      ON season_promoted(save_id, season);
 CREATE INDEX IF NOT EXISTS idx_player_titles_player ON season_player_titles(player_id);
 CREATE INDEX IF NOT EXISTS idx_assistants_save      ON assistants(save_id);
 CREATE INDEX IF NOT EXISTS idx_assistants_club      ON assistants(club_id);
