@@ -14,10 +14,12 @@ import { useGameStore } from '@/store/game-store';
 import { useDatabaseStore } from '@/store/database-store';
 import { RootStackParamList } from '@/navigation/types';
 import { getClubsByLeague } from '@/database/queries/clubs';
-import { getCompetitionsBySeason } from '@/database/queries/leagues';
+import { getCompetitionsBySeason, getAllLeagues } from '@/database/queries/leagues';
 import { getFixturesByClub } from '@/database/queries/fixtures';
 import { getFinancesBySeason } from '@/database/queries/finances';
+import { getPromotedForClub } from '@/database/queries/season-promoted';
 import { calculateStandings } from '@/engine/competition/standings';
+import { buildDivisionPairs, computeDivisionSwaps } from '@/engine/competition/promotion';
 import { Fixture } from '@/types';
 import { SeededRng } from '@/engine/rng';
 import { processSeasonEndBoard } from '@/engine/board/season-end-board';
@@ -147,8 +149,9 @@ export function EndOfSeasonScreen() {
         if (!boardProcessed) {
           setBoardProcessed(true);
           const relegatedRow = await dbHandle
-            .prepare('SELECT id FROM season_relegated WHERE season = ? AND club_id = ? LIMIT 1')
-            .get(endedSeason, playerClubId) as { id: number } | undefined;
+            .prepare('SELECT id FROM season_relegated WHERE save_id = ? AND season = ? AND club_id = ? LIMIT 1')
+            .get(saveId, endedSeason, playerClubId) as { id: number } | undefined;
+          const promotedRow = await getPromotedForClub(dbHandle, saveId, endedSeason, playerClubId);
           try {
             const boardResult = await processSeasonEndBoard({
               dbHandle,
@@ -161,7 +164,7 @@ export function EndOfSeasonScreen() {
               currentReputation: playerClub.reputation,
               budgetBalance: income - expenses,
               wasRelegated: relegatedRow != null,
-              wasPromoted: false,
+              wasPromoted: promotedRow != null,
               wonLeague: leaguePosition === 1,
               wonCup: false,
             });
@@ -214,6 +217,34 @@ export function EndOfSeasonScreen() {
       if (currentSave) {
         const updatedAssistants = await processAssistantsSeasonEnd(dbHandle, currentSave.id);
         setAssistants(updatedAssistants);
+      }
+
+      // Promotion/relegation: physically move clubs between linked divisions using
+      // each league's FINAL standings, BEFORE rolloverSeason regenerates the calendar
+      // (so the new season's fixtures reflect the post-swap divisions).
+      const swapSaveId = currentSave?.id ?? -1;
+      const swapLeagues = await getAllLeagues(dbHandle);
+      const standingsByLeague = new Map<number, number[]>();
+      const competitionsEnded = await getCompetitionsBySeason(dbHandle, swapSaveId, endedSeason);
+      for (const lg of swapLeagues) {
+        const leagueComp = competitionsEnded.find((c) => c.leagueId === lg.id && c.type === 'league');
+        if (!leagueComp) continue;
+        const lgClubs = await getClubsByLeague(dbHandle, swapSaveId, lg.id);
+        const lgClubIds = lgClubs.map((c) => c.id);
+        const fxSet = new Map<number, Fixture>();
+        for (const cid of lgClubIds) {
+          const cf = await getFixturesByClub(dbHandle, swapSaveId, cid, endedSeason);
+          for (const f of cf) {
+            if (f.competitionId === leagueComp.id && f.played && !fxSet.has(f.id)) fxSet.set(f.id, f);
+          }
+        }
+        const ordered = calculateStandings(Array.from(fxSet.values()), lgClubIds);
+        standingsByLeague.set(lg.id, ordered.map((e) => e.clubId));
+      }
+      const divisionPairs = buildDivisionPairs(swapLeagues);
+      const divisionSwaps = computeDivisionSwaps(divisionPairs, standingsByLeague);
+      for (const s of divisionSwaps) {
+        await dbHandle.prepare('UPDATE clubs SET league_id = ? WHERE save_id = ? AND id = ?').run(s.toLeagueId, swapSaveId, s.clubId);
       }
 
       // Transactional rollover: age players, expire contracts, return loans,
