@@ -35,10 +35,10 @@ interface SuitorClub {
  *
  * Runs only during transfer windows.
  */
-export async function generateAiOffersForPlayerClub(
+export async function generateAiOffersForSquad(
   db: DbHandle,
   saveId: number,
-  playerClubId: number,
+  playerClubId: number, // o clube cujo elenco está sendo "comprado" (humano ou IA)
   rng: SeededRng,
   season: number = 0,
   week: number = 0,
@@ -260,5 +260,38 @@ export async function generateAiOffersForPlayerClub(
     }
   }
 
+  return created;
+}
+
+/** Back-compat alias usado pelo caminho da janela do humano. */
+export const generateAiOffersForPlayerClub = generateAiOffersForSquad;
+
+/**
+ * Clubes da IA fazem ofertas pelos jogadores uns dos outros. Amostra alguns
+ * clubes-alvo (exceto o humano) e roda o mesmo núcleo de compra de elenco para
+ * cada um. A aceitação é decidida por processPendingOffers (que já vende sem
+ * distinguir humano/IA). Escopado por save_id.
+ */
+export async function generateAiToAiOffers(
+  db: DbHandle,
+  saveId: number,
+  rng: SeededRng,
+  season: number = 0,
+  week: number = 0,
+  excludeClubId: number | null = null,
+  sampleSize: number = 6,
+): Promise<number> {
+  const targets = (await db
+    .prepare(
+      `SELECT id FROM clubs
+       WHERE save_id = ? AND (? IS NULL OR id != ?)
+       ORDER BY RANDOM() LIMIT ?`,
+    )
+    .all(saveId, excludeClubId, excludeClubId, sampleSize)) as Array<{ id: number }>;
+
+  let created = 0;
+  for (const t of targets) {
+    created += await generateAiOffersForSquad(db, saveId, t.id, rng, season, week);
+  }
   return created;
 }
