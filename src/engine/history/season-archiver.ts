@@ -1,5 +1,8 @@
 import { DbHandle } from '../../database/queries/players';
 import { LeagueStanding } from './types';
+import { buildDivisionPairs } from '../competition/promotion';
+import { getAllLeagues } from '../../database/queries/leagues';
+import { insertPromotedIgnore } from '../../database/queries/season-promoted';
 
 interface CompetitionRow {
   id: number;
@@ -75,11 +78,25 @@ function computeStandings(fixtures: FixtureRow[]): LeagueStanding[] {
     else { h.points += 1; a.points += 1; }
   }
   for (const s of table.values()) s.goalDiff = s.goalsFor - s.goalsAgainst;
-  return [...table.values()].sort((a, b) => {
-    if (b.points !== a.points) return b.points - a.points;
-    if (b.goalDiff !== a.goalDiff) return b.goalDiff - a.goalDiff;
-    if (b.goalsFor !== a.goalsFor) return b.goalsFor - a.goalsFor;
-    return a.clubId - b.clubId;
+  return [...table.values()].sort((x, y) => {
+    if (y.points !== x.points) return y.points - x.points;
+    if (y.goalDiff !== x.goalDiff) return y.goalDiff - x.goalDiff;
+    if (y.goalsFor !== x.goalsFor) return y.goalsFor - x.goalsFor;
+    // Head-to-head between x and y (points then GD among just the two).
+    let xPts = 0, yPts = 0, xGd = 0, yGd = 0;
+    for (const f of fixtures) {
+      if (f.home_goals == null || f.away_goals == null) continue;
+      const xy = f.home_club_id === x.clubId && f.away_club_id === y.clubId;
+      const yx = f.home_club_id === y.clubId && f.away_club_id === x.clubId;
+      if (!xy && !yx) continue;
+      const xg = xy ? f.home_goals : f.away_goals;
+      const yg = xy ? f.away_goals : f.home_goals;
+      xGd += xg - yg; yGd += yg - xg;
+      if (xg > yg) xPts += 3; else if (yg > xg) yPts += 3; else { xPts++; yPts++; }
+    }
+    if (yPts !== xPts) return yPts - xPts;
+    if (yGd !== xGd) return yGd - xGd;
+    return x.clubId - y.clubId;
   });
 }
 
@@ -294,6 +311,19 @@ async function snapshotChampionSquad(
   }
 }
 
+async function getShootoutWinner(
+  db: DbHandle,
+  fixtureId: number,
+): Promise<{ winnerClubId: number; loserClubId: number } | null> {
+  const row = (await db
+    .prepare(
+      "SELECT player_id, secondary_player_id FROM match_events WHERE fixture_id = ? AND type = 'penalty_shootout' LIMIT 1",
+    )
+    .get(fixtureId)) as { player_id: number; secondary_player_id: number | null } | undefined;
+  if (!row || row.secondary_player_id == null) return null;
+  return { winnerClubId: row.player_id, loserClubId: row.secondary_player_id };
+}
+
 async function archiveKnockout(
   db: DbHandle,
   saveId: number,
@@ -326,10 +356,16 @@ async function archiveKnockout(
     championClubId = final.away_club_id;
     runnerUpClubId = final.home_club_id;
   } else {
-    // Tie with no shootout modelled — pick home deterministically.
-    // TODO once penalty shootouts exist, read the actual winner from match_events.
-    championClubId = final.home_club_id;
-    runnerUpClubId = final.away_club_id;
+    // Drawn final: read the persisted penalty_shootout winner. Guarded legacy
+    // fallback (no event) keeps old saves deterministic on the home club.
+    const shootout = await getShootoutWinner(db, final.id);
+    if (shootout) {
+      championClubId = shootout.winnerClubId;
+      runnerUpClubId = shootout.loserClubId;
+    } else {
+      championClubId = final.home_club_id;
+      runnerUpClubId = final.away_club_id;
+    }
   }
 
   await insertResultIgnore(db, saveId, season, competition.id, championClubId, runnerUpClubId);
@@ -341,16 +377,16 @@ async function archiveLeague(
   saveId: number,
   competition: CompetitionRow,
   season: number,
-): Promise<void> {
-  if (competition.league_id == null) return;
+): Promise<{ leagueId: number; orderedClubIds: number[] } | null> {
+  if (competition.league_id == null) return null;
   const league = await getLeague(db, competition.league_id);
-  if (!league) return;
+  if (!league) return null;
 
   const fixtures = await getPlayedFixtures(db, saveId, competition.id, season);
-  if (fixtures.length === 0) return;
+  if (fixtures.length === 0) return null;
 
   const standings = computeStandings(fixtures);
-  if (standings.length === 0) return;
+  if (standings.length === 0) return null;
 
   const champion = standings[0].clubId;
   const runnerUp = standings.length > 1 ? standings[1].clubId : null;
@@ -365,18 +401,34 @@ async function archiveLeague(
       await insertRelegatedIgnore(db, saveId, season, league.id, relegated[i].clubId, finalPosition);
     }
   }
+  return { leagueId: league.id, orderedClubIds: standings.map((s) => s.clubId) };
 }
 
 export async function archiveSeason(db: DbHandle, saveId: number, season: number): Promise<void> {
   const competitions = await getCompetitionsForSeason(db, saveId, season);
+  const standingsByLeague = new Map<number, number[]>();
+
   for (const competition of competitions) {
     if (competition.type === 'league') {
-      await archiveLeague(db, saveId, competition, season);
+      const res = await archiveLeague(db, saveId, competition, season);
+      if (res) standingsByLeague.set(res.leagueId, res.orderedClubIds);
     } else if (competition.type === 'cup' || competition.type === 'continental') {
       await archiveKnockout(db, saveId, competition, season);
     }
     await archiveTopScorers(db, saveId, competition.id, season);
     await archiveTopAssisters(db, saveId, competition.id, season);
     await archiveMvpAndBreakthrough(db, saveId, competition, season);
+  }
+
+  // Record promotions: top-N of each lower league move up into its linked higher league.
+  const leagues = await getAllLeagues(db);
+  const pairs = buildDivisionPairs(leagues);
+  for (const pair of pairs) {
+    const lowerOrder = standingsByLeague.get(pair.lowerLeagueId);
+    if (!lowerOrder) continue;
+    const n = Math.min(pair.relegationSpots, pair.promotionSpots, lowerOrder.length);
+    for (let i = 0; i < n; i++) {
+      await insertPromotedIgnore(db, saveId, season, pair.higherLeagueId, lowerOrder[i], i + 1);
+    }
   }
 }

@@ -389,3 +389,88 @@ describe('archiveSeason — champion squad snapshot', () => {
     expect(titleIds.sort()).toEqual(squadIds.sort());
   });
 });
+
+describe('archiveSeason — knockout shootout + promotions', () => {
+  let rawDb: Database.Database;
+  let db: DbHandle;
+
+  beforeEach(() => {
+    rawDb = createTestDb();
+    seedTestDb(rawDb);
+    db = createTestDbHandle(rawDb);
+  });
+  afterEach(() => rawDb.close());
+
+  it('archives the shootout winner on a drawn final, not the home club', async () => {
+    rawDb.prepare(
+      `INSERT INTO competitions (id, save_id, name, type, format, season, league_id)
+       VALUES (600, 1, 'Cup', 'cup', 'knockout', 1, NULL)`,
+    ).run();
+    // Final (round 2): clubs 1 (home) vs 2 (away), drawn 1-1.
+    rawDb.prepare(
+      `INSERT INTO fixtures (id, save_id, competition_id, season, week, round, home_club_id, away_club_id, home_goals, away_goals, played)
+       VALUES (6001, 1, 600, 1, 49, '2', 1, 2, 1, 1, 1)`,
+    ).run();
+    // Shootout event: away club 2 won (sentinel: player_id = winner clubId).
+    rawDb.prepare(
+      `INSERT INTO match_events (fixture_id, minute, type, player_id, secondary_player_id)
+       VALUES (6001, 120, 'penalty_shootout', 2, 1)`,
+    ).run();
+
+    await archiveSeason(db, 1, 1);
+
+    const res = rawDb.prepare(
+      'SELECT champion_club_id, runner_up_club_id FROM season_competition_results WHERE competition_id = 600 AND season = 1',
+    ).get() as { champion_club_id: number; runner_up_club_id: number };
+    expect(res.champion_club_id).toBe(2); // shootout winner, NOT home (1)
+    expect(res.runner_up_club_id).toBe(1);
+  });
+
+  it('falls back to home on a drawn final with no shootout event (legacy)', async () => {
+    rawDb.prepare(
+      `INSERT INTO competitions (id, save_id, name, type, format, season, league_id)
+       VALUES (601, 1, 'Cup', 'cup', 'knockout', 1, NULL)`,
+    ).run();
+    rawDb.prepare(
+      `INSERT INTO fixtures (id, save_id, competition_id, season, week, round, home_club_id, away_club_id, home_goals, away_goals, played)
+       VALUES (6011, 1, 601, 1, 49, '1', 3, 4, 0, 0, 1)`,
+    ).run();
+    await archiveSeason(db, 1, 1);
+    const res = rawDb.prepare(
+      'SELECT champion_club_id FROM season_competition_results WHERE competition_id = 601 AND season = 1',
+    ).get() as { champion_club_id: number };
+    expect(res.champion_club_id).toBe(3); // deterministic home fallback
+  });
+
+  it('writes season_promoted for the top clubs of a lower division', async () => {
+    // Seed data has English league 1 (top) and league 2 (Championship, promotionSpots 3).
+    const champClubs = rawDb.prepare('SELECT id FROM clubs WHERE league_id = 2 ORDER BY id LIMIT 4').all() as Array<{ id: number }>;
+    const ids = champClubs.map((c) => c.id);
+    rawDb.prepare(
+      `INSERT INTO competitions (id, save_id, name, type, format, season, league_id)
+       VALUES (700, 1, 'Championship', 'league', 'round_robin', 1, 2)`,
+    ).run();
+    // Round-robin among the 4: make ids[0] win everything → finishes 1st.
+    let fid = 7000;
+    for (let i = 0; i < ids.length; i++) {
+      for (let j = 0; j < ids.length; j++) {
+        if (i === j) continue;
+        const [h, a] = ids[i] === ids[0] ? [3, 0] : ids[j] === ids[0] ? [0, 3] : [1, 1];
+        rawDb.prepare(
+          `INSERT INTO fixtures (id, save_id, competition_id, season, week, round, home_club_id, away_club_id, home_goals, away_goals, played)
+           VALUES (?, 1, 700, 1, 7, NULL, ?, ?, ?, ?, 1)`,
+        ).run(fid++, ids[i], ids[j], h, a);
+      }
+    }
+
+    await archiveSeason(db, 1, 1);
+
+    const promoted = rawDb.prepare(
+      'SELECT club_id, league_id, final_position FROM season_promoted WHERE season = 1 ORDER BY final_position',
+    ).all() as Array<{ club_id: number; league_id: number; final_position: number }>;
+    expect(promoted.length).toBeGreaterThan(0);
+    expect(promoted[0].club_id).toBe(ids[0]);
+    expect(promoted[0].league_id).toBe(1);
+    expect(promoted[0].final_position).toBe(1);
+  });
+});
