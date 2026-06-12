@@ -10,7 +10,13 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { colors, commonStyles, fontSize, spacing } from '@/theme';
+import { colors, commonStyles, fontSize, spacing, radius } from '@/theme';
+import { useTranslation } from '@/i18n';
+import type { TKey } from '@/i18n/translate';
+import { updatePlayerMorale } from '@/database/queries/players';
+import { getRecentForm } from '@/database/queries/player-stats';
+import { computeTeamTalkDelta, TeamTalkTone } from '@/engine/morale/team-talk';
+import { applyMoraleDelta } from '@/engine/morale/morale-engine';
 import StatBar from '@/components/StatBar';
 import { getPositionColor, getOverallColor } from '@/utils/player-colors';
 import { calculateOverall } from '@/utils/overall';
@@ -77,9 +83,23 @@ function awardLabel(a: SeasonAward): string {
 
 export default function PlayerDetailScreen({ player, onBack }: PlayerDetailScreenProps) {
   const { dbHandle } = useDatabaseStore();
+  const { t } = useTranslation();
   const playerClubId = useGameStore((s) => s.playerClubId);
   const saveId = useGameStore((s) => s.currentSave?.id);
+  const season = useGameStore((s) => s.season);
   const navigation = useNavigation<NavProp>();
+  const [morale, setMorale] = useState<number>(player?.morale ?? 50);
+  useEffect(() => { setMorale(player?.morale ?? 50); }, [player?.id]);
+
+  async function handleTeamTalk(tone: TeamTalkTone) {
+    if (!dbHandle || !player || saveId == null) return;
+    const form = await getRecentForm(dbHandle, saveId, player.id, season);
+    const delta = computeTeamTalkDelta({ tone, recentAvgRating: form.avgRating });
+    const next = applyMoraleDelta(morale, delta);
+    setMorale(next);
+    await updatePlayerMorale(dbHandle, saveId, player.id, next);
+  }
+
   const [awards, setAwards] = useState<SeasonAward[]>([]);
   const [titles, setTitles] = useState<PlayerTitle[]>([]);
   useEffect(() => {
@@ -242,6 +262,19 @@ export default function PlayerDetailScreen({ player, onBack }: PlayerDetailScree
               <Text style={commonStyles.label}>Market Value</Text>
               <Text style={styles.contractValue}>{formatCurrency(player.marketValue)}</Text>
             </View>
+          </View>
+        </View>
+
+        {/* Team Talk */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>{t('morale.section_title')}</Text>
+          <Text style={styles.moraleValue}>{t('morale.label')}: {morale}</Text>
+          <View style={styles.teamTalkRow}>
+            {(['praise', 'motivate', 'criticize'] as const).map((tone) => (
+              <Pressable key={tone} style={styles.teamTalkButton} onPress={() => handleTeamTalk(tone)}>
+                <Text style={styles.teamTalkButtonText}>{t(`morale.${tone}` as TKey)}</Text>
+              </Pressable>
+            ))}
           </View>
         </View>
 
@@ -516,4 +549,14 @@ const styles = StyleSheet.create({
     minWidth: 120,
     textAlign: 'right',
   },
+  moraleValue: { fontSize: fontSize.md, color: colors.textSecondary, marginBottom: spacing.sm },
+  teamTalkRow: { flexDirection: 'row', gap: spacing.sm },
+  teamTalkButton: {
+    flex: 1,
+    backgroundColor: colors.primary,
+    borderRadius: radius.md,
+    paddingVertical: spacing.sm,
+    alignItems: 'center',
+  },
+  teamTalkButtonText: { fontSize: fontSize.sm, color: colors.text, fontWeight: 'bold' },
 });
