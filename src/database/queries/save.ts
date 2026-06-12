@@ -10,3 +10,14 @@ export async function isSaveEnded(db: DbHandle, saveId: number): Promise<boolean
     .get(saveId)) as { ended: number } | undefined;
   return row?.ended === 1;
 }
+
+export async function setPreseasonPending(db: DbHandle, saveId: number, pending: boolean): Promise<void> {
+  await db.prepare('UPDATE save_games SET preseason_pending = ? WHERE id = ?').run(pending ? 1 : 0, saveId);
+}
+
+export async function isPreseasonPending(db: DbHandle, saveId: number): Promise<boolean> {
+  const row = (await db
+    .prepare('SELECT preseason_pending FROM save_games WHERE id = ?')
+    .get(saveId)) as { preseason_pending: number } | undefined;
+  return row?.preseason_pending === 1;
+}
