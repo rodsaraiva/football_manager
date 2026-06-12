@@ -1,6 +1,7 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { colors, commonStyles, fontSize, radius, spacing } from '@/theme';
+import { useTranslation } from '@/i18n';
 import { getPositionColor, getOverallColor } from '@/utils/player-colors';
 import { Position } from '@/types/player';
 
@@ -21,6 +22,7 @@ export default function PlayerCard({
   age,
   onPress,
 }: PlayerCardProps) {
+  const { t } = useTranslation();
   const positionColor = getPositionColor(position);
   const overallColor = getOverallColor(overall);
 
@@ -34,7 +36,7 @@ export default function PlayerCard({
       </View>
       <View style={styles.info}>
         <Text style={styles.name} numberOfLines={1}>{name}</Text>
-        <Text style={styles.age}>Age {age}</Text>
+        <Text style={styles.age}>{t('tactics.detail_age', { age })}</Text>
       </View>
       <View style={[styles.overallBadge, { borderColor: overallColor }]}>
         <Text style={[styles.overallText, { color: overallColor }]}>{overall}</Text>
