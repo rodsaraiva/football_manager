@@ -1,7 +1,9 @@
 import { DbHandle } from '@/database/queries/players';
 import { SeededRng } from '@/engine/rng';
-import { getPlayersByClub } from '@/database/queries/players';
+import { getPlayersByClub, getPlayersWithAttributesByClub } from '@/database/queries/players';
 import { recalculatePotential } from '@/engine/training/potential';
+import { regenerateAiSquadSeason } from '@/engine/rollover/squad-regeneration';
+import { calculateOverall } from '@/utils/overall';
 import { generateYouthPlayers } from '@/engine/youth/youth-academy';
 import { returnExpiredLoans } from '@/engine/transfer/loan-returns';
 import { ensureSeasonFixtures } from '@/engine/competition/calendar';
@@ -95,6 +97,63 @@ export async function rolloverSeason(p: RolloverSeasonParams): Promise<RolloverS
       ).run(nextId, saveId, a.finishing, a.passing, a.crossing, a.dribbling, a.heading, a.longShots, a.freeKicks, a.vision, a.composure, a.decisions, a.positioning, a.aggression, a.leadership, a.pace, a.stamina, a.strength, a.agility, a.jumping);
       youthGeneratedIds.push(nextId);
       nextId++;
+    }
+
+    // 4b. AI squad regeneration (ai-world-alive): every non-player club re-evaluates
+    // potential with the REAL overall (not the hardcoded 70) + market value, and takes
+    // a youth intake, so AI league quality does not collapse over seasons.
+    const aiClubs = (await db
+      .prepare('SELECT id, youth_academy FROM clubs WHERE save_id = ? AND id != ?')
+      .all(saveId, playerClubId)) as Array<{ id: number; youth_academy: number }>;
+
+    for (const club of aiClubs) {
+      const squad = await getPlayersWithAttributesByClub(db, saveId, club.id);
+      const inputs = squad.map((pl) => ({
+        playerId: pl.id,
+        age: pl.age,
+        currentOverall: Math.round(calculateOverall(pl.attributes, pl.position)),
+        basePotential: pl.basePotential,
+        effectivePotential: pl.effectivePotential,
+        contractYearsLeft: Math.max(0, pl.contractEnd - endedSeason),
+        seasonAvgRating: null as number | null,
+        minutesPercent: 0,
+      }));
+      // Pull real season stats per player (potential only moves with qualifying minutes).
+      for (const inp of inputs) {
+        const st = (await db
+          .prepare('SELECT avg_rating, minutes_played FROM player_stats WHERE save_id = ? AND player_id = ? AND season = ?')
+          .get(saveId, inp.playerId, endedSeason)) as { avg_rating: number; minutes_played: number } | undefined;
+        if (st) {
+          inp.seasonAvgRating = st.avg_rating;
+          inp.minutesPercent = Math.min(100, (st.minutes_played / (38 * 90)) * 100);
+        }
+      }
+      for (const d of regenerateAiSquadSeason({ players: inputs, rng: p.rng })) {
+        await db
+          .prepare('UPDATE players SET effective_potential = ?, market_value = ? WHERE save_id = ? AND id = ?')
+          .run(d.newEffectivePotential, d.newMarketValue, saveId, d.playerId);
+      }
+
+      // Youth intake for the AI club.
+      const aiYouth = generateYouthPlayers({
+        clubId: club.id,
+        academyLevel: Math.max(1, Math.min(5, club.youth_academy)),
+        youthCoachBonus: 5,
+        countryCode: 'EN',
+        rng: p.rng,
+      });
+      const aiMaxRow = (await db.prepare('SELECT MAX(id) as maxId FROM players WHERE save_id = ?').get(saveId)) as { maxId: number | null };
+      let aiNextId = (aiMaxRow?.maxId ?? saveOffset(saveId)) + 1;
+      for (const y of aiYouth) {
+        await db.prepare(
+          'INSERT INTO players (id, save_id, name, nationality, age, position, secondary_position, club_id, wage, contract_end, market_value, base_potential, effective_potential, morale, fitness, injury_weeks_left, is_free_agent) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        ).run(aiNextId, saveId, y.name, 'Local', y.age, y.position, null, club.id, 5000, newSeason + 3, 100000, y.basePotential, y.basePotential, 70, 100, 0, 0);
+        const a = y.attributes;
+        await db.prepare(
+          'INSERT INTO player_attributes (player_id, save_id, finishing, passing, crossing, dribbling, heading, long_shots, free_kicks, vision, composure, decisions, positioning, aggression, leadership, pace, stamina, strength, agility, jumping) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        ).run(aiNextId, saveId, a.finishing, a.passing, a.crossing, a.dribbling, a.heading, a.longShots, a.freeKicks, a.vision, a.composure, a.decisions, a.positioning, a.aggression, a.leadership, a.pace, a.stamina, a.strength, a.agility, a.jumping);
+        aiNextId++;
+      }
     }
 
     // 5. Regenerate the calendar for the new season. ensureSeasonFixtures is already
