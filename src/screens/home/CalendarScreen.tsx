@@ -6,6 +6,7 @@ import {
   StyleSheet,
 } from 'react-native';
 import { colors, spacing, fontSize, commonStyles } from '@/theme';
+import { useTranslation } from '@/i18n';
 import { useGameStore } from '@/store/game-store';
 
 interface WeekItem {
@@ -15,6 +16,7 @@ interface WeekItem {
 }
 
 export function CalendarScreen() {
+  const { t } = useTranslation();
   const { week, season, recentResults } = useGameStore();
 
   const weekItems: WeekItem[] = useMemo(() => {
@@ -60,16 +62,16 @@ export function CalendarScreen() {
 
         <View style={styles.weekContent}>
           <Text style={[styles.weekLabel, { color: getStatusColor(item.status) }]}>
-            Week {item.weekNumber}
+            {t('calendar.week', { n: item.weekNumber })}
           </Text>
           <Text style={styles.weekDetail}>
             {item.status === 'past' && item.scoreText
-              ? `Result: ${item.scoreText}`
+              ? t('calendar.result', { score: item.scoreText })
               : item.status === 'past'
-              ? 'No fixture'
+              ? t('calendar.no_fixture')
               : item.status === 'current'
-              ? 'Current week'
-              : 'Upcoming'}
+              ? t('calendar.current_week')
+              : t('calendar.upcoming')}
           </Text>
         </View>
 
@@ -83,7 +85,7 @@ export function CalendarScreen() {
             <View style={styles.currentDot} />
           )}
           {item.status === 'future' && (
-            <Text style={styles.futureIndicator}>vs TBD</Text>
+            <Text style={styles.futureIndicator}>{t('calendar.vs_tbd')}</Text>
           )}
         </View>
       </View>
@@ -93,8 +95,8 @@ export function CalendarScreen() {
   return (
     <View style={commonStyles.screen}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Season {season} Calendar</Text>
-        <Text style={styles.headerSubtitle}>46 weeks · Week {week} current</Text>
+        <Text style={styles.headerTitle}>{t('calendar.header_title', { season })}</Text>
+        <Text style={styles.headerSubtitle}>{t('calendar.header_sub', { total: weekItems.length, week })}</Text>
       </View>
 
       <FlatList

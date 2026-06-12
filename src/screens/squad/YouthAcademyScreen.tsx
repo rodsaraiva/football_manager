@@ -1,23 +1,21 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { colors, commonStyles, fontSize, spacing } from '@/theme';
+import { useTranslation } from '@/i18n';
 
 export function YouthAcademyScreen() {
+  const { t } = useTranslation();
   return (
     <View style={commonStyles.screen}>
       <View style={styles.header}>
-        <Text style={styles.title}>Youth Academy</Text>
-        <Text style={styles.subtitle}>
-          New youth players are generated at the start of each season
-        </Text>
+        <Text style={styles.title}>{t('youth.title')}</Text>
+        <Text style={styles.subtitle}>{t('youth.subtitle')}</Text>
       </View>
 
       <View style={styles.emptyContainer}>
         <Text style={styles.emptyIcon}>🌱</Text>
-        <Text style={styles.emptyText}>No youth prospects available</Text>
-        <Text style={styles.emptyHint}>
-          Check back at the start of the next season for new talents
-        </Text>
+        <Text style={styles.emptyText}>{t('youth.empty')}</Text>
+        <Text style={styles.emptyHint}>{t('youth.empty_hint')}</Text>
       </View>
     </View>
   );
