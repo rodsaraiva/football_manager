@@ -1,4 +1,4 @@
-import { getStaffEffects, StaffEffectsInput } from '@/engine/staff/staff-effects';
+import { getStaffEffects, StaffEffectsInput, assistantAbilityFromStars } from '@/engine/staff/staff-effects';
 
 describe('getStaffEffects', () => {
   it('returns training bonus from fitness coach', () => {
@@ -24,5 +24,23 @@ describe('getStaffEffects', () => {
     const result = getStaffEffects({ fitnessCoachAbility: 0, physioAbility: 0, scoutAbility: 0, youthCoachAbility: 0, assistantAbility: 0 });
     expect(result.trainingBonus).toBe(0);
     expect(result.injuryRecoveryBonus).toBe(0);
+  });
+});
+
+describe('assistantAbilityFromStars', () => {
+  it('maps 1-5 stars onto the 1-20 ability scale (stars*4)', () => {
+    expect(assistantAbilityFromStars(1)).toBe(4);
+    expect(assistantAbilityFromStars(3)).toBe(12);
+    expect(assistantAbilityFromStars(5)).toBe(20);
+  });
+
+  it('feeds tacticBonus and trainingBonus when used as assistantAbility', () => {
+    const ability = assistantAbilityFromStars(5);
+    const effects = getStaffEffects({
+      fitnessCoachAbility: ability, physioAbility: 0, scoutAbility: 0,
+      youthCoachAbility: 0, assistantAbility: ability,
+    });
+    expect(effects.tacticBonus).toBeCloseTo(0.10, 5);
+    expect(effects.trainingBonus).toBeCloseTo(0.30, 5);
   });
 });

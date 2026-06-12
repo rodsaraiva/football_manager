@@ -23,3 +23,8 @@ export function getStaffEffects(input: StaffEffectsInput): StaffEffects {
     tacticBonus: (input.assistantAbility / 20) * 0.10,
   };
 }
+
+/** Converts an assistant's 1-5 quality stars into the 1-20 ability scale getStaffEffects expects. */
+export function assistantAbilityFromStars(qualityStars: number): number {
+  return Math.max(1, Math.min(20, Math.round(qualityStars) * 4));
+}
