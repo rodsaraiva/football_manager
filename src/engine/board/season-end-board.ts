@@ -23,6 +23,7 @@ export interface SeasonEndBoardParams {
   wasPromoted: boolean;
   wonLeague: boolean;
   wonCup: boolean;
+  squadAverageOverall: number;
 }
 
 export interface SeasonEndBoardResult {
@@ -43,7 +44,7 @@ export interface SeasonEndBoardResult {
  * the engine computes/persists, the caller wires stores. Covers the null-objective loop case.
  */
 export async function processSeasonEndBoard(p: SeasonEndBoardParams): Promise<SeasonEndBoardResult> {
-  const { dbHandle: db, clubId, saveId, endedSeason, newSeason, leaguePosition, totalTeams, currentReputation, budgetBalance, wasRelegated, wasPromoted, wonLeague, wonCup } = p;
+  const { dbHandle: db, clubId, saveId, endedSeason, newSeason, leaguePosition, totalTeams, currentReputation, budgetBalance, wasRelegated, wasPromoted, wonLeague, wonCup, squadAverageOverall } = p;
 
   // 1. Reputation delta.
   const repResult = computeReputationDelta({
@@ -52,7 +53,7 @@ export async function processSeasonEndBoard(p: SeasonEndBoardParams): Promise<Se
     totalTeams,
     wonLeague, wonCup, wasRelegated, wasPromoted,
     budgetBalance,
-    squadAverageOverall: 70,
+    squadAverageOverall,
     staffAverageAbility: 10,
   });
 

@@ -23,6 +23,10 @@ import { buildDivisionPairs, computeDivisionSwaps } from '@/engine/competition/p
 import { Fixture } from '@/types';
 import { SeededRng } from '@/engine/rng';
 import { processSeasonEndBoard } from '@/engine/board/season-end-board';
+import { isManagerDismissed } from '@/engine/board/season-outcome';
+import { markSaveEnded } from '@/database/queries/save';
+import { getPlayersWithAttributesByClub } from '@/database/queries/players';
+import { calculateOverall } from '@/utils/overall';
 import { rolloverSeason } from '@/engine/season-rollover';
 import { processAssistantsSeasonEnd } from '@/engine/assistant/season-end-assistants';
 import { useBoardStore } from '@/store/board-store';
@@ -152,6 +156,23 @@ export function EndOfSeasonScreen() {
             .prepare('SELECT id FROM season_relegated WHERE save_id = ? AND season = ? AND club_id = ? LIMIT 1')
             .get(saveId, endedSeason, playerClubId) as { id: number } | undefined;
           const promotedRow = await getPromotedForClub(dbHandle, saveId, endedSeason, playerClubId);
+
+          // Real cup detection: any won domestic cup (exclude continental).
+          let wonCup = false;
+          for (const comp of competitions.filter((c) => c.type === 'cup')) {
+            const champ = await dbHandle
+              .prepare('SELECT champion_club_id AS champ FROM season_competition_results WHERE save_id = ? AND season = ? AND competition_id = ?')
+              .get(saveId, endedSeason, comp.id) as { champ: number } | undefined;
+            if (champ?.champ === playerClubId) { wonCup = true; break; }
+          }
+
+          // Real squad strength (drives the reputation squad bonus).
+          const squadWithAttrs = await getPlayersWithAttributesByClub(dbHandle, saveId, playerClubId);
+          const overalls = squadWithAttrs.map((pl) => calculateOverall(pl.attributes, pl.position));
+          const squadAverageOverall = overalls.length
+            ? overalls.reduce((s, v) => s + v, 0) / overalls.length
+            : 70;
+
           try {
             const boardResult = await processSeasonEndBoard({
               dbHandle,
@@ -166,7 +187,8 @@ export function EndOfSeasonScreen() {
               wasRelegated: relegatedRow != null,
               wasPromoted: promotedRow != null,
               wonLeague: leaguePosition === 1,
-              wonCup: false,
+              wonCup,
+              squadAverageOverall,
             });
             setCurrentObjective(boardResult.newObjective);
             setCurrentTrust(boardResult.newTrust);
@@ -208,6 +230,21 @@ export function EndOfSeasonScreen() {
   async function handleContinue() {
     if (!dbHandle || starting || !playerClubId) return;
     setStarting(true);
+
+    // Dismissal short-circuit: if the board fired the manager, end the save and
+    // route to GameOver BEFORE any rollover mutation (a dead save does zero rollover).
+    if (currentSave && isManagerDismissed(boardEval?.consequence ?? 'none')) {
+      await markSaveEnded(dbHandle, currentSave.id);
+      setStarting(false);
+      navigation.navigate('GameOver', {
+        reason: boardEval?.outcome === 'objective_failed'
+          ? 'Objetivo da temporada não cumprido.'
+          : 'Confiança da diretoria esgotada.',
+        trust: boardEval?.trust ?? 0,
+        objectiveDescription: boardEval?.objectiveDescription ?? '',
+      });
+      return;
+    }
 
     try {
       // advanceGameWeek already advanced the season pointer; `season` is the new year.

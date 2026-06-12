@@ -29,7 +29,7 @@ describe('processSeasonEndBoard', () => {
     const result = await processSeasonEndBoard({
       dbHandle: db, clubId: CLUB, saveId, endedSeason: ENDED, newSeason: NEW,
       leaguePosition: 5, totalTeams: 20, currentReputation: 60, budgetBalance: 1_000_000,
-      wasRelegated: false, wasPromoted: false, wonLeague: false, wonCup: false,
+      wasRelegated: false, wasPromoted: false, wonLeague: false, wonCup: false, squadAverageOverall: 70,
     });
     expect(result.newObjective).not.toBeNull();
     expect(await getBoardObjective(db, saveId, CLUB, NEW)).not.toBeNull();
@@ -41,7 +41,7 @@ describe('processSeasonEndBoard', () => {
     const result = await processSeasonEndBoard({
       dbHandle: db, clubId: CLUB, saveId, endedSeason: ENDED, newSeason: NEW,
       leaguePosition: 20, totalTeams: 20, currentReputation: 60, budgetBalance: -500_000,
-      wasRelegated: true, wasPromoted: false, wonLeague: false, wonCup: false,
+      wasRelegated: true, wasPromoted: false, wonLeague: false, wonCup: false, squadAverageOverall: 70,
     });
     const after = ((await db.prepare('SELECT budget FROM clubs WHERE id = ?').get(CLUB)) as { budget: number }).budget;
     if (result.consequence === 'budget_cut') {
@@ -57,7 +57,7 @@ describe('processSeasonEndBoard', () => {
     const result = await processSeasonEndBoard({
       dbHandle: db, clubId: CLUB, saveId, endedSeason: ENDED, newSeason: NEW,
       leaguePosition: 3, totalTeams: 20, currentReputation: 60, budgetBalance: 200_000,
-      wasRelegated: false, wasPromoted: false, wonLeague: false, wonCup: false,
+      wasRelegated: false, wasPromoted: false, wonLeague: false, wonCup: false, squadAverageOverall: 70,
     });
     expect(result.reputationHistory.some(h => h.season === ENDED)).toBe(true);
   });
