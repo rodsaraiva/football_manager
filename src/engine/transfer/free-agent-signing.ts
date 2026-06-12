@@ -1,6 +1,7 @@
 import { DbHandle } from '@/database/queries/players';
 import { addFinanceEntry } from '@/database/queries/finances';
 import { createTransfer } from '@/database/queries/transfers';
+import { canAffordWage } from '@/engine/finance/affordability';
 
 /**
  * Free agent expected weekly wage is proportional to overall. A 60-ovr player
@@ -61,6 +62,18 @@ export async function signFreeAgent(
   if (!club) return { success: false, reason: 'Club not found.' };
   if (club.budget < wageOffered * 4) {
     return { success: false, reason: 'Budget too low to sustain this wage.' };
+  }
+
+  // Wage-budget gate: the existing wage bill plus this wage must fit under
+  // wage_budget. A wage_budget of 0 (legacy) means "no cap".
+  const wbRow = (await db
+    .prepare('SELECT wage_budget FROM clubs WHERE save_id = ? AND id = ?')
+    .get(saveId, clubId)) as { wage_budget: number } | undefined;
+  const billRow = (await db
+    .prepare('SELECT COALESCE(SUM(wage), 0) AS bill FROM players WHERE save_id = ? AND club_id = ? AND is_free_agent = 0')
+    .get(saveId, clubId)) as { bill: number };
+  if (wbRow && !canAffordWage(billRow.bill, wbRow.wage_budget, wageOffered)) {
+    return { success: false, reason: 'Wage budget exceeded for this signing.' };
   }
 
   const expected = freeAgentExpectedWage(playerOverall);
