@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { colors, spacing, fontSize, commonStyles } from '@/theme';
+import { alpha, colors, spacing, fontSize, commonStyles } from '@/theme';
 import { ClubBanner } from '@/components/ClubBanner';
 import { useTranslation, objectiveDescriptor } from '@/i18n';
 import { useGameStore } from '@/store/game-store';
@@ -919,7 +919,7 @@ const styles = StyleSheet.create({
     marginHorizontal: spacing.md,
     marginBottom: spacing.sm,
     borderWidth: 1,
-    borderColor: colors.warning + '66',
+    borderColor: alpha(colors.warning, 0.4),
     borderLeftWidth: 4,
     borderLeftColor: colors.warning,
   },

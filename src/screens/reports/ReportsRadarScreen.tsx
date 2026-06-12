@@ -15,7 +15,7 @@ import {
   FlatList,
 } from 'react-native';
 import { useFocusEffect, useRoute, RouteProp } from '@react-navigation/native';
-import { colors, spacing, fontSize, commonStyles } from '@/theme';
+import { alpha, colors, spacing, fontSize, commonStyles } from '@/theme';
 import { SectionCard } from '@/components/SectionCard';
 import { ValueBadge } from '@/components/ValueBadge';
 import { useGameStore } from '@/store/game-store';
@@ -316,7 +316,7 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.border,
   },
   pickerItemSelected: {
-    backgroundColor: colors.primary + '33',
+    backgroundColor: alpha(colors.primary, 0.2),
   },
   pickerItemText: {
     color: colors.textSecondary,

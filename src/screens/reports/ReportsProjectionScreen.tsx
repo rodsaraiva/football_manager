@@ -15,7 +15,7 @@ import {
   FlatList,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import { colors, spacing, fontSize, commonStyles } from '@/theme';
+import { alpha, colors, spacing, fontSize, commonStyles } from '@/theme';
 import { useTranslation } from '@/i18n';
 import type { TKey } from '@/i18n/translate';
 import { ValueBadge } from '@/components/ValueBadge';
@@ -386,7 +386,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border + '44',
+    borderBottomColor: alpha(colors.border, 0.27),
   },
   cell: {
     color: colors.text,

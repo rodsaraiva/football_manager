@@ -14,7 +14,7 @@ import {
   RefreshControl,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import { colors, spacing, fontSize, commonStyles } from '@/theme';
+import { alpha, colors, spacing, fontSize, commonStyles } from '@/theme';
 import { useTranslation } from '@/i18n';
 import { SectionCard } from '@/components/SectionCard';
 import { EmptyState } from '@/components/EmptyState';
@@ -208,9 +208,9 @@ function repColor(label: 'Favorito' | 'Equilíbrio' | 'Zebra'): string {
 }
 
 function resultBg(result: 'W' | 'D' | 'L'): string {
-  if (result === 'W') return colors.success + 'cc';
-  if (result === 'L') return colors.danger + 'cc';
-  return colors.warning + 'cc';
+  if (result === 'W') return alpha(colors.success, 0.8);
+  if (result === 'L') return alpha(colors.danger, 0.8);
+  return alpha(colors.warning, 0.8);
 }
 
 const styles = StyleSheet.create({
@@ -254,7 +254,7 @@ const styles = StyleSheet.create({
   },
   alertBanner: {
     marginTop: spacing.sm,
-    backgroundColor: colors.warning + '33',
+    backgroundColor: alpha(colors.warning, 0.2),
     borderRadius: 6,
     padding: spacing.sm,
     borderLeftWidth: 3,

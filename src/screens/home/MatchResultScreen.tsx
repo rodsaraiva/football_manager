@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { colors, spacing, fontSize, commonStyles } from '@/theme';
+import { alpha, colors, spacing, fontSize, commonStyles } from '@/theme';
 import { useTranslation } from '@/i18n';
 import { useGameStore } from '@/store/game-store';
 import MatchEventItem from '@/components/MatchEventItem';
@@ -120,7 +120,7 @@ const statStyles = StyleSheet.create({
 
 function getRatingColor(rating: number): string {
   if (rating >= 8) return colors.success;
-  if (rating >= 7) return '#06d6a0aa';
+  if (rating >= 7) return alpha(colors.success, 0.67);
   if (rating >= 6) return colors.warning;
   return colors.danger;
 }

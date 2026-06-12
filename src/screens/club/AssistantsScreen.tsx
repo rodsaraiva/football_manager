@@ -2,7 +2,7 @@ import React, { useCallback, useState } from 'react';
 import { View, Text, ScrollView, StyleSheet, Pressable, Alert } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { colors, spacing, fontSize, commonStyles } from '@/theme';
+import { alpha, colors, spacing, fontSize, commonStyles } from '@/theme';
 import { useTranslation } from '@/i18n';
 import type { TKey } from '@/i18n/translate';
 import { useGameStore } from '@/store/game-store';
@@ -208,7 +208,7 @@ const styles = StyleSheet.create({
   },
   statValue: { color: colors.text, fontSize: fontSize.md, fontWeight: '600', marginTop: 2 },
   retireBadge: {
-    backgroundColor: colors.danger + '22',
+    backgroundColor: alpha(colors.danger, 0.13),
     borderRadius: 6,
     paddingVertical: 4,
     paddingHorizontal: spacing.sm,
