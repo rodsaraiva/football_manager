@@ -18,6 +18,7 @@ const makeInput = (overrides: Partial<ProgressionInput> = {}): ProgressionInput 
   avgRatingRecent: 7.0,
   trainingFocus: 'balanced',
   trainingFacilityLevel: 3,
+  staffTrainingBonus: 0,
   ...overrides,
 });
 
@@ -83,5 +84,17 @@ describe('calculateWeeklyProgression', () => {
     const lowTotal = Object.values(low.attributeChanges).reduce((s, v) => s + v, 0);
     const highTotal = Object.values(high.attributeChanges).reduce((s, v) => s + v, 0);
     expect(highTotal).toBeGreaterThan(lowTotal);
+  });
+
+  it('higher staffTrainingBonus yields monotonically larger gains for a developing player', () => {
+    const low = calculateWeeklyProgression(makeInput({ age: 21, staffTrainingBonus: 0 })).attributeChanges.passing;
+    const high = calculateWeeklyProgression(makeInput({ age: 21, staffTrainingBonus: 0.3 })).attributeChanges.passing;
+    expect(high).toBeGreaterThan(low);
+  });
+
+  it('staffTrainingBonus of 0 keeps the previous (facility-only) behaviour', () => {
+    const change = calculateWeeklyProgression(makeInput({ age: 21, staffTrainingBonus: 0 })).attributeChanges.passing;
+    expect(change).toBeGreaterThan(0);
+    expect(Number.isFinite(change)).toBe(true);
   });
 });

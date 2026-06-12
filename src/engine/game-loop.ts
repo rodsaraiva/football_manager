@@ -287,6 +287,7 @@ export async function advanceGameWeek(params: AdvanceWeekParams): Promise<Advanc
         avgRatingRecent: 6.5,
         trainingFocus: 'balanced',
         trainingFacilityLevel,
+        staffTrainingBonus: 0, // wired to real staff effects in a later task
       });
 
       // Apply attribute changes to DB

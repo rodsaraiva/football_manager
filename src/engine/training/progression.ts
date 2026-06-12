@@ -11,6 +11,7 @@ export interface ProgressionInput {
   avgRatingRecent: number;        // avg rating last 4-6 weeks (0 if no games)
   trainingFocus: TrainingFocus;
   trainingFacilityLevel: number;  // 1-5
+  staffTrainingBonus: number;     // 0..~0.3, from getStaffEffects().trainingBonus
 }
 
 export interface ProgressionResult {
@@ -61,8 +62,8 @@ function getPerformanceFactor(avgRating: number): number {
   return 0.3;
 }
 
-function getTrainingFactor(facilityLevel: number): number {
-  return 1.0 + facilityLevel * 0.06;
+function getTrainingFactor(facilityLevel: number, staffTrainingBonus: number): number {
+  return 1.0 + facilityLevel * 0.06 + staffTrainingBonus;
 }
 
 function getPotentialFactor(effectivePotential: number, currentAttrAvg: number): number {
@@ -90,6 +91,7 @@ export function calculateWeeklyProgression(input: ProgressionInput): Progression
     avgRatingRecent,
     trainingFocus,
     trainingFacilityLevel,
+    staffTrainingBonus,
   } = input;
 
   const minutesPct = totalPossibleMinutes > 0
@@ -108,7 +110,7 @@ export function calculateWeeklyProgression(input: ProgressionInput): Progression
   }
 
   const performanceFactor = getPerformanceFactor(avgRatingRecent);
-  const trainingFactor = getTrainingFactor(trainingFacilityLevel);
+  const trainingFactor = getTrainingFactor(trainingFacilityLevel, staffTrainingBonus);
 
   const allAttrs = attributes as Record<keyof PlayerAttributes, number>;
   const attrValues = Object.values(allAttrs) as number[];
