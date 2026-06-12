@@ -16,6 +16,7 @@ import {
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { colors, spacing, fontSize, commonStyles } from '@/theme';
+import { useTranslation } from '@/i18n';
 import { useGameStore } from '@/store/game-store';
 import { useDatabaseStore } from '@/store/database-store';
 import { getPlayersWithAttributesByClub } from '@/database/queries/players';
@@ -39,6 +40,7 @@ function formatCurrency(value: number): string {
 }
 
 export function ReportsTransferROIScreen() {
+  const { t } = useTranslation();
   const { playerClubId, currentSave } = useGameStore();
   const saveId = currentSave?.id;
   const { dbHandle } = useDatabaseStore();
@@ -130,7 +132,7 @@ export function ReportsTransferROIScreen() {
   if (!report) {
     return (
       <View style={[commonStyles.screen, styles.center]}>
-        <Text style={styles.emptyText}>Sem dados de transferências.</Text>
+        <Text style={styles.emptyText}>{t('report.roi_no_data')}</Text>
       </View>
     );
   }
@@ -146,7 +148,7 @@ export function ReportsTransferROIScreen() {
           onPress={() => setTab('signings')}
         >
           <Text style={[styles.tabText, tab === 'signings' && styles.tabTextActive]}>
-            Contratações ({report.signings.length})
+            {t('report.roi_tab_signings', { n: report.signings.length })}
           </Text>
         </Pressable>
         <Pressable
@@ -154,7 +156,7 @@ export function ReportsTransferROIScreen() {
           onPress={() => setTab('sales')}
         >
           <Text style={[styles.tabText, tab === 'sales' && styles.tabTextActive]}>
-            Vendas ({report.sales.length})
+            {t('report.roi_tab_sales', { n: report.sales.length })}
           </Text>
         </Pressable>
       </View>
@@ -162,7 +164,7 @@ export function ReportsTransferROIScreen() {
       {list.length === 0 ? (
         <View style={styles.center}>
           <Text style={styles.emptyText}>
-            {tab === 'signings' ? 'Nenhuma contratação registrada.' : 'Nenhuma venda registrada.'}
+            {tab === 'signings' ? t('report.roi_empty_signings') : t('report.roi_empty_sales')}
           </Text>
         </View>
       ) : (
@@ -181,6 +183,7 @@ export function ReportsTransferROIScreen() {
 }
 
 function ROICard({ entry, tab }: { entry: TransferROIEntry; tab: Tab }) {
+  const { t } = useTranslation();
   const deltaColor =
     !entry.stillAtClub ? colors.textMuted
     : entry.valueDelta >= 0 ? colors.success
@@ -192,9 +195,9 @@ function ROICard({ entry, tab }: { entry: TransferROIEntry; tab: Tab }) {
         <View style={styles.cardInfo}>
           <Text style={styles.playerName}>{entry.playerName}</Text>
           <Text style={styles.playerMeta}>
-            {entry.position} · T{entry.season}
-            {entry.isLoan ? ' · Empréstimo' : ''}
-            {!entry.stillAtClub && tab === 'signings' ? ' · Saiu do clube' : ''}
+            {entry.position} · {t('report.roi_season', { season: entry.season })}
+            {entry.isLoan ? ` · ${t('report.roi_loan')}` : ''}
+            {!entry.stillAtClub && tab === 'signings' ? ` · ${t('report.roi_left_club')}` : ''}
           </Text>
         </View>
         <View style={styles.ovrBadge}>
@@ -206,12 +209,12 @@ function ROICard({ entry, tab }: { entry: TransferROIEntry; tab: Tab }) {
         {tab === 'signings' ? (
           <>
             <StatCell
-              label="Custo"
+              label={t('report.roi_cost')}
               value={entry.feePaid === 0 ? 'Free' : formatCurrency(entry.feePaid)}
               color={colors.textSecondary}
             />
             <StatCell
-              label="Valor atual"
+              label={t('report.roi_current_value')}
               value={entry.stillAtClub ? formatCurrency(entry.currentMarketValue) : 'N/A'}
               color={colors.textSecondary}
             />
@@ -235,12 +238,12 @@ function ROICard({ entry, tab }: { entry: TransferROIEntry; tab: Tab }) {
         ) : (
           <>
             <StatCell
-              label="Fee recebido"
+              label={t('report.roi_fee_received')}
               value={entry.feePaid === 0 ? 'Free' : formatCurrency(entry.feePaid)}
               color={colors.success}
             />
             <StatCell
-              label="Valor (aprox.)"
+              label={t('report.roi_value_approx')}
               value={formatCurrency(entry.currentMarketValue)}
               color={colors.textSecondary}
             />
