@@ -3,9 +3,8 @@ import { getPlayersByClub, getPlayerById, setPlayerSuspension } from '@/database
 import { getAssistantsBySave } from '@/database/queries/assistants';
 import { maybeGenerateComment } from './assistant/comment-generator';
 import { AssistantComment } from '@/types/assistant';
-import { generateAiTransfer } from './transfer/transfer-ai';
 import { processPendingOffers } from './transfer/offer-processor';
-import { generateAiOffersForPlayerClub } from './transfer/ai-offer-generator';
+import { generateAiOffersForSquad, generateAiToAiOffers } from './transfer/ai-offer-generator';
 import { expireStaleOffers, prunExpiredBlocks } from './transfer/negotiation';
 import {
   pickStartingEleven,
@@ -30,7 +29,8 @@ import { assignMatchInjuries } from './simulation/injury';
 import { resolveMatchSuspensions } from './simulation/match-consequences';
 import { maybeGenerateNextKnockoutRound } from './competition/round-progression';
 import { PlayerForStrength } from './simulation/team-strength';
-import { calculateWeeklyIncome, calculateWeeklyExpenses } from './finance/finance-engine';
+import { simulateWeekFixtures, ClubMatchData, FixtureSimInput } from './simulation/match-runner';
+import { computeWeeklyClubFinance } from './finance/weekly-finance';
 import { calculateWeeklyProgression } from './training/progression';
 import { Fixture } from '@/types';
 import { upsertPlayerStats } from '@/database/queries/player-stats';
@@ -137,32 +137,6 @@ export interface AdvanceWeekResult {
 // Squad selection (pickStartingEleven / buildSquadFromSavedIds / buildBench /
 // PlayerForPick / POSITION_GROUP) lives in ./simulation/squad-selection.ts.
 
-// ─── AI match simulation (reputation-based, no full engine) ──────────────────
-
-async function simulateAiMatch(
-  fixture: Fixture,
-  rng: SeededRng,
-  db: DbHandle,
-  saveId: number,
-): Promise<{ homeGoals: number; awayGoals: number }> {
-  const home = await getClubById(db, saveId, fixture.homeClubId);
-  const away = await getClubById(db, saveId, fixture.awayClubId);
-  const homeRep = home?.reputation ?? 50;
-  const awayRep = away?.reputation ?? 50;
-
-  const homeStrength = homeRep / 100 + 0.05; // slight home advantage
-  const awayStrength = awayRep / 100;
-  const total = homeStrength + awayStrength;
-
-  const homeGoalBase = (homeStrength / total) * 2.5;
-  const awayGoalBase = (awayStrength / total) * 2.5;
-
-  const homeGoals = Math.max(0, Math.round(homeGoalBase + rng.nextFloat(-1.5, 1.5)));
-  const awayGoals = Math.max(0, Math.round(awayGoalBase + rng.nextFloat(-1.5, 1.5)));
-
-  return { homeGoals, awayGoals };
-}
-
 // ─── Player data helpers ──────────────────────────────────────────────────────
 
 async function loadSquadWithAttributes(db: DbHandle, saveId: number, clubId: number): Promise<PlayerForPick[]> {
@@ -186,202 +160,108 @@ async function loadSquadWithAttributes(db: DbHandle, saveId: number, clubId: num
   return result;
 }
 
+// Loads each club appearing in this week's fixtures once: XI + bench (saved or
+// best-available) + tactic + reputation, keyed by clubId. Feeds the real engine
+// for every match (human + AI). Touches DB, so it lives in the loop file.
+async function loadWeekClubData(
+  db: DbHandle,
+  saveId: number,
+  fixtures: Fixture[],
+): Promise<Map<number, ClubMatchData>> {
+  const clubIds = new Set<number>();
+  for (const f of fixtures) { clubIds.add(f.homeClubId); clubIds.add(f.awayClubId); }
+
+  const map = new Map<number, ClubMatchData>();
+  for (const clubId of clubIds) {
+    const raw = await loadSquadWithAttributes(db, saveId, clubId);
+    const club = await getClubById(db, saveId, clubId);
+    const tactic = await getActiveTactic(db, saveId, clubId);
+    const formation = tactic?.formation ?? '4-4-2';
+    const lineup = tactic ? await getTacticLineup(db, saveId, tactic.id) : null;
+
+    const squad = lineup
+      ? buildSquadFromSavedIds(lineup.starterIds, raw, formation)
+      : pickStartingEleven(raw, formation);
+    const startIds = new Set(squad.map(p => p.id));
+    const bench = lineup
+      ? buildBenchFromSavedIds(lineup.benchIds, raw, startIds)
+      : buildBench(raw, startIds);
+
+    const resolvedTactic = tactic ?? {
+      id: 0, clubId, name: 'Default', isActive: true,
+      formation: '4-4-2' as const, mentality: 'balanced' as const,
+      pressing: 'medium' as const, passingStyle: 'mixed' as const,
+      tempo: 'normal' as const, width: 'normal' as const,
+      attackFocus: 'balanced' as const, subStrategy: 'balanced' as const,
+    };
+
+    map.set(clubId, { clubId, reputation: club?.reputation ?? 50, squad, bench, tactic: resolvedTactic });
+  }
+  return map;
+}
+
 // ─── Transfer window helpers ──────────────────────────────────────────────────
 
 function isTransferWindow(week: number): boolean {
   return (week >= 1 && week <= 6) || (week >= 23 && week <= 26);
 }
 
-export async function processAiTransfers(db: DbHandle, saveId: number, season: number, week: number, rng: SeededRng): Promise<void> {
-  if (!isTransferWindow(week)) return;
-
-  const clubs = await db.prepare(
-    'SELECT id, reputation, budget FROM clubs WHERE save_id = ? ORDER BY RANDOM() LIMIT 5',
-  ).all(saveId) as Array<{ id: number; reputation: number; budget: number }>;
-
-  for (const club of clubs) {
-    const squadRows = await db.prepare(
-      'SELECT position FROM players WHERE save_id = ? AND club_id = ?',
-    ).all(saveId, club.id) as Array<{ position: string }>;
-
-    const available = await db.prepare(
-      `SELECT p.id, p.position, p.market_value, p.wage, p.club_id as from_club_id, c.reputation as club_reputation
-       FROM players p JOIN clubs c ON p.club_id = c.id AND c.save_id = p.save_id
-       WHERE p.save_id = ? AND p.club_id != ? AND p.is_free_agent = 0
-       ORDER BY RANDOM() LIMIT 20`,
-    ).all(saveId, club.id) as Array<{
-      id: number;
-      position: string;
-      market_value: number;
-      wage: number;
-      from_club_id: number;
-      club_reputation: number;
-    }>;
-
-    const result = generateAiTransfer({
-      clubId: club.id,
-      clubBudget: club.budget,
-      clubReputation: club.reputation,
-      squadPositions: squadRows.map(r => r.position),
-      availablePlayers: available.map(p => ({
-        id: p.id,
-        position: p.position,
-        overall: 70, // simplified
-        marketValue: p.market_value,
-        wage: p.wage,
-        clubReputation: p.club_reputation,
-      })),
-      rng,
-    });
-
-    if (result) {
-      const player = available.find(p => p.id === result.targetPlayerId);
-      if (!player) continue;
-
-      // Move player to buying club
-      await db.prepare('UPDATE players SET club_id = ?, wage = ? WHERE save_id = ? AND id = ?').run(
-        club.id,
-        result.offeredWage,
-        saveId,
-        result.targetPlayerId,
-      );
-      // Deduct fee from buyer
-      await db.prepare('UPDATE clubs SET budget = budget - ? WHERE save_id = ? AND id = ?').run(
-        result.offeredFee,
-        saveId,
-        club.id,
-      );
-      // Add fee to seller
-      await db.prepare('UPDATE clubs SET budget = budget + ? WHERE save_id = ? AND id = ?').run(
-        result.offeredFee,
-        saveId,
-        player.from_club_id,
-      );
-      // Write finance ledger entries for both clubs
-      await addFinanceEntry(db, saveId, {
-        clubId: club.id,
-        season,
-        week,
-        type: 'transfer_out',
-        amount: -result.offeredFee,
-        description: `Transfer fee paid for player #${result.targetPlayerId}`,
-      });
-      await addFinanceEntry(db, saveId, {
-        clubId: player.from_club_id,
-        season,
-        week,
-        type: 'transfer_in',
-        amount: result.offeredFee,
-        description: `Transfer fee received for player #${result.targetPlayerId}`,
-      });
-    }
-  }
-}
+// AI→AI transfers now flow through the real market (generateAiToAiOffers +
+// processPendingOffers), replacing the old reputation/overall-70 coin-flip path.
 
 // ─── Main function ────────────────────────────────────────────────────────────
 
 export async function advanceGameWeek(params: AdvanceWeekParams): Promise<AdvanceWeekResult> {
   const { dbHandle: db, season, week, playerClubId, saveId, rng } = params;
 
-  // 1. Get fixtures for this week
+  // 1. Fixtures + batch-load every club playing this week (one query set per club).
   const fixtures = await getFixturesByWeek(db, saveId, season, week);
+  const clubData = await loadWeekClubData(db, saveId, fixtures);
 
-  // 2. Simulate the player's match with the real engine
-  let playerMatchResult: MatchResult | null = null;
+  // 2. Simulate ALL fixtures with the real engine (human + AI, same engine — no
+  //    reputation coin-flip). The runner sorts by fixture id for determinism.
+  const simInputs: FixtureSimInput[] = fixtures.map(f => ({
+    fixtureId: f.id, homeClubId: f.homeClubId, awayClubId: f.awayClubId,
+  }));
+  const simulated = simulateWeekFixtures({ fixtures: simInputs, clubData, rng });
+  const resultByFixture = new Map(simulated.map(s => [s.fixtureId, s.result]));
+
   const playerFixture = fixtures.find(
     f => f.homeClubId === playerClubId || f.awayClubId === playerClubId,
   );
+  let playerMatchResult: MatchResult | null = null;
 
-  if (playerFixture) {
-    const homeSquadRaw = await loadSquadWithAttributes(db, saveId, playerFixture.homeClubId);
-    const awaySquadRaw = await loadSquadWithAttributes(db, saveId, playerFixture.awayClubId);
-
-    const homeTactic = await getActiveTactic(db, saveId, playerFixture.homeClubId);
-    const awayTactic = await getActiveTactic(db, saveId, playerFixture.awayClubId);
-
-    const homeFormation = homeTactic?.formation ?? '4-4-2';
-    const awayFormation = awayTactic?.formation ?? '4-4-2';
-
-    const homeLineupSaved = homeTactic ? await getTacticLineup(db, saveId, homeTactic.id) : null;
-    const awayLineupSaved = awayTactic ? await getTacticLineup(db, saveId, awayTactic.id) : null;
-
-    const homeSquad = homeLineupSaved
-      ? buildSquadFromSavedIds(homeLineupSaved.starterIds, homeSquadRaw, homeFormation)
-      : pickStartingEleven(homeSquadRaw, homeFormation);
-    const awaySquad = awayLineupSaved
-      ? buildSquadFromSavedIds(awayLineupSaved.starterIds, awaySquadRaw, awayFormation)
-      : pickStartingEleven(awaySquadRaw, awayFormation);
-
-    // Build benches: saved bench or best available, cap 8
-    const homeStartIds = new Set(homeSquad.map(p => p.id));
-    const awayStartIds = new Set(awaySquad.map(p => p.id));
-
-    const homeBench: PlayerForStrength[] = homeLineupSaved
-      ? buildBenchFromSavedIds(homeLineupSaved.benchIds, homeSquadRaw, homeStartIds)
-      : buildBench(homeSquadRaw, homeStartIds);
-    const awayBench: PlayerForStrength[] = awayLineupSaved
-      ? buildBenchFromSavedIds(awayLineupSaved.benchIds, awaySquadRaw, awayStartIds)
-      : buildBench(awaySquadRaw, awayStartIds);
-
-    const homeClub = await getClubById(db, saveId, playerFixture.homeClubId);
-    const awayClub = await getClubById(db, saveId, playerFixture.awayClubId);
-
-    const defaultTactic = {
-      id: 0,
-      clubId: playerClubId,
-      name: 'Default',
-      isActive: true,
-      formation: '4-4-2' as const,
-      mentality: 'balanced' as const,
-      pressing: 'medium' as const,
-      passingStyle: 'mixed' as const,
-      tempo: 'normal' as const,
-      width: 'normal' as const,
-      attackFocus: 'balanced' as const,
-      subStrategy: 'balanced' as const,
-    };
-
-    const matchResult = simulateMatch({
-      fixtureId: playerFixture.id,
-      homeSquad,
-      awaySquad,
-      homeBench,
-      awayBench,
-      homeTactic: homeTactic ?? defaultTactic,
-      awayTactic: awayTactic ?? { ...defaultTactic, id: -1, clubId: playerFixture.awayClubId },
-      homeClubReputation: homeClub?.reputation ?? 50,
-      awayClubReputation: awayClub?.reputation ?? 50,
-      rng,
-    });
-
-    // Persist result
-    await updateFixtureResult(
-      db,
-      saveId,
-      playerFixture.id,
-      matchResult.homeGoals,
-      matchResult.awayGoals,
-      matchResult.attendance,
-    );
-
-    for (const event of matchResult.events) {
-      await addMatchEvent(db, {
-        fixtureId: playerFixture.id,
-        minute: event.minute,
-        type: event.type,
-        playerId: event.playerId,
-        secondaryPlayerId: event.secondaryPlayerId,
-      });
+  // 3. Persist every fixture; player_stats for ALL clubs; full event log only for
+  //    the human match (the UI consumes it).
+  for (const fixture of fixtures) {
+    const result = resultByFixture.get(fixture.id);
+    if (!result) continue;
+    await updateFixtureResult(db, saveId, fixture.id, result.homeGoals, result.awayGoals, result.attendance);
+    await persistMatchStats(db, saveId, fixture, result);
+    if (playerFixture && fixture.id === playerFixture.id) {
+      playerMatchResult = result;
+      for (const event of result.events) {
+        await addMatchEvent(db, {
+          fixtureId: fixture.id,
+          minute: event.minute,
+          type: event.type,
+          playerId: event.playerId,
+          secondaryPlayerId: event.secondaryPlayerId,
+        });
+      }
     }
+  }
 
-    playerMatchResult = matchResult;
+  // 4. Human-club consequences (progression/fitness/injury/suspension). Same logic
+  //    as before; XI ids come from the batch cache, full squad re-loaded for deltas.
+  if (playerFixture && playerMatchResult) {
+    const matchResult = playerMatchResult;
+    const playerSquadRaw = await loadSquadWithAttributes(db, saveId, playerClubId);
+    const homeXiIds = clubData.get(playerFixture.homeClubId)?.squad.map(p => p.id) ?? [];
+    const awayXiIds = clubData.get(playerFixture.awayClubId)?.squad.map(p => p.id) ?? [];
+    const startingIds = new Set<number>([...homeXiIds, ...awayXiIds]);
 
-    // Persist per-player stats for this real-engine match
-    await persistMatchStats(db, saveId, playerFixture, matchResult);
-
-    // 5. Apply player progression for player's squad (home or away)
-    const playerSquadRaw =
-      playerFixture.homeClubId === playerClubId ? homeSquadRaw : awaySquadRaw;
+    // 5. Apply player progression for player's squad
     const playerClubData = await getClubById(db, saveId, playerClubId);
     const trainingFacilityLevel = playerClubData?.trainingFacilities ?? 3;
 
@@ -432,10 +312,7 @@ export async function advanceGameWeek(params: AdvanceWeekParams): Promise<Advanc
       );
     }
 
-    // 6. Update fitness for player's club squad
-    const startingIds = new Set(homeSquad.concat(awaySquad).map(p => p.id));
-    // Players in player's club who played vs those who rested
-    const playerClubSquadIds = playerSquadRaw.map(p => p.id);
+    // 6. Update fitness for player's club squad (played → drop, rested → recover).
     for (const p of playerSquadRaw) {
       const played = startingIds.has(p.id);
       let newFitness: number;
@@ -448,7 +325,6 @@ export async function advanceGameWeek(params: AdvanceWeekParams): Promise<Advanc
       }
       await db.prepare('UPDATE players SET fitness = ? WHERE save_id = ? AND id = ?').run(newFitness, saveId, p.id);
     }
-    void playerClubSquadIds; // used above via playerSquadRaw
 
     // 7. Recover existing injuries first (decrement), THEN apply this match's new
     // injuries — otherwise the freshly-set duration would be decremented in the
@@ -487,140 +363,74 @@ export async function advanceGameWeek(params: AdvanceWeekParams): Promise<Advanc
     }
   }
 
-  // 3. Simulate other AI vs AI matches
-  for (const fixture of fixtures) {
-    if (fixture.id === playerFixture?.id) continue;
-    const { homeGoals, awayGoals } = await simulateAiMatch(fixture, rng, db, saveId);
-    await updateFixtureResult(db, saveId, fixture.id, homeGoals, awayGoals);
-  }
+  // (all fixtures were already simulated + persisted above by the real engine)
 
   // 3a. Advance any knockout competition whose current round just finished.
   await maybeGenerateNextKnockoutRound(db, saveId, season, week, rng);
 
-  // 3b. Process AI transfers during transfer windows
-  await processAiTransfers(db, saveId, season, week, rng);
-
-  // 3c. AI clubs submit offers for the player's squad (in-window only)
+  // 3b. Transfers via the real market: AI→AI offers + AI→human offers (in-window),
+  //     then process every pending offer (acceptance doesn't distinguish human/AI).
   if (isTransferWindow(week)) {
-    await generateAiOffersForPlayerClub(db, saveId, playerClubId, rng, season, week);
+    await generateAiToAiOffers(db, saveId, rng, season, week, playerClubId);
+    await generateAiOffersForSquad(db, saveId, playerClubId, rng, season, week);
   }
 
-  // 3d. Process pending offers submitted by the player (always, not gated by window)
+  // 3c. Process pending offers submitted by the player (always, not gated by window)
   await processPendingOffers(db, saveId, season, week, playerClubId);
 
-  // 3e. Expire stale offers (no response within 2 weeks) and prune old blocks
+  // 3d. Expire stale offers (no response within 2 weeks) and prune old blocks
   await expireStaleOffers(db, saveId, season, week);
   await prunExpiredBlocks(db, saveId, season, week);
 
   // 4. Process weekly finances for player's club
-  const playerClub = await getClubById(db, saveId, playerClubId);
-  let updatedBudget = playerClub?.budget ?? 0;
+  // Every club with a fixture this week runs the same weekly finance model; the
+  // human club is always included (it pays wages even on a bye week).
+  const financeClubIds = new Set<number>();
+  for (const f of fixtures) { financeClubIds.add(f.homeClubId); financeClubIds.add(f.awayClubId); }
+  financeClubIds.add(playerClubId);
 
-  if (playerClub) {
-    const players = await getPlayersByClub(db, saveId, playerClubId);
+  let updatedBudget = 0;
+  for (const clubId of financeClubIds) {
+    const club = await getClubById(db, saveId, clubId);
+    if (!club) continue;
+
+    const players = await getPlayersByClub(db, saveId, clubId);
     const totalPlayerWages = players.reduce((sum, p) => sum + p.wage, 0);
-
-    const staffList = await getStaffByClub(db, saveId, playerClubId);
+    const staffList = await getStaffByClub(db, saveId, clubId);
     const totalStaffWages = staffList.reduce((sum, s) => sum + s.wage, 0);
 
-    const hasHomeMatch = playerFixture?.homeClubId === playerClubId;
-    // Use the persisted attendance from the played fixture when available so
-    // ticket revenue reflects the real crowd, not just a rep-based estimate.
-    const actualAttendance = hasHomeMatch ? (playerMatchResult?.attendance ?? playerFixture?.attendance ?? null) : null;
+    const homeFixture = fixtures.find(f => f.homeClubId === clubId);
+    const hasHomeMatch = homeFixture != null;
+    // Real crowd from the played fixture when available, else rep-based estimate.
+    const actualAttendance = hasHomeMatch
+      ? (resultByFixture.get(homeFixture!.id)?.attendance ?? homeFixture!.attendance ?? null)
+      : null;
 
-    const income = calculateWeeklyIncome({
-      clubReputation: playerClub.reputation,
-      stadiumCapacity: playerClub.stadiumCapacity,
-      hasHomeMatch,
-      leaguePosition: 1,
-      season,
-      week,
-      actualAttendance,
-    });
+    const fin = computeWeeklyClubFinance({
+      clubId, reputation: club.reputation, budget: club.budget,
+      stadiumCapacity: club.stadiumCapacity, trainingFacilities: club.trainingFacilities,
+      youthAcademy: club.youthAcademy, medicalDepartment: club.medicalDepartment,
+      totalPlayerWages, totalStaffWages, hasHomeMatch, actualAttendance, leaguePosition: 1,
+    }, season, week);
 
-    const expenses = calculateWeeklyExpenses({
-      totalPlayerWages,
-      totalStaffWages,
-      stadiumCapacity: playerClub.stadiumCapacity,
-      trainingFacilities: playerClub.trainingFacilities,
-      youthAcademy: playerClub.youthAcademy,
-      medicalDepartment: playerClub.medicalDepartment,
-    });
+    for (const e of fin.entries) await addFinanceEntry(db, saveId, e);
+    let budget = fin.newBudget;
 
-    // Add finance entries
-    await addFinanceEntry(db, saveId, {
-      clubId: playerClubId,
-      season,
-      week,
-      type: 'tv',
-      amount: income.tv,
-      description: 'Weekly TV rights income',
-    });
-
-    await addFinanceEntry(db, saveId, {
-      clubId: playerClubId,
-      season,
-      week,
-      type: 'sponsor',
-      amount: income.sponsor,
-      description: 'Weekly sponsorship income',
-    });
-
-    if (hasHomeMatch && income.ticket > 0) {
-      await addFinanceEntry(db, saveId, {
-        clubId: playerClubId,
-        season,
-        week,
-        type: 'ticket',
-        amount: income.ticket,
-        description: 'Home match ticket sales',
-      });
-    }
-
-    await addFinanceEntry(db, saveId, {
-      clubId: playerClubId,
-      season,
-      week,
-      type: 'wages',
-      amount: -expenses.wages,
-      description: 'Weekly wages (players + staff)',
-    });
-
-    await addFinanceEntry(db, saveId, {
-      clubId: playerClubId,
-      season,
-      week,
-      type: 'maintenance',
-      amount: -expenses.maintenance,
-      description: 'Stadium and facility maintenance',
-    });
-
-    const totalIncome =
-      income.tv + income.sponsor + (hasHomeMatch ? income.ticket : 0);
-    const totalExpenses = expenses.wages + expenses.maintenance;
-    updatedBudget = playerClub.budget + totalIncome - totalExpenses;
-
-    // Monthly assistant wages (every 4 weeks)
-    if (saveId >= 0 && week % 4 === 0) {
+    // Human-only: monthly assistant wages every 4 weeks.
+    if (clubId === playerClubId && saveId >= 0 && week % 4 === 0) {
       const assistants = await getAssistantsBySave(db, saveId);
-      let totalAssistantWages = 0;
-      for (const a of assistants) {
-        totalAssistantWages += a.wagePerMonth;
-      }
+      const totalAssistantWages = assistants.reduce((s, a) => s + a.wagePerMonth, 0);
       if (totalAssistantWages > 0) {
         await addFinanceEntry(db, saveId, {
-          clubId: playerClubId,
-          season,
-          week,
-          type: 'assistant_wage',
-          amount: -totalAssistantWages,
-          description: 'Monthly assistant staff wages',
+          clubId, season, week, type: 'assistant_wage',
+          amount: -totalAssistantWages, description: 'Monthly assistant staff wages',
         });
-        updatedBudget -= totalAssistantWages;
+        budget -= totalAssistantWages;
       }
     }
 
-    await updateClubBudget(db, saveId, playerClubId, updatedBudget);
+    await updateClubBudget(db, saveId, clubId, budget);
+    if (clubId === playerClubId) updatedBudget = budget;
   }
 
   // 4b. Generate assistant comment (max 1 per week, 15% chance)
