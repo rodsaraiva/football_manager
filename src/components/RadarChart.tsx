@@ -9,7 +9,7 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import Svg, { Polygon, Circle, Line, Text as SvgText } from 'react-native-svg';
-import { colors, fontSize, spacing } from '@/theme';
+import { colors, fontSize, radius, spacing } from '@/theme';
 
 export interface RadarProfile {
   label: string;
@@ -134,7 +134,7 @@ export function RadarChart({ profiles, axisLabels, size = DEFAULT_SIZE, maxValue
               x={x}
               y={y}
               fill={colors.textSecondary}
-              fontSize={8}
+              fontSize={fontSize.micro}
               textAnchor={textAnchor}
               alignmentBaseline="middle"
             >
@@ -173,7 +173,7 @@ const styles = StyleSheet.create({
   legendDot: {
     width: 10,
     height: 10,
-    borderRadius: 5,
+    borderRadius: radius.round,
   },
   legendLabel: {
     color: colors.textSecondary,

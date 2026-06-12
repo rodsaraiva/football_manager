@@ -12,6 +12,8 @@ export const commonStyles = StyleSheet.create({
   title: { color: colors.text, fontSize: fontSize.xl, fontWeight: 'bold' },
   subtitle: { color: colors.textSecondary, fontSize: fontSize.md },
   label: { color: colors.textMuted, fontSize: fontSize.xs, textTransform: 'uppercase', letterSpacing: 1 },
+  // Rule: identity = club accent (chrome: header tint, active tab, ClubBanner);
+  // action = blue (colors.primary) for predictable CTAs across clubs. See theme-consistency spec §4.
   button: { backgroundColor: colors.primary, borderRadius: 8, paddingVertical: 12, paddingHorizontal: spacing.lg, alignItems: 'center' },
   buttonText: { color: colors.text, fontSize: fontSize.lg, fontWeight: '600' },
   divider: { height: 1, backgroundColor: colors.border, marginVertical: spacing.sm },
