@@ -13,6 +13,8 @@ import {
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { colors, fontSize, spacing, commonStyles } from '@/theme';
+import { useTranslation } from '@/i18n';
+import type { TKey } from '@/i18n/translate';
 import { useGameStore } from '@/store/game-store';
 import { useDatabaseStore } from '@/store/database-store';
 import { getOffersBySellingClub, deleteOffer } from '@/database/queries/transfers';
@@ -46,14 +48,15 @@ function parseNumber(input: string): number {
   return cleaned === '' ? 0 : parseInt(cleaned, 10);
 }
 
-const STATUS_META: Record<OfferStatus, { label: string; color: string; icon: string }> = {
-  pending: { label: 'New', color: colors.warning, icon: '📥' },
-  accepted: { label: 'Accepted', color: colors.success, icon: '✅' },
-  rejected: { label: 'Rejected', color: colors.danger, icon: '❌' },
-  countered: { label: 'Awaiting', color: colors.accent, icon: '💬' },
+const STATUS_META: Record<OfferStatus, { labelKey: TKey; color: string; icon: string }> = {
+  pending: { labelKey: 'offers.status_new', color: colors.warning, icon: '📥' },
+  accepted: { labelKey: 'offers.status_accepted', color: colors.success, icon: '✅' },
+  rejected: { labelKey: 'offers.status_rejected', color: colors.danger, icon: '❌' },
+  countered: { labelKey: 'offers.status_awaiting', color: colors.accent, icon: '💬' },
 };
 
 export function OffersReceivedScreen() {
+  const { t } = useTranslation();
   const { playerClubId, season, week, currentSave } = useGameStore();
   const saveId = currentSave?.id;
   const { dbHandle } = useDatabaseStore();
@@ -108,19 +111,19 @@ export function OffersReceivedScreen() {
     (row: OfferRow) => {
       if (!dbHandle || saveId == null) return;
       Alert.alert(
-        'Accept offer?',
-        `Sell ${row.playerName} to ${row.offeringClubName} for ${formatMoney(row.offer.feeOffered)}?`,
+        t('offers.accept_offer_title'),
+        t('offers.accept_offer_msg', { player: row.playerName, club: row.offeringClubName, fee: formatMoney(row.offer.feeOffered) }),
         [
-          { text: 'Cancel', style: 'cancel' },
+          { text: t('common.cancel'), style: 'cancel' },
           {
-            text: 'Sell',
+            text: t('offers.sell'),
             style: 'destructive',
             onPress: async () => {
               const res = await acceptIncomingOffer(dbHandle, saveId, row.offer.id, season, week);
               if (!res.success) {
-                Alert.alert('Error', res.reason ?? 'Could not complete transfer');
+                Alert.alert(t('transfer.error'), res.reason ?? t('offers.transfer_failed'));
               } else {
-                Alert.alert('Player sold', `${row.playerName} has left your club.`);
+                Alert.alert(t('offers.player_sold'), t('offers.player_left', { name: row.playerName }));
               }
               await load();
             },
@@ -149,13 +152,13 @@ export function OffersReceivedScreen() {
     if (!dbHandle || !counterRow || saveId == null) return;
     const newFee = parseNumber(counterFeeStr);
     if (newFee <= counterRow.offer.feeOffered) {
-      Alert.alert('Invalid counter', 'Your asking price must be higher than the current offer.');
+      Alert.alert(t('offers.invalid_counter'), t('offers.invalid_counter_msg'));
       return;
     }
     await counterIncomingOffer(dbHandle, saveId, counterRow.offer.id, newFee);
     setCounterRow(null);
     setCounterFeeStr('');
-    Alert.alert('Counter sent', 'The buying club will respond next week.');
+    Alert.alert(t('offers.counter_sent'), t('offers.counter_sent_msg'));
     await load();
   }, [dbHandle, saveId, counterRow, counterFeeStr, load]);
 
@@ -179,8 +182,8 @@ export function OffersReceivedScreen() {
   if (rows.length === 0) {
     return (
       <View style={[commonStyles.screen, styles.center]}>
-        <Text style={styles.emptyTitle}>No offers received</Text>
-        <Text style={styles.emptyText}>Other clubs may bid for your players during transfer windows.</Text>
+        <Text style={styles.emptyTitle}>{t('offers.none_received')}</Text>
+        <Text style={styles.emptyText}>{t('offers.none_received_sub')}</Text>
       </View>
     );
   }
@@ -214,20 +217,20 @@ export function OffersReceivedScreen() {
                 <View style={styles.cardHeaderLeft}>
                   <Text style={styles.cardTitle}>{item.playerName}</Text>
                   <Text style={styles.cardSubtitle}>
-                    {item.playerPosition} · Age {item.playerAge} · from {item.offeringClubName}
+                    {t('offers.received_meta', { position: item.playerPosition, age: item.playerAge, club: item.offeringClubName })}
                   </Text>
                 </View>
                 <View style={[styles.statusBadge, { backgroundColor: meta.color + '22', borderColor: meta.color }]}>
-                  <Text style={[styles.statusText, { color: meta.color }]}>{meta.icon} {meta.label}</Text>
+                  <Text style={[styles.statusText, { color: meta.color }]}>{meta.icon} {t(meta.labelKey)}</Text>
                 </View>
               </View>
 
               <View style={styles.row}>
-                <Text style={styles.fieldLabel}>Offered Fee</Text>
+                <Text style={styles.fieldLabel}>{t('offers.offered_fee')}</Text>
                 <Text style={styles.fieldValue}>{formatMoney(item.offer.feeOffered)}</Text>
               </View>
               <View style={styles.row}>
-                <Text style={styles.fieldLabel}>Market Value</Text>
+                <Text style={styles.fieldLabel}>{t('transfer.market_value')}</Text>
                 <Text style={styles.fieldValueMuted}>{formatMoney(item.marketValue)}</Text>
               </View>
               <View style={styles.row}>
@@ -237,7 +240,7 @@ export function OffersReceivedScreen() {
                 </Text>
               </View>
               <View style={styles.row}>
-                <Text style={styles.fieldLabel}>Wage Offered</Text>
+                <Text style={styles.fieldLabel}>{t('offers.wage_offered')}</Text>
                 <Text style={styles.fieldValue}>{formatMoney(item.offer.wageOffered)}/wk</Text>
               </View>
 
@@ -247,19 +250,19 @@ export function OffersReceivedScreen() {
                     style={[styles.btn, styles.btnSecondary]}
                     onPress={() => handleReject(item)}
                   >
-                    <Text style={styles.btnSecondaryText}>Reject</Text>
+                    <Text style={styles.btnSecondaryText}>{t('offers.reject')}</Text>
                   </Pressable>
                   <Pressable
                     style={[styles.btn, styles.btnWarning]}
                     onPress={() => openCounter(item)}
                   >
-                    <Text style={styles.btnPrimaryText}>Counter</Text>
+                    <Text style={styles.btnPrimaryText}>{t('offers.counter')}</Text>
                   </Pressable>
                   <Pressable
                     style={[styles.btn, styles.btnPrimary]}
                     onPress={() => handleAccept(item)}
                   >
-                    <Text style={styles.btnPrimaryText}>Accept</Text>
+                    <Text style={styles.btnPrimaryText}>{t('offers.accept')}</Text>
                   </Pressable>
                 </View>
               )}
@@ -274,7 +277,7 @@ export function OffersReceivedScreen() {
                     style={[styles.btn, styles.btnSecondary]}
                     onPress={() => handleDismiss(item)}
                   >
-                    <Text style={styles.btnSecondaryText}>Dismiss</Text>
+                    <Text style={styles.btnSecondaryText}>{t('offers.dismiss')}</Text>
                   </Pressable>
                 </View>
               )}
@@ -292,14 +295,14 @@ export function OffersReceivedScreen() {
       >
         <View style={styles.backdrop}>
           <View style={styles.counterSheet}>
-            <Text style={styles.counterTitle}>Counter Offer</Text>
+            <Text style={styles.counterTitle}>{t('offers.counter_offer')}</Text>
             {counterRow && (
               <>
                 <Text style={styles.counterMeta}>{counterRow.playerName}</Text>
                 <Text style={styles.counterMetaSub}>
-                  Current offer: {formatMoney(counterRow.offer.feeOffered)} · Market: {formatMoney(counterRow.marketValue)}
+                  {t('offers.current_vs_market', { offer: formatMoney(counterRow.offer.feeOffered), market: formatMoney(counterRow.marketValue) })}
                 </Text>
-                <Text style={styles.fieldLabel}>Your asking price</Text>
+                <Text style={styles.fieldLabel}>{t('offers.asking_price')}</Text>
                 <TextInput
                   style={styles.input}
                   value={counterFeeStr}
@@ -313,13 +316,13 @@ export function OffersReceivedScreen() {
                     style={[styles.btn, styles.btnSecondary]}
                     onPress={() => setCounterRow(null)}
                   >
-                    <Text style={styles.btnSecondaryText}>Cancel</Text>
+                    <Text style={styles.btnSecondaryText}>{t('common.cancel')}</Text>
                   </Pressable>
                   <Pressable
                     style={[styles.btn, styles.btnPrimary]}
                     onPress={submitCounter}
                   >
-                    <Text style={styles.btnPrimaryText}>Send Counter</Text>
+                    <Text style={styles.btnPrimaryText}>{t('offers.send_counter')}</Text>
                   </Pressable>
                 </View>
               </>
