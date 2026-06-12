@@ -11,6 +11,8 @@ import {
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { colors, fontSize, spacing, commonStyles } from '@/theme';
+import { useTranslation } from '@/i18n';
+import type { TKey } from '@/i18n/translate';
 import { useGameStore } from '@/store/game-store';
 import { useDatabaseStore } from '@/store/database-store';
 import {
@@ -37,14 +39,15 @@ function formatMoney(n: number): string {
   return `$${n}`;
 }
 
-const STATUS_META: Record<OfferStatus, { label: string; color: string; icon: string }> = {
-  pending: { label: 'Pending', color: colors.warning, icon: '⏳' },
-  accepted: { label: 'Accepted', color: colors.success, icon: '✅' },
-  rejected: { label: 'Rejected', color: colors.danger, icon: '❌' },
-  countered: { label: 'Counter', color: colors.accent, icon: '💬' },
+const STATUS_META: Record<OfferStatus, { labelKey: TKey; color: string; icon: string }> = {
+  pending: { labelKey: 'offers.status_pending', color: colors.warning, icon: '⏳' },
+  accepted: { labelKey: 'offers.status_accepted', color: colors.success, icon: '✅' },
+  rejected: { labelKey: 'offers.status_rejected', color: colors.danger, icon: '❌' },
+  countered: { labelKey: 'offers.status_counter', color: colors.accent, icon: '💬' },
 };
 
 export function OffersSentScreen() {
+  const { t } = useTranslation();
   const { playerClubId, season, week, currentSave } = useGameStore();
   const saveId = currentSave?.id;
   const { dbHandle } = useDatabaseStore();
@@ -96,18 +99,18 @@ export function OffersSentScreen() {
     async (row: OfferRow) => {
       if (!dbHandle || saveId == null) return;
       Alert.alert(
-        'Accept counter-offer?',
-        `${row.sellingClubName} countered with ${formatMoney(row.offer.feeOffered)} for ${row.playerName}. Accept?`,
+        t('offers.accept_counter_title'),
+        t('offers.accept_counter_msg', { club: row.sellingClubName, fee: formatMoney(row.offer.feeOffered), player: row.playerName }),
         [
-          { text: 'Cancel', style: 'cancel' },
+          { text: t('common.cancel'), style: 'cancel' },
           {
-            text: 'Accept',
+            text: t('offers.accept'),
             onPress: async () => {
               const res = await acceptCounterOffer(dbHandle, saveId, row.offer.id, season, week);
               if (!res.success) {
-                Alert.alert('Unable to accept', res.reason ?? 'Unknown error');
+                Alert.alert(t('offers.unable_accept'), res.reason ?? t('transfer.unknown_error'));
               } else {
-                Alert.alert('Deal closed', `${row.playerName} has joined your club.`);
+                Alert.alert(t('offers.deal_closed'), t('transfer.signed_msg', { name: row.playerName }));
               }
               await load();
             },
@@ -147,8 +150,8 @@ export function OffersSentScreen() {
   if (rows.length === 0) {
     return (
       <View style={[commonStyles.screen, styles.center]}>
-        <Text style={styles.emptyTitle}>No offers sent</Text>
-        <Text style={styles.emptyText}>Submit offers from the Transfer Market.</Text>
+        <Text style={styles.emptyTitle}>{t('offers.none_sent')}</Text>
+        <Text style={styles.emptyText}>{t('offers.none_sent_sub')}</Text>
       </View>
     );
   }
@@ -172,26 +175,26 @@ export function OffersSentScreen() {
               <View style={styles.cardHeaderLeft}>
                 <Text style={styles.cardTitle}>{item.playerName}</Text>
                 <Text style={styles.cardSubtitle}>
-                  {item.playerPosition} · from {item.sellingClubName}
+                  {t('offers.from_club', { position: item.playerPosition, club: item.sellingClubName })}
                 </Text>
               </View>
               <View style={[styles.statusBadge, { backgroundColor: meta.color + '22', borderColor: meta.color }]}>
-                <Text style={[styles.statusText, { color: meta.color }]}>{meta.icon} {meta.label}</Text>
+                <Text style={[styles.statusText, { color: meta.color }]}>{meta.icon} {t(meta.labelKey)}</Text>
               </View>
             </View>
 
             <View style={styles.row}>
               <Text style={styles.fieldLabel}>
-                {isCountered ? 'Counter Fee' : 'Your Fee'}
+                {isCountered ? t('offers.counter_fee') : t('offers.your_fee')}
               </Text>
               <Text style={styles.fieldValue}>{formatMoney(item.offer.feeOffered)}</Text>
             </View>
             <View style={styles.row}>
-              <Text style={styles.fieldLabel}>Wage Offered</Text>
+              <Text style={styles.fieldLabel}>{t('offers.wage_offered')}</Text>
               <Text style={styles.fieldValue}>{formatMoney(item.offer.wageOffered)}/wk</Text>
             </View>
             <View style={styles.row}>
-              <Text style={styles.fieldLabel}>Market Value</Text>
+              <Text style={styles.fieldLabel}>{t('transfer.market_value')}</Text>
               <Text style={styles.fieldValueMuted}>{formatMoney(item.marketValue)}</Text>
             </View>
 
@@ -201,13 +204,13 @@ export function OffersSentScreen() {
                   style={[styles.btn, styles.btnSecondary]}
                   onPress={() => handleRejectCounter(item)}
                 >
-                  <Text style={styles.btnSecondaryText}>Walk Away</Text>
+                  <Text style={styles.btnSecondaryText}>{t('offers.walk_away')}</Text>
                 </Pressable>
                 <Pressable
                   style={[styles.btn, styles.btnPrimary]}
                   onPress={() => handleAcceptCounter(item)}
                 >
-                  <Text style={styles.btnPrimaryText}>Accept Counter</Text>
+                  <Text style={styles.btnPrimaryText}>{t('offers.accept_counter_btn')}</Text>
                 </Pressable>
               </View>
             )}
@@ -218,7 +221,7 @@ export function OffersSentScreen() {
                   style={[styles.btn, styles.btnSecondary]}
                   onPress={() => handleDismiss(item)}
                 >
-                  <Text style={styles.btnSecondaryText}>Dismiss</Text>
+                  <Text style={styles.btnSecondaryText}>{t('offers.dismiss')}</Text>
                 </Pressable>
               </View>
             )}
