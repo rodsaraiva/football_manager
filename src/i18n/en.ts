@@ -240,4 +240,10 @@ export const en: Record<keyof typeof pt, string> = {
   'home.calendar_title': 'Calendar',
   'home.calendar_sub': 'View the full season calendar',
   'home.youth_academy_link': 'Youth Academy',
+  'topscorers.title': 'Top Scorers',
+  'topscorers.empty': 'No data yet — play some matches',
+  'topscorers.goals': 'goals',
+  'topscorers.assists': 'assists',
+  'home.top_scorers_title': 'Top Scorers',
+  'home.top_scorers_sub': "Who's scoring in the league",
 };

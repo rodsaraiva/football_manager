@@ -38,6 +38,7 @@ export type RootStackParamList = {
   // Orphan screens wired in
   Calendar: undefined;
   YouthAcademy: undefined;
+  TopScorers: undefined;
 };
 
 export type TabParamList = {

@@ -32,6 +32,7 @@ import { PlayerDetailRoute } from '@/screens/squad/PlayerDetailRoute';
 import { MatchResultScreen } from '@/screens/home/MatchResultScreen';
 import { CalendarScreen } from '@/screens/home/CalendarScreen';
 import { YouthAcademyScreen } from '@/screens/squad/YouthAcademyScreen';
+import { TopScorersScreen } from '@/screens/league/TopScorersScreen';
 import { TabNavigator } from './TabNavigator';
 import { RootStackParamList } from './types';
 
@@ -88,6 +89,7 @@ export function RootNavigator() {
       {/* Orphan screens wired in */}
       <Stack.Screen name="Calendar" component={CalendarScreen} options={{ title: 'Calendar' }} />
       <Stack.Screen name="YouthAcademy" component={YouthAcademyScreen} options={{ title: 'Youth Academy' }} />
+      <Stack.Screen name="TopScorers" component={TopScorersScreen} options={{ title: 'Top Scorers' }} />
     </Stack.Navigator>
   );
 }

@@ -238,4 +238,10 @@ export const pt = {
   'home.calendar_title': 'Calendário',
   'home.calendar_sub': 'Veja o calendário completo da temporada',
   'home.youth_academy_link': 'Academia de Base',
+  'topscorers.title': 'Artilheiros',
+  'topscorers.empty': 'Sem dados ainda — jogue algumas partidas',
+  'topscorers.goals': 'gols',
+  'topscorers.assists': 'assist.',
+  'home.top_scorers_title': 'Artilheiros',
+  'home.top_scorers_sub': 'Quem está marcando na liga',
 } as const;

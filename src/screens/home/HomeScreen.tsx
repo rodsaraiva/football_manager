@@ -390,6 +390,20 @@ export function HomeScreen() {
         <Text style={styles.leagueTableChevron}>›</Text>
       </TouchableOpacity>
 
+      {/* Top scorers shortcut */}
+      <TouchableOpacity
+        style={styles.leagueTableBtn}
+        activeOpacity={0.8}
+        onPress={() => navigation.navigate('TopScorers')}
+      >
+        <Text style={styles.leagueTableIcon}>⚽</Text>
+        <View style={styles.leagueTableContent}>
+          <Text style={styles.leagueTableTitle}>{t('home.top_scorers_title')}</Text>
+          <Text style={styles.leagueTableSub}>{t('home.top_scorers_sub')}</Text>
+        </View>
+        <Text style={styles.leagueTableChevron}>›</Text>
+      </TouchableOpacity>
+
       {/* Last Match Result Banner */}
       {lastMatchResult !== null && (
         <TouchableOpacity
