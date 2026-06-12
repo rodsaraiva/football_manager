@@ -9,6 +9,8 @@ import {
   View,
 } from 'react-native';
 import { colors, commonStyles, fontSize, spacing } from '@/theme';
+import { useTranslation } from '@/i18n';
+import type { TKey } from '@/i18n/translate';
 import { useGameStore } from '@/store/game-store';
 import { useDatabaseStore } from '@/store/database-store';
 import { getActiveTactic, updateTactic } from '@/database/queries/tactics';
@@ -83,11 +85,8 @@ const SUB_STRATEGY_OPTIONS: SubstitutionStrategy[] = [
   'chase_the_game',
 ];
 
-function humanize(s: string): string {
-  return s.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
-}
-
 export function TacticsSettingsScreen() {
+  const { t } = useTranslation();
   const playerClubId = useGameStore((s) => s.playerClubId);
   const currentSave = useGameStore((s) => s.currentSave);
   const dbHandle = useDatabaseStore((s) => s.dbHandle);
@@ -131,7 +130,7 @@ export function TacticsSettingsScreen() {
 
   const handleSave = useCallback(async () => {
     if (!dbHandle || !tactic || saveId == null) {
-      Alert.alert('Error', 'No active tactic found.');
+      Alert.alert(t('transfer.error'), t('tactics.no_active'));
       return;
     }
     setSaving(true);
@@ -145,9 +144,9 @@ export function TacticsSettingsScreen() {
         attackFocus,
         subStrategy,
       });
-      Alert.alert('Saved', 'Tactic settings saved successfully!');
+      Alert.alert(t('tactics.saved'), t('tactics.saved_msg'));
     } catch {
-      Alert.alert('Error', 'Failed to save tactic settings.');
+      Alert.alert(t('transfer.error'), t('tactics.save_failed'));
     } finally {
       setSaving(false);
     }
@@ -165,54 +164,59 @@ export function TacticsSettingsScreen() {
     <ScrollView style={commonStyles.screen} contentContainerStyle={styles.scrollContent}>
       <View style={styles.card}>
         <SettingRow
-          label="Mentality"
+          label={t('tactics.label_mentality')}
+          labelFor={(o) => t(`tactics.opt_${o}` as TKey)}
           options={MENTALITY_OPTIONS}
           value={mentality}
           onSelect={setMentality}
         />
         <View style={styles.divider} />
         <SettingRow
-          label="Pressing"
+          label={t('tactics.label_pressing')}
+          labelFor={(o) => t(`tactics.opt_${o}` as TKey)}
           options={PRESSING_OPTIONS}
           value={pressing}
           onSelect={setPressing}
         />
         <View style={styles.divider} />
         <SettingRow
-          label="Passing"
+          label={t('tactics.label_passing')}
+          labelFor={(o) => t(`tactics.opt_${o}` as TKey)}
           options={PASSING_OPTIONS}
           value={passingStyle}
           onSelect={setPassingStyle}
         />
         <View style={styles.divider} />
         <SettingRow
-          label="Tempo"
+          label={t('tactics.label_tempo')}
+          labelFor={(o) => t(`tactics.opt_${o}` as TKey)}
           options={TEMPO_OPTIONS}
           value={tempo}
           onSelect={setTempo}
         />
         <View style={styles.divider} />
         <SettingRow
-          label="Width"
+          label={t('tactics.label_width')}
+          labelFor={(o) => t(`tactics.opt_${o}` as TKey)}
           options={WIDTH_OPTIONS}
           value={width}
           onSelect={setWidth}
         />
         <View style={styles.divider} />
         <SettingRow
-          label="Attack Focus"
+          label={t('tactics.attack_focus_label')}
           options={ATTACK_FOCUS_OPTIONS}
           value={attackFocus}
           onSelect={setAttackFocus}
-          labelFor={humanize}
+          labelFor={(o) => t(`tactics.attack_focus_${o}` as TKey)}
         />
         <View style={styles.divider} />
         <SettingRow
-          label="Substitutions"
+          label={t('tactics.substitutions_label')}
           options={SUB_STRATEGY_OPTIONS}
           value={subStrategy}
           onSelect={setSubStrategy}
-          labelFor={humanize}
+          labelFor={(o) => t(`tactics.sub_strategy_${o}` as TKey)}
         />
       </View>
 
@@ -221,7 +225,7 @@ export function TacticsSettingsScreen() {
         onPress={handleSave}
         disabled={saving}
       >
-        <Text style={styles.saveButtonText}>{saving ? 'Saving…' : 'Save Settings'}</Text>
+        <Text style={styles.saveButtonText}>{saving ? t('tactics.saving') : t('tactics.save_settings')}</Text>
       </Pressable>
     </ScrollView>
   );
