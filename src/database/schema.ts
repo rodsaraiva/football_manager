@@ -64,7 +64,8 @@ CREATE TABLE IF NOT EXISTS clubs (
   youth_academy       INTEGER NOT NULL CHECK (youth_academy BETWEEN 1 AND 5),
   medical_department  INTEGER NOT NULL CHECK (medical_department BETWEEN 1 AND 5),
   primary_color       TEXT    NOT NULL,
-  secondary_color     TEXT    NOT NULL
+  secondary_color     TEXT    NOT NULL,
+  training_focus      TEXT    NOT NULL DEFAULT 'balanced'
 );
 
 CREATE TABLE IF NOT EXISTS players (
@@ -116,7 +117,25 @@ CREATE TABLE IF NOT EXISTS player_attributes (
   stamina     INTEGER NOT NULL,
   strength    INTEGER NOT NULL,
   agility     INTEGER NOT NULL,
-  jumping     INTEGER NOT NULL
+  jumping     INTEGER NOT NULL,
+  finishing_progress   REAL NOT NULL DEFAULT 0,
+  passing_progress     REAL NOT NULL DEFAULT 0,
+  crossing_progress    REAL NOT NULL DEFAULT 0,
+  dribbling_progress   REAL NOT NULL DEFAULT 0,
+  heading_progress     REAL NOT NULL DEFAULT 0,
+  long_shots_progress  REAL NOT NULL DEFAULT 0,
+  free_kicks_progress  REAL NOT NULL DEFAULT 0,
+  vision_progress      REAL NOT NULL DEFAULT 0,
+  composure_progress   REAL NOT NULL DEFAULT 0,
+  decisions_progress   REAL NOT NULL DEFAULT 0,
+  positioning_progress REAL NOT NULL DEFAULT 0,
+  aggression_progress  REAL NOT NULL DEFAULT 0,
+  leadership_progress  REAL NOT NULL DEFAULT 0,
+  pace_progress        REAL NOT NULL DEFAULT 0,
+  stamina_progress     REAL NOT NULL DEFAULT 0,
+  strength_progress    REAL NOT NULL DEFAULT 0,
+  agility_progress     REAL NOT NULL DEFAULT 0,
+  jumping_progress     REAL NOT NULL DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS player_stats (

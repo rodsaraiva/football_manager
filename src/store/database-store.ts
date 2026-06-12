@@ -87,6 +87,16 @@ export const useDatabaseStore = create<DatabaseStore>((set) => ({
       await addColumnIfMissing(db, 'tactics', 'attack_focus', "TEXT NOT NULL DEFAULT 'balanced'");
       await addColumnIfMissing(db, 'tactics', 'sub_strategy', "TEXT NOT NULL DEFAULT 'balanced'");
 
+      // Progression wiring: club-wide training focus + fractional attribute accumulators
+      await addColumnIfMissing(db, 'clubs', 'training_focus', "TEXT NOT NULL DEFAULT 'balanced'");
+      for (const c of [
+        'finishing', 'passing', 'crossing', 'dribbling', 'heading', 'long_shots',
+        'free_kicks', 'vision', 'composure', 'decisions', 'positioning', 'aggression',
+        'leadership', 'pace', 'stamina', 'strength', 'agility', 'jumping',
+      ]) {
+        await addColumnIfMissing(db, 'player_attributes', `${c}_progress`, 'REAL NOT NULL DEFAULT 0');
+      }
+
       // Transfer/loan listing flags
       await addColumnIfMissing(db, 'players', 'is_transfer_listed', 'INTEGER NOT NULL DEFAULT 0');
       await addColumnIfMissing(db, 'players', 'is_loan_listed',     'INTEGER NOT NULL DEFAULT 0');
