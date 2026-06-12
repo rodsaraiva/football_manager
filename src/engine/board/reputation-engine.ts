@@ -7,6 +7,12 @@ import {
   REPUTATION_BOTTOM3_PENALTY,
   REPUTATION_BUDGET_SURPLUS_BONUS,
   REPUTATION_BUDGET_DEFICIT_PENALTY,
+  REPUTATION_SQUAD_STRONG_BONUS,
+  REPUTATION_SQUAD_GOOD_BONUS,
+  REPUTATION_SQUAD_WEAK_PENALTY,
+  REPUTATION_SQUAD_STRONG_THRESHOLD,
+  REPUTATION_SQUAD_GOOD_THRESHOLD,
+  REPUTATION_SQUAD_WEAK_THRESHOLD,
 } from '@/engine/balance';
 
 export interface ReputationDeltaInput {
@@ -37,6 +43,14 @@ export interface ReputationDeltaResult {
   breakdown: ReputationBreakdown;
 }
 
+/** Reputation contribution from squad strength. Pure; thresholds in balance.ts. */
+export function squadStrengthDelta(squadAverageOverall: number): number {
+  if (squadAverageOverall >= REPUTATION_SQUAD_STRONG_THRESHOLD) return REPUTATION_SQUAD_STRONG_BONUS;
+  if (squadAverageOverall >= REPUTATION_SQUAD_GOOD_THRESHOLD) return REPUTATION_SQUAD_GOOD_BONUS;
+  if (squadAverageOverall <= REPUTATION_SQUAD_WEAK_THRESHOLD) return REPUTATION_SQUAD_WEAK_PENALTY;
+  return 0;
+}
+
 export function computeReputationDelta(input: ReputationDeltaInput): ReputationDeltaResult {
   const { currentReputation, leaguePosition, totalTeams, wonLeague, wonCup,
           wasRelegated, wasPromoted, budgetBalance } = input;
@@ -58,7 +72,7 @@ export function computeReputationDelta(input: ReputationDeltaInput): ReputationD
       ? REPUTATION_BUDGET_DEFICIT_PENALTY
       : 0;
 
-  const squadDelta = 0;
+  const squadDelta = squadStrengthDelta(input.squadAverageOverall);
 
   const relegationPenalty = wasRelegated ? REPUTATION_RELEGATION_PENALTY : 0;
   const promotionBonus = wasPromoted ? REPUTATION_PROMOTION_BONUS : 0;

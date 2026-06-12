@@ -1,4 +1,4 @@
-import { computeReputationDelta, ReputationDeltaInput } from '@/engine/board/reputation-engine';
+import { computeReputationDelta, ReputationDeltaInput, squadStrengthDelta } from '@/engine/board/reputation-engine';
 
 const base: ReputationDeltaInput = {
   currentReputation: 50,
@@ -9,7 +9,7 @@ const base: ReputationDeltaInput = {
   wasRelegated: false,
   wasPromoted: false,
   budgetBalance: 0,
-  squadAverageOverall: 70,
+  squadAverageOverall: 60,
   staffAverageAbility: 10,
 };
 
@@ -93,5 +93,36 @@ describe('computeReputationDelta', () => {
   it('delta equals newReputation minus currentReputation', () => {
     const result = computeReputationDelta({ ...base, wonLeague: true });
     expect(result.delta).toBe(result.newReputation - base.currentReputation);
+  });
+
+  it('adds a strong-squad bonus when squad overall is high', () => {
+    const result = computeReputationDelta({ ...base, squadAverageOverall: 85 });
+    expect(result.breakdown.squadDelta).toBe(3);
+    expect(result.newReputation).toBeGreaterThan(base.currentReputation);
+  });
+
+  it('adds a small bonus for a good squad', () => {
+    const result = computeReputationDelta({ ...base, squadAverageOverall: 72 });
+    expect(result.breakdown.squadDelta).toBe(1);
+  });
+
+  it('applies a penalty for a weak squad', () => {
+    const result = computeReputationDelta({ ...base, squadAverageOverall: 45 });
+    expect(result.breakdown.squadDelta).toBe(-2);
+  });
+
+  it('is neutral for a median squad', () => {
+    const result = computeReputationDelta({ ...base, squadAverageOverall: 60 });
+    expect(result.breakdown.squadDelta).toBe(0);
+  });
+});
+
+describe('squadStrengthDelta', () => {
+  it('maps overall to the documented curve', () => {
+    expect(squadStrengthDelta(80)).toBe(3);
+    expect(squadStrengthDelta(70)).toBe(1);
+    expect(squadStrengthDelta(69)).toBe(0);
+    expect(squadStrengthDelta(50)).toBe(-2);
+    expect(squadStrengthDelta(51)).toBe(0);
   });
 });
