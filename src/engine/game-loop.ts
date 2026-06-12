@@ -1,7 +1,7 @@
 import { DbHandle } from '@/database/queries/players';
 import { getPlayersByClub, getPlayersWithAttributesByClub, setPlayerSuspension, updatePlayerMorale } from '@/database/queries/players';
 import { computeMatchMoraleDelta, computeWeeklyMoraleDrift, applyMoraleDelta } from '@/engine/morale/morale-engine';
-import { getAssistantsBySave } from '@/database/queries/assistants';
+import { getAssistantsBySave, getAssistantByRole } from '@/database/queries/assistants';
 import { maybeGenerateComment } from './assistant/comment-generator';
 import { AssistantComment } from '@/types/assistant';
 import { processPendingOffers } from './transfer/offer-processor';
@@ -22,7 +22,7 @@ import {
 import { getClubById, getClubTrainingFocus } from '@/database/queries/clubs';
 import { getStaffByClub } from '@/database/queries/staff';
 import { getRecentForm } from '@/database/queries/player-stats';
-import { getStaffEffects } from '@/engine/staff/staff-effects';
+import { getStaffEffects, assistantAbilityFromStars } from '@/engine/staff/staff-effects';
 import { getActiveTactic, getTacticLineup } from '@/database/queries/tactics';
 import { updateSaveWeek } from '@/database/queries/saves';
 import { SeededRng } from './rng';
@@ -315,6 +315,20 @@ export async function advanceGameWeek(params: AdvanceWeekParams): Promise<Advanc
     });
     const trainingFocus = await getClubTrainingFocus(db, playerClubId);
 
+    // Squad assistant (assistants table) adds to the hired-staff training bonus.
+    let assistantTrainingBonus = 0;
+    if (saveId >= 0) {
+      const squadAssistant = await getAssistantByRole(db, saveId, 'squad');
+      if (squadAssistant) {
+        const ability = assistantAbilityFromStars(squadAssistant.qualityStars);
+        assistantTrainingBonus = getStaffEffects({
+          fitnessCoachAbility: ability, physioAbility: 0, scoutAbility: 0,
+          youthCoachAbility: 0, assistantAbility: ability,
+        }).trainingBonus;
+      }
+    }
+    const totalTrainingBonus = staffEffects.trainingBonus + assistantTrainingBonus;
+
     const playerClubPlayers = await getPlayersByClub(db, saveId, playerClubId);
     for (const p of playerSquadRaw) {
       const fullPlayer = playerClubPlayers.find(pl => pl.id === p.id);
@@ -328,7 +342,7 @@ export async function advanceGameWeek(params: AdvanceWeekParams): Promise<Advanc
         avgRatingRecent: form.avgRating,
         trainingFocus,
         trainingFacilityLevel,
-        staffTrainingBonus: staffEffects.trainingBonus,
+        staffTrainingBonus: totalTrainingBonus,
       });
 
       // Read current fractional accumulators, carry whole points into the INTEGER

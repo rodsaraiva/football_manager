@@ -21,7 +21,7 @@ import { EmptyState } from '@/components/EmptyState';
 import { useGameStore } from '@/store/game-store';
 import { useDatabaseStore } from '@/store/database-store';
 import { getClubsByLeague } from '@/database/queries/clubs';
-import { getCompetitionsBySeason } from '@/database/queries/leagues';
+import { getCompetitionsBySeason, getLeagueById } from '@/database/queries/leagues';
 import { getFixturesByClub } from '@/database/queries/fixtures';
 import { getPlayersWithAttributesByClub } from '@/database/queries/players';
 import { calculateOverall } from '@/utils/overall';
@@ -96,11 +96,14 @@ export function ReportsProjectionScreen() {
         }),
       );
 
+      const league = await getLeagueById(dbHandle, playerClub.leagueId);
+      const divisionLevel = league?.divisionLevel ?? 1;
       const proj = projectClassification({
         currentStandings,
         remainingFixtures,
         overallByClub,
         leagueSize: clubIds.length,
+        divisionLevel,
       });
       setProjection(proj);
 
@@ -180,7 +183,7 @@ export function ReportsProjectionScreen() {
                 </View>
                 <ValueBadge
                   value={statusLabel(myEntry.status)}
-                  tone={myEntry.status === 'title' ? 'warning' : myEntry.status === 'promotion' ? 'success' : myEntry.status === 'relegation' ? 'danger' : 'neutral'}
+                  tone={myEntry.status === 'title' ? 'warning' : myEntry.status === 'promotion' || myEntry.status === 'continental' ? 'success' : myEntry.status === 'relegation' ? 'danger' : 'neutral'}
                   size="sm"
                 />
               </View>
@@ -265,6 +268,7 @@ function statusColor(status: ProjectedStanding['status']): string {
   switch (status) {
     case 'title': return colors.gold;
     case 'promotion': return colors.success;
+    case 'continental': return colors.success;
     case 'relegation': return colors.danger;
     default: return colors.textSecondary;
   }
@@ -274,6 +278,7 @@ function statusLabel(status: ProjectedStanding['status']): string {
   switch (status) {
     case 'title': return 'Zona de Título';
     case 'promotion': return 'Zona de Classificação';
+    case 'continental': return 'Vaga Continental';
     case 'relegation': return 'Zona de Rebaixamento';
     default: return 'Zona Segura';
   }
