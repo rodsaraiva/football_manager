@@ -112,6 +112,7 @@ export function NewGameScreen() {
       stadiumName: c.stadiumName, stadiumCapacity: c.stadiumCapacity,
       trainingFacilities: c.trainingFacilities, youthAcademy: c.youthAcademy,
       medicalDepartment: c.medicalDepartment, primaryColor: c.primaryColor, secondaryColor: c.secondaryColor,
+      trainingFocus: 'balanced',
     };
   }
 

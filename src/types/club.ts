@@ -1,3 +1,5 @@
+import { TrainingFocus } from '@/engine/training/progression';
+
 export interface Club {
   id: number;
   name: string;
@@ -14,4 +16,5 @@ export interface Club {
   medicalDepartment: number;
   primaryColor: string;
   secondaryColor: string;
+  trainingFocus: TrainingFocus;
 }

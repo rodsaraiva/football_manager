@@ -1,5 +1,6 @@
 import { Club } from '@/types';
 import { DbHandle } from './players';
+import { TrainingFocus } from '@/engine/training/progression';
 
 interface ClubRow {
   id: number;
@@ -17,6 +18,7 @@ interface ClubRow {
   medical_department: number;
   primary_color: string;
   secondary_color: string;
+  training_focus: string;
 }
 
 function rowToClub(row: ClubRow): Club {
@@ -36,6 +38,7 @@ function rowToClub(row: ClubRow): Club {
     medicalDepartment: row.medical_department,
     primaryColor: row.primary_color,
     secondaryColor: row.secondary_color,
+    trainingFocus: (row.training_focus as TrainingFocus) ?? 'balanced',
   };
 }
 
@@ -79,4 +82,36 @@ export async function getClubsByCountry(
 
 export async function updateClubReputation(db: DbHandle, saveId: number, clubId: number, reputation: number): Promise<void> {
   await db.prepare('UPDATE clubs SET reputation = ? WHERE save_id = ? AND id = ?').run(reputation, saveId, clubId);
+}
+
+const VALID_FOCI: TrainingFocus[] = ['technical', 'tactical', 'physical', 'balanced'];
+
+// Club ids are globally unique (offset per save), so id alone scopes correctly.
+export async function getClubTrainingFocus(db: DbHandle, clubId: number): Promise<TrainingFocus> {
+  const row = (await db
+    .prepare('SELECT training_focus FROM clubs WHERE id = ?')
+    .get(clubId)) as { training_focus: string } | undefined;
+  const focus = row?.training_focus as TrainingFocus | undefined;
+  return focus && VALID_FOCI.includes(focus) ? focus : 'balanced';
+}
+
+export async function setClubTrainingFocus(
+  db: DbHandle,
+  clubId: number,
+  focus: TrainingFocus,
+): Promise<void> {
+  await db.prepare('UPDATE clubs SET training_focus = ? WHERE id = ?').run(focus, clubId);
+}
+
+export async function getClubCountryCode(db: DbHandle, clubId: number): Promise<string | null> {
+  const row = (await db
+    .prepare(
+      `SELECT countries.code AS code
+         FROM clubs
+         JOIN leagues ON clubs.league_id = leagues.id
+         JOIN countries ON leagues.country_id = countries.id
+        WHERE clubs.id = ?`,
+    )
+    .get(clubId)) as { code: string } | undefined;
+  return row?.code ?? null;
 }

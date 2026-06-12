@@ -30,6 +30,7 @@ function mkClub(id: number, name?: string): Club {
     medicalDepartment: 3,
     primaryColor: '#000',
     secondaryColor: '#fff',
+    trainingFocus: 'balanced',
   };
 }
 
