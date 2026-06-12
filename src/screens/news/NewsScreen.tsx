@@ -7,7 +7,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { colors, spacing, fontSize, commonStyles } from '@/theme';
-import { useTranslation } from '@/i18n';
+import { useTranslation, ordinal, Language } from '@/i18n';
 import { useGameStore } from '@/store/game-store';
 import { useDatabaseStore } from '@/store/database-store';
 import { getClubsByLeague } from '@/database/queries/clubs';
@@ -32,14 +32,14 @@ import {
   sortNews,
 } from '@/engine/news/news-generator';
 import type { RetirementDecision } from '@/engine/retirement/retirement-engine';
-import type { TKey } from '@/i18n/translate';
+import type { TKey, TextDescriptor } from '@/i18n/translate';
 
 type TFn = (key: TKey, vars?: Record<string, string | number>) => string;
 
 // ─── Main ───────────────────────────────────────────────────────────────────
 
 export function NewsScreen() {
-  const { t } = useTranslation();
+  const { t, lang } = useTranslation();
   const { playerClub, playerClubId, season, week, lastRetiredPlayerIds, pendingAnnouncedRetirementIds, currentSave } = useGameStore();
   const { dbHandle } = useDatabaseStore();
 
@@ -114,9 +114,9 @@ export function NewsScreen() {
           : lastWeekFixturesAll.filter((f) => f.played);
 
         if (lastWeekLeagueFixtures.length > 0) {
-          items.push(buildResultsHeader(resultsWeek, leagueComp, t));
+          items.push(buildResultsHeader(resultsWeek, leagueComp));
           for (const f of lastWeekLeagueFixtures) {
-            items.push(buildMatchResult(f, clubMap, playerClubId, t));
+            items.push(buildMatchResult(f, clubMap, playerClubId));
           }
           // High-scoring matches (4+ goals)
           items.push(
@@ -190,13 +190,8 @@ export function NewsScreen() {
             items.push({
               id: 'injury-header',
               icon: '🏥',
-              title: t('news.injury_report_title'),
-              body: t(
-                injured.length > 1
-                  ? 'news.injury_report_body_other'
-                  : 'news.injury_report_body_one',
-                { count: injured.length },
-              ),
+              title: { key: 'news.injury_report_title' },
+              body: { key: injured.length > 1 ? 'news.injury_report_body_other' : 'news.injury_report_body_one', vars: { count: injured.length } },
               category: 'injury',
               priority: 50,
             });
@@ -204,13 +199,8 @@ export function NewsScreen() {
               items.push({
                 id: `injury-${p.id}`,
                 icon: '🤕',
-                title: p.name,
-                body: t(
-                  p.injuryWeeksLeft > 1
-                    ? 'news.injury_player_body_other'
-                    : 'news.injury_player_body_one',
-                  { weeks: p.injuryWeeksLeft, position: p.position },
-                ),
+                title: { key: 'news.raw', vars: { text: p.name } },
+                body: { key: p.injuryWeeksLeft > 1 ? 'news.injury_player_body_other' : 'news.injury_player_body_one', vars: { weeks: p.injuryWeeksLeft, position: p.position } },
                 category: 'injury',
                 priority: 49,
               });
@@ -222,8 +212,8 @@ export function NewsScreen() {
             items.push({
               id: `morale-${p.id}`,
               icon: '😤',
-              title: t('news.morale_title', { name: p.name }),
-              body: t('news.morale_body', { morale: p.morale }),
+              title: { key: 'news.morale_title', vars: { name: p.name } },
+              body: { key: 'news.morale_body', vars: { morale: p.morale } },
               category: 'info',
               priority: 45,
             });
@@ -234,13 +224,8 @@ export function NewsScreen() {
             items.push({
               id: 'contracts-header',
               icon: '📝',
-              title: t('news.contracts_title'),
-              body: t(
-                expiring.length > 1
-                  ? 'news.contracts_body_other'
-                  : 'news.contracts_body_one',
-                { count: expiring.length },
-              ),
+              title: { key: 'news.contracts_title' },
+              body: { key: expiring.length > 1 ? 'news.contracts_body_other' : 'news.contracts_body_one', vars: { count: expiring.length } },
               category: 'info',
               priority: 40,
             });
@@ -248,8 +233,8 @@ export function NewsScreen() {
               items.push({
                 id: `contract-${p.id}`,
                 icon: '⏳',
-                title: p.name,
-                body: t('news.contract_player_body', { season: p.contractEnd, position: p.position }),
+                title: { key: 'news.raw', vars: { text: p.name } },
+                body: { key: 'news.contract_player_body', vars: { season: p.contractEnd, position: p.position } },
                 category: 'info',
                 priority: 39,
               });
@@ -264,8 +249,8 @@ export function NewsScreen() {
             items.push({
               id: 'topscorer-header',
               icon: '👑',
-              title: t('news.topscorer_title'),
-              body: leagueComp.name,
+              title: { key: 'news.topscorer_title' },
+              body: { key: 'news.raw', vars: { text: leagueComp.name } },
               category: 'topscorer',
               priority: 55,
             });
@@ -275,8 +260,8 @@ export function NewsScreen() {
               items.push({
                 id: `topscorer-${ts.playerId}`,
                 icon: `${i + 1}.`,
-                title: ts.name,
-                body: t('news.topscorer_goals', { goals: ts.goals, club: clubNm }),
+                title: { key: 'news.raw', vars: { text: ts.name } },
+                body: { key: 'news.topscorer_goals', vars: { goals: ts.goals, club: clubNm } },
                 category: 'topscorer',
                 priority: 54 - i,
               });
@@ -339,8 +324,8 @@ export function NewsScreen() {
           items.push({
             id: 'empty',
             icon: '📰',
-            title: t('news.empty_title'),
-            body: t('news.empty_body'),
+            title: { key: 'news.empty_title' },
+            body: { key: 'news.empty_body' },
             category: 'info',
             priority: 0,
           });
@@ -391,8 +376,8 @@ export function NewsScreen() {
           >
             <Text style={styles.cardIcon}>{item.icon}</Text>
             <View style={styles.cardContent}>
-              <Text style={styles.cardTitle}>{item.title}</Text>
-              <Text style={styles.cardBody}>{item.body}</Text>
+              <Text style={styles.cardTitle}>{resolveDescriptor(t, lang, item.title)}</Text>
+              <Text style={styles.cardBody}>{resolveDescriptor(t, lang, item.body)}</Text>
             </View>
           </View>
         ))}
@@ -403,12 +388,24 @@ export function NewsScreen() {
 
 // ─── Local helpers ──────────────────────────────────────────────────────────
 
-function buildResultsHeader(week: number, comp: Competition | undefined, t: TFn): NewsItem {
+// Vars whose numeric value is a table position → rendered as a locale-aware ordinal.
+const ORDINAL_VARS = new Set(['pos', 'from']);
+
+function resolveDescriptor(t: TFn, lang: Language, d: TextDescriptor): string {
+  if (!d.vars) return t(d.key);
+  const out: Record<string, string | number> = {};
+  for (const [k, v] of Object.entries(d.vars)) {
+    out[k] = ORDINAL_VARS.has(k) && typeof v === 'number' ? ordinal(lang, v) : v;
+  }
+  return t(d.key, out);
+}
+
+function buildResultsHeader(week: number, comp: Competition | undefined): NewsItem {
   return {
     id: `results-header-${week}`,
     icon: '📅',
-    title: t('news.results_header_title', { week }),
-    body: comp?.name ?? t('news.results_header_body_fallback'),
+    title: { key: 'news.results_header_title', vars: { week } },
+    body: comp ? { key: 'news.results_header_body_comp', vars: { comp: comp.name } } : { key: 'news.results_header_body_fallback' },
     category: 'result',
     priority: 72,
   };
@@ -418,7 +415,6 @@ function buildMatchResult(
   f: Fixture,
   clubMap: Map<number, Club>,
   playerClubId: number | null,
-  t: TFn,
 ): NewsItem {
   const home = clubMap.get(f.homeClubId)?.shortName ?? `Club ${f.homeClubId}`;
   const away = clubMap.get(f.awayClubId)?.shortName ?? `Club ${f.awayClubId}`;
@@ -426,8 +422,8 @@ function buildMatchResult(
   return {
     id: `result-${f.id}`,
     icon: isPlayerMatch ? '🏟️' : '⚽',
-    title: `${home} ${f.homeGoals ?? 0} - ${f.awayGoals ?? 0} ${away}`,
-    body: isPlayerMatch ? t('news.match_your') : t('news.match_result'),
+    title: { key: 'news.scoreline', vars: { home, hg: f.homeGoals ?? 0, ag: f.awayGoals ?? 0, away } },
+    body: isPlayerMatch ? { key: 'news.match_your' } : { key: 'news.match_result' },
     category: 'result',
     priority: isPlayerMatch ? 71 : 68,
   };

@@ -16,7 +16,8 @@ describe('generateRetirementNews', () => {
     expect(result).toHaveLength(1);
     expect(result[0].id).toContain('42');
     expect(result[0].category).toBe('retirement');
-    expect(result[0].title).toContain('João Silva');
+    expect(result[0].title.key).toBe('news.retire_retired_title');
+    expect(result[0].title.vars).toEqual({ name: 'João Silva' });
   });
 
   it('retorna NewsItem para cada jogador aposentado (batch)', () => {

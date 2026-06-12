@@ -2,6 +2,7 @@ import { Club, Fixture, MatchEvent, Transfer, League } from '@/types';
 import { StandingsEntry, calculateStandings } from '@/engine/competition/standings';
 import type { SeasonCompetitionSummary } from '@/database/queries/history';
 import type { RetirementDecision } from '@/engine/retirement/retirement-engine';
+import { TextDescriptor } from '@/i18n/translate';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -23,20 +24,14 @@ export type NewsCategory =
 export interface NewsItem {
   id: string;
   icon: string;
-  title: string;
-  body: string;
+  title: TextDescriptor;
+  body: TextDescriptor;
   category: NewsCategory;
   priority: number; // higher = shown first
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
-
-function ordinal(n: number): string {
-  if (n === 1) return '1st';
-  if (n === 2) return '2nd';
-  if (n === 3) return '3rd';
-  return `${n}th`;
-}
+// Ordinals are applied at render time (locale-aware) — the engine emits raw numbers.
 
 function clubName(clubMap: Map<number, Club>, id: number | null): string {
   if (id === null) return 'Free Agent';
@@ -93,8 +88,8 @@ export function generateHeadlines(input: HeadlineInput): NewsItem[] {
       items.push({
         id: 'headline-leader-streak',
         icon: '👑',
-        title: `${clubName(clubMap, leaderId)} holds top spot`,
-        body: `${streak} consecutive week${streak > 1 ? 's' : ''} at the top of the table`,
+        title: { key: 'news.leader_streak_title', vars: { club: clubName(clubMap, leaderId) } },
+        body: { key: streak === 1 ? 'news.leader_streak_body_one' : 'news.leader_streak_body_other', vars: { streak } },
         category: 'headline',
         priority: 100,
       });
@@ -102,8 +97,8 @@ export function generateHeadlines(input: HeadlineInput): NewsItem[] {
       items.push({
         id: 'headline-new-leader',
         icon: '🚀',
-        title: `${clubName(clubMap, leaderId)} takes the lead`,
-        body: `New leader at the top of the table`,
+        title: { key: 'news.new_leader_title', vars: { club: clubName(clubMap, leaderId) } },
+        body: { key: 'news.new_leader_body' },
         category: 'headline',
         priority: 100,
       });
@@ -139,11 +134,15 @@ export function generateHeadlines(input: HeadlineInput): NewsItem[] {
       for (const m of topMovers) {
         const isPlayer = m.clubId === playerClubId;
         const isUp = m.delta > 0;
+        const absDelta = Math.abs(m.delta);
+        const plural = absDelta > 1 ? 'other' : 'one';
+        const dir = isUp ? 'up' : 'down';
+        const you = isPlayer ? '_you' : '';
         items.push({
           id: `headline-mover-${m.clubId}`,
           icon: isUp ? '📈' : '📉',
-          title: `${clubName(clubMap, m.clubId)} ${isUp ? 'climbs to' : 'drops to'} ${ordinal(m.to)}`,
-          body: `${isUp ? 'Up' : 'Down'} ${Math.abs(m.delta)} position${Math.abs(m.delta) > 1 ? 's' : ''} from ${ordinal(m.from)}${isPlayer ? ' — your club' : ''}`,
+          title: { key: isUp ? 'news.mover_up_title' : 'news.mover_down_title', vars: { club: clubName(clubMap, m.clubId), pos: m.to } },
+          body: { key: `news.mover_${dir}_body${you}_${plural}`, vars: { delta: absDelta, from: m.from } },
           category: 'headline',
           priority: isPlayer ? 95 : 85,
         });
@@ -175,12 +174,13 @@ export function generateHighScoringMatches(
     const diff = Math.abs(f.homeGoals! - f.awayGoals!);
     const isPlayer = f.homeClubId === playerClubId || f.awayClubId === playerClubId;
     const icon = total >= 6 ? '🔥' : diff >= 3 ? '💥' : '⚡';
-    const descriptor = diff >= 3 ? 'Thrashing' : total >= 6 ? 'Goal fest' : 'High-scoring clash';
+    const kind = diff >= 3 ? 'thrash' : total >= 6 ? 'goalfest' : 'clash';
+    const you = isPlayer ? '_you' : '';
     items.push({
       id: `high-score-${f.id}`,
       icon,
-      title: `${clubShort(clubMap, f.homeClubId)} ${f.homeGoals} - ${f.awayGoals} ${clubShort(clubMap, f.awayClubId)}`,
-      body: `${descriptor} — ${total} goals${isPlayer ? ' (your match)' : ''}`,
+      title: { key: 'news.highscore_title', vars: { home: clubShort(clubMap, f.homeClubId), hg: f.homeGoals!, ag: f.awayGoals!, away: clubShort(clubMap, f.awayClubId) } },
+      body: { key: `news.highscore_${kind}${you}`, vars: { total } },
       category: 'result',
       priority: isPlayer ? 75 : 70,
     });
@@ -233,8 +233,8 @@ export function generateComeback(input: ComebackInput): NewsItem | null {
     return {
       id: `comeback-${fixture.id}`,
       icon: '🔄',
-      title: `${awayName} stage comeback`,
-      body: `Came back from ${maxHomeLead} goals down to win ${homeScore}-${awayScore} at ${homeName}`,
+      title: { key: 'news.comeback_title', vars: { club: awayName } },
+      body: { key: 'news.comeback_away_body', vars: { deficit: maxHomeLead, hg: homeScore, ag: awayScore, home: homeName } },
       category: 'comeback',
       priority: 80,
     };
@@ -244,8 +244,8 @@ export function generateComeback(input: ComebackInput): NewsItem | null {
     return {
       id: `comeback-${fixture.id}`,
       icon: '🔄',
-      title: `${homeName} stage comeback`,
-      body: `Came back from ${maxAwayLead} goals down to win ${homeScore}-${awayScore} vs ${awayName}`,
+      title: { key: 'news.comeback_title', vars: { club: homeName } },
+      body: { key: 'news.comeback_home_body', vars: { deficit: maxAwayLead, hg: homeScore, ag: awayScore, away: awayName } },
       category: 'comeback',
       priority: 80,
     };
@@ -256,8 +256,8 @@ export function generateComeback(input: ComebackInput): NewsItem | null {
     return {
       id: `comeback-${fixture.id}`,
       icon: '🔄',
-      title: `Dramatic equalizer in ${homeName} vs ${awayName}`,
-      body: `Recovered ${lead}-goal deficit to draw ${homeScore}-${awayScore}`,
+      title: { key: 'news.equalizer_title', vars: { home: homeName, away: awayName } },
+      body: { key: 'news.equalizer_body', vars: { lead, hg: homeScore, ag: awayScore } },
       category: 'comeback',
       priority: 75,
     };
@@ -291,8 +291,8 @@ export function generateLeagueStories(input: LeagueStoryInput): NewsItem[] {
       items.push({
         id: 'league-title-race',
         icon: '🏁',
-        title: 'Title race heats up',
-        body: `${clubShort(clubMap, standings[0].clubId)} lead ${clubShort(clubMap, standings[1].clubId)} by just ${gap} point${gap === 1 ? '' : 's'}`,
+        title: { key: 'news.title_race_title' },
+        body: { key: gap === 1 ? 'news.title_race_body_one' : 'news.title_race_body_other', vars: { leader: clubShort(clubMap, standings[0].clubId), chaser: clubShort(clubMap, standings[1].clubId), gap } },
         category: 'league',
         priority: 90,
       });
@@ -312,8 +312,8 @@ export function generateLeagueStories(input: LeagueStoryInput): NewsItem[] {
       items.push({
         id: 'league-player-relegation',
         icon: '⚠️',
-        title: 'Relegation battle',
-        body: `Your club is in the drop zone, ${gap} point${gap === 1 ? '' : 's'} from safety`,
+        title: { key: 'news.relegation_title' },
+        body: { key: gap === 1 ? 'news.relegation_body_one' : 'news.relegation_body_other', vars: { gap } },
         category: 'league',
         priority: 92,
       });
@@ -324,8 +324,8 @@ export function generateLeagueStories(input: LeagueStoryInput): NewsItem[] {
       items.push({
         id: 'league-player-near-relegation',
         icon: '⚠️',
-        title: 'Relegation worries',
-        body: `Your club sits ${ordinal(playerIdx + 1)}, only ${gap} point${gap === 1 ? '' : 's'} above the drop zone`,
+        title: { key: 'news.relegation_worries_title' },
+        body: { key: gap === 1 ? 'news.relegation_worries_body_one' : 'news.relegation_worries_body_other', vars: { pos: playerIdx + 1, gap } },
         category: 'league',
         priority: 82,
       });
@@ -340,8 +340,8 @@ export function generateLeagueStories(input: LeagueStoryInput): NewsItem[] {
       items.push({
         id: 'league-player-promotion',
         icon: '⬆️',
-        title: 'On course for promotion',
-        body: `Your club sits ${ordinal(playerIdx + 1)}, currently in a promotion spot`,
+        title: { key: 'news.promotion_title' },
+        body: { key: 'news.promotion_body', vars: { pos: playerIdx + 1 } },
         category: 'league',
         priority: 85,
       });
@@ -350,8 +350,8 @@ export function generateLeagueStories(input: LeagueStoryInput): NewsItem[] {
       items.push({
         id: 'league-player-promo-chase',
         icon: '🎯',
-        title: 'Chasing promotion',
-        body: `Your club sits ${ordinal(playerIdx + 1)}, ${gap} point${gap === 1 ? '' : 's'} off the promotion places`,
+        title: { key: 'news.promo_chase_title' },
+        body: { key: gap === 1 ? 'news.promo_chase_body_one' : 'news.promo_chase_body_other', vars: { pos: playerIdx + 1, gap } },
         category: 'league',
         priority: 78,
       });
@@ -363,8 +363,8 @@ export function generateLeagueStories(input: LeagueStoryInput): NewsItem[] {
   items.push({
     id: 'league-best-attack',
     icon: '🎯',
-    title: `Best attack: ${clubName(clubMap, bestAttack.clubId)}`,
-    body: `${bestAttack.goalsFor} goals scored in ${bestAttack.played} match${bestAttack.played > 1 ? 'es' : ''} (${(bestAttack.goalsFor / bestAttack.played).toFixed(2)}/game)`,
+    title: { key: 'news.best_attack_title', vars: { club: clubName(clubMap, bestAttack.clubId) } },
+    body: { key: bestAttack.played === 1 ? 'news.best_attack_body_one' : 'news.best_attack_body_other', vars: { goals: bestAttack.goalsFor, played: bestAttack.played, avg: (bestAttack.goalsFor / bestAttack.played).toFixed(2) } },
     category: 'league',
     priority: 60,
   });
@@ -374,8 +374,8 @@ export function generateLeagueStories(input: LeagueStoryInput): NewsItem[] {
   items.push({
     id: 'league-best-defense',
     icon: '🛡️',
-    title: `Best defense: ${clubName(clubMap, bestDefense.clubId)}`,
-    body: `Only ${bestDefense.goalsAgainst} goals conceded in ${bestDefense.played} match${bestDefense.played > 1 ? 'es' : ''} (${(bestDefense.goalsAgainst / bestDefense.played).toFixed(2)}/game)`,
+    title: { key: 'news.best_defense_title', vars: { club: clubName(clubMap, bestDefense.clubId) } },
+    body: { key: bestDefense.played === 1 ? 'news.best_defense_body_one' : 'news.best_defense_body_other', vars: { goals: bestDefense.goalsAgainst, played: bestDefense.played, avg: (bestDefense.goalsAgainst / bestDefense.played).toFixed(2) } },
     category: 'league',
     priority: 58,
   });
@@ -403,12 +403,11 @@ export function generateRelevantTransfers(
     const from = clubShort(clubMap, t.fromClubId);
     const to = clubShort(clubMap, t.toClubId);
     const icon = t.fee >= 20_000_000 ? '💎' : '💰';
-    const label = t.type === 'loan' ? 'Loan move' : 'Major transfer';
     items.push({
       id: `transfer-big-${t.id}`,
       icon,
-      title: `${pName} — ${formatMoney(t.fee)}`,
-      body: `${label}: ${from} → ${to}`,
+      title: { key: 'news.transfer_title', vars: { player: pName, fee: formatMoney(t.fee) } },
+      body: { key: t.type === 'loan' ? 'news.transfer_loan_body' : 'news.transfer_major_body', vars: { from, to } },
       category: 'transfer',
       priority: 70,
     });
@@ -428,7 +427,7 @@ export interface MatchStarInput {
 }
 
 export function generateMatchStar(input: MatchStarInput): NewsItem | null {
-  const { fixture, events, playerNames, playerToClub, clubMap } = input;
+  const { events, playerNames, playerToClub, clubMap } = input;
 
   interface Contribution {
     goals: number;
@@ -473,16 +472,17 @@ export function generateMatchStar(input: MatchStarInput): NewsItem | null {
   const pName = playerNames.get(bestId) ?? `Player #${bestId}`;
   const clubId = playerToClub.get(bestId);
   const club = clubId ? clubShort(clubMap, clubId) : '';
-  const parts: string[] = [];
-  if (best.goals > 0) parts.push(`${best.goals} goal${best.goals > 1 ? 's' : ''}`);
-  if (best.assists > 0) parts.push(`${best.assists} assist${best.assists > 1 ? 's' : ''}`);
   const hatTrick = best.goals >= 3;
+
+  // Body branch: goals-only / assists-only / both, with/without a club tag.
+  const shape = best.goals > 0 && best.assists > 0 ? 'both' : best.goals > 0 ? 'goals' : 'assists';
+  const clubSuffix = club ? '' : '_noclub';
 
   return {
     id: 'star-of-the-week',
     icon: hatTrick ? '🎩' : '⭐',
-    title: `${hatTrick ? 'Hat-trick hero' : 'Star of the week'}: ${pName}`,
-    body: `${parts.join(', ')}${club ? ` for ${club}` : ''}`,
+    title: { key: hatTrick ? 'news.star_hattrick_title' : 'news.star_title', vars: { player: pName } },
+    body: { key: `news.star_body_${shape}${clubSuffix}`, vars: { goals: best.goals, assists: best.assists, club } },
     category: 'star',
     priority: 88,
   };
@@ -525,8 +525,8 @@ export function generateStreaks(input: StreakInput): NewsItem[] {
     items.push({
       id: 'streak-wins',
       icon: '🔥',
-      title: `${winStreak} wins in a row!`,
-      body: `Your club is on fire — ${winStreak} consecutive victories`,
+      title: { key: 'news.streak_wins_title', vars: { wins: winStreak } },
+      body: { key: 'news.streak_wins_body', vars: { wins: winStreak } },
       category: 'streak',
       priority: 86,
     });
@@ -542,8 +542,8 @@ export function generateStreaks(input: StreakInput): NewsItem[] {
     items.push({
       id: 'streak-unbeaten',
       icon: '🛡️',
-      title: `${unbeaten} games unbeaten`,
-      body: `No defeats in the last ${unbeaten} matches`,
+      title: { key: 'news.streak_unbeaten_title', vars: { n: unbeaten } },
+      body: { key: 'news.streak_unbeaten_body', vars: { n: unbeaten } },
       category: 'streak',
       priority: 78,
     });
@@ -559,8 +559,8 @@ export function generateStreaks(input: StreakInput): NewsItem[] {
     items.push({
       id: 'streak-losses',
       icon: '💀',
-      title: `${loseStreak} defeats in a row`,
-      body: `Your club is in a rough patch — ${loseStreak} straight losses`,
+      title: { key: 'news.streak_losses_title', vars: { n: loseStreak } },
+      body: { key: 'news.streak_losses_body', vars: { n: loseStreak } },
       category: 'streak',
       priority: 84,
     });
@@ -576,8 +576,8 @@ export function generateStreaks(input: StreakInput): NewsItem[] {
     items.push({
       id: 'streak-drought',
       icon: '❄️',
-      title: 'Goal drought',
-      body: `Your club has not scored in the last ${recent5.length} matches`,
+      title: { key: 'news.streak_drought_title' },
+      body: { key: 'news.streak_drought_body', vars: { n: recent5.length } },
       category: 'streak',
       priority: 76,
     });
@@ -595,8 +595,8 @@ export function generateStreaks(input: StreakInput): NewsItem[] {
     items.push({
       id: 'streak-clean-sheets',
       icon: '🧱',
-      title: `${cleanSheets} clean sheets in a row`,
-      body: `Your defense is rock-solid — ${cleanSheets} matches without conceding`,
+      title: { key: 'news.streak_clean_title', vars: { n: cleanSheets } },
+      body: { key: 'news.streak_clean_body', vars: { n: cleanSheets } },
       category: 'streak',
       priority: 74,
     });
@@ -620,12 +620,6 @@ export function generateSeasonRecap(input: SeasonRecapInput): NewsItem[] {
   const items: NewsItem[] = [];
   if (summary.length === 0) return items;
 
-  // Filter to competitions that matter for the viewing player.
-  // A competition matters if:
-  //   - the player's club participated (champion, runner-up, relegated, or had any award entry); OR
-  //   - it's tied to the player's league (league competition in their division).
-  // For the first release we keep it simple: include every competition in summary,
-  // but boost priority for ones involving the player's club.
   const playerInvolved = (s: SeasonCompetitionSummary): boolean => {
     if (playerClubId == null) return false;
     if (s.championClubId === playerClubId) return true;
@@ -640,8 +634,8 @@ export function generateSeasonRecap(input: SeasonRecapInput): NewsItem[] {
       items.push({
         id: `recap-you-champion-${previousSeason}-${s.competitionId}`,
         icon: '🏆',
-        title: `Champions of the ${s.competitionName}!`,
-        body: `Your club lifted the ${s.competitionName} trophy in season ${previousSeason}`,
+        title: { key: 'news.recap_you_champion_title', vars: { competition: s.competitionName } },
+        body: { key: 'news.recap_you_champion_body', vars: { competition: s.competitionName, season: previousSeason } },
         category: 'season_recap',
         priority: 100,
       });
@@ -649,8 +643,8 @@ export function generateSeasonRecap(input: SeasonRecapInput): NewsItem[] {
       items.push({
         id: `recap-you-runnerup-${previousSeason}-${s.competitionId}`,
         icon: '🥈',
-        title: `Runners-up in the ${s.competitionName}`,
-        body: `Your club finished second in season ${previousSeason}`,
+        title: { key: 'news.recap_you_runnerup_title', vars: { competition: s.competitionName } },
+        body: { key: 'news.recap_you_runnerup_body', vars: { season: previousSeason } },
         category: 'season_recap',
         priority: 95,
       });
@@ -659,8 +653,8 @@ export function generateSeasonRecap(input: SeasonRecapInput): NewsItem[] {
       items.push({
         id: `recap-you-relegated-${previousSeason}-${s.competitionId}`,
         icon: '⬇️',
-        title: 'Relegated',
-        body: `Your club was relegated at the end of season ${previousSeason}`,
+        title: { key: 'news.recap_you_relegated_title' },
+        body: { key: 'news.recap_you_relegated_body', vars: { season: previousSeason } },
         category: 'season_recap',
         priority: 99,
       });
@@ -671,11 +665,15 @@ export function generateSeasonRecap(input: SeasonRecapInput): NewsItem[] {
   for (const s of summary) {
     const championName = clubMap.get(s.championClubId)?.name ?? `Club #${s.championClubId}`;
     if (s.championClubId === playerClubId) continue; // already covered above
+    const hasRunnerUp = s.runnerUpClubId != null;
+    const runnerUpName = hasRunnerUp ? (clubMap.get(s.runnerUpClubId!)?.name ?? `Club #${s.runnerUpClubId}`) : '';
     items.push({
       id: `recap-champion-${previousSeason}-${s.competitionId}`,
       icon: '🏆',
-      title: `${championName} are ${s.competitionName} champions`,
-      body: `Won the ${s.competitionName} in season ${previousSeason}${s.runnerUpClubId != null ? `, ahead of ${clubMap.get(s.runnerUpClubId)?.name ?? `Club #${s.runnerUpClubId}`}` : ''}`,
+      title: { key: 'news.recap_champion_title', vars: { club: championName, competition: s.competitionName } },
+      body: hasRunnerUp
+        ? { key: 'news.recap_champion_body_runnerup', vars: { competition: s.competitionName, season: previousSeason, runnerup: runnerUpName } }
+        : { key: 'news.recap_champion_body', vars: { competition: s.competitionName, season: previousSeason } },
       category: 'season_recap',
       priority: 85,
     });
@@ -695,8 +693,8 @@ export function generateSeasonRecap(input: SeasonRecapInput): NewsItem[] {
     items.push({
       id: `recap-relegated-${previousSeason}-${s.competitionId}`,
       icon: '⬇️',
-      title: `${s.relegated.length} ${s.relegated.length === 1 ? 'club' : 'clubs'} relegated from ${s.competitionName}`,
-      body: names,
+      title: { key: s.relegated.length === 1 ? 'news.recap_relegated_title_one' : 'news.recap_relegated_title_other', vars: { count: s.relegated.length, competition: s.competitionName } },
+      body: { key: 'news.recap_relegated_body', vars: { names } },
       category: 'season_recap',
       priority: 70,
     });
@@ -709,8 +707,8 @@ export function generateSeasonRecap(input: SeasonRecapInput): NewsItem[] {
       items.push({
         id: `recap-topscorer-${previousSeason}-${s.competitionId}`,
         icon: '👑',
-        title: `${s.competitionName} Top Scorer`,
-        body: `Player #${top.playerId} led with ${top.value} goals`,
+        title: { key: 'news.recap_topscorer_title', vars: { competition: s.competitionName } },
+        body: { key: 'news.recap_topscorer_body', vars: { player: `#${top.playerId}`, goals: top.value } },
         category: 'season_recap',
         priority: 75,
       });
@@ -719,8 +717,8 @@ export function generateSeasonRecap(input: SeasonRecapInput): NewsItem[] {
       items.push({
         id: `recap-mvp-${previousSeason}-${s.competitionId}`,
         icon: '⭐',
-        title: `${s.competitionName} Player of the Season`,
-        body: `Player #${s.mvp.playerId} — average rating ${s.mvp.value.toFixed(2)}`,
+        title: { key: 'news.recap_mvp_title', vars: { competition: s.competitionName } },
+        body: { key: 'news.recap_mvp_body', vars: { player: `#${s.mvp.playerId}`, rating: s.mvp.value.toFixed(2) } },
         category: 'season_recap',
         priority: 73,
       });
@@ -729,8 +727,8 @@ export function generateSeasonRecap(input: SeasonRecapInput): NewsItem[] {
       items.push({
         id: `recap-breakthrough-${previousSeason}-${s.competitionId}`,
         icon: '🌟',
-        title: `${s.competitionName} Young Player of the Season`,
-        body: `Player #${s.breakthrough.playerId} — average rating ${s.breakthrough.value.toFixed(2)}`,
+        title: { key: 'news.recap_breakthrough_title', vars: { competition: s.competitionName } },
+        body: { key: 'news.recap_breakthrough_body', vars: { player: `#${s.breakthrough.playerId}`, rating: s.breakthrough.value.toFixed(2) } },
         category: 'season_recap',
         priority: 68,
       });
@@ -756,21 +754,19 @@ export function generateRetirementNews(
   return retiringPlayers.map((r) => {
     const name = playerNames.get(r.playerId) ?? r.playerName;
     const announced = stage === 'announced';
-    const title = announced ? `${name} to retire at season's end` : `${name} retires`;
-    let body: string;
-    if (announced) {
-      body = `Announces retirement at ${r.age} — morale in freefall`;
-    } else if (r.reason === 'max_age') {
-      body = `Hangs up the boots at ${r.age} — a long career comes to a close`;
-    } else {
-      body = `Calls it a career at ${r.age} after a tough season`;
-    }
+    const title: TextDescriptor = announced
+      ? { key: 'news.retire_announced_title', vars: { name } }
+      : { key: 'news.retire_retired_title', vars: { name } };
+    let body: TextDescriptor;
+    if (announced) body = { key: 'news.retire_announced_body', vars: { age: r.age } };
+    else if (r.reason === 'max_age') body = { key: 'news.retire_maxage_body', vars: { age: r.age } };
+    else body = { key: 'news.retire_tough_body', vars: { age: r.age } };
     return {
       id: `retirement-${stage}-${r.playerId}`,
       icon: announced ? '📣' : '👋',
       title,
       body,
-      category: 'retirement',
+      category: 'retirement' as NewsCategory,
       priority: announced ? 90 : 93,
     };
   });

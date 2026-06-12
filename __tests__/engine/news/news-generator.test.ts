@@ -94,7 +94,8 @@ describe('news-generator', () => {
       });
       const leaderItem = items.find((i) => i.id === 'headline-leader-streak');
       expect(leaderItem).toBeDefined();
-      expect(leaderItem!.body).toContain('3 consecutive');
+      expect(leaderItem!.body.key).toBe('news.leader_streak_body_other');
+      expect(leaderItem!.body.vars).toEqual({ streak: 3 });
     });
 
     it('flags big movers between weeks', () => {
@@ -129,14 +130,14 @@ describe('news-generator', () => {
       const items = generateHighScoringMatches(fixtures, clubMap, 1);
       expect(items).toHaveLength(2);
       // Sorted by goals desc
-      expect(items[0].title).toContain('4 - 2');
-      expect(items[1].title).toContain('3 - 2');
+      expect(items[0].title.vars).toMatchObject({ hg: 4, ag: 2 });
+      expect(items[1].title.vars).toMatchObject({ hg: 3, ag: 2 });
     });
 
     it('flags user match explicitly', () => {
       const fixtures: Fixture[] = [mkFixture(1, 1, 1, 2, 3, 3)];
       const items = generateHighScoringMatches(fixtures, clubMap, 1);
-      expect(items[0].body).toContain('your match');
+      expect(items[0].body.key.endsWith('_you')).toBe(true);
     });
   });
 
@@ -161,7 +162,7 @@ describe('news-generator', () => {
       ]);
       const item = generateComeback({ fixture, events, playerToClub, clubMap: localClubMap });
       expect(item).not.toBeNull();
-      expect(item!.title).toContain('comeback');
+      expect(item!.title.key).toBe('news.comeback_title');
     });
 
     it('returns null for regular match', () => {
@@ -254,7 +255,7 @@ describe('news-generator', () => {
       ];
       const items = generateRelevantTransfers(transfers, names, clubMap);
       expect(items).toHaveLength(1);
-      expect(items[0].title).toContain('Player B');
+      expect(items[0].title.vars).toMatchObject({ player: 'Player B' });
     });
   });
 
@@ -272,8 +273,8 @@ describe('news-generator', () => {
       const localClubMap = new Map<number, Club>([[10, mkClub(10)], [20, mkClub(20)]]);
       const item = generateMatchStar({ fixture, events, playerNames, playerToClub, clubMap: localClubMap });
       expect(item).not.toBeNull();
-      expect(item!.title).toContain('Striker');
-      expect(item!.title.toLowerCase()).toContain('hat-trick');
+      expect(item!.title.vars).toMatchObject({ player: 'Striker' });
+      expect(item!.title.key).toBe('news.star_hattrick_title');
     });
 
     it('returns null if no goal events', () => {
@@ -338,10 +339,11 @@ describe('news-generator', () => {
 
   describe('sortNews', () => {
     it('sorts by priority desc', () => {
+      const d = { key: 'news.empty_body' as const };
       const items = [
-        { id: 'a', icon: '', title: '', body: '', category: 'info' as const, priority: 10 },
-        { id: 'b', icon: '', title: '', body: '', category: 'info' as const, priority: 50 },
-        { id: 'c', icon: '', title: '', body: '', category: 'info' as const, priority: 30 },
+        { id: 'a', icon: '', title: d, body: d, category: 'info' as const, priority: 10 },
+        { id: 'b', icon: '', title: d, body: d, category: 'info' as const, priority: 50 },
+        { id: 'c', icon: '', title: d, body: d, category: 'info' as const, priority: 30 },
       ];
       const sorted = sortNews(items);
       expect(sorted.map((i) => i.id)).toEqual(['b', 'c', 'a']);
@@ -405,7 +407,7 @@ describe('generateSeasonRecap', () => {
     });
     const generic = items.find((i) => i.id === 'recap-champion-1-1');
     expect(generic).toBeDefined();
-    expect(generic!.title).toContain('Manchester United');
+    expect(generic!.title.vars).toMatchObject({ club: 'Manchester United' });
   });
 
   it('emits a runner-up personal headline when player club was runner-up', () => {
@@ -443,8 +445,8 @@ describe('generateSeasonRecap', () => {
     });
     const rel = items.find((i) => i.id === 'recap-relegated-1-1');
     expect(rel).toBeDefined();
-    expect(rel!.body).toContain('SOU');
-    expect(rel!.body).toContain('LEI');
+    expect(String(rel!.body.vars?.names)).toContain('SOU');
+    expect(String(rel!.body.vars?.names)).toContain('LEI');
   });
 
   it('emits top scorer, MVP, and breakthrough award cards', () => {
