@@ -1,5 +1,6 @@
 import { DbHandle } from '@/database/queries/players';
-import { getPlayersByClub, getPlayersWithAttributesByClub, setPlayerSuspension } from '@/database/queries/players';
+import { getPlayersByClub, getPlayersWithAttributesByClub, setPlayerSuspension, updatePlayerMorale } from '@/database/queries/players';
+import { computeMatchMoraleDelta, computeWeeklyMoraleDrift, applyMoraleDelta } from '@/engine/morale/morale-engine';
 import { getAssistantsBySave } from '@/database/queries/assistants';
 import { maybeGenerateComment } from './assistant/comment-generator';
 import { AssistantComment } from '@/types/assistant';
@@ -407,6 +408,29 @@ export async function advanceGameWeek(params: AdvanceWeekParams): Promise<Advanc
         await setPlayerSuspension(db, s.playerId, s.weeks);
       }
     }
+
+    // 9. Post-match morale for the player's squad (result + who played).
+    const isHomeForMorale = playerFixture.homeClubId === playerClubId;
+    const myGoals = isHomeForMorale ? matchResult.homeGoals : matchResult.awayGoals;
+    const oppGoals = isHomeForMorale ? matchResult.awayGoals : matchResult.homeGoals;
+    const goalDiff = myGoals - oppGoals;
+    const matchOutcome: 'win' | 'draw' | 'loss' = goalDiff > 0 ? 'win' : goalDiff < 0 ? 'loss' : 'draw';
+
+    const moraleSquad = await getPlayersByClub(db, saveId, playerClubId);
+    for (const mp of moraleSquad) {
+      const played = startingIds.has(mp.id);
+      const delta = computeMatchMoraleDelta({
+        result: matchOutcome,
+        played,
+        minutesPlayed: played ? 90 : 0,
+        goalDiff,
+        benchStreakWeeks: played ? 0 : (mp.consecutiveLowMoraleWeeks ?? 0),
+      });
+      const newMorale = applyMoraleDelta(mp.morale, delta);
+      if (newMorale !== mp.morale) {
+        await updatePlayerMorale(db, saveId, mp.id, newMorale);
+      }
+    }
   }
 
   // (all fixtures were already simulated + persisted above by the real engine)
@@ -540,6 +564,18 @@ export async function advanceGameWeek(params: AdvanceWeekParams): Promise<Advanc
         topYouthPotential: null,
       }, commentRng);
       if (comment) { assistantComment = comment; break; }
+    }
+  }
+
+  // 7a. Idle-week morale drift when the player's club did not play this week — pulls
+  // morale toward the neutral target, so the streak SQL below sees the drifted value.
+  if (!playerFixture) {
+    const idleSquad = await getPlayersByClub(db, saveId, playerClubId);
+    for (const sp of idleSquad) {
+      const newMorale = applyMoraleDelta(sp.morale, computeWeeklyMoraleDrift(sp.morale));
+      if (newMorale !== sp.morale) {
+        await updatePlayerMorale(db, saveId, sp.id, newMorale);
+      }
     }
   }
 
