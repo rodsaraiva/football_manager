@@ -16,7 +16,7 @@ export interface ProjectedStanding extends StandingsEntry {
   projectedPoints: number;
   projectedPosition: number;
   remainingFixtures: number;
-  status: 'title' | 'promotion' | 'safe' | 'relegation';
+  status: 'title' | 'promotion' | 'continental' | 'safe' | 'relegation';
 }
 
 const DRAW_PROB = 0.20;
@@ -46,8 +46,9 @@ export function projectClassification(options: {
   remainingFixtures: Fixture[];
   overallByClub: Map<number, number>;
   leagueSize: number;
+  divisionLevel?: number;
 }): ProjectedStanding[] {
-  const { currentStandings, remainingFixtures, overallByClub, leagueSize } = options;
+  const { currentStandings, remainingFixtures, overallByClub, leagueSize, divisionLevel = 1 } = options;
 
   // Copy current points into a mutable map
   const projectedPoints = new Map<number, number>();
@@ -97,7 +98,7 @@ export function projectClassification(options: {
     const pos = i + 1;
     let status: ProjectedStanding['status'];
     if (pos === 1) status = 'title';
-    else if (pos <= Math.ceil(n * 0.25)) status = 'promotion';
+    else if (pos <= Math.ceil(n * 0.25)) status = divisionLevel > 1 ? 'promotion' : 'continental';
     else if (pos > n - relegationZone) status = 'relegation';
     else status = 'safe';
 
