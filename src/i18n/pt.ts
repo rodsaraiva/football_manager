@@ -453,6 +453,7 @@ export const pt = {
   'nav.youth_academy': 'Academia de Base',
   'nav.top_scorers': 'Artilheiros',
   'nav.cup_bracket': 'Chave da Copa',
+  'nav.preseason': 'Pré-temporada',
   'nav.tab_matches': 'Partidas',
   'nav.tab_squad': 'Elenco',
   'nav.tab_news': 'Notícias',
@@ -924,4 +925,19 @@ export const pt = {
   'calendar.vs_tbd': 'vs A definir',
   'calendar.header_title': 'Calendário da Temporada {season}',
   'calendar.header_sub': '{total} semanas · Semana {week} atual',
+
+  // Pre-season window
+  'preseason.title': 'Pré-temporada',
+  'preseason.subtitle': 'Jogue até {max} amistosos antes da Rodada 1',
+  'preseason.intro': 'Aqueça o elenco com amistosos. Eles geram bilheteria e fitness, mas não contam para a tabela.',
+  'preseason.suggested_label': 'Oponentes sugeridos',
+  'preseason.played_label': 'Amistosos jogados',
+  'preseason.play_button': 'Jogar amistoso',
+  'preseason.no_opponents': 'Nenhum oponente disponível',
+  'preseason.opponent_rep': 'Reputação {rep}',
+  'preseason.result_score': '{home} {homeGoals} - {awayGoals} {away}',
+  'preseason.friendly_count': '{count}/{max} amistosos',
+  'preseason.start_season': 'Iniciar temporada',
+  'preseason.playing': 'Simulando amistoso...',
+  'preseason.empty_played': 'Nenhum amistoso jogado ainda',
 } as const;

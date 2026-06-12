@@ -455,6 +455,7 @@ export const en: Record<keyof typeof pt, string> = {
   'nav.youth_academy': 'Youth Academy',
   'nav.top_scorers': 'Top Scorers',
   'nav.cup_bracket': 'Cup Bracket',
+  'nav.preseason': 'Pre-Season',
   'nav.tab_matches': 'Matches',
   'nav.tab_squad': 'Squad',
   'nav.tab_news': 'News',
@@ -926,4 +927,19 @@ export const en: Record<keyof typeof pt, string> = {
   'calendar.vs_tbd': 'vs TBD',
   'calendar.header_title': 'Season {season} Calendar',
   'calendar.header_sub': '{total} weeks · Week {week} current',
+
+  // Pre-season window
+  'preseason.title': 'Pre-Season',
+  'preseason.subtitle': 'Play up to {max} friendlies before Round 1',
+  'preseason.intro': 'Warm up the squad with friendlies. They bring in gate receipts and fitness, but do not count toward the table.',
+  'preseason.suggested_label': 'Suggested opponents',
+  'preseason.played_label': 'Friendlies played',
+  'preseason.play_button': 'Play friendly',
+  'preseason.no_opponents': 'No opponents available',
+  'preseason.opponent_rep': 'Reputation {rep}',
+  'preseason.result_score': '{home} {homeGoals} - {awayGoals} {away}',
+  'preseason.friendly_count': '{count}/{max} friendlies',
+  'preseason.start_season': 'Start season',
+  'preseason.playing': 'Simulating friendly...',
+  'preseason.empty_played': 'No friendlies played yet',
 };
