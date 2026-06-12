@@ -1,13 +1,11 @@
 import { DbHandle } from '@/database/queries/players';
 import { SeededRng } from '@/engine/rng';
-import { getPlayersByClub, getPlayersWithAttributesByClub } from '@/database/queries/players';
-import { recalculatePotential } from '@/engine/training/potential';
+import { getPlayersWithAttributesByClub } from '@/database/queries/players';
 import { regenerateAiSquadSeason } from '@/engine/rollover/squad-regeneration';
 import { calculateOverall } from '@/utils/overall';
-import { generateYouthPlayers } from '@/engine/youth/youth-academy';
+import { recalcSquadPotential, generateClubYouth, applyOrdinaryRetirements } from '@/engine/season/end-of-season-ops';
 import { returnExpiredLoans } from '@/engine/transfer/loan-returns';
 import { ensureSeasonFixtures } from '@/engine/competition/calendar';
-import { saveOffset } from '@/database/constants';
 import { runInTransaction } from '@/database/transaction';
 
 export interface RolloverSeasonParams {
@@ -56,48 +54,12 @@ export async function rolloverSeason(p: RolloverSeasonParams): Promise<RolloverS
     // 2b. Return loaned players (EndOfSeasonScreen.tsx:365).
     await returnExpiredLoans(db, saveId, endedSeason);
 
-    // 3. Dynamic potential recalculation for the player's squad (EndOfSeasonScreen.tsx:368-393).
-    const squad = await getPlayersByClub(db, saveId, playerClubId);
-    for (const player of squad) {
-      const seasonStats = (await db
-        .prepare('SELECT avg_rating, minutes_played FROM player_stats WHERE save_id = ? AND player_id = ? AND season = ?')
-        .get(saveId, player.id, endedSeason)) as { avg_rating: number; minutes_played: number } | undefined;
-      if (!seasonStats) continue;
+    // 3. Dynamic potential recalculation for the player's squad — now uses each
+    //    player's REAL overall (was a hardcoded 70).
+    potentialUpdatedIds.push(...await recalcSquadPotential(db, saveId, playerClubId, endedSeason));
 
-      const minutesPercent = Math.min(100, (seasonStats.minutes_played / (38 * 90)) * 100);
-      const result = recalculatePotential({
-        basePotential: player.basePotential,
-        effectivePotential: player.effectivePotential,
-        currentOverall: 70, // simplified — parity with current screen
-        seasonRatings: [{ avgRating: seasonStats.avg_rating, minutesPercent }],
-      });
-      if (result.newEffectivePotential !== player.effectivePotential) {
-        await db.prepare('UPDATE players SET effective_potential = ? WHERE save_id = ? AND id = ?').run(result.newEffectivePotential, saveId, player.id);
-        potentialUpdatedIds.push(player.id);
-      }
-    }
-
-    // 4. Youth academy generation (EndOfSeasonScreen.tsx:396-429).
-    const youth = generateYouthPlayers({
-      clubId: playerClubId,
-      academyLevel: youthAcademyLevel,
-      youthCoachBonus: 5, // simplified — parity with current screen
-      countryCode: 'EN', // simplified — parity with current screen
-      rng: new SeededRng(newSeason * 7777),
-    });
-    const maxIdRow = (await db.prepare('SELECT MAX(id) as maxId FROM players WHERE save_id = ?').get(saveId)) as { maxId: number | null };
-    let nextId = (maxIdRow?.maxId ?? saveOffset(saveId)) + 1;
-    for (const y of youth) {
-      await db.prepare(
-        'INSERT INTO players (id, save_id, name, nationality, age, position, secondary_position, club_id, wage, contract_end, market_value, base_potential, effective_potential, morale, fitness, injury_weeks_left, is_free_agent) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      ).run(nextId, saveId, y.name, 'Local', y.age, y.position, null, playerClubId, 5000, newSeason + 3, 100000, y.basePotential, y.basePotential, 70, 100, 0, 0);
-      const a = y.attributes;
-      await db.prepare(
-        'INSERT INTO player_attributes (player_id, save_id, finishing, passing, crossing, dribbling, heading, long_shots, free_kicks, vision, composure, decisions, positioning, aggression, leadership, pace, stamina, strength, agility, jumping) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      ).run(nextId, saveId, a.finishing, a.passing, a.crossing, a.dribbling, a.heading, a.longShots, a.freeKicks, a.vision, a.composure, a.decisions, a.positioning, a.aggression, a.leadership, a.pace, a.stamina, a.strength, a.agility, a.jumping);
-      youthGeneratedIds.push(nextId);
-      nextId++;
-    }
+    // 4. Youth academy generation — real staff youth bonus + club country nationality.
+    youthGeneratedIds.push(...await generateClubYouth(db, saveId, playerClubId, newSeason, p.rng));
 
     // 4b. AI squad regeneration (ai-world-alive): every non-player club re-evaluates
     // potential with the REAL overall (not the hardcoded 70) + market value, and takes
@@ -134,27 +96,12 @@ export async function rolloverSeason(p: RolloverSeasonParams): Promise<RolloverS
           .run(d.newEffectivePotential, d.newMarketValue, saveId, d.playerId);
       }
 
-      // Youth intake for the AI club.
-      const aiYouth = generateYouthPlayers({
-        clubId: club.id,
-        academyLevel: Math.max(1, Math.min(5, club.youth_academy)),
-        youthCoachBonus: 5,
-        countryCode: 'EN',
-        rng: p.rng,
-      });
-      const aiMaxRow = (await db.prepare('SELECT MAX(id) as maxId FROM players WHERE save_id = ?').get(saveId)) as { maxId: number | null };
-      let aiNextId = (aiMaxRow?.maxId ?? saveOffset(saveId)) + 1;
-      for (const y of aiYouth) {
-        await db.prepare(
-          'INSERT INTO players (id, save_id, name, nationality, age, position, secondary_position, club_id, wage, contract_end, market_value, base_potential, effective_potential, morale, fitness, injury_weeks_left, is_free_agent) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-        ).run(aiNextId, saveId, y.name, 'Local', y.age, y.position, null, club.id, 5000, newSeason + 3, 100000, y.basePotential, y.basePotential, 70, 100, 0, 0);
-        const a = y.attributes;
-        await db.prepare(
-          'INSERT INTO player_attributes (player_id, save_id, finishing, passing, crossing, dribbling, heading, long_shots, free_kicks, vision, composure, decisions, positioning, aggression, leadership, pace, stamina, strength, agility, jumping) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-        ).run(aiNextId, saveId, a.finishing, a.passing, a.crossing, a.dribbling, a.heading, a.longShots, a.freeKicks, a.vision, a.composure, a.decisions, a.positioning, a.aggression, a.leadership, a.pace, a.stamina, a.strength, a.agility, a.jumping);
-        aiNextId++;
-      }
+      // Youth intake for the AI club (same staff/country-aware generator as the human).
+      await generateClubYouth(db, saveId, club.id, newSeason, p.rng);
     }
+
+    // 4c. Ordinary age-based retirement across every club (progression-wired).
+    await applyOrdinaryRetirements(db, saveId, p.rng);
 
     // 5. Regenerate the calendar for the new season. ensureSeasonFixtures is already
     // save-scoped + offset, so we delegate instead of duplicating the offset math here.
