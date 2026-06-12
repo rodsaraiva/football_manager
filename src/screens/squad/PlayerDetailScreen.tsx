@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import {
+  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -13,14 +14,17 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { colors, commonStyles, fontSize, spacing, radius } from '@/theme';
 import { useTranslation } from '@/i18n';
 import type { TKey } from '@/i18n/translate';
-import { updatePlayerMorale } from '@/database/queries/players';
+import { updatePlayerMorale, updatePlayerContract } from '@/database/queries/players';
 import { getRecentForm } from '@/database/queries/player-stats';
+import { getClubById } from '@/database/queries/clubs';
 import { computeTeamTalkDelta, TeamTalkTone } from '@/engine/morale/team-talk';
 import { applyMoraleDelta } from '@/engine/morale/morale-engine';
+import { evaluateRenewal } from '@/engine/transfer/contract-renewal';
+import { canAffordWage } from '@/engine/finance/affordability';
 import StatBar from '@/components/StatBar';
 import { getPositionColor, getOverallColor } from '@/utils/player-colors';
 import { calculateOverall } from '@/utils/overall';
-import { Player, PlayerAttributes, Position } from '@/types';
+import { Club, Player, PlayerAttributes, Position } from '@/types';
 import { useDatabaseStore } from '@/store/database-store';
 import { useGameStore } from '@/store/game-store';
 import { getPlayerAwards, getPlayerTitles, SeasonAward, PlayerTitle } from '../../database/queries/history';
@@ -90,6 +94,73 @@ export default function PlayerDetailScreen({ player, onBack }: PlayerDetailScree
   const navigation = useNavigation<NavProp>();
   const [morale, setMorale] = useState<number>(player?.morale ?? 50);
   useEffect(() => { setMorale(player?.morale ?? 50); }, [player?.id]);
+
+  // Contract renewal modal
+  const [renewalOpen, setRenewalOpen] = useState(false);
+  const [renewWage, setRenewWage] = useState('');
+  const [renewYears, setRenewYears] = useState('2');
+  const [renewalMsg, setRenewalMsg] = useState<string | null>(null);
+  const [counter, setCounter] = useState<{ wage: number; years: number } | null>(null);
+  const [club, setClub] = useState<Club | null>(null);
+  const isOwnPlayer = player != null && playerClubId != null && player.clubId === playerClubId;
+
+  useEffect(() => {
+    if (!dbHandle || saveId == null || playerClubId == null || !isOwnPlayer) return;
+    let cancelled = false;
+    (async () => {
+      const c = await getClubById(dbHandle, saveId, playerClubId);
+      if (!cancelled) setClub(c);
+    })();
+    return () => { cancelled = true; };
+  }, [dbHandle, saveId, playerClubId, isOwnPlayer, player?.id]);
+
+  function openRenewal() {
+    setRenewWage(player ? String(player.wage) : '');
+    setRenewYears('2');
+    setRenewalMsg(null);
+    setCounter(null);
+    setRenewalOpen(true);
+  }
+
+  async function persistRenewal(wage: number, years: number) {
+    if (!dbHandle || !player || saveId == null || playerClubId == null || !club) return;
+    // Wage-budget gate: subtract the player's current wage from the bill so the
+    // renewal isn't double-counted, then test the renewed wage against the cap.
+    const billRow = (await dbHandle
+      .prepare('SELECT COALESCE(SUM(wage), 0) AS bill FROM players WHERE save_id = ? AND club_id = ? AND is_free_agent = 0')
+      .get(saveId, playerClubId)) as { bill: number };
+    if (!canAffordWage(billRow.bill - player.wage, club.wageBudget, wage)) {
+      setRenewalMsg(t('renewal.wage_budget_exceeded'));
+      return;
+    }
+    await updatePlayerContract(dbHandle, player.id, wage, season + years);
+    setRenewalMsg(t('renewal.accepted'));
+    setCounter(null);
+  }
+
+  async function handleProposeRenewal() {
+    if (!player || !club) return;
+    const offeredWage = parseInt(renewWage.replace(/\D/g, ''), 10);
+    const offeredYears = Math.max(1, Math.min(5, parseInt(renewYears.replace(/\D/g, ''), 10) || 1));
+    if (!Number.isFinite(offeredWage) || offeredWage <= 0) return;
+    const result = evaluateRenewal({
+      playerAge: player.age,
+      playerOverall: Math.round(calculateOverall(player.attributes, player.position)),
+      effectivePotential: player.effectivePotential,
+      currentWage: player.wage,
+      offeredWage,
+      offeredYears,
+      contractYearsLeft: Math.max(0, player.contractEnd - season),
+      clubReputation: club.reputation,
+    });
+    if (result.decision === 'reject') { setRenewalMsg(t('renewal.rejected')); setCounter(null); return; }
+    if (result.decision === 'counter') {
+      setCounter({ wage: result.counterWage!, years: result.counterYears! });
+      setRenewalMsg(t('renewal.countered', { wage: result.counterWage!, years: result.counterYears! }));
+      return;
+    }
+    await persistRenewal(offeredWage, offeredYears);
+  }
 
   async function handleTeamTalk(tone: TeamTalkTone) {
     if (!dbHandle || !player || saveId == null) return;
@@ -302,6 +373,15 @@ export default function PlayerDetailScreen({ player, onBack }: PlayerDetailScree
 
         {player.clubId === playerClubId && (
           <View style={styles.section}>
+            <Text style={styles.sectionTitle}>{t('renewal.title')}</Text>
+            <Pressable style={styles.renewButton} onPress={openRenewal}>
+              <Text style={styles.renewButtonText}>{t('renewal.button')}</Text>
+            </Pressable>
+          </View>
+        )}
+
+        {player.clubId === playerClubId && (
+          <View style={styles.section}>
             <Text style={styles.sectionTitle}>Transfer Status</Text>
 
             <View style={styles.listingRow}>
@@ -350,6 +430,51 @@ export default function PlayerDetailScreen({ player, onBack }: PlayerDetailScree
           </View>
         )}
       </ScrollView>
+
+      <Modal visible={renewalOpen} transparent animationType="fade" onRequestClose={() => setRenewalOpen(false)}>
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>{t('renewal.title')}</Text>
+
+            <Text style={commonStyles.label}>{t('renewal.wage_label')}</Text>
+            <TextInput
+              style={styles.modalInput}
+              value={renewWage}
+              onChangeText={setRenewWage}
+              keyboardType="numeric"
+              placeholder="0"
+              placeholderTextColor={colors.textMuted}
+            />
+
+            <Text style={[commonStyles.label, { marginTop: spacing.sm }]}>{t('renewal.years_label')}</Text>
+            <TextInput
+              style={styles.modalInput}
+              value={renewYears}
+              onChangeText={setRenewYears}
+              keyboardType="numeric"
+              placeholder="2"
+              placeholderTextColor={colors.textMuted}
+            />
+
+            {renewalMsg != null && <Text style={styles.modalMessage}>{renewalMsg}</Text>}
+
+            <View style={styles.modalButtonRow}>
+              <Pressable style={[styles.modalButton, styles.modalCancel]} onPress={() => setRenewalOpen(false)}>
+                <Text style={styles.modalButtonText}>{t('renewal.cancel')}</Text>
+              </Pressable>
+              {counter != null ? (
+                <Pressable style={styles.modalButton} onPress={() => persistRenewal(counter.wage, counter.years)}>
+                  <Text style={styles.modalButtonText}>{t('renewal.counter_accept')}</Text>
+                </Pressable>
+              ) : (
+                <Pressable style={styles.modalButton} onPress={handleProposeRenewal}>
+                  <Text style={styles.modalButtonText}>{t('renewal.confirm')}</Text>
+                </Pressable>
+              )}
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -559,4 +684,67 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   teamTalkButtonText: { fontSize: fontSize.sm, color: colors.text, fontWeight: 'bold' },
+  renewButton: {
+    backgroundColor: colors.primary,
+    borderRadius: radius.md,
+    paddingVertical: spacing.sm,
+    alignItems: 'center',
+  },
+  renewButtonText: { fontSize: fontSize.sm, color: colors.text, fontWeight: 'bold' },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: spacing.lg,
+  },
+  modalCard: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: spacing.lg,
+    width: '100%',
+    maxWidth: 420,
+  },
+  modalTitle: {
+    color: colors.text,
+    fontSize: fontSize.lg,
+    fontWeight: 'bold',
+    marginBottom: spacing.md,
+  },
+  modalInput: {
+    color: colors.text,
+    fontSize: fontSize.md,
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.sm,
+    marginTop: spacing.xs,
+  },
+  modalMessage: {
+    color: colors.textSecondary,
+    fontSize: fontSize.sm,
+    marginTop: spacing.md,
+  },
+  modalButtonRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginTop: spacing.lg,
+  },
+  modalButton: {
+    flex: 1,
+    backgroundColor: colors.primary,
+    borderRadius: radius.md,
+    paddingVertical: spacing.sm,
+    alignItems: 'center',
+  },
+  modalCancel: {
+    backgroundColor: colors.surfaceLight,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  modalButtonText: { fontSize: fontSize.sm, color: colors.text, fontWeight: 'bold' },
 });
