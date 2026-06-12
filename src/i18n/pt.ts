@@ -250,4 +250,5 @@ export const pt = {
   'cupbracket.draw_pending': 'Próximas fases serão sorteadas conforme a copa avança',
   'home.cup_bracket_title': 'Copa',
   'home.cup_bracket_sub': 'Acompanhe a chave do mata-mata',
+  'staff.hire_coming_soon': 'Contratação de comissão em breve',
 } as const;

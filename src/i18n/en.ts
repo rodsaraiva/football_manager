@@ -252,4 +252,5 @@ export const en: Record<keyof typeof pt, string> = {
   'cupbracket.draw_pending': 'Later rounds are drawn as the cup progresses',
   'home.cup_bracket_title': 'Cup',
   'home.cup_bracket_sub': 'Follow the knockout bracket',
+  'staff.hire_coming_soon': 'Staff hiring coming soon',
 };

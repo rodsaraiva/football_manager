@@ -3,13 +3,12 @@ import {
   View,
   Text,
   FlatList,
-  TouchableOpacity,
   StyleSheet,
-  Alert,
   ListRenderItemInfo,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { colors, spacing, fontSize, commonStyles } from '@/theme';
+import { useTranslation } from '@/i18n';
 import { useGameStore } from '@/store/game-store';
 import { useDatabaseStore } from '@/store/database-store';
 import { getStaffByClub } from '@/database/queries/staff';
@@ -68,6 +67,7 @@ export function StaffScreen() {
   const { playerClubId, week, currentSave } = useGameStore();
   const { dbHandle } = useDatabaseStore();
   const [staff, setStaff] = useState<Staff[]>([]);
+  const { t } = useTranslation();
   const saveId = currentSave?.id;
 
   const load = useCallback(async () => {
@@ -85,10 +85,6 @@ export function StaffScreen() {
       load();
     }, [load]),
   );
-
-  function handleHireStaff() {
-    Alert.alert('Hire Staff', 'Staff hiring will be available in a future update.');
-  }
 
   function renderItem({ item }: ListRenderItemInfo<Staff>) {
     return <StaffCard item={item} />;
@@ -115,9 +111,9 @@ export function StaffScreen() {
           </View>
         }
         ListFooterComponent={
-          <TouchableOpacity style={styles.hireButton} onPress={handleHireStaff} activeOpacity={0.8}>
-            <Text style={styles.hireButtonText}>Hire Staff</Text>
-          </TouchableOpacity>
+          <View style={[styles.hireButton, styles.hireButtonDisabled]}>
+            <Text style={styles.hireButtonTextDisabled}>{t('staff.hire_coming_soon')}</Text>
+          </View>
         }
       />
     </View>
@@ -230,4 +226,6 @@ const styles = StyleSheet.create({
     fontSize: fontSize.lg,
     fontWeight: '600',
   },
+  hireButtonDisabled: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
+  hireButtonTextDisabled: { color: colors.textMuted, fontSize: fontSize.sm, fontWeight: '600' },
 });
