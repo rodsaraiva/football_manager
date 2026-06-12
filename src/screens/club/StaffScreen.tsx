@@ -9,17 +9,18 @@ import {
 import { useFocusEffect } from '@react-navigation/native';
 import { colors, spacing, fontSize, radius, commonStyles } from '@/theme';
 import { useTranslation } from '@/i18n';
+import type { TKey } from '@/i18n/translate';
 import { useGameStore } from '@/store/game-store';
 import { useDatabaseStore } from '@/store/database-store';
 import { getStaffByClub } from '@/database/queries/staff';
 import { Staff, StaffRole } from '@/types';
 
-const ROLE_LABELS: Record<StaffRole, string> = {
-  scout: 'Scout',
-  physio: 'Physio',
-  assistant: 'Assistant Manager',
-  youth_coach: 'Youth Coach',
-  fitness_coach: 'Fitness Coach',
+const ROLE_LABEL_KEYS: Record<StaffRole, TKey> = {
+  scout: 'staff.role_scout',
+  physio: 'staff.role_physio',
+  assistant: 'staff.role_assistant',
+  youth_coach: 'staff.role_youth_coach',
+  fitness_coach: 'staff.role_fitness_coach',
 };
 
 function formatWage(wage: number): string {
@@ -44,7 +45,8 @@ function AbilityStars({ ability, max = 20 }: { ability: number; max?: number }) 
 }
 
 function StaffCard({ item }: { item: Staff }) {
-  const roleLabel = ROLE_LABELS[item.role] ?? item.role;
+  const { t } = useTranslation();
+  const roleLabel = ROLE_LABEL_KEYS[item.role] ? t(ROLE_LABEL_KEYS[item.role]) : item.role;
 
   return (
     <View style={styles.card}>
@@ -56,7 +58,7 @@ function StaffCard({ item }: { item: Staff }) {
         <Text style={styles.staffWage}>{formatWage(item.wage)}</Text>
       </View>
       <View style={styles.cardBottom}>
-        <Text style={styles.abilityLabel}>Ability</Text>
+        <Text style={styles.abilityLabel}>{t('staff.ability')}</Text>
         <AbilityStars ability={item.ability} />
       </View>
     </View>
@@ -101,13 +103,13 @@ export function StaffScreen() {
         ListHeaderComponent={
           <View style={styles.listHeader}>
             <Text style={styles.countText}>
-              {staff.length} staff member{staff.length !== 1 ? 's' : ''}
+              {t(staff.length === 1 ? 'staff.count_one' : 'staff.count_other', { count: staff.length })}
             </Text>
           </View>
         }
         ListEmptyComponent={
           <View style={styles.emptyCard}>
-            <Text style={styles.emptyText}>No staff members hired</Text>
+            <Text style={styles.emptyText}>{t('staff.empty')}</Text>
           </View>
         }
         ListFooterComponent={

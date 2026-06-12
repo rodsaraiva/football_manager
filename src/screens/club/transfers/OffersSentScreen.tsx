@@ -227,7 +227,7 @@ export function OffersSentScreen() {
             )}
 
             {item.offer.status === 'pending' && (
-              <Text style={styles.hint}>The selling club will respond next week.</Text>
+              <Text style={styles.hint}>{t('offers.hint_respond_next_week')}</Text>
             )}
           </View>
         );

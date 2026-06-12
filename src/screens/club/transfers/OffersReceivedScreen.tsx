@@ -234,7 +234,7 @@ export function OffersReceivedScreen() {
                 <Text style={styles.fieldValueMuted}>{formatMoney(item.marketValue)}</Text>
               </View>
               <View style={styles.row}>
-                <Text style={styles.fieldLabel}>vs Market</Text>
+                <Text style={styles.fieldLabel}>{t('offers.vs_market')}</Text>
                 <Text style={[styles.fieldValue, { color: ratioColor }]}>
                   {Math.round(ratio * 100)}%
                 </Text>

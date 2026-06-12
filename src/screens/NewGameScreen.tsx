@@ -399,7 +399,7 @@ export function NewGameScreen() {
           keyExtractor={(item) => String(item.id)}
           contentContainerStyle={styles.listContent}
           ListEmptyComponent={
-            <Text style={styles.emptyText}>No clubs found in this league.</Text>
+            <Text style={styles.emptyText}>{t('newgame.team_empty')}</Text>
           }
           renderItem={({ item }) => renderClubCard(item, () => handleSelectClub(item))}
         />

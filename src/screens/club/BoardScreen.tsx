@@ -2,15 +2,16 @@ import React from 'react';
 import { View, Text, ScrollView, StyleSheet } from 'react-native';
 import { colors, spacing, fontSize, radius, commonStyles } from '@/theme';
 import { useTranslation, objectiveDescriptor } from '@/i18n';
+import type { TKey } from '@/i18n/translate';
 import { useBoardStore } from '@/store/board-store';
 import { useGameStore } from '@/store/game-store';
 
-function reputationLabel(rep: number): string {
-  if (rep <= 30) return 'Small Club';
-  if (rep <= 55) return 'Mid-Table';
-  if (rep <= 70) return 'Established';
-  if (rep <= 85) return 'Big Club';
-  return 'Elite';
+function reputationLabelKey(rep: number): TKey {
+  if (rep <= 30) return 'board.rep_small';
+  if (rep <= 55) return 'board.rep_mid';
+  if (rep <= 70) return 'board.rep_established';
+  if (rep <= 85) return 'board.rep_big';
+  return 'board.rep_elite';
 }
 
 function TrustBar({ trust }: { trust: number }) {
@@ -42,38 +43,38 @@ export function BoardScreen() {
   return (
     <ScrollView style={commonStyles.screen} contentContainerStyle={styles.container}>
       <View style={styles.card}>
-        <Text style={styles.label}>CLUB REPUTATION</Text>
+        <Text style={styles.label}>{t('board.reputation')}</Text>
         <Text style={styles.bigNumber}>{reputation}</Text>
-        <Text style={styles.subLabel}>{reputationLabel(reputation)}</Text>
+        <Text style={styles.subLabel}>{t(reputationLabelKey(reputation))}</Text>
       </View>
 
       <View style={styles.card}>
-        <Text style={styles.label}>BOARD CONFIDENCE</Text>
+        <Text style={styles.label}>{t('board.confidence')}</Text>
         <TrustBar trust={currentTrust} />
         <Text style={styles.subLabel}>{currentTrust}/100</Text>
         {currentTrust < 40 && (
           <Text style={[styles.warning, { color: colors.danger }]}>
-            {currentTrust < 20 ? 'Dismissal risk — results needed urgently.' : 'Budget cuts possible — improve results.'}
+            {currentTrust < 20 ? t('board.trust_dismissal') : t('board.trust_budget_cut')}
           </Text>
         )}
         {currentTrust > 80 && (
-          <Text style={[styles.warning, { color: colors.success }]}>Board fully backing you — budget boost available.</Text>
+          <Text style={[styles.warning, { color: colors.success }]}>{t('board.trust_backing')}</Text>
         )}
       </View>
 
       {currentObjective && (
         <View style={styles.card}>
-          <Text style={styles.label}>SEASON {season} OBJECTIVE</Text>
+          <Text style={styles.label}>{t('board.objective', { season })}</Text>
           <Text style={styles.objectiveText}>{objDesc && t(objDesc.key, objDesc.vars)}</Text>
         </View>
       )}
 
       {reputationHistory.length > 0 && (
         <View style={styles.card}>
-          <Text style={styles.label}>REPUTATION HISTORY</Text>
+          <Text style={styles.label}>{t('board.reputation_history')}</Text>
           {reputationHistory.slice(0, 5).map((entry) => (
             <View key={entry.id} style={styles.historyRow}>
-              <Text style={styles.historySeason}>Season {entry.season}</Text>
+              <Text style={styles.historySeason}>{t('standings.season', { season: entry.season })}</Text>
               <Text style={styles.historyRep}>{entry.reputation}</Text>
               <Text style={[styles.historyDelta, { color: entry.delta >= 0 ? colors.success : colors.danger }]}>
                 {entry.delta >= 0 ? `+${entry.delta}` : `${entry.delta}`}

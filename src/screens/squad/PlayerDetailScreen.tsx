@@ -364,10 +364,10 @@ export default function PlayerDetailScreen({ player, onBack }: PlayerDetailScree
 
         {player.clubId === playerClubId && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Transfer Status</Text>
+            <Text style={styles.sectionTitle}>{t('tactics.transfer_status_title')}</Text>
 
             <View style={styles.listingRow}>
-              <Text style={styles.listingLabel}>Listed for transfer</Text>
+              <Text style={styles.listingLabel}>{t('playerdetail.listed_for_transfer')}</Text>
               <Switch
                 value={isTransferListed}
                 onValueChange={handleToggleTransferListing}
@@ -375,7 +375,7 @@ export default function PlayerDetailScreen({ player, onBack }: PlayerDetailScree
             </View>
             {isTransferListed && (
               <View style={styles.listingRow}>
-                <Text style={styles.listingLabel}>Asking price</Text>
+                <Text style={styles.listingLabel}>{t('tactics.asking_price')}</Text>
                 <TextInput
                   style={styles.listingInput}
                   value={askingPriceText}
@@ -389,7 +389,7 @@ export default function PlayerDetailScreen({ player, onBack }: PlayerDetailScree
             )}
 
             <View style={styles.listingRow}>
-              <Text style={styles.listingLabel}>Listed for loan</Text>
+              <Text style={styles.listingLabel}>{t('playerdetail.listed_for_loan')}</Text>
               <Switch
                 value={isLoanListed}
                 onValueChange={handleToggleLoanListing}
