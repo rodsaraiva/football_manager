@@ -8,6 +8,8 @@ import {
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { colors, spacing, fontSize, commonStyles } from '@/theme';
+import { useTranslation } from '@/i18n';
+import type { TKey } from '@/i18n/translate';
 import { useGameStore } from '@/store/game-store';
 import { useDatabaseStore } from '@/store/database-store';
 import { getFinancesBySeason } from '@/database/queries/finances';
@@ -33,18 +35,18 @@ function formatBudget(amount: number): string {
   return `$${abs.toLocaleString()}`;
 }
 
-const FINANCE_TYPE_LABELS: Record<FinanceType, string> = {
-  ticket: 'Ticket Sales',
-  tv: 'TV Rights',
-  sponsor: 'Sponsorship',
-  transfer_in: 'Transfer Income',
-  transfer_out: 'Transfer Fee',
-  wages: 'Wages',
-  maintenance: 'Maintenance',
-  bonus: 'Bonus',
-  upgrade: 'Facility Upgrade',
-  assistant_wage: 'Assistant Wages',
-  prize: 'Prize Money',
+const FINANCE_TYPE_LABELS: Record<FinanceType, TKey> = {
+  ticket: 'finances.type_ticket',
+  tv: 'finances.type_tv',
+  sponsor: 'finances.type_sponsor',
+  transfer_in: 'finances.type_transfer_in',
+  transfer_out: 'finances.type_transfer_out',
+  wages: 'finances.type_wages',
+  maintenance: 'finances.type_maintenance',
+  bonus: 'finances.type_bonus',
+  upgrade: 'finances.type_upgrade',
+  assistant_wage: 'finances.type_assistant_wage',
+  prize: 'finances.type_prize',
 };
 
 function typeIcon(type: FinanceType): string {
@@ -64,20 +66,20 @@ function typeIcon(type: FinanceType): string {
 }
 
 function TransactionItem({ item }: { item: ClubFinance }) {
+  const { t } = useTranslation();
   const isPositive = item.amount >= 0;
   const amountColor = isPositive ? colors.success : colors.danger;
   const sign = isPositive ? '+' : '-';
-  const label = FINANCE_TYPE_LABELS[item.type] ?? item.type;
 
   return (
     <View style={styles.transactionRow}>
       <Text style={styles.txIcon}>{typeIcon(item.type)}</Text>
       <View style={styles.txInfo}>
-        <Text style={styles.txLabel}>{label}</Text>
+        <Text style={styles.txLabel}>{t(FINANCE_TYPE_LABELS[item.type])}</Text>
         {item.description ? (
           <Text style={styles.txDesc} numberOfLines={1}>{item.description}</Text>
         ) : null}
-        <Text style={styles.txWeek}>Week {item.week}</Text>
+        <Text style={styles.txWeek}>{t('calendar.week', { n: item.week })}</Text>
       </View>
       <Text style={[styles.txAmount, { color: amountColor }]}>
         {sign}{formatCurrency(item.amount)}
@@ -87,6 +89,7 @@ function TransactionItem({ item }: { item: ClubFinance }) {
 }
 
 export function FinancesScreen() {
+  const { t } = useTranslation();
   const { playerClubId, playerClub, setPlayerClub, season, week, currentSave } = useGameStore();
   const { dbHandle } = useDatabaseStore();
   const [finances, setFinances] = useState<ClubFinance[]>([]);
@@ -136,23 +139,23 @@ export function FinancesScreen() {
     <View style={commonStyles.screen}>
       {/* Balance Header */}
       <View style={styles.balanceHeader}>
-        <Text style={styles.balanceLabel}>CURRENT BUDGET</Text>
+        <Text style={styles.balanceLabel}>{t('finances.current_budget')}</Text>
         <Text style={[styles.balanceAmount, { color: budget >= 0 ? colors.success : colors.danger }]}>
           {budget < 0 ? '-' : ''}{formatBudget(budget)}
         </Text>
-        <Text style={styles.balanceSeason}>Season {season}</Text>
+        <Text style={styles.balanceSeason}>{t('standings.season', { season })}</Text>
       </View>
 
       {/* Season Summary */}
       <View style={styles.summaryRow}>
         <View style={[styles.summaryCard, styles.summaryLeft]}>
-          <Text style={styles.summaryLabel}>INCOME</Text>
+          <Text style={styles.summaryLabel}>{t('finances.income')}</Text>
           <Text style={[styles.summaryAmount, { color: colors.success }]}>
             +{formatCurrency(totalIncome)}
           </Text>
         </View>
         <View style={[styles.summaryCard, styles.summaryRight]}>
-          <Text style={styles.summaryLabel}>EXPENSES</Text>
+          <Text style={styles.summaryLabel}>{t('finances.expenses')}</Text>
           <Text style={[styles.summaryAmount, { color: colors.danger }]}>
             -{formatCurrency(Math.abs(totalExpenses))}
           </Text>
@@ -160,11 +163,11 @@ export function FinancesScreen() {
       </View>
 
       {/* Transaction List */}
-      <Text style={styles.sectionTitle}>Transactions</Text>
+      <Text style={styles.sectionTitle}>{t('finances.transactions')}</Text>
 
       {finances.length === 0 ? (
         <View style={styles.emptyCard}>
-          <Text style={styles.emptyText}>No transactions yet this season</Text>
+          <Text style={styles.emptyText}>{t('finances.no_transactions')}</Text>
         </View>
       ) : (
         <FlatList
