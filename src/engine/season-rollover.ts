@@ -111,6 +111,12 @@ export async function rolloverSeason(p: RolloverSeasonParams): Promise<RolloverS
     // 5. Regenerate the calendar for the new season. ensureSeasonFixtures is already
     // save-scoped + offset, so we delegate instead of duplicating the offset math here.
     await ensureSeasonFixtures(db, saveId, newSeason);
+
+    // 5b. Open the pre-season window for the new season (player plays friendlies
+    // before round 1). Cleared by the user via PreSeasonScreen.
+    if (saveId >= 0) {
+      await db.prepare('UPDATE save_games SET preseason_pending = 1 WHERE id = ?').run(saveId);
+    }
     const competitionsCreated = ((await db
       .prepare('SELECT COUNT(*) as n FROM competitions WHERE save_id = ? AND season = ?')
       .get(saveId, newSeason)) as { n: number }).n;

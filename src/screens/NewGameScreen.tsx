@@ -19,6 +19,7 @@ import { getAllLeagues, getAllCountries } from '@/database/queries/leagues';
 import { getClubById, ClubWithDivision } from '@/database/queries/clubs';
 import { AMBITION_PROFILES, suggestClubsForProfile, AmbitionProfileId } from '@/engine/newgame/ambition';
 import { createSave } from '@/database/queries/saves';
+import { setPreseasonPending } from '@/database/queries/save';
 import { ensureSeasonFixtures } from '@/engine/competition/calendar';
 import { generateSeedData } from '../../scripts/generate-seed-data';
 import { generateWorldSeedSQLForSave } from '@/database/seed';
@@ -220,6 +221,9 @@ export function NewGameScreen() {
 
       // Generate the season-1 calendar for THIS save (scoped + offset internally).
       await ensureSeasonFixtures(dbHandle, saveId, 1);
+
+      // Open the pre-season friendly window before round 1 of the new game.
+      await setPreseasonPending(dbHandle, saveId, true);
 
       navigation.navigate('Game');
     } catch (err) {

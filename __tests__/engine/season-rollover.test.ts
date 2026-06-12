@@ -92,4 +92,12 @@ describe('rolloverSeason', () => {
     const result = await rolloverSeason({ dbHandle: db, playerClubId: PLAYER_CLUB, saveId: 1, endedSeason: ENDED, newSeason: NEW, youthAcademyLevel: 3, rng: new SeededRng(NEW) });
     expect(result.potentialUpdatedIds).toEqual([]);
   });
+
+  it('opens the pre-season window for the new season', async () => {
+    const before = (await db.prepare('SELECT preseason_pending FROM save_games WHERE id = 1').get()) as { preseason_pending: number };
+    expect(before.preseason_pending).toBe(0);
+    await rolloverSeason({ dbHandle: db, playerClubId: PLAYER_CLUB, saveId: 1, endedSeason: ENDED, newSeason: NEW, youthAcademyLevel: 3, rng: new SeededRng(NEW) });
+    const after = (await db.prepare('SELECT preseason_pending FROM save_games WHERE id = 1').get()) as { preseason_pending: number };
+    expect(after.preseason_pending).toBe(1);
+  });
 });
