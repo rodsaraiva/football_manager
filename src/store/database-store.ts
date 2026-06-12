@@ -94,6 +94,24 @@ export const useDatabaseStore = create<DatabaseStore>((set) => ({
       // Board stakes: game-over flag once the manager is dismissed.
       await addColumnIfMissing(db, 'save_games', 'ended', 'INTEGER NOT NULL DEFAULT 0');
 
+      // Pre-season: pending-window flag + standalone friendlies table (kept out of
+      // the official fixtures/competitions so it never pollutes standings/history).
+      await addColumnIfMissing(db, 'save_games', 'preseason_pending', 'INTEGER NOT NULL DEFAULT 0');
+      await db.execAsync(`
+        CREATE TABLE IF NOT EXISTS friendlies (
+          id            INTEGER PRIMARY KEY AUTOINCREMENT,
+          save_id       INTEGER NOT NULL,
+          season        INTEGER NOT NULL,
+          home_club_id  INTEGER NOT NULL,
+          away_club_id  INTEGER NOT NULL,
+          home_goals    INTEGER,
+          away_goals    INTEGER,
+          played        INTEGER NOT NULL DEFAULT 0,
+          attendance    INTEGER
+        );
+        CREATE INDEX IF NOT EXISTS idx_friendlies_save_season ON friendlies(save_id, season);
+      `);
+
       // Progression wiring: club-wide training focus + fractional attribute accumulators
       await addColumnIfMissing(db, 'clubs', 'training_focus', "TEXT NOT NULL DEFAULT 'balanced'");
       for (const c of [

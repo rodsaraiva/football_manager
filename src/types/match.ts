@@ -21,3 +21,19 @@ export interface MatchEvent {
   playerId: number;
   secondaryPlayerId: number | null;
 }
+
+/**
+ * A pre-season friendly. Modeled in its own table (not `fixtures`) so it never
+ * counts toward standings, history or promotion — only the official engines that
+ * read `fixtures` exist, and they never see this row.
+ */
+export interface Friendly {
+  id: number;
+  season: number;
+  homeClubId: number;
+  awayClubId: number;
+  homeGoals: number | null;
+  awayGoals: number | null;
+  played: boolean;
+  attendance: number | null;
+}

@@ -84,6 +84,7 @@ export const useGameStore = create<GameStore>((set) => ({
         currentWeek: week,
         playerClubId: clubId,
         difficulty: 'normal',
+        preseasonPending: false,
         createdAt: '',
         updatedAt: '',
       },

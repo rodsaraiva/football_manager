@@ -8,6 +8,7 @@ interface SaveGameRow {
   current_week: number;
   player_club_id: number;
   difficulty: string;
+  preseason_pending: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -20,6 +21,7 @@ function rowToSaveGame(row: SaveGameRow): SaveGame {
     currentWeek: row.current_week,
     playerClubId: row.player_club_id,
     difficulty: row.difficulty as Difficulty,
+    preseasonPending: row.preseason_pending === 1,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };

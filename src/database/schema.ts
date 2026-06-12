@@ -18,6 +18,7 @@ export const TABLE_NAMES: string[] = [
   'tactic_positions',
   'tactic_lineup',
   'save_games',
+  'friendlies',
   'season_competition_results',
   'season_relegated',
   'season_promoted',
@@ -302,8 +303,24 @@ CREATE TABLE IF NOT EXISTS save_games (
   difficulty      TEXT    NOT NULL DEFAULT 'normal',
   board_trust     INTEGER NOT NULL DEFAULT 50,
   ended           INTEGER NOT NULL DEFAULT 0,
+  preseason_pending INTEGER NOT NULL DEFAULT 0,
   created_at      TEXT    NOT NULL,
   updated_at      TEXT    NOT NULL
+);
+
+-- Pre-season friendlies live in their own table, fully separate from official
+-- fixtures/competitions. The standings/archiver/promotion engines only read the
+-- fixtures table, so a friendly can never leak into the official season.
+CREATE TABLE IF NOT EXISTS friendlies (
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  save_id       INTEGER NOT NULL REFERENCES save_games(id),
+  season        INTEGER NOT NULL,
+  home_club_id  INTEGER NOT NULL REFERENCES clubs(id),
+  away_club_id  INTEGER NOT NULL REFERENCES clubs(id),
+  home_goals    INTEGER,
+  away_goals    INTEGER,
+  played        INTEGER NOT NULL DEFAULT 0,
+  attendance    INTEGER
 );
 
 CREATE TABLE IF NOT EXISTS season_competition_results (
@@ -429,6 +446,7 @@ CREATE INDEX IF NOT EXISTS idx_comp_entries_club      ON competition_entries(clu
 CREATE INDEX IF NOT EXISTS idx_player_stats_season    ON player_stats(season, competition_id);
 CREATE INDEX IF NOT EXISTS idx_transfer_offers_status ON transfer_offers(status);
 CREATE INDEX IF NOT EXISTS idx_transfer_offers_club   ON transfer_offers(offering_club_id);
+CREATE INDEX IF NOT EXISTS idx_friendlies_save_season ON friendlies(save_id, season);
 `;
 
 // Composite save_id indexes are created AFTER the save_id migration (database-store),

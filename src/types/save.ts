@@ -7,6 +7,7 @@ export interface SaveGame {
   currentWeek: number;
   playerClubId: number;
   difficulty: Difficulty;
+  preseasonPending: boolean;
   createdAt: string;
   updatedAt: string;
 }
