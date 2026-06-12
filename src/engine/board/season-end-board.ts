@@ -7,7 +7,7 @@ import {
   insertReputationHistory, getReputationHistory, upsertBoardObjective, getBoardObjective,
   insertTrustHistory, getSaveBoardTrust, updateSaveBoardTrust,
 } from '@/database/queries/board';
-import { BoardObjective, ReputationHistoryEntry, TrustConsequence, TrustOutcome } from '@/types/board';
+import { BoardObjective, BoardObjectiveType, ReputationHistoryEntry, TrustConsequence, TrustOutcome } from '@/types/board';
 
 export interface SeasonEndBoardParams {
   dbHandle: DbHandle;
@@ -34,7 +34,8 @@ export interface SeasonEndBoardResult {
   outcome: TrustOutcome;
   consequence: TrustConsequence;
   newObjective: BoardObjective | null;
-  objectiveDescription: string;
+  objectiveType: BoardObjectiveType;
+  objectiveTarget: number | null;
   reputationHistory: ReputationHistoryEntry[];
 }
 
@@ -95,7 +96,7 @@ export async function processSeasonEndBoard(p: SeasonEndBoardParams): Promise<Se
     wasRelegated, wasPromoted,
     rng: new SeededRng(newSeason * 31337 + clubId),
   });
-  await upsertBoardObjective(db, saveId, { clubId, season: newSeason, type: objective.type, target: objective.target, description: objective.description });
+  await upsertBoardObjective(db, saveId, { clubId, season: newSeason, type: objective.type, target: objective.target, description: '' });
 
   // 7. Read back for the caller.
   const newObjective = await getBoardObjective(db, saveId, clubId, newSeason);
@@ -109,7 +110,8 @@ export async function processSeasonEndBoard(p: SeasonEndBoardParams): Promise<Se
     outcome: trustResult.outcome,
     consequence: trustResult.consequence,
     newObjective,
-    objectiveDescription: objective.description,
+    objectiveType: objective.type,
+    objectiveTarget: objective.target,
     reputationHistory,
   };
 }

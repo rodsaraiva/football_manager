@@ -14,10 +14,9 @@ export interface ObjectiveGeneratorInput {
 export interface GeneratedObjective {
   type: BoardObjectiveType;
   target: number | null;
-  description: string;
 }
 
-type Template = { type: BoardObjectiveType; target: number | null; description: string };
+type Template = { type: BoardObjectiveType; target: number | null };
 
 function pick<T>(rng: SeededRng, arr: T[]): T {
   return arr[rng.nextInt(0, arr.length - 1)];
@@ -30,36 +29,36 @@ export function generateObjective(input: ObjectiveGeneratorInput): GeneratedObje
   const templates = (() => {
     if (clubReputation <= 30) {
       return [
-        { type: 'no_relegation' as BoardObjectiveType, target: null, description: 'Avoid relegation this season' },
-        { type: 'top_half' as BoardObjectiveType, target: topHalf, description: `Finish in the top half (top ${topHalf})` },
+        { type: 'no_relegation' as BoardObjectiveType, target: null },
+        { type: 'top_half' as BoardObjectiveType, target: topHalf },
       ] satisfies Template[];
     }
     if (clubReputation <= 55) {
       return [
-        { type: 'top_half' as BoardObjectiveType, target: topHalf, description: `Finish in the top half (top ${topHalf})` },
-        { type: 'league_position' as BoardObjectiveType, target: Math.max(1, topHalf - 2), description: `Finish in the top ${Math.max(1, topHalf - 2)}` },
-        { type: 'cup_win' as BoardObjectiveType, target: null, description: 'Win a cup competition this season' },
-        { type: 'budget_balance' as BoardObjectiveType, target: null, description: 'Keep the club finances in the black' },
+        { type: 'top_half' as BoardObjectiveType, target: topHalf },
+        { type: 'league_position' as BoardObjectiveType, target: Math.max(1, topHalf - 2) },
+        { type: 'cup_win' as BoardObjectiveType, target: null },
+        { type: 'budget_balance' as BoardObjectiveType, target: null },
       ] satisfies Template[];
     }
     if (clubReputation <= 70) {
       return [
-        { type: 'league_position' as BoardObjectiveType, target: Math.max(1, Math.round(totalTeams * 0.3)), description: `Finish in the top ${Math.round(totalTeams * 0.3)}` },
-        { type: 'cup_win' as BoardObjectiveType, target: null, description: 'Win a cup competition this season' },
-        { type: 'league_position' as BoardObjectiveType, target: 3, description: 'Finish in the top 3' },
+        { type: 'league_position' as BoardObjectiveType, target: Math.max(1, Math.round(totalTeams * 0.3)) },
+        { type: 'cup_win' as BoardObjectiveType, target: null },
+        { type: 'league_position' as BoardObjectiveType, target: 3 },
       ] satisfies Template[];
     }
     if (clubReputation <= 85) {
       return [
-        { type: 'league_position' as BoardObjectiveType, target: 3, description: 'Finish in the top 3' },
-        { type: 'league_position' as BoardObjectiveType, target: 1, description: 'Win the league championship' },
-        { type: 'cup_win' as BoardObjectiveType, target: null, description: 'Win a cup competition this season' },
+        { type: 'league_position' as BoardObjectiveType, target: 3 },
+        { type: 'league_position' as BoardObjectiveType, target: 1 },
+        { type: 'cup_win' as BoardObjectiveType, target: null },
       ] satisfies Template[];
     }
     // 86-100 elite
     return [
-      { type: 'league_position' as BoardObjectiveType, target: 1, description: 'Win the league championship' },
-      { type: 'cup_win' as BoardObjectiveType, target: null, description: 'Win a major cup competition' },
+      { type: 'league_position' as BoardObjectiveType, target: 1 },
+      { type: 'cup_win' as BoardObjectiveType, target: null },
     ] satisfies Template[];
   })();
 

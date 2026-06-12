@@ -196,7 +196,7 @@ export function NewGameScreen() {
         season: 1,
         type: s1Objective.type,
         target: s1Objective.target,
-        description: s1Objective.description,
+        description: '',
       });
       setCurrentObjective({
         id: 0,
@@ -204,7 +204,7 @@ export function NewGameScreen() {
         season: 1,
         type: s1Objective.type,
         target: s1Objective.target,
-        description: s1Objective.description,
+        description: '',
       });
 
       // Generate 3 assistants (one per role) for this save

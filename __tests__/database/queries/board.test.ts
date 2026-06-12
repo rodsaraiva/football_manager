@@ -123,7 +123,7 @@ describe('board queries', () => {
         season: 3,
         type: objective.type,
         target: objective.target,
-        description: objective.description,
+        description: '',
       });
 
       const persisted = await getBoardObjective(db, 1, clubId, 3);
@@ -132,7 +132,6 @@ describe('board queries', () => {
       expect(['no_relegation', 'top_half']).toContain(persisted!.type);
       expect(persisted!.type).toBe(objective.type);
       expect(persisted!.target).toBe(objective.target ?? null);
-      expect(persisted!.description).toBe(objective.description);
     });
   });
 });

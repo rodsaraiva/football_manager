@@ -13,7 +13,7 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { colors, spacing, fontSize, commonStyles } from '@/theme';
 import { ClubBanner } from '@/components/ClubBanner';
-import { useTranslation } from '@/i18n';
+import { useTranslation, objectiveDescriptor } from '@/i18n';
 import { useGameStore } from '@/store/game-store';
 import { useDatabaseStore } from '@/store/database-store';
 import { useBoardStore } from '@/store/board-store';
@@ -341,7 +341,9 @@ export function HomeScreen() {
         >
           <View style={styles.boardWidgetLeft}>
             <Text style={styles.boardWidgetLabel}>{t('home.objective_label')}</Text>
-            <Text style={styles.boardWidgetText} numberOfLines={1}>{currentObjective.description}</Text>
+            <Text style={styles.boardWidgetText} numberOfLines={1}>
+              {(() => { const d = objectiveDescriptor(currentObjective.type, currentObjective.target); return t(d.key, d.vars); })()}
+            </Text>
           </View>
           <View style={styles.boardWidgetRight}>
             <Text style={styles.boardWidgetLabel}>{t('home.trust_label')}</Text>

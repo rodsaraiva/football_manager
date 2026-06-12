@@ -30,7 +30,8 @@ import { calculateOverall } from '@/utils/overall';
 import { rolloverSeason } from '@/engine/season-rollover';
 import { processAssistantsSeasonEnd } from '@/engine/assistant/season-end-assistants';
 import { useBoardStore } from '@/store/board-store';
-import { TrustConsequence, TrustOutcome } from '@/types/board';
+import { BoardObjectiveType, TrustConsequence, TrustOutcome } from '@/types/board';
+import { useTranslation, objectiveDescriptor } from '@/i18n';
 import { useAssistantStore } from '@/store/assistant-store';
 
 type NavProp = NativeStackNavigationProp<RootStackParamList>;
@@ -59,10 +60,11 @@ export function EndOfSeasonScreen() {
   const [loading, setLoading] = useState(true);
   const [starting, setStarting] = useState(false);
   const [boardProcessed, setBoardProcessed] = useState(false);
+  const { t } = useTranslation();
   const [boardEval, setBoardEval] = useState<{
     oldRep: number; newRep: number; delta: number;
     trust: number; outcome: TrustOutcome; consequence: TrustConsequence;
-    objectiveDescription: string;
+    objectiveType: BoardObjectiveType; objectiveTarget: number | null;
   } | null>(null);
 
   // advanceGameWeek already bumped the season pointer to the upcoming year.
@@ -201,7 +203,8 @@ export function EndOfSeasonScreen() {
               trust: boardResult.newTrust,
               outcome: boardResult.outcome,
               consequence: boardResult.consequence,
-              objectiveDescription: boardResult.objectiveDescription,
+              objectiveType: boardResult.objectiveType,
+              objectiveTarget: boardResult.objectiveTarget,
             });
           } catch {
             // Board eval is best-effort; stats still render.
@@ -241,7 +244,9 @@ export function EndOfSeasonScreen() {
           ? 'Objetivo da temporada não cumprido.'
           : 'Confiança da diretoria esgotada.',
         trust: boardEval?.trust ?? 0,
-        objectiveDescription: boardEval?.objectiveDescription ?? '',
+        objectiveDescription: boardEval
+          ? (() => { const d = objectiveDescriptor(boardEval.objectiveType, boardEval.objectiveTarget); return t(d.key, d.vars); })()
+          : '',
       });
       return;
     }
@@ -449,7 +454,9 @@ export function EndOfSeasonScreen() {
           )}
           <View style={styles.divider} />
           <Text style={styles.balanceLabel}>Next season objective:</Text>
-          <Text style={styles.noDataText}>{boardEval.objectiveDescription}</Text>
+          <Text style={styles.noDataText}>
+            {(() => { const d = objectiveDescriptor(boardEval.objectiveType, boardEval.objectiveTarget); return t(d.key, d.vars); })()}
+          </Text>
         </View>
       )}
 

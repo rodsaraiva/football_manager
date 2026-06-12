@@ -18,9 +18,10 @@ describe('generateObjective', () => {
     expect(valid).toContain(result.type);
   });
 
-  it('returns non-empty description', () => {
+  it('does not carry a description string anymore (derived at render)', () => {
     const result = generateObjective(base);
-    expect(result.description.length).toBeGreaterThan(0);
+    expect((result as { description?: unknown }).description).toBeUndefined();
+    expect(result.type).toBeTruthy();
   });
 
   it('low reputation (1-30) generates survival objective', () => {
@@ -69,6 +70,5 @@ describe('generateObjective', () => {
     const b = generateObjective({ ...base, rng: new SeededRng(99) });
     expect(a.type).toBe(b.type);
     expect(a.target).toBe(b.target);
-    expect(a.description).toBe(b.description);
   });
 });

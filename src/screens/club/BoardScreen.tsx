@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, ScrollView, StyleSheet } from 'react-native';
 import { colors, spacing, fontSize, commonStyles } from '@/theme';
+import { useTranslation, objectiveDescriptor } from '@/i18n';
 import { useBoardStore } from '@/store/board-store';
 import { useGameStore } from '@/store/game-store';
 
@@ -33,8 +34,10 @@ function TrustBar({ trust }: { trust: number }) {
 export function BoardScreen() {
   const { currentObjective, currentTrust, reputationHistory } = useBoardStore();
   const { playerClub, season } = useGameStore();
+  const { t } = useTranslation();
 
   const reputation = playerClub?.reputation ?? 50;
+  const objDesc = currentObjective ? objectiveDescriptor(currentObjective.type, currentObjective.target) : null;
 
   return (
     <ScrollView style={commonStyles.screen} contentContainerStyle={styles.container}>
@@ -61,7 +64,7 @@ export function BoardScreen() {
       {currentObjective && (
         <View style={styles.card}>
           <Text style={styles.label}>SEASON {season} OBJECTIVE</Text>
-          <Text style={styles.objectiveText}>{currentObjective.description}</Text>
+          <Text style={styles.objectiveText}>{objDesc && t(objDesc.key, objDesc.vars)}</Text>
         </View>
       )}
 
