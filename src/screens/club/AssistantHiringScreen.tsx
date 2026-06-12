@@ -3,6 +3,8 @@ import { View, Text, ScrollView, StyleSheet, Pressable, Alert, ActivityIndicator
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { colors, spacing, fontSize, commonStyles } from '@/theme';
+import { useTranslation } from '@/i18n';
+import type { TKey } from '@/i18n/translate';
 import { useGameStore } from '@/store/game-store';
 import { useDatabaseStore } from '@/store/database-store';
 import { generateCandidates, candidateWillAccept } from '@/engine/assistant/assistant-engine';
@@ -15,13 +17,13 @@ import { RootStackParamList } from '@/navigation/types';
 type NavProp = NativeStackNavigationProp<RootStackParamList>;
 type RouteT = RouteProp<RootStackParamList, 'ClubAssistantHiring'>;
 
-const ARCHETYPE_LABELS: Record<string, string> = {
-  old_school: 'Old School',
-  analytics:  'Analytics',
-  motivator:  'Motivator',
-  tactician:  'Tactician',
-  developer:  'Developer',
-  pragmatic:  'Pragmatic',
+const ARCHETYPE_LABELS: Record<string, TKey> = {
+  old_school: 'assistants.arch_old_school',
+  analytics:  'assistants.arch_analytics',
+  motivator:  'assistants.arch_motivator',
+  tactician:  'assistants.arch_tactician',
+  developer:  'assistants.arch_developer',
+  pragmatic:  'assistants.arch_pragmatic',
 };
 
 function CandidateCard({
@@ -33,6 +35,7 @@ function CandidateCard({
   clubReputation: number;
   onHire: () => void;
 }) {
+  const { t } = useTranslation();
   const canAccept = candidateWillAccept({ candidate, clubReputation, offeredWage: candidate.wagePerMonth });
 
   return (
@@ -42,33 +45,34 @@ function CandidateCard({
         <Text style={styles.stars}>{'★'.repeat(candidate.qualityStars)}{'☆'.repeat(5 - candidate.qualityStars)}</Text>
       </View>
       <View style={styles.cardMeta}>
-        <Text style={styles.metaItem}>Age {candidate.age}</Text>
+        <Text style={styles.metaItem}>{t('assistants.age_n', { age: candidate.age })}</Text>
         <Text style={styles.metaDot}>·</Text>
-        <Text style={styles.metaItem}>{ARCHETYPE_LABELS[candidate.archetype]}</Text>
+        <Text style={styles.metaItem}>{t(ARCHETYPE_LABELS[candidate.archetype])}</Text>
       </View>
       <View style={styles.cardStats}>
         <View style={styles.stat}>
-          <Text style={styles.statLabel}>MONTHLY WAGE</Text>
+          <Text style={styles.statLabel}>{t('assistants.monthly_wage')}</Text>
           <Text style={styles.statValue}>${(candidate.wagePerMonth / 1000).toFixed(1)}K</Text>
         </View>
         <View style={styles.stat}>
-          <Text style={styles.statLabel}>MIN. REP</Text>
+          <Text style={styles.statLabel}>{t('assistants.min_rep')}</Text>
           <Text style={[styles.statValue, !canAccept && { color: colors.danger }]}>
             {candidate.reputationRequired}
           </Text>
         </View>
       </View>
       {!canAccept && (
-        <Text style={styles.refuseNote}>Club not attractive enough (rep {clubReputation}/{candidate.reputationRequired})</Text>
+        <Text style={styles.refuseNote}>{t('assistants.not_attractive', { rep: clubReputation, req: candidate.reputationRequired })}</Text>
       )}
       <Pressable style={[styles.hireBtn, !canAccept && styles.hireBtnDisabled]} onPress={onHire} disabled={!canAccept}>
-        <Text style={[styles.hireBtnText, !canAccept && styles.hireBtnTextDisabled]}>Hire</Text>
+        <Text style={[styles.hireBtnText, !canAccept && styles.hireBtnTextDisabled]}>{t('assistants.hire_btn')}</Text>
       </Pressable>
     </View>
   );
 }
 
 export function AssistantHiringScreen() {
+  const { t } = useTranslation();
   const navigation = useNavigation<NavProp>();
   const route = useRoute<RouteT>();
   const { role } = route.params;
@@ -87,12 +91,12 @@ export function AssistantHiringScreen() {
 
   const handleHire = (candidate: AssistantCandidate) => {
     Alert.alert(
-      'Hire Assistant',
-      `Hire ${candidate.name} for $${(candidate.wagePerMonth / 1000).toFixed(1)}K/month?`,
+      t('assistants.hire_title'),
+      t('assistants.hire_msg', { name: candidate.name, wage: (candidate.wagePerMonth / 1000).toFixed(1) }),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Hire',
+          text: t('assistants.hire_btn'),
           onPress: async () => {
             if (!dbHandle || !currentSave || !playerClubId) return;
             await insertAssistant(dbHandle, {
@@ -132,7 +136,7 @@ export function AssistantHiringScreen() {
 
   return (
     <ScrollView style={commonStyles.screen} contentContainerStyle={styles.container}>
-      <Text style={styles.subtitle}>Your club reputation: {playerClub?.reputation ?? '—'}</Text>
+      <Text style={styles.subtitle}>{t('assistants.your_rep', { rep: playerClub?.reputation ?? '—' })}</Text>
       {candidates.map((c, i) => (
         <CandidateCard
           key={i}
