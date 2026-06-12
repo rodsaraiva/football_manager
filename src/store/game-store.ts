@@ -25,6 +25,8 @@ interface GameState {
   // UI flags
   isAdvancing: boolean;
   isNewSeason: boolean;
+  // Pre-season window pending (player should play friendlies before round 1)
+  preseasonPending: boolean;
   // Retirement: IDs aposentados na última virada de temporada
   lastRetiredPlayerIds: number[];
   // IDs com aposentadoria anunciada nesta semana
@@ -42,6 +44,7 @@ interface GameActions {
   setLastMatchResult: (result: MatchResult | null) => void;
   setLastMatchContext: (isHome: boolean | null, opponentName: string | null) => void;
   setNewSeason: (isNew: boolean) => void;
+  setPreseasonPending: (pending: boolean) => void;
   setLastRetiredPlayerIds: (ids: number[]) => void;
   setPendingAnnouncedRetirementIds: (ids: number[]) => void;
   // Data loading
@@ -69,6 +72,7 @@ const initialState: GameState = {
   lastMatchOpponentName: null,
   isAdvancing: false,
   isNewSeason: false,
+  preseasonPending: false,
   lastRetiredPlayerIds: [],
   pendingAnnouncedRetirementIds: [],
 };
@@ -106,6 +110,7 @@ export const useGameStore = create<GameStore>((set) => ({
       lastMatchOpponentName: null,
       playerClub: null,
       isNewSeason: false,
+      preseasonPending: save.preseasonPending,
     });
   },
   clearGame: () => {
@@ -119,6 +124,7 @@ export const useGameStore = create<GameStore>((set) => ({
   setLastMatchContext: (isHome, opponentName) =>
     set({ lastMatchIsHome: isHome, lastMatchOpponentName: opponentName }),
   setNewSeason: (isNew) => set({ isNewSeason: isNew }),
+  setPreseasonPending: (pending) => set({ preseasonPending: pending }),
   setLastRetiredPlayerIds: (ids) => set({ lastRetiredPlayerIds: ids }),
   setPendingAnnouncedRetirementIds: (ids) => set({ pendingAnnouncedRetirementIds: ids }),
   setSquad: (squad) => set({ squad }),

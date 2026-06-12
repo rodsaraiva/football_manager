@@ -47,6 +47,7 @@ export function HomeScreen() {
     recentResults,
     isAdvancing,
     isNewSeason,
+    preseasonPending,
     lastMatchResult,
     currentSave,
     setAdvancing,
@@ -152,6 +153,13 @@ export function HomeScreen() {
       navigation.navigate('EndOfSeason');
     }
   }, [isNewSeason, navigation]);
+
+  // Route to the pre-season window whenever it is pending (new game / season turn).
+  useEffect(() => {
+    if (preseasonPending && !isNewSeason) {
+      navigation.navigate('PreSeason');
+    }
+  }, [preseasonPending, isNewSeason, navigation]);
 
   // Load player names and show modal after match
   useEffect(() => {

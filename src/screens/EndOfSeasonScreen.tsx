@@ -51,7 +51,7 @@ interface SeasonStats {
 
 export function EndOfSeasonScreen() {
   const navigation = useNavigation<NavProp>();
-  const { season, playerClub, playerClubId, setNewSeason, updateWeek, currentSave, setPendingAnnouncedRetirementIds } = useGameStore();
+  const { season, playerClub, playerClubId, setNewSeason, updateWeek, currentSave, setPendingAnnouncedRetirementIds, setPreseasonPending } = useGameStore();
   const { dbHandle } = useDatabaseStore();
   const { setCurrentObjective, setCurrentTrust, setLastTrustResult, setReputationHistory } = useBoardStore();
   const { setAssistants } = useAssistantStore();
@@ -305,6 +305,9 @@ export function EndOfSeasonScreen() {
       // the flag and make sure we're on week 1 of the new season.
       setPendingAnnouncedRetirementIds([]);
       setNewSeason(false);
+      // rolloverSeason opened the pre-season window in the DB; mirror it in the store
+      // so Home routes the user into PreSeasonScreen for the new season.
+      setPreseasonPending(true);
       updateWeek(newSeason, 1);
       navigation.navigate('Game');
     } catch (err) {

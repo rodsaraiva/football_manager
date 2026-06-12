@@ -40,6 +40,8 @@ export type RootStackParamList = {
   YouthAcademy: undefined;
   TopScorers: undefined;
   CupBracket: undefined;
+  // Pre-season friendlies window
+  PreSeason: undefined;
 };
 
 export type TabParamList = {

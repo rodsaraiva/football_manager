@@ -50,7 +50,7 @@ export function NewGameScreen() {
   const navigation = useNavigation<NavProp>();
   const { t } = useTranslation();
   const { db, dbHandle, isReady } = useDatabaseStore();
-  const { startNewGame, setPlayerClub } = useGameStore();
+  const { startNewGame, setPlayerClub, setPreseasonPending: setStorePreseasonPending } = useGameStore();
   const { setCurrentObjective } = useBoardStore();
 
   // Clubs/players live per-save now (no global club seed), so the picker reads the
@@ -224,6 +224,7 @@ export function NewGameScreen() {
 
       // Open the pre-season friendly window before round 1 of the new game.
       await setPreseasonPending(dbHandle, saveId, true);
+      setStorePreseasonPending(true);
 
       navigation.navigate('Game');
     } catch (err) {
