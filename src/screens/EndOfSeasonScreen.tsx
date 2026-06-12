@@ -241,8 +241,8 @@ export function EndOfSeasonScreen() {
       setStarting(false);
       navigation.navigate('GameOver', {
         reason: boardEval?.outcome === 'objective_failed'
-          ? 'Objetivo da temporada não cumprido.'
-          : 'Confiança da diretoria esgotada.',
+          ? t('endseason.gameover_objective_failed')
+          : t('endseason.gameover_trust_depleted'),
         trust: boardEval?.trust ?? 0,
         objectiveDescription: boardEval
           ? (() => { const d = objectiveDescriptor(boardEval.objectiveType, boardEval.objectiveTarget); return t(d.key, d.vars); })()
@@ -320,7 +320,7 @@ export function EndOfSeasonScreen() {
     return (
       <View style={[commonStyles.screen, styles.centered]}>
         <ActivityIndicator color={colors.primary} size="large" />
-        <Text style={styles.loadingText}>Compiling season report...</Text>
+        <Text style={styles.loadingText}>{t('endseason.loading')}</Text>
       </View>
     );
   }
@@ -329,24 +329,24 @@ export function EndOfSeasonScreen() {
     <ScrollView style={commonStyles.screen} contentContainerStyle={styles.container}>
       {/* Title */}
       <View style={styles.titleCard}>
-        <Text style={styles.trophy}>SEASON COMPLETE</Text>
-        <Text style={styles.titleText}>Season {endedSeason}</Text>
-        <Text style={styles.clubName}>{playerClub?.name ?? 'Your Club'}</Text>
+        <Text style={styles.trophy}>{t('endseason.season_complete')}</Text>
+        <Text style={styles.titleText}>{t('standings.season', { season: endedSeason })}</Text>
+        <Text style={styles.clubName}>{playerClub?.name ?? t('endseason.your_club')}</Text>
       </View>
 
       {/* League Position */}
       {stats && (
         <View style={styles.card}>
-          <Text style={styles.cardLabel}>FINAL LEAGUE POSITION</Text>
+          <Text style={styles.cardLabel}>{t('endseason.final_position')}</Text>
           {stats.leaguePosition !== null ? (
             <View style={styles.positionRow}>
               <Text style={[styles.positionNumber, getPositionStyle(stats.leaguePosition)]}>
                 {stats.leaguePosition}
               </Text>
-              <Text style={styles.positionOf}>of {stats.totalTeams}</Text>
+              <Text style={styles.positionOf}>{t('endseason.position_of', { total: stats.totalTeams })}</Text>
             </View>
           ) : (
-            <Text style={styles.noDataText}>Position not available</Text>
+            <Text style={styles.noDataText}>{t('endseason.position_unavailable')}</Text>
           )}
         </View>
       )}
@@ -354,27 +354,27 @@ export function EndOfSeasonScreen() {
       {/* Season Stats */}
       {stats && (
         <View style={styles.card}>
-          <Text style={styles.cardLabel}>SEASON STATS</Text>
+          <Text style={styles.cardLabel}>{t('endseason.season_stats')}</Text>
           <View style={styles.statsGrid}>
             <View style={styles.statItem}>
               <Text style={styles.statValue}>{stats.played}</Text>
-              <Text style={styles.statLabel}>Played</Text>
+              <Text style={styles.statLabel}>{t('endseason.played')}</Text>
             </View>
             <View style={styles.statItem}>
               <Text style={[styles.statValue, { color: colors.success }]}>{stats.wins}</Text>
-              <Text style={styles.statLabel}>Wins</Text>
+              <Text style={styles.statLabel}>{t('endseason.wins')}</Text>
             </View>
             <View style={styles.statItem}>
               <Text style={[styles.statValue, { color: colors.warning }]}>{stats.draws}</Text>
-              <Text style={styles.statLabel}>Draws</Text>
+              <Text style={styles.statLabel}>{t('endseason.draws')}</Text>
             </View>
             <View style={styles.statItem}>
               <Text style={[styles.statValue, { color: colors.danger }]}>{stats.losses}</Text>
-              <Text style={styles.statLabel}>Losses</Text>
+              <Text style={styles.statLabel}>{t('endseason.losses')}</Text>
             </View>
           </View>
           <View style={styles.goalRow}>
-            <Text style={styles.goalText}>Goals: {stats.goalsFor} scored / {stats.goalsAgainst} conceded</Text>
+            <Text style={styles.goalText}>{t('endseason.goals', { scored: stats.goalsFor, conceded: stats.goalsAgainst })}</Text>
           </View>
         </View>
       )}
@@ -382,16 +382,16 @@ export function EndOfSeasonScreen() {
       {/* Financial Summary */}
       {stats && (
         <View style={styles.card}>
-          <Text style={styles.cardLabel}>FINANCIAL SUMMARY</Text>
+          <Text style={styles.cardLabel}>{t('endseason.financial_summary')}</Text>
           <View style={styles.financeRow}>
             <View style={styles.financeItem}>
-              <Text style={styles.financeLabel}>Total Income</Text>
+              <Text style={styles.financeLabel}>{t('endseason.total_income')}</Text>
               <Text style={[styles.financeValue, { color: colors.success }]}>
                 {formatCurrency(stats.income)}
               </Text>
             </View>
             <View style={styles.financeItem}>
-              <Text style={styles.financeLabel}>Total Expenses</Text>
+              <Text style={styles.financeLabel}>{t('endseason.total_expenses')}</Text>
               <Text style={[styles.financeValue, { color: colors.danger }]}>
                 {formatCurrency(stats.expenses)}
               </Text>
@@ -399,7 +399,7 @@ export function EndOfSeasonScreen() {
           </View>
           <View style={styles.divider} />
           <View style={styles.balanceRow}>
-            <Text style={styles.balanceLabel}>Net Balance</Text>
+            <Text style={styles.balanceLabel}>{t('endseason.net_balance')}</Text>
             <Text
               style={[
                 styles.balanceValue,
@@ -415,45 +415,45 @@ export function EndOfSeasonScreen() {
       {/* Board Evaluation */}
       {boardEval && (
         <View style={styles.card}>
-          <Text style={styles.cardLabel}>BOARD EVALUATION</Text>
+          <Text style={styles.cardLabel}>{t('endseason.board_evaluation')}</Text>
           <View style={styles.statsGrid}>
             <View style={styles.statItem}>
               <Text style={styles.statValue}>{boardEval.oldRep}</Text>
-              <Text style={styles.statLabel}>Rep Before</Text>
+              <Text style={styles.statLabel}>{t('endseason.rep_before')}</Text>
             </View>
             <View style={styles.statItem}>
               <Text style={[styles.statValue, { color: boardEval.delta >= 0 ? colors.success : colors.danger }]}>
                 {boardEval.newRep}
               </Text>
-              <Text style={styles.statLabel}>Rep After</Text>
+              <Text style={styles.statLabel}>{t('endseason.rep_after')}</Text>
             </View>
             <View style={styles.statItem}>
               <Text style={[styles.statValue, { color: boardEval.delta >= 0 ? colors.success : colors.danger }]}>
                 {boardEval.delta >= 0 ? `+${boardEval.delta}` : `${boardEval.delta}`}
               </Text>
-              <Text style={styles.statLabel}>Delta</Text>
+              <Text style={styles.statLabel}>{t('endseason.delta')}</Text>
             </View>
             <View style={styles.statItem}>
               <Text style={styles.statValue}>{boardEval.trust}</Text>
-              <Text style={styles.statLabel}>Trust</Text>
+              <Text style={styles.statLabel}>{t('endseason.trust')}</Text>
             </View>
           </View>
           <View style={styles.divider} />
           <Text style={styles.balanceLabel}>
-            Objective outcome:{' '}
+            {t('endseason.objective_outcome')}{' '}
             <Text style={{ color: boardEval.outcome === 'objective_met' ? colors.success : boardEval.outcome === 'objective_partial' ? colors.warning : colors.danger }}>
-              {boardEval.outcome === 'objective_met' ? 'MET' : boardEval.outcome === 'objective_partial' ? 'CLOSE' : 'FAILED'}
+              {boardEval.outcome === 'objective_met' ? t('endseason.outcome_met') : boardEval.outcome === 'objective_partial' ? t('endseason.outcome_close') : t('endseason.outcome_failed')}
             </Text>
           </Text>
           {boardEval.consequence !== 'none' && (
             <Text style={[styles.noDataText, { color: boardEval.consequence === 'fired' || boardEval.consequence === 'budget_cut' ? colors.danger : colors.success, marginTop: spacing.xs }]}>
-              {boardEval.consequence === 'fired' ? 'FIRED — you have been dismissed.' :
-               boardEval.consequence === 'budget_cut' ? 'Budget reduced by 20%.' :
-               'Budget increased by 10%.'}
+              {boardEval.consequence === 'fired' ? t('endseason.consequence_fired') :
+               boardEval.consequence === 'budget_cut' ? t('endseason.consequence_budget_cut') :
+               t('endseason.consequence_budget_raise')}
             </Text>
           )}
           <View style={styles.divider} />
-          <Text style={styles.balanceLabel}>Next season objective:</Text>
+          <Text style={styles.balanceLabel}>{t('endseason.next_objective')}</Text>
           <Text style={styles.noDataText}>
             {(() => { const d = objectiveDescriptor(boardEval.objectiveType, boardEval.objectiveTarget); return t(d.key, d.vars); })()}
           </Text>
@@ -470,7 +470,7 @@ export function EndOfSeasonScreen() {
         {starting ? (
           <ActivityIndicator color={colors.text} />
         ) : (
-          <Text style={styles.continueButtonText}>CONTINUE TO SEASON {season}</Text>
+          <Text style={styles.continueButtonText}>{t('endseason.continue_to', { season })}</Text>
         )}
       </TouchableOpacity>
     </ScrollView>
