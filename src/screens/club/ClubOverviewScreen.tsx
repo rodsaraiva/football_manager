@@ -170,6 +170,13 @@ export function ClubOverviewScreen() {
         onPress={() => navigation.navigate('ClubUpgrades')}
       />
       <HubCard
+        icon="🎯"
+        title={t('training.title')}
+        subtitle={t('training.subtitle')}
+        accent={colors.primaryLight}
+        onPress={() => navigation.navigate('Training')}
+      />
+      <HubCard
         icon="🏛️"
         title={t('club.board_title')}
         subtitle={t('club.board_sub')}

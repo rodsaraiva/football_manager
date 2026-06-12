@@ -7,6 +7,7 @@ import { EndOfSeasonScreen } from '@/screens/EndOfSeasonScreen';
 import { FinancesScreen } from '@/screens/club/FinancesScreen';
 import { StaffScreen } from '@/screens/club/StaffScreen';
 import { UpgradesScreen } from '@/screens/club/UpgradesScreen';
+import { TrainingScreen } from '@/screens/tactics/TrainingScreen';
 import { BoardScreen } from '@/screens/club/BoardScreen';
 import { AssistantsScreen } from '@/screens/club/AssistantsScreen';
 import { AssistantHiringScreen } from '@/screens/club/AssistantHiringScreen';
@@ -56,6 +57,7 @@ export function RootNavigator() {
       <Stack.Screen name="ClubFinances" component={FinancesScreen} options={{ title: 'Finances' }} />
       <Stack.Screen name="ClubStaff" component={StaffScreen} options={{ title: 'Staff' }} />
       <Stack.Screen name="ClubUpgrades" component={UpgradesScreen} options={{ title: 'Upgrades' }} />
+      <Stack.Screen name="Training" component={TrainingScreen} options={{ title: 'Training' }} />
       <Stack.Screen name="ClubBoard" component={BoardScreen} options={{ title: 'Board' }} />
       <Stack.Screen name="ClubAssistants" component={AssistantsScreen} options={{ title: 'Assistants' }} />
       <Stack.Screen name="ClubAssistantHiring" component={AssistantHiringScreen} options={{ title: 'Hire Assistant' }} />

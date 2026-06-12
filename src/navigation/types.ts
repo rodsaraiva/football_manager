@@ -9,6 +9,7 @@ export type RootStackParamList = {
   ClubFinances: undefined;
   ClubStaff: undefined;
   ClubUpgrades: undefined;
+  Training: undefined;
   ClubBoard: undefined;
   ClubAssistants: undefined;
   ClubAssistantHiring: { role: import('@/types/assistant').AssistantRole };

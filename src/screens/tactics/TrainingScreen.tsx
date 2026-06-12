@@ -1,65 +1,63 @@
-import React, { useState } from 'react';
+import React, { useEffect } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { colors, commonStyles, fontSize, spacing } from '@/theme';
-
-type TrainingFocus = 'Technical' | 'Tactical' | 'Physical' | 'Balanced';
+import { colors, commonStyles, fontSize, spacing, radius } from '@/theme';
+import { useTranslation } from '@/i18n';
+import type { TKey } from '@/i18n/translate';
+import { TrainingFocus } from '@/engine/training/progression';
+import { useDatabaseStore } from '@/store/database-store';
+import { useGameStore } from '@/store/game-store';
+import { useTrainingStore, setTrainingFocus, loadTrainingFocus } from '@/store/training-store';
 
 interface TrainingCard {
   focus: TrainingFocus;
   icon: string;
-  description: string;
+  labelKey: TKey;
+  descKey: TKey;
 }
 
 const TRAINING_CARDS: TrainingCard[] = [
-  {
-    focus: 'Technical',
-    icon: '⚽',
-    description: 'Improves finishing, passing, dribbling',
-  },
-  {
-    focus: 'Tactical',
-    icon: '🧠',
-    description: 'Improves positioning, vision, decisions',
-  },
-  {
-    focus: 'Physical',
-    icon: '💪',
-    description: 'Improves pace, stamina, strength',
-  },
-  {
-    focus: 'Balanced',
-    icon: '⚖️',
-    description: 'Even improvement across all areas',
-  },
+  { focus: 'technical', icon: '⚽', labelKey: 'training.focus_technical', descKey: 'training.desc_technical' },
+  { focus: 'tactical', icon: '🧠', labelKey: 'training.focus_tactical', descKey: 'training.desc_tactical' },
+  { focus: 'physical', icon: '💪', labelKey: 'training.focus_physical', descKey: 'training.desc_physical' },
+  { focus: 'balanced', icon: '⚖️', labelKey: 'training.focus_balanced', descKey: 'training.desc_balanced' },
 ];
 
 export function TrainingScreen() {
-  const [selectedFocus, setSelectedFocus] = useState<TrainingFocus>('Balanced');
+  const { t } = useTranslation();
+  const dbHandle = useDatabaseStore((s) => s.dbHandle);
+  const playerClubId = useGameStore((s) => s.playerClubId);
+  const selectedFocus = useTrainingStore((s) => s.focus);
+
+  useEffect(() => {
+    if (dbHandle && playerClubId) loadTrainingFocus(dbHandle, playerClubId);
+  }, [dbHandle, playerClubId]);
+
+  function handleSelect(focus: TrainingFocus) {
+    if (dbHandle && playerClubId) setTrainingFocus(dbHandle, playerClubId, focus);
+  }
 
   return (
     <ScrollView style={commonStyles.screen} contentContainerStyle={styles.scrollContent}>
-      <Text style={styles.pageTitle}>Training Focus</Text>
-      <Text style={styles.pageSubtitle}>
-        Choose what your team focuses on during training sessions
-      </Text>
+      <Text style={styles.pageTitle}>{t('training.title')}</Text>
+      <Text style={styles.pageSubtitle}>{t('training.subtitle')}</Text>
 
       <View style={styles.grid}>
-        {TRAINING_CARDS.map(({ focus, icon, description }) => {
+        {TRAINING_CARDS.map(({ focus, icon, labelKey, descKey }) => {
           const isSelected = selectedFocus === focus;
           return (
             <Pressable
               key={focus}
               style={[styles.card, isSelected && styles.cardSelected]}
-              onPress={() => setSelectedFocus(focus)}
+              onPress={() => handleSelect(focus)}
             >
               <Text style={styles.cardIcon}>{icon}</Text>
               <Text style={[styles.cardTitle, isSelected && styles.cardTitleSelected]}>
-                {focus}
+                {t(labelKey)}
               </Text>
-              <Text style={styles.cardDescription}>{description}</Text>
+              <Text style={styles.cardDescription}>{t(descKey)}</Text>
               {isSelected && (
                 <View style={styles.selectedBadge}>
-                  <Text style={styles.selectedBadgeText}>Active</Text>
+                  <Text style={styles.selectedBadgeText}>{t('training.active')}</Text>
                 </View>
               )}
             </Pressable>
@@ -71,71 +69,31 @@ export function TrainingScreen() {
 }
 
 const styles = StyleSheet.create({
-  scrollContent: {
-    padding: spacing.md,
-    paddingBottom: spacing.xl,
-  },
-  pageTitle: {
-    color: colors.text,
-    fontSize: fontSize.xl,
-    fontWeight: 'bold',
-    marginBottom: spacing.xs,
-  },
-  pageSubtitle: {
-    color: colors.textSecondary,
-    fontSize: fontSize.sm,
-    marginBottom: spacing.lg,
-  },
-  grid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.md,
-  },
+  scrollContent: { padding: spacing.md },
+  pageTitle: { fontSize: fontSize.xxl, fontWeight: 'bold', color: colors.text, marginBottom: spacing.xs },
+  pageSubtitle: { fontSize: fontSize.sm, color: colors.textSecondary, marginBottom: spacing.lg },
+  grid: { gap: spacing.md },
   card: {
     backgroundColor: colors.surface,
-    borderRadius: 12,
-    padding: spacing.md,
+    borderRadius: radius.lg,
+    padding: spacing.lg,
     borderWidth: 2,
     borderColor: colors.border,
-    // Two per row with gap
-    width: '47%',
-    alignItems: 'center',
-    minHeight: 140,
-    justifyContent: 'center',
   },
-  cardSelected: {
-    borderColor: colors.primary,
-    backgroundColor: colors.surfaceLight,
-  },
-  cardIcon: {
-    fontSize: 36,
-    marginBottom: spacing.sm,
-  },
-  cardTitle: {
-    color: colors.text,
-    fontSize: fontSize.lg,
-    fontWeight: 'bold',
-    marginBottom: spacing.xs,
-    textAlign: 'center',
-  },
-  cardTitleSelected: {
-    color: colors.primaryLight,
-  },
-  cardDescription: {
-    color: colors.textSecondary,
-    fontSize: fontSize.sm,
-    textAlign: 'center',
-  },
+  cardSelected: { borderColor: colors.primary, backgroundColor: colors.surfaceLight },
+  cardIcon: { fontSize: fontSize.xxl, marginBottom: spacing.sm },
+  cardTitle: { fontSize: fontSize.lg, fontWeight: 'bold', color: colors.text },
+  cardTitleSelected: { color: colors.primaryLight },
+  cardDescription: { fontSize: fontSize.sm, color: colors.textSecondary, marginTop: spacing.xs },
   selectedBadge: {
     marginTop: spacing.sm,
+    alignSelf: 'flex-start',
     backgroundColor: colors.primary,
-    borderRadius: 12,
-    paddingVertical: 2,
+    borderRadius: radius.md,
     paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
   },
-  selectedBadgeText: {
-    color: colors.text,
-    fontSize: fontSize.xs,
-    fontWeight: '600',
-  },
+  selectedBadgeText: { fontSize: fontSize.xs, color: colors.text, fontWeight: 'bold' },
 });
+
+export default TrainingScreen;
