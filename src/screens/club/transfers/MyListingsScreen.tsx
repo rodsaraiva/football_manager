@@ -14,6 +14,8 @@ import {
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { colors, fontSize, spacing, commonStyles } from '@/theme';
+import { useTranslation } from '@/i18n';
+import type { TKey } from '@/i18n/translate';
 import { useGameStore } from '@/store/game-store';
 import { useDatabaseStore } from '@/store/database-store';
 import {
@@ -26,7 +28,12 @@ import { calculateOverall } from '@/utils/overall';
 import { Player, PlayerAttributes } from '@/types';
 
 type PlayerWithOvr = Player & { attributes: PlayerAttributes; overall: number };
-type FilterMode = 'Todos' | 'Listados' | 'Não listados';
+type FilterMode = 'all' | 'listed' | 'unlisted';
+const FILTER_LABEL: Record<FilterMode, TKey> = {
+  all: 'transfer.filter_all',
+  listed: 'transfer.filter_listed',
+  unlisted: 'transfer.filter_unlisted',
+};
 
 function formatMoney(n: number): string {
   if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`;
@@ -35,6 +42,7 @@ function formatMoney(n: number): string {
 }
 
 export function MyListingsScreen() {
+  const { t } = useTranslation();
   const playerClubId = useGameStore((s) => s.playerClubId);
   const currentSave = useGameStore((s) => s.currentSave);
   const dbHandle = useDatabaseStore((s) => s.dbHandle);
@@ -43,7 +51,7 @@ export function MyListingsScreen() {
   const [players, setPlayers] = useState<PlayerWithOvr[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [filter, setFilter] = useState<FilterMode>('Todos');
+  const [filter, setFilter] = useState<FilterMode>('all');
   const [editPlayer, setEditPlayer] = useState<PlayerWithOvr | null>(null);
 
   // Edit modal state
@@ -119,11 +127,11 @@ export function MyListingsScreen() {
     await setLoanListing(dbHandle, saveId, editPlayer.id, true, clamped / 100);
   }
 
-  const FILTERS: FilterMode[] = ['Todos', 'Listados', 'Não listados'];
+  const FILTERS: FilterMode[] = ['all', 'listed', 'unlisted'];
 
   const filtered = players.filter((p) => {
-    if (filter === 'Listados') return p.isTransferListed || p.isLoanListed;
-    if (filter === 'Não listados') return !p.isTransferListed && !p.isLoanListed;
+    if (filter === 'listed') return p.isTransferListed || p.isLoanListed;
+    if (filter === 'unlisted') return !p.isTransferListed && !p.isLoanListed;
     return true;
   });
 
@@ -141,19 +149,19 @@ export function MyListingsScreen() {
       <Pressable style={styles.row} onPress={() => setEditPlayer(p)}>
         <View style={styles.rowLeft}>
           <Text style={styles.rowName}>{p.name}</Text>
-          <Text style={styles.rowMeta}>{p.position} · {p.age} anos · <Text style={{ color: ovrColor, fontWeight: '700' }}>{p.overall}</Text></Text>
+          <Text style={styles.rowMeta}>{p.position} · {t('transfer.age_years', { age: p.age })} · <Text style={{ color: ovrColor, fontWeight: '700' }}>{p.overall}</Text></Text>
           <View style={styles.badges}>
             {p.isTransferListed && (
               <View style={styles.badgeSale}>
                 <Text style={styles.badgeText}>
-                  {p.askingPrice ? `VENDA ${formatMoney(p.askingPrice)}` : 'VENDA'}
+                  {p.askingPrice ? t('transfer.badge_sale_price', { price: formatMoney(p.askingPrice) }) : t('transfer.badge_sale')}
                 </Text>
               </View>
             )}
             {p.isLoanListed && (
               <View style={styles.badgeLoan}>
                 <Text style={styles.badgeText}>
-                  {p.loanWageShare != null ? `EMPRÉSTIMO ${Math.round(p.loanWageShare * 100)}%` : 'EMPRÉSTIMO'}
+                  {p.loanWageShare != null ? t('transfer.badge_loan_pct', { pct: Math.round(p.loanWageShare * 100) }) : t('transfer.badge_loan')}
                 </Text>
               </View>
             )}
@@ -174,7 +182,7 @@ export function MyListingsScreen() {
             style={[styles.filterPill, filter === f && styles.filterPillActive]}
             onPress={() => setFilter(f)}
           >
-            <Text style={[styles.filterPillText, filter === f && styles.filterPillTextActive]}>{f}</Text>
+            <Text style={[styles.filterPillText, filter === f && styles.filterPillTextActive]}>{t(FILTER_LABEL[f])}</Text>
           </Pressable>
         ))}
       </View>
@@ -187,7 +195,7 @@ export function MyListingsScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
         ListEmptyComponent={
           <View style={styles.centered}>
-            <Text style={styles.emptyText}>Nenhum jogador encontrado.</Text>
+            <Text style={styles.emptyText}>{t('transfer.no_players_found')}</Text>
           </View>
         }
       />
@@ -199,36 +207,36 @@ export function MyListingsScreen() {
             {editPlayer && (
               <ScrollView nestedScrollEnabled>
                 <Text style={styles.modalTitle}>{editPlayer.name}</Text>
-                <Text style={styles.modalMeta}>{editPlayer.position} · {editPlayer.age} anos · OVR {editPlayer.overall}</Text>
+                <Text style={styles.modalMeta}>{editPlayer.position} · {t('transfer.age_years', { age: editPlayer.age })} · OVR {editPlayer.overall}</Text>
 
-                <Text style={styles.sectionTitle}>Status de Transferência</Text>
+                <Text style={styles.sectionTitle}>{t('tactics.transfer_status_title')}</Text>
 
                 <View style={styles.listingRow}>
-                  <Text style={styles.listingLabel}>Listar para venda</Text>
+                  <Text style={styles.listingLabel}>{t('tactics.list_for_sale')}</Text>
                   <Switch value={isTransferListed} onValueChange={handleToggleTransfer} />
                 </View>
                 {isTransferListed && (
                   <View style={styles.listingRow}>
-                    <Text style={styles.listingLabel}>Preço pedido</Text>
+                    <Text style={styles.listingLabel}>{t('tactics.asking_price')}</Text>
                     <TextInput
                       style={styles.listingInput}
                       value={askingPriceText}
                       onChangeText={setAskingPriceText}
                       onBlur={handleBlurAskingPrice}
                       keyboardType="numeric"
-                      placeholder="Aberto a propostas"
+                      placeholder={t('tactics.asking_price_placeholder')}
                       placeholderTextColor={colors.textMuted}
                     />
                   </View>
                 )}
 
                 <View style={styles.listingRow}>
-                  <Text style={styles.listingLabel}>Listar para empréstimo</Text>
+                  <Text style={styles.listingLabel}>{t('tactics.list_for_loan')}</Text>
                   <Switch value={isLoanListed} onValueChange={handleToggleLoan} />
                 </View>
                 {isLoanListed && (
                   <View style={styles.listingRow}>
-                    <Text style={styles.listingLabel}>Tomador paga (%)</Text>
+                    <Text style={styles.listingLabel}>{t('tactics.loan_wage_share')}</Text>
                     <TextInput
                       style={styles.listingInput}
                       value={loanShareText}
@@ -243,7 +251,7 @@ export function MyListingsScreen() {
               </ScrollView>
             )}
             <Pressable style={styles.closeBtn} onPress={() => setEditPlayer(null)}>
-              <Text style={styles.closeBtnText}>Fechar</Text>
+              <Text style={styles.closeBtnText}>{t('tactics.close')}</Text>
             </Pressable>
           </View>
         </View>
