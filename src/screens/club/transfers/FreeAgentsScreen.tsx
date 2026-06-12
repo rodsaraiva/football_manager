@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { colors, fontSize, spacing, commonStyles } from '@/theme';
+import { useTranslation } from '@/i18n';
 import { getPositionColor, getOverallColor } from '@/utils/player-colors';
 import { useGameStore } from '@/store/game-store';
 import { useDatabaseStore } from '@/store/database-store';
@@ -46,6 +47,7 @@ function parseNumber(input: string): number {
 }
 
 export function FreeAgentsScreen() {
+  const { t } = useTranslation();
   const { playerClubId, season, week, currentSave } = useGameStore();
   const { dbHandle } = useDatabaseStore();
   const saveId = currentSave?.id;
@@ -121,11 +123,11 @@ export function FreeAgentsScreen() {
       week,
     });
     if (res.success) {
-      Alert.alert('Signed!', `${selected.name} has joined your club.`);
+      Alert.alert(t('transfer.signed_title'), t('transfer.signed_msg', { name: selected.name }));
       handleCloseSign();
       load();
     } else {
-      Alert.alert('Could not sign', res.reason ?? 'Unknown error');
+      Alert.alert(t('transfer.cannot_sign'), res.reason ?? t('transfer.unknown_error'));
     }
   }, [dbHandle, selected, playerClubId, saveId, wageStr, years, season, week, handleCloseSign, load]);
 
@@ -141,12 +143,12 @@ export function FreeAgentsScreen() {
     <View style={commonStyles.screen}>
       {/* Position filter */}
       <View style={styles.filterRow}>
-        <Text style={styles.filterLabel}>Position:</Text>
+        <Text style={styles.filterLabel}>{t('transfer.position_label')}</Text>
         <Pressable
           style={styles.dropdownButton}
           onPress={() => setShowDropdown((v) => !v)}
         >
-          <Text style={styles.dropdownButtonText}>{positionFilter} ▾</Text>
+          <Text style={styles.dropdownButtonText}>{positionFilter === 'All' ? t('transfer.filter_all') : positionFilter} ▾</Text>
         </Pressable>
       </View>
 
@@ -167,7 +169,7 @@ export function FreeAgentsScreen() {
                   positionFilter === pos && styles.dropdownItemTextActive,
                 ]}
               >
-                {pos}
+                {pos === 'All' ? t('transfer.filter_all') : pos}
               </Text>
             </Pressable>
           ))}
@@ -176,7 +178,7 @@ export function FreeAgentsScreen() {
 
       {filtered.length === 0 ? (
         <View style={styles.centered}>
-          <Text style={styles.emptyText}>No free agents available</Text>
+          <Text style={styles.emptyText}>{t('transfer.no_free_agents')}</Text>
         </View>
       ) : (
         <FlatList
@@ -194,14 +196,14 @@ export function FreeAgentsScreen() {
                 <View style={styles.playerInfo}>
                   <Text style={styles.playerName} numberOfLines={1}>{item.name}</Text>
                   <Text style={styles.playerMeta}>
-                    Age {item.age} · expects {formatMoney(expected)}/wk
+                    {t('transfer.fa_meta', { age: item.age, wage: formatMoney(expected) })}
                   </Text>
                 </View>
                 <View style={[styles.overallBadge, { borderColor: oColor }]}>
                   <Text style={[styles.overallText, { color: oColor }]}>{item.overall}</Text>
                 </View>
                 <Pressable style={styles.signButton} onPress={() => handleOpenSign(item)}>
-                  <Text style={styles.signButtonText}>Sign</Text>
+                  <Text style={styles.signButtonText}>{t('transfer.sign_btn')}</Text>
                 </Pressable>
               </View>
             );
@@ -222,16 +224,16 @@ export function FreeAgentsScreen() {
             <ScrollView contentContainerStyle={styles.sheetContent}>
               {selected && (
                 <>
-                  <Text style={styles.title}>Sign Free Agent</Text>
+                  <Text style={styles.title}>{t('transfer.sign_free_agent')}</Text>
 
                   <View style={styles.playerCard}>
                     <Text style={styles.cardName}>{selected.name}</Text>
                     <Text style={styles.cardMeta}>
-                      {selected.position} · Age {selected.age} · OVR {selected.overall}
+                      {t('transfer.player_meta', { position: selected.position, age: selected.age, ovr: selected.overall })}
                     </Text>
                     <View style={styles.cardStats}>
                       <View style={styles.cardStat}>
-                        <Text style={styles.cardStatLabel}>Expected Wage</Text>
+                        <Text style={styles.cardStatLabel}>{t('transfer.expected_wage')}</Text>
                         <Text style={styles.cardStatValue}>
                           {formatMoney(freeAgentExpectedWage(selected.overall))}/wk
                         </Text>
@@ -239,13 +241,13 @@ export function FreeAgentsScreen() {
                     </View>
                   </View>
 
-                  <Text style={styles.fieldLabel}>Weekly Wage Offer</Text>
+                  <Text style={styles.fieldLabel}>{t('transfer.wage_offer')}</Text>
                   <TextInput
                     style={styles.input}
                     value={wageStr}
                     onChangeText={setWageStr}
                     keyboardType="numeric"
-                    placeholder="Wage"
+                    placeholder={t('transfer.wage_short')}
                     placeholderTextColor={colors.textMuted}
                   />
                   <Text style={styles.helper}>
@@ -256,7 +258,7 @@ export function FreeAgentsScreen() {
                   </Text>
 
                   <Text style={[styles.fieldLabel, { marginTop: spacing.md }]}>
-                    Contract Length
+                    {t('transfer.contract_length')}
                   </Text>
                   <View style={styles.yearsRow}>
                     {[1, 2, 3, 4, 5].map((y) => (
@@ -266,14 +268,14 @@ export function FreeAgentsScreen() {
                         onPress={() => setYears(y)}
                       >
                         <Text style={[styles.yearChipText, years === y && styles.yearChipTextActive]}>
-                          {y} yr{y > 1 ? 's' : ''}
+                          {t(y > 1 ? 'transfer.years_other' : 'transfer.years_one', { n: y })}
                         </Text>
                       </Pressable>
                     ))}
                   </View>
 
                   <Text style={styles.summary}>
-                    Signing bonus: {formatMoney(parseNumber(wageStr) * 4)} (4 weeks of wages)
+                    {t('transfer.signing_bonus', { bonus: formatMoney(parseNumber(wageStr) * 4) })}
                   </Text>
 
                   <View style={styles.actions}>
@@ -281,13 +283,13 @@ export function FreeAgentsScreen() {
                       style={[styles.btn, styles.btnSecondary]}
                       onPress={handleCloseSign}
                     >
-                      <Text style={styles.btnSecondaryText}>Cancel</Text>
+                      <Text style={styles.btnSecondaryText}>{t('common.cancel')}</Text>
                     </Pressable>
                     <Pressable
                       style={[styles.btn, styles.btnPrimary]}
                       onPress={handleSubmitSigning}
                     >
-                      <Text style={styles.btnPrimaryText}>Sign Player</Text>
+                      <Text style={styles.btnPrimaryText}>{t('transfer.sign_player')}</Text>
                     </Pressable>
                   </View>
                 </>

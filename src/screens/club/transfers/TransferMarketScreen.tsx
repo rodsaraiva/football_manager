@@ -9,6 +9,7 @@ import {
   View,
 } from 'react-native';
 import { colors, commonStyles, fontSize, spacing } from '@/theme';
+import { useTranslation } from '@/i18n';
 import { getPositionColor, getOverallColor } from '@/utils/player-colors';
 import { useGameStore } from '@/store/game-store';
 import { useDatabaseStore } from '@/store/database-store';
@@ -36,6 +37,7 @@ function formatCurrency(value: number): string {
 }
 
 export function TransferMarketScreen() {
+  const { t } = useTranslation();
   const playerClubId = useGameStore((s) => s.playerClubId);
   const season = useGameStore((s) => s.season);
   const week = useGameStore((s) => s.week);
@@ -104,7 +106,7 @@ export function TransferMarketScreen() {
     ) => {
       if (!dbHandle || playerClubId === null || !selectedPlayer || saveId == null) return;
       if (selectedPlayer.clubId === null) {
-        Alert.alert('Error', 'This player has no club (free agent). Use the Free Agents screen.');
+        Alert.alert(t('transfer.error'), t('transfer.player_is_free_agent'));
         return;
       }
       try {
@@ -124,12 +126,12 @@ export function TransferMarketScreen() {
         });
         setSelectedPlayer(null);
         Alert.alert(
-          'Offer sent',
-          `Your ${kind} offer for ${selectedPlayer.name} has been submitted. Response will come next week.`,
+          t('transfer.offer_sent_title'),
+          t('transfer.offer_sent_msg', { player: selectedPlayer.name }),
           [{ text: 'OK' }],
         );
       } catch (e) {
-        Alert.alert('Error', `Failed to submit offer: ${(e as Error).message}`);
+        Alert.alert(t('transfer.error'), t('transfer.offer_failed', { error: (e as Error).message }));
       }
     },
     [dbHandle, playerClubId, saveId, selectedPlayer, season, week],
@@ -139,12 +141,12 @@ export function TransferMarketScreen() {
     <View style={commonStyles.screen}>
       {/* Position filter */}
       <View style={styles.filterRow}>
-        <Text style={styles.filterLabel}>Position:</Text>
+        <Text style={styles.filterLabel}>{t('transfer.position_label')}</Text>
         <Pressable
           style={styles.dropdownButton}
           onPress={() => setShowDropdown((v) => !v)}
         >
-          <Text style={styles.dropdownButtonText}>{positionFilter} ▾</Text>
+          <Text style={styles.dropdownButtonText}>{positionFilter === 'All' ? t('transfer.filter_all') : positionFilter} ▾</Text>
         </Pressable>
       </View>
 
@@ -165,7 +167,7 @@ export function TransferMarketScreen() {
                   positionFilter === pos && styles.dropdownItemTextActive,
                 ]}
               >
-                {pos}
+                {pos === 'All' ? t('transfer.filter_all') : pos}
               </Text>
             </Pressable>
           ))}
@@ -178,7 +180,7 @@ export function TransferMarketScreen() {
         </View>
       ) : players.length === 0 ? (
         <View style={styles.centered}>
-          <Text style={styles.emptyText}>No players available</Text>
+          <Text style={styles.emptyText}>{t('transfer.no_players_available')}</Text>
         </View>
       ) : (
         <FlatList
@@ -194,7 +196,7 @@ export function TransferMarketScreen() {
                 </View>
                 <View style={styles.playerInfo}>
                   <Text style={styles.playerName} numberOfLines={1}>{item.name}</Text>
-                  <Text style={styles.playerMeta}>Age {item.age} · {formatCurrency(item.marketValue)}</Text>
+                  <Text style={styles.playerMeta}>{t('transfer.age_value', { age: item.age, value: formatCurrency(item.marketValue) })}</Text>
                 </View>
                 <View style={[styles.overallBadge, { borderColor: ovrColor }]}>
                   <Text style={[styles.overallText, { color: ovrColor }]}>{item.overall}</Text>
@@ -203,7 +205,7 @@ export function TransferMarketScreen() {
                   style={styles.offerButton}
                   onPress={() => handleOpenOffer(item)}
                 >
-                  <Text style={styles.offerButtonText}>Offer</Text>
+                  <Text style={styles.offerButtonText}>{t('transfer.offer_btn')}</Text>
                 </Pressable>
               </View>
             );
