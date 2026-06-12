@@ -3,6 +3,7 @@ import { LeagueStanding } from './types';
 import { buildDivisionPairs } from '../competition/promotion';
 import { getAllLeagues } from '../../database/queries/leagues';
 import { insertPromotedIgnore } from '../../database/queries/season-promoted';
+import { calculateLeaguePrize, calculateCupPrize, PrizeAward } from '../finance/prize-money';
 
 interface CompetitionRow {
   id: number;
@@ -14,6 +15,7 @@ interface CompetitionRow {
 interface LeagueRow {
   id: number;
   relegation_spots: number;
+  division_level: number;
 }
 
 interface FixtureRow {
@@ -39,7 +41,7 @@ async function getCompetitionsForSeason(db: DbHandle, saveId: number, season: nu
 
 async function getLeague(db: DbHandle, leagueId: number): Promise<LeagueRow | undefined> {
   return (await db
-    .prepare('SELECT id, relegation_spots FROM leagues WHERE id = ?')
+    .prepare('SELECT id, relegation_spots, division_level FROM leagues WHERE id = ?')
     .get(leagueId)) as LeagueRow | undefined;
 }
 
@@ -329,23 +331,23 @@ async function archiveKnockout(
   saveId: number,
   competition: CompetitionRow,
   season: number,
-): Promise<void> {
+): Promise<PrizeAward[]> {
   const fixtures = await getPlayedFixtures(db, saveId, competition.id, season);
-  if (fixtures.length === 0) return;
+  if (fixtures.length === 0) return [];
 
   // fixtures.round is TEXT in schema; parse to number for comparison.
   // Skip fixtures with null/non-numeric round (they can't be the final).
   const numericFixtures = fixtures
     .map((f) => ({ f, roundNum: f.round == null ? NaN : Number(f.round) }))
     .filter((x) => !Number.isNaN(x.roundNum));
-  if (numericFixtures.length === 0) return;
+  if (numericFixtures.length === 0) return [];
 
   const maxRound = Math.max(...numericFixtures.map((x) => x.roundNum));
   const finals = numericFixtures.filter((x) => x.roundNum === maxRound).map((x) => x.f);
-  if (finals.length === 0) return;
+  if (finals.length === 0) return [];
   // Deterministic pick if multiple finals somehow exist.
   const final = finals.sort((a, b) => b.id - a.id)[0];
-  if (final.home_goals == null || final.away_goals == null) return;
+  if (final.home_goals == null || final.away_goals == null) return [];
 
   let championClubId: number;
   let runnerUpClubId: number | null;
@@ -370,6 +372,23 @@ async function archiveKnockout(
 
   await insertResultIgnore(db, saveId, season, competition.id, championClubId, runnerUpClubId);
   await snapshotChampionSquad(db, saveId, season, competition.id, championClubId);
+
+  const compType: 'cup' | 'continental' = competition.type === 'continental' ? 'continental' : 'cup';
+  const awards: PrizeAward[] = [
+    {
+      clubId: championClubId,
+      amount: calculateCupPrize({ competitionType: compType, result: 'champion' }),
+      description: `${compType === 'continental' ? 'Continental' : 'Cup'} prize (champion)`,
+    },
+  ];
+  if (runnerUpClubId != null) {
+    awards.push({
+      clubId: runnerUpClubId,
+      amount: calculateCupPrize({ competitionType: compType, result: 'runner_up' }),
+      description: `${compType === 'continental' ? 'Continental' : 'Cup'} prize (runner-up)`,
+    });
+  }
+  return awards;
 }
 
 async function archiveLeague(
@@ -377,7 +396,7 @@ async function archiveLeague(
   saveId: number,
   competition: CompetitionRow,
   season: number,
-): Promise<{ leagueId: number; orderedClubIds: number[] } | null> {
+): Promise<{ leagueId: number; orderedClubIds: number[]; awards: PrizeAward[] } | null> {
   if (competition.league_id == null) return null;
   const league = await getLeague(db, competition.league_id);
   if (!league) return null;
@@ -401,19 +420,31 @@ async function archiveLeague(
       await insertRelegatedIgnore(db, saveId, season, league.id, relegated[i].clubId, finalPosition);
     }
   }
-  return { leagueId: league.id, orderedClubIds: standings.map((s) => s.clubId) };
+
+  const divisionLevel = league.division_level ?? 1;
+  const numTeams = standings.length;
+  const awards: PrizeAward[] = standings.map((s, idx) => ({
+    clubId: s.clubId,
+    amount: calculateLeaguePrize({ divisionLevel, finalPosition: idx + 1, numTeams }),
+    description: `League prize (pos ${idx + 1})`,
+  }));
+  return { leagueId: league.id, orderedClubIds: standings.map((s) => s.clubId), awards };
 }
 
-export async function archiveSeason(db: DbHandle, saveId: number, season: number): Promise<void> {
+export async function archiveSeason(db: DbHandle, saveId: number, season: number): Promise<PrizeAward[]> {
   const competitions = await getCompetitionsForSeason(db, saveId, season);
   const standingsByLeague = new Map<number, number[]>();
+  const allAwards: PrizeAward[] = [];
 
   for (const competition of competitions) {
     if (competition.type === 'league') {
       const res = await archiveLeague(db, saveId, competition, season);
-      if (res) standingsByLeague.set(res.leagueId, res.orderedClubIds);
+      if (res) {
+        standingsByLeague.set(res.leagueId, res.orderedClubIds);
+        allAwards.push(...res.awards);
+      }
     } else if (competition.type === 'cup' || competition.type === 'continental') {
-      await archiveKnockout(db, saveId, competition, season);
+      allAwards.push(...(await archiveKnockout(db, saveId, competition, season)));
     }
     await archiveTopScorers(db, saveId, competition.id, season);
     await archiveTopAssisters(db, saveId, competition.id, season);
@@ -431,4 +462,6 @@ export async function archiveSeason(db: DbHandle, saveId: number, season: number
       await insertPromotedIgnore(db, saveId, season, pair.higherLeagueId, lowerOrder[i], i + 1);
     }
   }
+
+  return allAwards;
 }
