@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { colors, spacing, fontSize, commonStyles } from '@/theme';
+import { useTranslation } from '@/i18n';
 import { SectionCard } from '@/components/SectionCard';
 import { EmptyState } from '@/components/EmptyState';
 import { useGameStore } from '@/store/game-store';
@@ -27,6 +28,7 @@ import { buildOpponentReport, OpponentReport } from '@/engine/reports/opponent-r
 import { MatchEvent } from '@/types';
 
 export function ReportsOpponentScreen() {
+  const { t } = useTranslation();
   const { playerClubId, playerClub, season, currentSave } = useGameStore();
   const { dbHandle } = useDatabaseStore();
   const saveId = currentSave?.id;
@@ -114,7 +116,7 @@ export function ReportsOpponentScreen() {
   if (noFixture || !report) {
     return (
       <View style={[commonStyles.screen, styles.center]}>
-        <EmptyState icon="🔍" title="Nenhum jogo agendado nesta temporada." />
+        <EmptyState icon="🔍" title={t('report.opp_empty')} />
       </View>
     );
   }
@@ -133,7 +135,7 @@ export function ReportsOpponentScreen() {
           <View style={styles.headerInfo}>
             <Text style={styles.opponentName}>{report.opponentName}</Text>
             <Text style={styles.fixtureInfo}>
-              Semana {report.fixtureWeek} · {report.isHome ? 'Em casa' : 'Fora'}
+              {t('report.opp_fixture_info', { week: report.fixtureWeek, venue: report.isHome ? t('report.opp_home') : t('report.opp_away') })}
             </Text>
           </View>
           <View style={[styles.repBadge, { borderColor: repColor(report.reputationLabel) }]}>
@@ -150,9 +152,9 @@ export function ReportsOpponentScreen() {
       </View>
 
       {/* Recent form */}
-      <SectionCard title="Forma Recente" subtitle={`Últimos ${report.recentForm.length} jogos`}>
+      <SectionCard title={t('report.opp_form')} subtitle={t('report.opp_form_sub', { n: report.recentForm.length })}>
         {report.recentForm.length === 0 ? (
-          <Text style={styles.empty}>Sem jogos disputados nesta temporada.</Text>
+          <Text style={styles.empty}>{t('report.opp_no_games')}</Text>
         ) : (
           <View style={styles.formRow}>
             {report.recentForm.map((r, i) => (
@@ -166,7 +168,7 @@ export function ReportsOpponentScreen() {
       </SectionCard>
 
       {/* Squad strength */}
-      <SectionCard title="Força do Elenco" subtitle={`OVR médio: ${report.squadAvgOverall}`}>
+      <SectionCard title={t('report.opp_squad')} subtitle={t('report.opp_squad_sub', { ovr: report.squadAvgOverall })}>
         {report.topPlayers.map((p, i) => (
           <View key={p.id} style={styles.playerRow}>
             <Text style={styles.playerRank}>#{i + 1}</Text>
@@ -182,16 +184,16 @@ export function ReportsOpponentScreen() {
       </SectionCard>
 
       {/* Attack vs Defense */}
-      <SectionCard title="Ataque vs. Defesa" subtitle={`Média por jogo nos últimos ${report.recentForm.length} jogos`}>
+      <SectionCard title={t('report.opp_atk_def')} subtitle={t('report.opp_atk_def_sub', { n: report.recentForm.length })}>
         <View style={styles.statsRow}>
           <View style={styles.statItem}>
             <Text style={[styles.statValue, { color: colors.success }]}>{report.goalsPerGame}</Text>
-            <Text style={styles.statLabel}>Gols marcados/jogo</Text>
+            <Text style={styles.statLabel}>{t('report.opp_goals_for')}</Text>
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statItem}>
             <Text style={[styles.statValue, { color: colors.danger }]}>{report.concededPerGame}</Text>
-            <Text style={styles.statLabel}>Gols sofridos/jogo</Text>
+            <Text style={styles.statLabel}>{t('report.opp_goals_against')}</Text>
           </View>
         </View>
       </SectionCard>
