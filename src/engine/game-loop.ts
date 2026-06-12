@@ -484,6 +484,19 @@ export async function advanceGameWeek(params: AdvanceWeekParams): Promise<Advanc
   ).all(saveId, ...financeClubList)) as Array<{ club_id: number; w: number }>;
   const staffWageByClub = new Map(staffRows.map(r => [r.club_id, r.w]));
 
+  // Competition type per home fixture — scales gate receipts (cup/continental > league).
+  const compIds = [...new Set(fixtures.map(f => f.competitionId))];
+  const compTypeById = new Map<number, 'league' | 'cup' | 'continental'>();
+  if (compIds.length > 0) {
+    const compRows = (await db.prepare(
+      `SELECT id, type FROM competitions WHERE id IN (${compIds.map(() => '?').join(',')})`,
+    ).all(...compIds)) as Array<{ id: number; type: string }>;
+    for (const r of compRows) {
+      if (r.type === 'cup' || r.type === 'continental') compTypeById.set(r.id, r.type);
+      else compTypeById.set(r.id, 'league');
+    }
+  }
+
   const financeEntries: { clubId: number; season: number; week: number; type: string; amount: number; description: string }[] = [];
   const budgetByClub = new Map<number, number>();
   let updatedBudget = 0;
@@ -497,6 +510,9 @@ export async function advanceGameWeek(params: AdvanceWeekParams): Promise<Advanc
     const actualAttendance = hasHomeMatch
       ? (resultByFixture.get(homeFixture!.id)?.attendance ?? homeFixture!.attendance ?? null)
       : null;
+    const competitionType = hasHomeMatch
+      ? (compTypeById.get(homeFixture!.competitionId) ?? 'league')
+      : 'league';
 
     const fin = computeWeeklyClubFinance({
       clubId, reputation: club.reputation, budget: club.budget,
@@ -504,7 +520,7 @@ export async function advanceGameWeek(params: AdvanceWeekParams): Promise<Advanc
       youthAcademy: club.youth_academy, medicalDepartment: club.medical_department,
       totalPlayerWages: playerWageByClub.get(clubId) ?? 0,
       totalStaffWages: staffWageByClub.get(clubId) ?? 0,
-      hasHomeMatch, actualAttendance, leaguePosition: 1,
+      hasHomeMatch, actualAttendance, leaguePosition: 1, competitionType,
     }, season, week);
 
     financeEntries.push(...fin.entries);
@@ -547,6 +563,15 @@ export async function advanceGameWeek(params: AdvanceWeekParams): Promise<Advanc
       `UPDATE clubs SET budget = CASE id ${caseSql} END WHERE save_id = ? AND id IN (${ids.map(() => '?').join(',')})`,
     ).run(...caseParams, saveId, ...ids);
   }
+
+  // Debt signal for board-stakes: consecutive weeks the human club stays in the red.
+  const prevDebt = (await db
+    .prepare('SELECT debt_weeks FROM clubs WHERE save_id = ? AND id = ?')
+    .get(saveId, playerClubId)) as { debt_weeks: number } | undefined;
+  const newDebtWeeks = updatedBudget < 0 ? (prevDebt?.debt_weeks ?? 0) + 1 : 0;
+  await db
+    .prepare('UPDATE clubs SET debt_weeks = ? WHERE save_id = ? AND id = ?')
+    .run(newDebtWeeks, saveId, playerClubId);
 
   // 4b. Generate assistant comment (max 1 per week, 15% chance)
   let assistantComment: AssistantComment | null = null;

@@ -1,4 +1,5 @@
 import { calculateWeeklyIncome, calculateWeeklyExpenses } from './finance-engine';
+import { CompetitionType } from './prize-money';
 import { FinanceType } from '@/types/finance';
 
 export interface ClubFinanceInput {
@@ -14,6 +15,8 @@ export interface ClubFinanceInput {
   hasHomeMatch: boolean;
   actualAttendance: number | null;
   leaguePosition: number;
+  /** Competition of this club's home fixture; scales gate receipts. Defaults to 'league'. */
+  competitionType?: CompetitionType;
 }
 
 export interface FinanceEntry {
@@ -47,6 +50,7 @@ export function computeWeeklyClubFinance(
     season,
     week,
     actualAttendance: input.actualAttendance,
+    competitionType: input.competitionType,
   });
 
   const expenses = calculateWeeklyExpenses({
