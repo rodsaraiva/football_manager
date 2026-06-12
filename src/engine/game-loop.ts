@@ -1,5 +1,5 @@
 import { DbHandle } from '@/database/queries/players';
-import { getPlayersByClub, getPlayerById, setPlayerSuspension } from '@/database/queries/players';
+import { getPlayersByClub, getPlayersWithAttributesByClub, setPlayerSuspension } from '@/database/queries/players';
 import { getAssistantsBySave } from '@/database/queries/assistants';
 import { maybeGenerateComment } from './assistant/comment-generator';
 import { AssistantComment } from '@/types/assistant';
@@ -18,11 +18,9 @@ import {
   updateFixtureResult,
   addMatchEvent,
 } from '@/database/queries/fixtures';
-import { getClubById, updateClubBudget } from '@/database/queries/clubs';
+import { getClubById } from '@/database/queries/clubs';
 import { getActiveTactic, getTacticLineup } from '@/database/queries/tactics';
-import { addFinanceEntry } from '@/database/queries/finances';
 import { updateSaveWeek } from '@/database/queries/saves';
-import { getStaffByClub } from '@/database/queries/staff';
 import { SeededRng } from './rng';
 import { simulateMatch, MatchResult } from './simulation/match-engine';
 import { assignMatchInjuries } from './simulation/injury';
@@ -33,7 +31,6 @@ import { simulateWeekFixtures, ClubMatchData, FixtureSimInput } from './simulati
 import { computeWeeklyClubFinance } from './finance/weekly-finance';
 import { calculateWeeklyProgression } from './training/progression';
 import { Fixture } from '@/types';
-import { upsertPlayerStats } from '@/database/queries/player-stats';
 import { archiveSeason } from './history/season-archiver';
 import { retirePlayer } from '@/database/queries/players';
 import {
@@ -56,7 +53,6 @@ async function persistMatchStats(
   fixture: Fixture,
   result: MatchResult,
 ): Promise<void> {
-  // saveId needed for upsertPlayerStats scoping
   // Derive per-player tallies from the match events (PlayerRating only carries
   // playerId + rating; goals/assists/cards must be counted from events).
   const tallyFor = (playerId: number) => {
@@ -94,21 +90,39 @@ async function persistMatchStats(
   };
 
   const allRatings = [...result.homeRatings, ...result.awayRatings];
+  if (allRatings.length === 0) return;
+
+  // One batched upsert per match instead of a SELECT+UPSERT per player. On
+  // expo-sqlite web each await is a worker round-trip; routing ALL fixtures through
+  // the real engine means ~20 matches × 22 players/week, so per-player awaits made a
+  // week-advance take ~minutes. ON CONFLICT accumulates with a minutes-weighted avg.
+  const params: unknown[] = [];
+  const rowsSql: string[] = [];
   for (const r of allRatings) {
-    const tally = tallyFor(r.playerId);
-    await upsertPlayerStats(db, saveId, {
-      playerId: r.playerId,
-      season: fixture.season,
-      competitionId: fixture.competitionId,
-      appearances: 1,
-      goals: tally.goals,
-      assists: tally.assists,
-      yellowCards: tally.yellowCards,
-      redCards: tally.redCards,
-      rating: r.rating,
-      minutesPlayed: tally.minutesPlayed,
-    });
+    const t = tallyFor(r.playerId);
+    rowsSql.push('(?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?)');
+    params.push(
+      saveId, r.playerId, fixture.season, fixture.competitionId,
+      t.goals, t.assists, t.yellowCards, t.redCards, r.rating, t.minutesPlayed,
+    );
   }
+  await db.prepare(
+    `INSERT INTO player_stats
+       (save_id, player_id, season, competition_id, appearances, goals, assists,
+        yellow_cards, red_cards, avg_rating, minutes_played)
+     VALUES ${rowsSql.join(',')}
+     ON CONFLICT(player_id, season, competition_id) DO UPDATE SET
+       appearances    = appearances + excluded.appearances,
+       goals          = goals + excluded.goals,
+       assists        = assists + excluded.assists,
+       yellow_cards   = yellow_cards + excluded.yellow_cards,
+       red_cards      = red_cards + excluded.red_cards,
+       avg_rating     = CASE WHEN (minutes_played + excluded.minutes_played) > 0
+                          THEN (avg_rating * minutes_played + excluded.avg_rating * excluded.minutes_played)
+                               / (minutes_played + excluded.minutes_played)
+                          ELSE avg_rating END,
+       minutes_played = minutes_played + excluded.minutes_played`,
+  ).run(...params);
 }
 
 export interface AdvanceWeekParams {
@@ -140,24 +154,20 @@ export interface AdvanceWeekResult {
 // ─── Player data helpers ──────────────────────────────────────────────────────
 
 async function loadSquadWithAttributes(db: DbHandle, saveId: number, clubId: number): Promise<PlayerForPick[]> {
-  const players = await getPlayersByClub(db, saveId, clubId);
-  const result: PlayerForPick[] = [];
-  for (const p of players) {
-    const full = await getPlayerById(db, saveId, p.id);
-    if (full) {
-      result.push({
-        id: full.id,
-        position: full.position,
-        secondaryPosition: full.secondaryPosition,
-        attributes: full.attributes,
-        morale: full.morale,
-        fitness: full.fitness,
-        injuryWeeksLeft: full.injuryWeeksLeft,
-        suspensionWeeksLeft: full.suspensionWeeksLeft,
-      });
-    }
-  }
-  return result;
+  // 2 queries (players + attributes batched) instead of the old 1+N getPlayerById
+  // loop — critical on expo-sqlite web where every await is a worker round-trip and
+  // the weekly loop loads ~40 clubs.
+  const players = await getPlayersWithAttributesByClub(db, saveId, clubId);
+  return players.map((p) => ({
+    id: p.id,
+    position: p.position,
+    secondaryPosition: p.secondaryPosition,
+    attributes: p.attributes,
+    morale: p.morale,
+    fitness: p.fitness,
+    injuryWeeksLeft: p.injuryWeeksLeft,
+    suspensionWeeksLeft: p.suspensionWeeksLeft,
+  }));
 }
 
 // Loads each club appearing in this week's fixtures once: XI + bench (saved or
@@ -384,36 +394,60 @@ export async function advanceGameWeek(params: AdvanceWeekParams): Promise<Advanc
 
   // 4. Process weekly finances for player's club
   // Every club with a fixture this week runs the same weekly finance model; the
-  // human club is always included (it pays wages even on a bye week).
+  // human club is always included (it pays wages even on a bye week). Bulk-loaded in
+  // a handful of aggregate queries instead of ~9 awaits/club — the per-week loop spans
+  // ~40 clubs and on expo-sqlite web each await is a worker round-trip.
   const financeClubIds = new Set<number>();
   for (const f of fixtures) { financeClubIds.add(f.homeClubId); financeClubIds.add(f.awayClubId); }
   financeClubIds.add(playerClubId);
+  const financeClubList = [...financeClubIds];
+  const inHolders = financeClubList.map(() => '?').join(',');
 
+  const clubRows = (await db.prepare(
+    `SELECT id, reputation, budget, stadium_capacity, training_facilities, youth_academy, medical_department
+     FROM clubs WHERE save_id = ? AND id IN (${inHolders})`,
+  ).all(saveId, ...financeClubList)) as Array<{
+    id: number; reputation: number; budget: number; stadium_capacity: number;
+    training_facilities: number; youth_academy: number; medical_department: number;
+  }>;
+  const clubById = new Map(clubRows.map(c => [c.id, c]));
+
+  const wageRows = (await db.prepare(
+    `SELECT club_id, COALESCE(SUM(wage), 0) AS w FROM players
+     WHERE save_id = ? AND is_free_agent = 0 AND club_id IN (${inHolders}) GROUP BY club_id`,
+  ).all(saveId, ...financeClubList)) as Array<{ club_id: number; w: number }>;
+  const playerWageByClub = new Map(wageRows.map(r => [r.club_id, r.w]));
+
+  const staffRows = (await db.prepare(
+    `SELECT club_id, COALESCE(SUM(wage), 0) AS w FROM staff
+     WHERE save_id = ? AND club_id IN (${inHolders}) GROUP BY club_id`,
+  ).all(saveId, ...financeClubList)) as Array<{ club_id: number; w: number }>;
+  const staffWageByClub = new Map(staffRows.map(r => [r.club_id, r.w]));
+
+  const financeEntries: { clubId: number; season: number; week: number; type: string; amount: number; description: string }[] = [];
+  const budgetByClub = new Map<number, number>();
   let updatedBudget = 0;
-  for (const clubId of financeClubIds) {
-    const club = await getClubById(db, saveId, clubId);
-    if (!club) continue;
 
-    const players = await getPlayersByClub(db, saveId, clubId);
-    const totalPlayerWages = players.reduce((sum, p) => sum + p.wage, 0);
-    const staffList = await getStaffByClub(db, saveId, clubId);
-    const totalStaffWages = staffList.reduce((sum, s) => sum + s.wage, 0);
+  for (const clubId of financeClubList) {
+    const club = clubById.get(clubId);
+    if (!club) continue;
 
     const homeFixture = fixtures.find(f => f.homeClubId === clubId);
     const hasHomeMatch = homeFixture != null;
-    // Real crowd from the played fixture when available, else rep-based estimate.
     const actualAttendance = hasHomeMatch
       ? (resultByFixture.get(homeFixture!.id)?.attendance ?? homeFixture!.attendance ?? null)
       : null;
 
     const fin = computeWeeklyClubFinance({
       clubId, reputation: club.reputation, budget: club.budget,
-      stadiumCapacity: club.stadiumCapacity, trainingFacilities: club.trainingFacilities,
-      youthAcademy: club.youthAcademy, medicalDepartment: club.medicalDepartment,
-      totalPlayerWages, totalStaffWages, hasHomeMatch, actualAttendance, leaguePosition: 1,
+      stadiumCapacity: club.stadium_capacity, trainingFacilities: club.training_facilities,
+      youthAcademy: club.youth_academy, medicalDepartment: club.medical_department,
+      totalPlayerWages: playerWageByClub.get(clubId) ?? 0,
+      totalStaffWages: staffWageByClub.get(clubId) ?? 0,
+      hasHomeMatch, actualAttendance, leaguePosition: 1,
     }, season, week);
 
-    for (const e of fin.entries) await addFinanceEntry(db, saveId, e);
+    financeEntries.push(...fin.entries);
     let budget = fin.newBudget;
 
     // Human-only: monthly assistant wages every 4 weeks.
@@ -421,7 +455,7 @@ export async function advanceGameWeek(params: AdvanceWeekParams): Promise<Advanc
       const assistants = await getAssistantsBySave(db, saveId);
       const totalAssistantWages = assistants.reduce((s, a) => s + a.wagePerMonth, 0);
       if (totalAssistantWages > 0) {
-        await addFinanceEntry(db, saveId, {
+        financeEntries.push({
           clubId, season, week, type: 'assistant_wage',
           amount: -totalAssistantWages, description: 'Monthly assistant staff wages',
         });
@@ -429,8 +463,29 @@ export async function advanceGameWeek(params: AdvanceWeekParams): Promise<Advanc
       }
     }
 
-    await updateClubBudget(db, saveId, clubId, budget);
+    budgetByClub.set(clubId, budget);
     if (clubId === playerClubId) updatedBudget = budget;
+  }
+
+  // One batched INSERT for every finance entry this week.
+  if (financeEntries.length > 0) {
+    const rowsSql = financeEntries.map(() => '(?, ?, ?, ?, ?, ?, ?)').join(',');
+    const params: unknown[] = [];
+    for (const e of financeEntries) params.push(saveId, e.clubId, e.season, e.week, e.type, e.amount, e.description);
+    await db.prepare(
+      `INSERT INTO club_finances (save_id, club_id, season, week, type, amount, description) VALUES ${rowsSql}`,
+    ).run(...params);
+  }
+
+  // One batched budget UPDATE (CASE per club) instead of one per club.
+  if (budgetByClub.size > 0) {
+    const ids = [...budgetByClub.keys()];
+    const caseSql = ids.map(() => 'WHEN ? THEN ?').join(' ');
+    const caseParams: unknown[] = [];
+    for (const id of ids) caseParams.push(id, budgetByClub.get(id));
+    await db.prepare(
+      `UPDATE clubs SET budget = CASE id ${caseSql} END WHERE save_id = ? AND id IN (${ids.map(() => '?').join(',')})`,
+    ).run(...caseParams, saveId, ...ids);
   }
 
   // 4b. Generate assistant comment (max 1 per week, 15% chance)
