@@ -246,4 +246,10 @@ export const en: Record<keyof typeof pt, string> = {
   'topscorers.assists': 'assists',
   'home.top_scorers_title': 'Top Scorers',
   'home.top_scorers_sub': "Who's scoring in the league",
+  'cupbracket.title': 'Cup Bracket',
+  'cupbracket.round': 'Round {n}',
+  'cupbracket.empty': 'Draw pending — the cup has not started yet',
+  'cupbracket.draw_pending': 'Later rounds are drawn as the cup progresses',
+  'home.cup_bracket_title': 'Cup',
+  'home.cup_bracket_sub': 'Follow the knockout bracket',
 };

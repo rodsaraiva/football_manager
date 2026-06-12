@@ -33,6 +33,7 @@ import { MatchResultScreen } from '@/screens/home/MatchResultScreen';
 import { CalendarScreen } from '@/screens/home/CalendarScreen';
 import { YouthAcademyScreen } from '@/screens/squad/YouthAcademyScreen';
 import { TopScorersScreen } from '@/screens/league/TopScorersScreen';
+import { CupBracketScreen } from '@/screens/league/CupBracketScreen';
 import { TabNavigator } from './TabNavigator';
 import { RootStackParamList } from './types';
 
@@ -90,6 +91,7 @@ export function RootNavigator() {
       <Stack.Screen name="Calendar" component={CalendarScreen} options={{ title: 'Calendar' }} />
       <Stack.Screen name="YouthAcademy" component={YouthAcademyScreen} options={{ title: 'Youth Academy' }} />
       <Stack.Screen name="TopScorers" component={TopScorersScreen} options={{ title: 'Top Scorers' }} />
+      <Stack.Screen name="CupBracket" component={CupBracketScreen} options={{ title: 'Cup Bracket' }} />
     </Stack.Navigator>
   );
 }

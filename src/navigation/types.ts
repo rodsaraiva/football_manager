@@ -39,6 +39,7 @@ export type RootStackParamList = {
   Calendar: undefined;
   YouthAcademy: undefined;
   TopScorers: undefined;
+  CupBracket: undefined;
 };
 
 export type TabParamList = {

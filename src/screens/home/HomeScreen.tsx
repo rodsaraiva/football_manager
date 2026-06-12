@@ -404,6 +404,20 @@ export function HomeScreen() {
         <Text style={styles.leagueTableChevron}>›</Text>
       </TouchableOpacity>
 
+      {/* Cup bracket shortcut */}
+      <TouchableOpacity
+        style={styles.leagueTableBtn}
+        activeOpacity={0.8}
+        onPress={() => navigation.navigate('CupBracket')}
+      >
+        <Text style={styles.leagueTableIcon}>🏆</Text>
+        <View style={styles.leagueTableContent}>
+          <Text style={styles.leagueTableTitle}>{t('home.cup_bracket_title')}</Text>
+          <Text style={styles.leagueTableSub}>{t('home.cup_bracket_sub')}</Text>
+        </View>
+        <Text style={styles.leagueTableChevron}>›</Text>
+      </TouchableOpacity>
+
       {/* Last Match Result Banner */}
       {lastMatchResult !== null && (
         <TouchableOpacity
