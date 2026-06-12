@@ -10,7 +10,7 @@ import {
   RefreshControl,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import { colors, fontSize, spacing, commonStyles } from '@/theme';
+import { colors, spacing, fontSize, radius, commonStyles } from '@/theme';
 import { useTranslation } from '@/i18n';
 import type { TKey } from '@/i18n/translate';
 import { useGameStore } from '@/store/game-store';
@@ -260,7 +260,7 @@ const styles = StyleSheet.create({
   },
   card: {
     backgroundColor: colors.surface,
-    borderRadius: 12,
+    borderRadius: radius.lg,
     padding: spacing.md,
     marginVertical: spacing.xs,
     borderLeftWidth: 4,
@@ -289,11 +289,11 @@ const styles = StyleSheet.create({
   cardSubtitle: {
     color: colors.textSecondary,
     fontSize: fontSize.sm,
-    marginTop: 2,
+    marginTop: spacing.xxs,
   },
   statusBadge: {
     paddingHorizontal: spacing.sm,
-    paddingVertical: 4,
+    paddingVertical: spacing.xs,
     borderRadius: 6,
     borderWidth: 1,
   },
@@ -305,7 +305,7 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingVertical: 4,
+    paddingVertical: spacing.xs,
   },
   fieldLabel: {
     color: colors.textMuted,
@@ -328,7 +328,7 @@ const styles = StyleSheet.create({
   btn: {
     flex: 1,
     paddingVertical: 10,
-    borderRadius: 8,
+    borderRadius: radius.md,
     alignItems: 'center',
   },
   btnPrimary: {

@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { colors, fontSize, spacing } from '@/theme';
+import { colors, spacing, fontSize, radius } from '@/theme';
 
 interface SectionCardProps {
   title: string;
@@ -30,7 +30,7 @@ const styles = StyleSheet.create({
     marginHorizontal: spacing.md,
     marginBottom: spacing.md,
     backgroundColor: colors.surface,
-    borderRadius: 12,
+    borderRadius: radius.lg,
     padding: spacing.md,
     borderWidth: 1,
     borderColor: colors.border,
@@ -54,7 +54,7 @@ const styles = StyleSheet.create({
   subtitle: {
     color: colors.textMuted,
     fontSize: fontSize.xs,
-    marginTop: 2,
+    marginTop: spacing.xxs,
     marginBottom: spacing.sm,
   },
   body: {

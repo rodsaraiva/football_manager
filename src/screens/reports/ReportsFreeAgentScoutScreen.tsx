@@ -16,7 +16,7 @@ import {
 } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { colors, spacing, fontSize, commonStyles } from '@/theme';
+import { colors, spacing, fontSize, radius, commonStyles } from '@/theme';
 import { useTranslation } from '@/i18n';
 import type { TKey } from '@/i18n/translate';
 import { EmptyState } from '@/components/EmptyState';
@@ -381,7 +381,7 @@ const styles = StyleSheet.create({
     marginHorizontal: spacing.md,
     marginTop: spacing.md,
     marginBottom: spacing.xs,
-    borderRadius: 12,
+    borderRadius: radius.lg,
     padding: spacing.md,
     borderWidth: 1,
     borderColor: colors.border,
@@ -401,9 +401,9 @@ const styles = StyleSheet.create({
   },
   gapChip: {
     backgroundColor: colors.surfaceLight,
-    borderRadius: 8,
+    borderRadius: radius.md,
     paddingHorizontal: spacing.sm,
-    paddingVertical: 4,
+    paddingVertical: spacing.xs,
     alignItems: 'center',
     borderWidth: 1,
     borderColor: colors.border,
@@ -451,19 +451,19 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
-    marginBottom: 4,
+    marginBottom: spacing.xs,
     marginTop: spacing.xs,
   },
   filterRow: {
     flexDirection: 'row',
     gap: spacing.xs,
     paddingRight: spacing.md,
-    marginBottom: 4,
+    marginBottom: spacing.xs,
   },
   filterChip: {
     borderRadius: 6,
     paddingHorizontal: spacing.sm,
-    paddingVertical: 4,
+    paddingVertical: spacing.xs,
     backgroundColor: colors.surfaceLight,
     borderWidth: 1,
     borderColor: colors.border,
@@ -484,7 +484,7 @@ const styles = StyleSheet.create({
   // Agent card
   card: {
     backgroundColor: colors.surface,
-    borderRadius: 12,
+    borderRadius: radius.lg,
     padding: spacing.md,
     marginHorizontal: spacing.md,
     marginVertical: spacing.xs,
@@ -512,7 +512,7 @@ const styles = StyleSheet.create({
   },
   injuredBadge: {
     backgroundColor: colors.danger,
-    borderRadius: 4,
+    borderRadius: radius.sm,
     paddingHorizontal: 6,
     paddingVertical: 1,
   },
@@ -524,7 +524,7 @@ const styles = StyleSheet.create({
   playerMeta: {
     color: colors.textSecondary,
     fontSize: fontSize.sm,
-    marginTop: 2,
+    marginTop: spacing.xxs,
   },
   wageBox: {
     alignItems: 'flex-end',

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, ScrollView, StyleSheet, Pressable } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { colors, spacing, fontSize, commonStyles } from '@/theme';
+import { colors, spacing, fontSize, radius, commonStyles } from '@/theme';
 import { RootStackParamList } from '@/navigation/types';
 import { useGameStore } from '@/store/game-store';
 import { useDatabaseStore } from '@/store/database-store';
@@ -207,13 +207,13 @@ const styles = StyleSheet.create({
   headerSub: {
     color: colors.primary,
     fontSize: fontSize.sm,
-    marginTop: 2,
+    marginTop: spacing.xxs,
   },
   card: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.surface,
-    borderRadius: 12,
+    borderRadius: radius.lg,
     padding: spacing.md,
     marginHorizontal: spacing.md,
     marginVertical: spacing.xs,
@@ -241,12 +241,12 @@ const styles = StyleSheet.create({
   },
   badge: {
     backgroundColor: colors.danger,
-    borderRadius: 8,
+    borderRadius: radius.md,
     minWidth: 16,
     height: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 4,
+    paddingHorizontal: spacing.xs,
   },
   badgeText: {
     color: colors.text,
@@ -256,7 +256,7 @@ const styles = StyleSheet.create({
   subtitle: {
     color: colors.textSecondary,
     fontSize: fontSize.sm,
-    marginTop: 2,
+    marginTop: spacing.xxs,
   },
   chevron: {
     color: colors.textMuted,

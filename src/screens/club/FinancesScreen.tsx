@@ -7,7 +7,7 @@ import {
   ListRenderItemInfo,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import { colors, spacing, fontSize, commonStyles } from '@/theme';
+import { colors, spacing, fontSize, radius, commonStyles } from '@/theme';
 import { useTranslation } from '@/i18n';
 import type { TKey } from '@/i18n/translate';
 import { useGameStore } from '@/store/game-store';
@@ -189,7 +189,7 @@ const styles = StyleSheet.create({
     marginHorizontal: spacing.md,
     marginTop: spacing.md,
     marginBottom: spacing.sm,
-    borderRadius: 12,
+    borderRadius: radius.lg,
     alignItems: 'center',
     borderWidth: 1,
     borderColor: colors.border,
@@ -253,7 +253,7 @@ const styles = StyleSheet.create({
   },
   transactionRow: {
     backgroundColor: colors.surface,
-    borderRadius: 8,
+    borderRadius: radius.md,
     padding: spacing.md,
     marginBottom: spacing.sm,
     flexDirection: 'row',
@@ -262,7 +262,7 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
   },
   txIcon: {
-    fontSize: 20,
+    fontSize: fontSize.xl,
     marginRight: spacing.sm,
   },
   txInfo: {
@@ -281,7 +281,7 @@ const styles = StyleSheet.create({
   txWeek: {
     color: colors.textMuted,
     fontSize: fontSize.xs,
-    marginTop: 2,
+    marginTop: spacing.xxs,
   },
   txAmount: {
     fontSize: fontSize.md,
@@ -290,7 +290,7 @@ const styles = StyleSheet.create({
   },
   emptyCard: {
     backgroundColor: colors.surface,
-    borderRadius: 8,
+    borderRadius: radius.md,
     padding: spacing.lg,
     marginHorizontal: spacing.md,
     alignItems: 'center',

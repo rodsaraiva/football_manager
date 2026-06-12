@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { useNavigation, useRoute, RouteProp, CommonActions } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { colors, spacing, fontSize, commonStyles } from '@/theme';
+import { colors, spacing, fontSize, radius, commonStyles } from '@/theme';
 import { useGameStore } from '@/store/game-store';
 import { useTranslation } from '@/i18n';
 import { RootStackParamList } from '@/navigation/types';
@@ -52,7 +52,7 @@ export function GameOverScreen() {
 const styles = StyleSheet.create({
   container: { alignItems: 'center', justifyContent: 'center', padding: spacing.lg },
   card: {
-    backgroundColor: colors.surface, borderRadius: 12, padding: spacing.xl,
+    backgroundColor: colors.surface, borderRadius: radius.lg, padding: spacing.xl,
     width: '100%', borderWidth: 1, borderColor: colors.danger, marginBottom: spacing.xl,
   },
   heading: {
@@ -68,7 +68,7 @@ const styles = StyleSheet.create({
   reason: { color: colors.text, fontSize: fontSize.md },
   trust: { color: colors.danger, fontSize: fontSize.xxl, fontWeight: 'bold' },
   button: {
-    backgroundColor: colors.primary, borderRadius: 10, paddingVertical: 16,
+    backgroundColor: colors.primary, borderRadius: 10, paddingVertical: spacing.md,
     paddingHorizontal: spacing.xl, alignItems: 'center', width: '100%',
   },
   buttonText: { color: colors.text, fontSize: fontSize.lg, fontWeight: 'bold', letterSpacing: 1 },

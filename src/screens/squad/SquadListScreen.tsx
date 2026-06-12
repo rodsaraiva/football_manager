@@ -8,7 +8,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { colors, commonStyles, fontSize, spacing } from '@/theme';
+import { colors, spacing, fontSize, radius, commonStyles } from '@/theme';
 import { useTranslation } from '@/i18n';
 import PlayerCard from '@/components/PlayerCard';
 import { useGameStore } from '@/store/game-store';
@@ -169,7 +169,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     alignItems: 'center',
     backgroundColor: colors.surface,
-    borderRadius: 8,
+    borderRadius: radius.md,
     borderWidth: 1,
     borderColor: colors.border,
   },
@@ -183,7 +183,7 @@ const styles = StyleSheet.create({
   filterChip: {
     paddingVertical: 6,
     paddingHorizontal: spacing.md,
-    borderRadius: 20,
+    borderRadius: radius.pill,
     borderWidth: 1,
     borderColor: colors.border,
     backgroundColor: colors.surface,

@@ -8,7 +8,7 @@ import {
   Alert,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import { colors, spacing, fontSize, commonStyles } from '@/theme';
+import { colors, spacing, fontSize, radius, commonStyles } from '@/theme';
 import { useTranslation } from '@/i18n';
 import type { TKey } from '@/i18n/translate';
 import { useGameStore } from '@/store/game-store';
@@ -260,7 +260,7 @@ const styles = StyleSheet.create({
   },
   card: {
     backgroundColor: colors.surface,
-    borderRadius: 12,
+    borderRadius: radius.lg,
     padding: spacing.md,
     marginHorizontal: spacing.md,
     marginBottom: spacing.md,
@@ -274,7 +274,7 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   cardIcon: {
-    fontSize: 28,
+    fontSize: fontSize.xxl,
   },
   cardHeaderText: {
     flex: 1,
@@ -287,7 +287,7 @@ const styles = StyleSheet.create({
   cardDesc: {
     color: colors.textSecondary,
     fontSize: fontSize.sm,
-    marginTop: 2,
+    marginTop: spacing.xxs,
   },
   levelRow: {
     flexDirection: 'row',
@@ -301,12 +301,12 @@ const styles = StyleSheet.create({
   },
   levelBarRow: {
     flexDirection: 'row',
-    gap: 4,
+    gap: spacing.xs,
   },
   levelSegment: {
     width: 28,
     height: 8,
-    borderRadius: 4,
+    borderRadius: radius.sm,
   },
   levelSegmentFilled: {
     backgroundColor: colors.primary,
@@ -332,11 +332,11 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontSize: fontSize.md,
     fontWeight: '600',
-    marginTop: 2,
+    marginTop: spacing.xxs,
   },
   upgradeButton: {
     backgroundColor: colors.primary,
-    borderRadius: 8,
+    borderRadius: radius.md,
     paddingVertical: 10,
     paddingHorizontal: spacing.md,
     alignItems: 'center',

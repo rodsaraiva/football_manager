@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator, RefreshControl } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import { colors, fontSize, spacing, commonStyles } from '@/theme';
+import { colors, spacing, fontSize, radius, commonStyles } from '@/theme';
 import { useTranslation } from '@/i18n';
 import { EmptyState } from '@/components/EmptyState';
 import { useGameStore } from '@/store/game-store';
@@ -213,7 +213,7 @@ const styles = StyleSheet.create({
   },
   card: {
     backgroundColor: colors.surface,
-    borderRadius: 12,
+    borderRadius: radius.lg,
     padding: spacing.md,
     marginHorizontal: spacing.md,
     marginBottom: spacing.sm,
@@ -236,9 +236,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'baseline',
     borderWidth: 2,
-    borderRadius: 8,
+    borderRadius: radius.md,
     paddingHorizontal: spacing.sm,
-    paddingVertical: 4,
+    paddingVertical: spacing.xs,
   },
   rankText: {
     fontSize: fontSize.lg,
@@ -247,7 +247,7 @@ const styles = StyleSheet.create({
   rankTotal: {
     color: colors.textMuted,
     fontSize: fontSize.sm,
-    marginLeft: 2,
+    marginLeft: spacing.xxs,
   },
   description: {
     color: colors.text,
@@ -273,10 +273,10 @@ const styles = StyleSheet.create({
   barLegend: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 2,
+    marginTop: spacing.xxs,
   },
   barLegendText: {
     color: colors.textMuted,
-    fontSize: 10,
+    fontSize: fontSize.xs,
   },
 });

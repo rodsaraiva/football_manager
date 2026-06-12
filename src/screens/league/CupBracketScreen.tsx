@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, ScrollView, StyleSheet, ActivityIndicator } from 'react-native';
-import { colors, spacing, fontSize, commonStyles } from '@/theme';
+import { colors, spacing, fontSize, radius, commonStyles } from '@/theme';
 import { useGameStore } from '@/store/game-store';
 import { useDatabaseStore } from '@/store/database-store';
 import { useTranslation } from '@/i18n';
@@ -75,7 +75,7 @@ const styles = StyleSheet.create({
   content: { padding: spacing.md },
   roundBlock: { marginBottom: spacing.lg },
   roundTitle: { color: colors.textMuted, fontSize: fontSize.xs, fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: 1, marginBottom: spacing.sm },
-  tie: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surface, borderRadius: 8, padding: spacing.md, marginBottom: spacing.sm, borderWidth: 1, borderColor: colors.border },
+  tie: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surface, borderRadius: radius.md, padding: spacing.md, marginBottom: spacing.sm, borderWidth: 1, borderColor: colors.border },
   team: { color: colors.text, fontSize: fontSize.sm, fontWeight: '600', flex: 1 },
   teamRight: { textAlign: 'right' },
   score: { color: colors.primary, fontSize: fontSize.sm, fontWeight: '700', marginHorizontal: spacing.sm },

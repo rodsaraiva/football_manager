@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator, RefreshControl, Pressable } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import { colors, fontSize, spacing, commonStyles } from '@/theme';
+import { colors, spacing, fontSize, radius, commonStyles } from '@/theme';
 import { useGameStore } from '@/store/game-store';
 import { useDatabaseStore } from '@/store/database-store';
 import { useNavigation } from '@react-navigation/native';
@@ -197,7 +197,7 @@ export function ReportsFinancialScreen() {
           )}
           {report.breakdown.expenses.length > 0 && (
             <>
-              <Text style={[styles.subSection, { marginTop: 8 }]}>{t('report.fin_expenses')}</Text>
+              <Text style={[styles.subSection, { marginTop: spacing.sm }]}>{t('report.fin_expenses')}</Text>
               {report.breakdown.expenses.map((b) => (
                 <StatRow
                   key={`out-${b.type}`}
@@ -308,7 +308,7 @@ const styles = StyleSheet.create({
   subtitle: { color: colors.textMuted, fontSize: fontSize.md },
   card: {
     backgroundColor: colors.surface,
-    borderRadius: 12,
+    borderRadius: radius.lg,
     padding: spacing.md,
     marginHorizontal: spacing.md,
     marginBottom: spacing.sm,
@@ -332,7 +332,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 4,
+    paddingVertical: spacing.xs,
   },
   statLabel: {
     color: colors.textSecondary,
@@ -353,7 +353,7 @@ const styles = StyleSheet.create({
   },
   suggestionLine: {
     flexDirection: 'row',
-    paddingVertical: 4,
+    paddingVertical: spacing.xs,
   },
   suggestionBullet: {
     color: colors.primary,
@@ -373,7 +373,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
-    marginBottom: 4,
+    marginBottom: spacing.xs,
   },
   salaryRow: {
     flexDirection: 'row',
@@ -390,7 +390,7 @@ const styles = StyleSheet.create({
   salaryMeta: {
     color: colors.textSecondary,
     fontSize: fontSize.xs,
-    marginTop: 2,
+    marginTop: spacing.xxs,
   },
   salaryValue: {
     color: colors.text,

@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { spacing, fontSize } from '@/theme';
+import { spacing, fontSize, radius } from '@/theme';
 import { useGameStore } from '@/store/game-store';
 import { useClubAccent } from '@/theme/useClubAccent';
 
@@ -20,11 +20,11 @@ const styles = StyleSheet.create({
   banner: {
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.lg,
-    borderRadius: 12,
+    borderRadius: radius.lg,
     marginHorizontal: spacing.md,
     marginTop: spacing.sm,
     marginBottom: spacing.sm,
   },
   name: { fontSize: fontSize.xl, fontWeight: 'bold' },
-  subtitle: { fontSize: fontSize.sm, marginTop: 2, opacity: 0.9 },
+  subtitle: { fontSize: fontSize.sm, marginTop: spacing.xxs, opacity: 0.9 },
 });

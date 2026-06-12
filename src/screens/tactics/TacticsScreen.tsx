@@ -12,7 +12,7 @@ import {
   Platform,
 } from 'react-native';
 import StatBar from '@/components/StatBar';
-import { colors, commonStyles, fontSize, spacing } from '@/theme';
+import { colors, spacing, fontSize, radius, commonStyles } from '@/theme';
 import { getPositionColor } from '@/utils/player-colors';
 import { useGameStore } from '@/store/game-store';
 import { useDatabaseStore } from '@/store/database-store';
@@ -778,12 +778,12 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     textTransform: 'uppercase',
     letterSpacing: 1,
-    marginBottom: 4,
+    marginBottom: spacing.xs,
   },
   dropdownBtn: {
     backgroundColor: colors.surface,
-    borderRadius: 8,
-    paddingVertical: 8,
+    borderRadius: radius.md,
+    paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
     borderWidth: 1,
     borderColor: colors.border,
@@ -794,7 +794,7 @@ const styles = StyleSheet.create({
     top: 56,
     left: 0,
     backgroundColor: colors.surfaceLight,
-    borderRadius: 8,
+    borderRadius: radius.md,
     borderWidth: 1,
     borderColor: colors.border,
     zIndex: 1000,
@@ -806,13 +806,13 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     backgroundColor: colors.surfaceLight,
-    borderRadius: 8,
+    borderRadius: radius.md,
     borderWidth: 1,
     borderColor: colors.border,
     zIndex: 1000,
     elevation: 10,
   },
-  dropdownItem: { paddingVertical: 8, paddingHorizontal: spacing.md },
+  dropdownItem: { paddingVertical: spacing.sm, paddingHorizontal: spacing.md },
   dropdownItemActive: { backgroundColor: colors.primary },
   dropdownItemText: { color: colors.textSecondary, fontSize: fontSize.sm, fontWeight: '600' },
   dropdownItemTextActive: { color: colors.text },
@@ -828,7 +828,7 @@ const styles = StyleSheet.create({
   // Pitch
   pitchView: {
     backgroundColor: colors.surface,
-    borderRadius: 12,
+    borderRadius: radius.lg,
     marginHorizontal: spacing.md,
     padding: spacing.sm,
     gap: spacing.sm,
@@ -838,8 +838,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     minWidth: 58,
     backgroundColor: colors.background,
-    borderRadius: 8,
-    padding: 4,
+    borderRadius: radius.md,
+    padding: spacing.xs,
     borderWidth: 2,
     borderColor: 'transparent',
     cursor: 'grab',
@@ -848,14 +848,14 @@ const styles = StyleSheet.create({
     borderColor: colors.success,
     backgroundColor: `${colors.success}22`,
   },
-  pitchRole: { fontSize: 10, fontWeight: 'bold', color: colors.textMuted, letterSpacing: 0.5 },
+  pitchRole: { fontSize: fontSize.xs, fontWeight: 'bold', color: colors.textMuted, letterSpacing: 0.5 },
   pitchName: { color: colors.text, fontSize: 11, fontWeight: '600', marginTop: 1, textAlign: 'center' },
-  pitchOvr: { fontSize: 10, fontWeight: 'bold', marginTop: 1 },
+  pitchOvr: { fontSize: fontSize.xs, fontWeight: 'bold', marginTop: 1 },
 
   // Sections
   section: {
     backgroundColor: colors.surface,
-    borderRadius: 12,
+    borderRadius: radius.lg,
     padding: spacing.md,
     marginHorizontal: spacing.md,
     marginTop: spacing.sm,
@@ -876,7 +876,7 @@ const styles = StyleSheet.create({
   },
   benchCard: {
     backgroundColor: colors.background,
-    borderRadius: 8,
+    borderRadius: radius.md,
     padding: 6,
     alignItems: 'center',
     minWidth: 70,
@@ -886,18 +886,18 @@ const styles = StyleSheet.create({
     borderColor: 'transparent',
     cursor: 'grab',
   } as any,
-  benchPos: { fontSize: 10, fontWeight: 'bold', color: colors.primary },
+  benchPos: { fontSize: fontSize.xs, fontWeight: 'bold', color: colors.primary },
   benchName: { color: colors.text, fontSize: 11, fontWeight: '600', marginTop: 1, textAlign: 'center' },
-  benchOvr: { fontSize: 10, fontWeight: 'bold', marginTop: 1 },
+  benchOvr: { fontSize: fontSize.xs, fontWeight: 'bold', marginTop: 1 },
 
   // Unlisted
   unlistedRow: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.background,
-    borderRadius: 8,
+    borderRadius: radius.md,
     padding: spacing.sm,
-    marginBottom: 4,
+    marginBottom: spacing.xs,
     borderWidth: 2,
     borderColor: 'transparent',
     cursor: 'grab',
@@ -909,7 +909,7 @@ const styles = StyleSheet.create({
   // Modal
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', paddingHorizontal: spacing.md },
   modalContent: { backgroundColor: colors.surface, borderRadius: 16, padding: spacing.lg, maxHeight: '85%' },
-  modalCloseBtn: { backgroundColor: colors.primary, borderRadius: 8, paddingVertical: 12, alignItems: 'center', marginTop: spacing.sm },
+  modalCloseBtn: { backgroundColor: colors.primary, borderRadius: radius.md, paddingVertical: 12, alignItems: 'center', marginTop: spacing.sm },
   modalCloseBtnText: { color: colors.text, fontSize: fontSize.md, fontWeight: '600' },
 
   // Detail
@@ -920,9 +920,9 @@ const styles = StyleSheet.create({
   detailAge: { color: colors.textSecondary, fontSize: fontSize.sm },
   detailOvr: { fontSize: fontSize.xl, fontWeight: 'bold' },
   detailStatsRow: { flexDirection: 'row', gap: spacing.md, marginBottom: spacing.md },
-  detailStatItem: { flex: 1, backgroundColor: colors.background, borderRadius: 8, padding: spacing.sm, alignItems: 'center' },
+  detailStatItem: { flex: 1, backgroundColor: colors.background, borderRadius: radius.md, padding: spacing.sm, alignItems: 'center' },
   detailStatVal: { color: colors.text, fontSize: fontSize.lg, fontWeight: 'bold' },
-  detailStatLabel: { color: colors.textMuted, fontSize: fontSize.xs, marginTop: 2 },
+  detailStatLabel: { color: colors.textMuted, fontSize: fontSize.xs, marginTop: spacing.xxs },
   detailSectionTitle: { color: colors.textMuted, fontSize: fontSize.xs, fontWeight: '700', letterSpacing: 1, marginTop: spacing.md, marginBottom: spacing.sm },
 
   // Listing toggles in modal

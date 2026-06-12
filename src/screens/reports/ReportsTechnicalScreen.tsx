@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator, RefreshControl, Pressable } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { colors, fontSize, spacing, commonStyles } from '@/theme';
+import { colors, spacing, fontSize, radius, commonStyles } from '@/theme';
 import { SectionCard } from '@/components/SectionCard';
 import { ValueBadge } from '@/components/ValueBadge';
 import { useGameStore } from '@/store/game-store';
@@ -598,8 +598,8 @@ const styles = StyleSheet.create({
   },
   windowChip: {
     paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
-    borderRadius: 12,
+    paddingVertical: spacing.xxs,
+    borderRadius: radius.lg,
     borderWidth: 1,
     borderColor: colors.border,
     backgroundColor: colors.surface,
@@ -640,7 +640,7 @@ const styles = StyleSheet.create({
   playerMeta: {
     color: colors.textSecondary,
     fontSize: fontSize.sm,
-    marginTop: 2,
+    marginTop: spacing.xxs,
   },
   risingRow: {
     flexDirection: 'row',
@@ -670,7 +670,7 @@ const styles = StyleSheet.create({
   attrRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 2,
+    paddingVertical: spacing.xxs,
   },
   attrLabel: {
     flex: 1,
@@ -679,7 +679,7 @@ const styles = StyleSheet.create({
   },
   attrBar: {
     borderWidth: 1,
-    borderRadius: 4,
+    borderRadius: radius.sm,
     paddingHorizontal: spacing.xs,
     paddingVertical: 1,
     minWidth: 44,
@@ -731,8 +731,8 @@ const styles = StyleSheet.create({
   },
   lineTag: {
     borderWidth: 1,
-    borderRadius: 4,
-    paddingHorizontal: 4,
+    borderRadius: radius.sm,
+    paddingHorizontal: spacing.xs,
     paddingVertical: 1,
   },
   lineTagText: {
@@ -785,13 +785,13 @@ const styles = StyleSheet.create({
   moraleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 2,
+    paddingVertical: spacing.xxs,
     gap: spacing.xs,
   },
   moraleDot: {
     width: 8,
     height: 8,
-    borderRadius: 4,
+    borderRadius: radius.sm,
   },
   moraleValue: {
     fontSize: fontSize.sm,

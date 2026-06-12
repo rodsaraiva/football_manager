@@ -15,7 +15,7 @@ import {
   FlatList,
 } from 'react-native';
 import { useFocusEffect, useRoute, RouteProp } from '@react-navigation/native';
-import { alpha, colors, spacing, fontSize, commonStyles } from '@/theme';
+import { colors, alpha, spacing, fontSize, radius, commonStyles } from '@/theme';
 import { SectionCard } from '@/components/SectionCard';
 import { ValueBadge } from '@/components/ValueBadge';
 import { useGameStore } from '@/store/game-store';
@@ -288,7 +288,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: 8,
+    borderRadius: radius.md,
     padding: spacing.sm,
     backgroundColor: colors.surfaceLight,
   },
@@ -305,7 +305,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.xs,
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: 8,
+    borderRadius: radius.md,
     overflow: 'hidden',
     maxHeight: 200,
   },
@@ -333,7 +333,7 @@ const styles = StyleSheet.create({
   modeChip: {
     flex: 1,
     paddingVertical: spacing.xs,
-    borderRadius: 8,
+    borderRadius: radius.md,
     borderWidth: 1,
     borderColor: colors.border,
     alignItems: 'center',

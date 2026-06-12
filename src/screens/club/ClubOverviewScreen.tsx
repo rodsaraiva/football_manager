@@ -3,7 +3,7 @@ import { View, Text, ScrollView, StyleSheet, Pressable } from 'react-native';
 import { getClubTrophies, ClubTrophySummary } from '../../database/queries/history';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { colors, spacing, fontSize, commonStyles } from '@/theme';
+import { colors, spacing, fontSize, radius, commonStyles } from '@/theme';
 import { ClubBanner } from '@/components/ClubBanner';
 import { useGameStore } from '@/store/game-store';
 import { useDatabaseStore } from '@/store/database-store';
@@ -230,7 +230,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     padding: spacing.lg,
     margin: spacing.md,
-    borderRadius: 12,
+    borderRadius: radius.lg,
     borderWidth: 1,
     borderColor: colors.border,
   },
@@ -268,7 +268,7 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontSize: fontSize.lg,
     fontWeight: '600',
-    marginTop: 2,
+    marginTop: spacing.xxs,
   },
   sectionTitle: {
     color: colors.textMuted,
@@ -284,7 +284,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.surface,
-    borderRadius: 12,
+    borderRadius: radius.lg,
     padding: spacing.md,
     marginHorizontal: spacing.md,
     marginVertical: spacing.xs,
@@ -311,7 +311,7 @@ const styles = StyleSheet.create({
   hubSubtitle: {
     color: colors.textSecondary,
     fontSize: fontSize.sm,
-    marginTop: 2,
+    marginTop: spacing.xxs,
   },
   chevron: {
     color: colors.textMuted,
@@ -320,7 +320,7 @@ const styles = StyleSheet.create({
   },
   trophyCard: {
     backgroundColor: colors.surface,
-    borderRadius: 12,
+    borderRadius: radius.lg,
     marginHorizontal: spacing.md,
     marginVertical: spacing.xs,
     borderWidth: 1,
@@ -341,12 +341,12 @@ const styles = StyleSheet.create({
   trophyCount: {
     color: colors.gold,
     fontSize: fontSize.sm,
-    marginTop: 2,
+    marginTop: spacing.xxs,
   },
   trophyYears: {
     color: colors.textMuted,
     fontSize: fontSize.xs,
-    marginTop: 2,
+    marginTop: spacing.xxs,
   },
   empty: {
     color: colors.textMuted,

@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { alpha, colors, spacing, fontSize, commonStyles } from '@/theme';
+import { colors, alpha, spacing, fontSize, radius, commonStyles } from '@/theme';
 import { useTranslation } from '@/i18n';
 import { useGameStore } from '@/store/game-store';
 import MatchEventItem from '@/components/MatchEventItem';
@@ -81,7 +81,7 @@ const statStyles = StyleSheet.create({
     flexDirection: 'row',
     width: '100%',
     height: 6,
-    gap: 2,
+    gap: spacing.xxs,
   },
   homeBar: {
     flex: 1,
@@ -265,7 +265,7 @@ const styles = StyleSheet.create({
   },
   scoreCard: {
     backgroundColor: colors.surface,
-    borderRadius: 12,
+    borderRadius: radius.lg,
     padding: spacing.lg,
     margin: spacing.md,
     alignItems: 'center',
@@ -312,7 +312,7 @@ const styles = StyleSheet.create({
   },
   statsCard: {
     backgroundColor: colors.surface,
-    borderRadius: 12,
+    borderRadius: radius.lg,
     padding: spacing.md,
     borderWidth: 1,
     borderColor: colors.border,
@@ -324,7 +324,7 @@ const styles = StyleSheet.create({
   },
   ratingsCard: {
     backgroundColor: colors.surface,
-    borderRadius: 12,
+    borderRadius: radius.lg,
     padding: spacing.md,
     borderWidth: 1,
     borderColor: colors.border,
@@ -346,8 +346,8 @@ const styles = StyleSheet.create({
   },
   continueButton: {
     backgroundColor: colors.primary,
-    borderRadius: 8,
-    paddingVertical: 16,
+    borderRadius: radius.md,
+    paddingVertical: spacing.md,
     marginHorizontal: spacing.md,
     alignItems: 'center',
     marginTop: spacing.sm,

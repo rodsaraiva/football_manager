@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { colors, spacing, fontSize, commonStyles } from '@/theme';
+import { colors, spacing, fontSize, radius, commonStyles } from '@/theme';
 import { useGameStore } from '@/store/game-store';
 import { useDatabaseStore } from '@/store/database-store';
 import { RootStackParamList } from '@/navigation/types';
@@ -512,7 +512,7 @@ const styles = StyleSheet.create({
   },
   titleCard: {
     backgroundColor: colors.surface,
-    borderRadius: 12,
+    borderRadius: radius.lg,
     padding: spacing.xl,
     margin: spacing.md,
     alignItems: 'center',
@@ -539,7 +539,7 @@ const styles = StyleSheet.create({
   },
   card: {
     backgroundColor: colors.surface,
-    borderRadius: 12,
+    borderRadius: radius.lg,
     padding: spacing.md,
     marginHorizontal: spacing.md,
     marginBottom: spacing.md,
@@ -591,7 +591,7 @@ const styles = StyleSheet.create({
     fontSize: fontSize.xs,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
-    marginTop: 2,
+    marginTop: spacing.xxs,
   },
   goalRow: {
     borderTopWidth: 1,
@@ -618,7 +618,7 @@ const styles = StyleSheet.create({
     fontSize: fontSize.xs,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
-    marginBottom: 4,
+    marginBottom: spacing.xs,
   },
   financeValue: {
     fontSize: fontSize.xl,

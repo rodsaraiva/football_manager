@@ -13,7 +13,7 @@ import {
   RefreshControl,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import { colors, fontSize, spacing, commonStyles } from '@/theme';
+import { colors, spacing, fontSize, radius, commonStyles } from '@/theme';
 import { useTranslation } from '@/i18n';
 import type { TKey } from '@/i18n/translate';
 import { useGameStore } from '@/store/game-store';
@@ -273,7 +273,7 @@ const styles = StyleSheet.create({
   filterPill: {
     paddingVertical: 6,
     paddingHorizontal: spacing.md,
-    borderRadius: 20,
+    borderRadius: radius.pill,
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.border,
@@ -296,28 +296,28 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   rowLeft: { flex: 1 },
-  rowName: { color: colors.text, fontSize: fontSize.md, fontWeight: '600', marginBottom: 2 },
+  rowName: { color: colors.text, fontSize: fontSize.md, fontWeight: '600', marginBottom: spacing.xxs },
   rowMeta: { color: colors.textMuted, fontSize: fontSize.sm, marginBottom: spacing.xs },
   badges: { flexDirection: 'row', gap: spacing.xs, flexWrap: 'wrap' },
   badgeSale: {
     backgroundColor: colors.warning,
-    borderRadius: 4,
+    borderRadius: radius.sm,
     paddingHorizontal: 6,
-    paddingVertical: 2,
+    paddingVertical: spacing.xxs,
   },
   badgeLoan: {
     backgroundColor: colors.primary,
-    borderRadius: 4,
+    borderRadius: radius.sm,
     paddingHorizontal: 6,
-    paddingVertical: 2,
+    paddingVertical: spacing.xxs,
   },
-  badgeText: { color: colors.text, fontSize: 10, fontWeight: '700' },
+  badgeText: { color: colors.text, fontSize: fontSize.xs, fontWeight: '700' },
   chevron: { color: colors.textMuted, fontSize: fontSize.xl, marginLeft: spacing.sm },
 
   // Modal
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', paddingHorizontal: spacing.md },
   modalContent: { backgroundColor: colors.surface, borderRadius: 16, padding: spacing.lg, maxHeight: '80%' },
-  modalTitle: { color: colors.text, fontSize: fontSize.xl, fontWeight: 'bold', marginBottom: 4 },
+  modalTitle: { color: colors.text, fontSize: fontSize.xl, fontWeight: 'bold', marginBottom: spacing.xs },
   modalMeta: { color: colors.textMuted, fontSize: fontSize.sm, marginBottom: spacing.md },
   sectionTitle: {
     color: colors.textMuted,
@@ -347,6 +347,6 @@ const styles = StyleSheet.create({
     minWidth: 120,
     textAlign: 'right',
   },
-  closeBtn: { backgroundColor: colors.primary, borderRadius: 8, paddingVertical: 12, alignItems: 'center', marginTop: spacing.md },
+  closeBtn: { backgroundColor: colors.primary, borderRadius: radius.md, paddingVertical: 12, alignItems: 'center', marginTop: spacing.md },
   closeBtnText: { color: colors.text, fontSize: fontSize.md, fontWeight: '600' },
 });

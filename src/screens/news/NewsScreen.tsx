@@ -487,7 +487,7 @@ const styles = StyleSheet.create({
   headerSub: {
     color: colors.primary,
     fontSize: fontSize.sm,
-    marginTop: 2,
+    marginTop: spacing.xxs,
   },
   list: {
     padding: spacing.sm,
@@ -561,6 +561,6 @@ const styles = StyleSheet.create({
   cardBody: {
     color: colors.textSecondary,
     fontSize: fontSize.sm,
-    marginTop: 2,
+    marginTop: spacing.xxs,
   },
 });

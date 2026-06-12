@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { alpha, colors, spacing, fontSize, commonStyles } from '@/theme';
+import { colors, alpha, spacing, fontSize, radius, commonStyles } from '@/theme';
 import { ClubBanner } from '@/components/ClubBanner';
 import { useTranslation, objectiveDescriptor } from '@/i18n';
 import { useGameStore } from '@/store/game-store';
@@ -834,7 +834,7 @@ const styles = StyleSheet.create({
   },
   headerCard: {
     backgroundColor: colors.surface,
-    borderRadius: 12,
+    borderRadius: radius.lg,
     padding: spacing.lg,
     margin: spacing.md,
     borderWidth: 1,
@@ -866,7 +866,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     backgroundColor: colors.surface,
-    borderRadius: 12,
+    borderRadius: radius.lg,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
     marginHorizontal: spacing.md,
@@ -879,12 +879,12 @@ const styles = StyleSheet.create({
   boardWidgetLeft: { flex: 1, marginRight: spacing.md },
   boardWidgetRight: { alignItems: 'flex-end' },
   boardWidgetLabel: { color: colors.textSecondary, fontSize: fontSize.xs, fontWeight: '700', letterSpacing: 1 },
-  boardWidgetText: { color: colors.text, fontSize: fontSize.sm, marginTop: 2 },
-  boardMiniBar: { flexDirection: 'row', gap: 3, marginTop: 4 },
+  boardWidgetText: { color: colors.text, fontSize: fontSize.sm, marginTop: spacing.xxs },
+  boardMiniBar: { flexDirection: 'row', gap: 3, marginTop: spacing.xs },
   boardMiniSegment: { width: 12, height: 6, borderRadius: 2, backgroundColor: colors.border },
   commentCard: {
     backgroundColor: colors.surface,
-    borderRadius: 12,
+    borderRadius: radius.lg,
     padding: spacing.md,
     marginHorizontal: spacing.md,
     marginBottom: spacing.sm,
@@ -914,7 +914,7 @@ const styles = StyleSheet.create({
   },
   retirementAlert: {
     backgroundColor: colors.surface,
-    borderRadius: 12,
+    borderRadius: radius.lg,
     padding: spacing.md,
     marginHorizontal: spacing.md,
     marginBottom: spacing.sm,
@@ -932,13 +932,13 @@ const styles = StyleSheet.create({
   retirementAlertItem: {
     color: colors.text,
     fontSize: fontSize.sm,
-    marginTop: 2,
+    marginTop: spacing.xxs,
   },
   leagueTableBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.surface,
-    borderRadius: 12,
+    borderRadius: radius.lg,
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.md,
     marginHorizontal: spacing.md,
@@ -963,7 +963,7 @@ const styles = StyleSheet.create({
   leagueTableSub: {
     color: colors.textSecondary,
     fontSize: fontSize.sm,
-    marginTop: 2,
+    marginTop: spacing.xxs,
   },
   leagueTableChevron: {
     color: colors.textMuted,
@@ -976,7 +976,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     letterSpacing: 1,
     textTransform: 'uppercase',
-    marginBottom: 2,
+    marginBottom: spacing.xxs,
   },
   matchResultScore: {
     color: colors.text,
@@ -986,11 +986,11 @@ const styles = StyleSheet.create({
   matchResultTap: {
     color: colors.primary,
     fontSize: fontSize.xs,
-    marginTop: 2,
+    marginTop: spacing.xxs,
   },
   card: {
     backgroundColor: colors.surface,
-    borderRadius: 12,
+    borderRadius: radius.lg,
     padding: spacing.md,
     marginHorizontal: spacing.md,
     marginBottom: spacing.md,
@@ -1044,7 +1044,7 @@ const styles = StyleSheet.create({
   },
   resultCard: {
     backgroundColor: colors.surface,
-    borderRadius: 8,
+    borderRadius: radius.md,
     padding: spacing.md,
     marginBottom: spacing.sm,
     flexDirection: 'row',
@@ -1080,7 +1080,7 @@ const styles = StyleSheet.create({
   },
   emptyCard: {
     backgroundColor: colors.surface,
-    borderRadius: 8,
+    borderRadius: radius.md,
     padding: spacing.lg,
     marginHorizontal: spacing.md,
     alignItems: 'center',
@@ -1093,7 +1093,7 @@ const styles = StyleSheet.create({
   },
   nextMatchCard: {
     backgroundColor: colors.surface,
-    borderRadius: 12,
+    borderRadius: radius.lg,
     padding: spacing.md,
     marginHorizontal: spacing.md,
     marginBottom: spacing.md,
@@ -1125,8 +1125,8 @@ const styles = StyleSheet.create({
   },
   scoutButton: {
     backgroundColor: colors.surfaceLight,
-    borderRadius: 8,
-    paddingVertical: 8,
+    borderRadius: radius.md,
+    paddingVertical: spacing.sm,
     marginTop: spacing.sm,
     alignItems: 'center',
     borderWidth: 1,
@@ -1140,7 +1140,7 @@ const styles = StyleSheet.create({
   nextMatchTeamRep: {
     color: colors.textMuted,
     fontSize: fontSize.xs,
-    marginTop: 2,
+    marginTop: spacing.xxs,
   },
   nextMatchVs: {
     color: colors.textMuted,
@@ -1170,7 +1170,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
     paddingVertical: spacing.sm,
     backgroundColor: colors.background,
-    borderRadius: 8,
+    borderRadius: radius.md,
   },
   oppInfoLabel: {
     color: colors.textSecondary,
@@ -1190,7 +1190,7 @@ const styles = StyleSheet.create({
   },
   oppPitchView: {
     backgroundColor: colors.background,
-    borderRadius: 8,
+    borderRadius: radius.md,
     padding: spacing.sm,
     gap: spacing.sm,
     marginBottom: spacing.sm,
@@ -1203,11 +1203,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     minWidth: 54,
     backgroundColor: colors.surfaceLight,
-    borderRadius: 8,
-    padding: 4,
+    borderRadius: radius.md,
+    padding: spacing.xs,
   },
   oppPitchRole: {
-    fontSize: 10,
+    fontSize: fontSize.xs,
     fontWeight: 'bold',
     color: colors.textMuted,
     letterSpacing: 0.5,
@@ -1220,7 +1220,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   oppPitchOvr: {
-    fontSize: 10,
+    fontSize: fontSize.xs,
     fontWeight: 'bold',
     marginTop: 1,
   },
@@ -1294,7 +1294,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
     paddingVertical: spacing.sm,
     backgroundColor: colors.background,
-    borderRadius: 8,
+    borderRadius: radius.md,
   },
   modalStat: {
     color: colors.textSecondary,
@@ -1382,7 +1382,7 @@ const styles = StyleSheet.create({
   },
   modalCloseButton: {
     backgroundColor: colors.primary,
-    borderRadius: 8,
+    borderRadius: radius.md,
     paddingVertical: 12,
     alignItems: 'center',
   },

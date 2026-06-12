@@ -2,7 +2,7 @@ import React, { useCallback, useState } from 'react';
 import { View, Text, ScrollView, StyleSheet, Pressable, Alert } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { alpha, colors, spacing, fontSize, commonStyles } from '@/theme';
+import { colors, alpha, spacing, fontSize, radius, commonStyles } from '@/theme';
 import { useTranslation } from '@/i18n';
 import type { TKey } from '@/i18n/translate';
 import { useGameStore } from '@/store/game-store';
@@ -175,7 +175,7 @@ const styles = StyleSheet.create({
   },
   card: {
     backgroundColor: colors.surface,
-    borderRadius: 12,
+    borderRadius: radius.lg,
     padding: spacing.md,
     marginHorizontal: spacing.md,
     marginBottom: spacing.xs,
@@ -190,7 +190,7 @@ const styles = StyleSheet.create({
   },
   cardHeaderLeft: { flex: 1 },
   cardName: { color: colors.text, fontSize: fontSize.md, fontWeight: '700' },
-  cardArchetype: { color: colors.textSecondary, fontSize: fontSize.sm, marginTop: 2 },
+  cardArchetype: { color: colors.textSecondary, fontSize: fontSize.sm, marginTop: spacing.xxs },
   stars: { color: colors.gold, fontSize: fontSize.lg },
   cardStats: {
     flexDirection: 'row',
@@ -206,11 +206,11 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
     textTransform: 'uppercase',
   },
-  statValue: { color: colors.text, fontSize: fontSize.md, fontWeight: '600', marginTop: 2 },
+  statValue: { color: colors.text, fontSize: fontSize.md, fontWeight: '600', marginTop: spacing.xxs },
   retireBadge: {
     backgroundColor: alpha(colors.danger, 0.13),
     borderRadius: 6,
-    paddingVertical: 4,
+    paddingVertical: spacing.xs,
     paddingHorizontal: spacing.sm,
     marginTop: spacing.sm,
     alignSelf: 'flex-start',
@@ -220,14 +220,14 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
     paddingVertical: spacing.xs,
     alignItems: 'center',
-    borderRadius: 8,
+    borderRadius: radius.md,
     borderWidth: 1,
     borderColor: colors.border,
   },
   dismissBtnText: { color: colors.textMuted, fontSize: fontSize.sm },
   emptySlot: {
     backgroundColor: colors.surface,
-    borderRadius: 12,
+    borderRadius: radius.lg,
     padding: spacing.md,
     marginHorizontal: spacing.md,
     marginBottom: spacing.xs,

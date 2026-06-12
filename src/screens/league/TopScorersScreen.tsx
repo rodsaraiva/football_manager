@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, FlatList, StyleSheet, ActivityIndicator } from 'react-native';
-import { colors, spacing, fontSize, commonStyles } from '@/theme';
+import { colors, spacing, fontSize, radius, commonStyles } from '@/theme';
 import { useGameStore } from '@/store/game-store';
 import { useDatabaseStore } from '@/store/database-store';
 import { useTranslation } from '@/i18n';
@@ -71,7 +71,7 @@ const styles = StyleSheet.create({
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing.lg },
   empty: { color: colors.textMuted, fontSize: fontSize.md, textAlign: 'center' },
   list: { padding: spacing.md },
-  row: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surface, borderRadius: 8, padding: spacing.md, marginBottom: spacing.sm, borderWidth: 1, borderColor: colors.border },
+  row: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surface, borderRadius: radius.md, padding: spacing.md, marginBottom: spacing.sm, borderWidth: 1, borderColor: colors.border },
   rank: { color: colors.textMuted, fontSize: fontSize.md, fontWeight: 'bold', width: 28 },
   name: { color: colors.text, fontSize: fontSize.md, fontWeight: '600', flex: 1 },
   goals: { color: colors.primary, fontSize: fontSize.sm, fontWeight: '700', marginRight: spacing.sm },

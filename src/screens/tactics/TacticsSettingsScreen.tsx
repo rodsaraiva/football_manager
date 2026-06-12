@@ -8,7 +8,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import { colors, commonStyles, fontSize, spacing } from '@/theme';
+import { colors, spacing, fontSize, radius, commonStyles } from '@/theme';
 import { useTranslation } from '@/i18n';
 import type { TKey } from '@/i18n/translate';
 import { useGameStore } from '@/store/game-store';
@@ -242,7 +242,7 @@ const styles = StyleSheet.create({
   },
   card: {
     backgroundColor: colors.surface,
-    borderRadius: 12,
+    borderRadius: radius.lg,
     marginHorizontal: spacing.md,
     padding: spacing.md,
   },
@@ -263,8 +263,8 @@ const styles = StyleSheet.create({
   },
   optionButton: {
     flex: 1,
-    paddingVertical: 8,
-    borderRadius: 8,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.md,
     borderWidth: 1,
     borderColor: colors.border,
     alignItems: 'center',
@@ -284,11 +284,11 @@ const styles = StyleSheet.create({
   divider: {
     height: 1,
     backgroundColor: colors.border,
-    marginVertical: 2,
+    marginVertical: spacing.xxs,
   },
   saveButton: {
     backgroundColor: colors.primary,
-    borderRadius: 8,
+    borderRadius: radius.md,
     marginHorizontal: spacing.md,
     marginTop: spacing.md,
     paddingVertical: 14,

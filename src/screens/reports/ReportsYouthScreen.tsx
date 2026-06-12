@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator, RefreshControl, Pressable } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { colors, fontSize, spacing, commonStyles } from '@/theme';
+import { colors, spacing, fontSize, radius, commonStyles } from '@/theme';
 import { SectionCard } from '@/components/SectionCard';
 import { EmptyState } from '@/components/EmptyState';
 import { ValueBadge } from '@/components/ValueBadge';
@@ -359,13 +359,13 @@ const styles = StyleSheet.create({
   },
   youthHeaderLeft: { flex: 1 },
   youthName: { color: colors.text, fontSize: fontSize.md, fontWeight: '700' },
-  youthMeta: { color: colors.textSecondary, fontSize: fontSize.sm, marginTop: 2 },
+  youthMeta: { color: colors.textSecondary, fontSize: fontSize.sm, marginTop: spacing.xxs },
   youthBadges: { flexDirection: 'row', gap: spacing.xs },
   badge: {
     borderWidth: 2,
     borderRadius: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xxs,
     alignItems: 'center',
     minWidth: 42,
   },
@@ -389,13 +389,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: colors.surface,
     paddingHorizontal: spacing.sm,
-    paddingVertical: 4,
+    paddingVertical: spacing.xs,
     borderRadius: 14,
     borderWidth: 1,
     borderColor: colors.border,
-    gap: 4,
+    gap: spacing.xs,
   },
-  chipIcon: { fontSize: 12 },
+  chipIcon: { fontSize: fontSize.sm },
   chipLabel: {
     color: colors.textSecondary,
     fontSize: fontSize.xs,
@@ -424,12 +424,12 @@ const styles = StyleSheet.create({
   },
   compactLeft: { flex: 1 },
   compactName: { color: colors.text, fontSize: fontSize.md, fontWeight: '600' },
-  compactMeta: { color: colors.textSecondary, fontSize: fontSize.sm, marginTop: 2 },
+  compactMeta: { color: colors.textSecondary, fontSize: fontSize.sm, marginTop: spacing.xxs },
   gapBadge: {
     borderWidth: 2,
     borderRadius: 6,
     paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
+    paddingVertical: spacing.xxs,
   },
   gapText: {
     fontSize: fontSize.sm,
@@ -443,8 +443,8 @@ const styles = StyleSheet.create({
   },
   filterChip: {
     paddingHorizontal: spacing.sm,
-    paddingVertical: 4,
-    borderRadius: 12,
+    paddingVertical: spacing.xs,
+    borderRadius: radius.lg,
     borderWidth: 1,
     borderColor: colors.border,
     backgroundColor: colors.surface,
@@ -465,7 +465,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.success,
     paddingHorizontal: 6,
     paddingVertical: 1,
-    borderRadius: 4,
+    borderRadius: radius.sm,
   },
   readyBadgeText: {
     color: colors.text,
@@ -479,7 +479,7 @@ const styles = StyleSheet.create({
     borderColor: colors.gold,
     paddingHorizontal: 6,
     paddingVertical: 1,
-    borderRadius: 4,
+    borderRadius: radius.sm,
   },
   promiseBadgeText: {
     color: colors.gold,

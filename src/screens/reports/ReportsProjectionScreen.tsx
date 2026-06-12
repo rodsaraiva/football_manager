@@ -15,7 +15,7 @@ import {
   FlatList,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import { alpha, colors, spacing, fontSize, commonStyles } from '@/theme';
+import { colors, alpha, spacing, fontSize, radius, commonStyles } from '@/theme';
 import { useTranslation } from '@/i18n';
 import type { TKey } from '@/i18n/translate';
 import { ValueBadge } from '@/components/ValueBadge';
@@ -293,7 +293,7 @@ const styles = StyleSheet.create({
   emptyText: { color: colors.textMuted, fontSize: fontSize.md, textAlign: 'center' },
   myStatusCard: {
     backgroundColor: colors.surface,
-    borderRadius: 12,
+    borderRadius: radius.lg,
     padding: spacing.md,
     marginHorizontal: spacing.md,
     marginTop: spacing.sm,
@@ -329,11 +329,11 @@ const styles = StyleSheet.create({
   myPointsCurrent: {
     color: colors.textSecondary,
     fontSize: fontSize.sm,
-    marginTop: 2,
+    marginTop: spacing.xxs,
   },
   section: {
     backgroundColor: colors.surface,
-    borderRadius: 12,
+    borderRadius: radius.lg,
     padding: spacing.md,
     marginHorizontal: spacing.md,
     marginBottom: spacing.sm,
@@ -348,7 +348,7 @@ const styles = StyleSheet.create({
   sectionSub: {
     color: colors.textMuted,
     fontSize: fontSize.xs,
-    marginTop: 2,
+    marginTop: spacing.xxs,
     marginBottom: spacing.sm,
   },
   fixtureRow: {

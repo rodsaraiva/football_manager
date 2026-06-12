@@ -8,7 +8,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import { colors, commonStyles, fontSize, spacing } from '@/theme';
+import { colors, spacing, fontSize, radius, commonStyles } from '@/theme';
 import { useTranslation } from '@/i18n';
 import { getPositionColor, getOverallColor } from '@/utils/player-colors';
 import { useGameStore } from '@/store/game-store';
@@ -247,7 +247,7 @@ const styles = StyleSheet.create({
   },
   dropdownButton: {
     backgroundColor: colors.surface,
-    borderRadius: 8,
+    borderRadius: radius.md,
     paddingVertical: 6,
     paddingHorizontal: spacing.md,
     borderWidth: 1,
@@ -263,7 +263,7 @@ const styles = StyleSheet.create({
     top: 52,
     left: spacing.md + 60,
     backgroundColor: colors.surfaceLight,
-    borderRadius: 8,
+    borderRadius: radius.md,
     borderWidth: 1,
     borderColor: colors.border,
     zIndex: 100,
@@ -277,7 +277,7 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     paddingHorizontal: spacing.sm,
     borderRadius: 6,
-    margin: 2,
+    margin: spacing.xxs,
   },
   dropdownItemActive: {
     backgroundColor: colors.primary,
@@ -297,7 +297,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.surface,
-    borderRadius: 12,
+    borderRadius: radius.lg,
     marginHorizontal: spacing.md,
     marginVertical: spacing.xs,
     padding: spacing.sm,
@@ -323,7 +323,7 @@ const styles = StyleSheet.create({
   playerMeta: {
     color: colors.textSecondary,
     fontSize: fontSize.sm,
-    marginTop: 2,
+    marginTop: spacing.xxs,
   },
   overallBadge: {
     width: 36,

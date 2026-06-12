@@ -466,7 +466,7 @@ const styles = StyleSheet.create({
     marginHorizontal: spacing.md,
     marginBottom: spacing.sm,
     backgroundColor: colors.surfaceLight,
-    borderRadius: 8,
+    borderRadius: radius.md,
     borderWidth: 1,
     borderColor: colors.primary,
     paddingVertical: spacing.sm,
@@ -491,7 +491,7 @@ const styles = StyleSheet.create({
   },
   headerCard: {
     backgroundColor: colors.surface,
-    borderRadius: 12,
+    borderRadius: radius.lg,
     padding: spacing.md,
     marginHorizontal: spacing.md,
     marginBottom: spacing.sm,
@@ -521,7 +521,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: 6,
     paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
+    paddingVertical: spacing.xxs,
   },
   positionText: {
     fontSize: fontSize.sm,
@@ -559,7 +559,7 @@ const styles = StyleSheet.create({
   footItem: {
     flex: 1,
     backgroundColor: colors.background,
-    borderRadius: 8,
+    borderRadius: radius.md,
     padding: spacing.sm,
     alignItems: 'center',
   },
@@ -568,7 +568,7 @@ const styles = StyleSheet.create({
     fontSize: fontSize.xs,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
-    marginBottom: 4,
+    marginBottom: spacing.xs,
   },
   footValue: {
     color: colors.text,
@@ -581,7 +581,7 @@ const styles = StyleSheet.create({
   },
   section: {
     backgroundColor: colors.surface,
-    borderRadius: 12,
+    borderRadius: radius.lg,
     padding: spacing.md,
     marginHorizontal: spacing.md,
     marginBottom: spacing.sm,

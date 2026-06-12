@@ -132,7 +132,7 @@ const styles = StyleSheet.create({
   headerSubtitle: {
     color: colors.textSecondary,
     fontSize: fontSize.sm,
-    marginTop: 2,
+    marginTop: spacing.xxs,
   },
   listContent: {
     paddingVertical: spacing.xs,

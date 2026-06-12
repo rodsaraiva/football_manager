@@ -7,7 +7,7 @@ import {
   ListRenderItemInfo,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import { colors, spacing, fontSize, commonStyles } from '@/theme';
+import { colors, spacing, fontSize, radius, commonStyles } from '@/theme';
 import { useTranslation } from '@/i18n';
 import { useGameStore } from '@/store/game-store';
 import { useDatabaseStore } from '@/store/database-store';
@@ -160,7 +160,7 @@ const styles = StyleSheet.create({
   staffRole: {
     color: colors.primary,
     fontSize: fontSize.sm,
-    marginTop: 2,
+    marginTop: spacing.xxs,
   },
   staffWage: {
     color: colors.warning,
@@ -185,10 +185,10 @@ const styles = StyleSheet.create({
   starsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 2,
+    gap: spacing.xxs,
   },
   star: {
-    fontSize: 16,
+    fontSize: fontSize.lg,
   },
   starFilled: {
     color: colors.gold,
@@ -203,7 +203,7 @@ const styles = StyleSheet.create({
   },
   emptyCard: {
     backgroundColor: colors.surface,
-    borderRadius: 8,
+    borderRadius: radius.md,
     padding: spacing.lg,
     alignItems: 'center',
     borderWidth: 1,

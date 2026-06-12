@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { colors, spacing, fontSize, commonStyles } from '@/theme';
+import { colors, spacing, fontSize, radius, commonStyles } from '@/theme';
 import { useDatabaseStore } from '@/store/database-store';
 import { useGameStore } from '@/store/game-store';
 import { useTranslation } from '@/i18n';
@@ -173,8 +173,8 @@ const styles = StyleSheet.create({
   },
   primaryButton: {
     backgroundColor: colors.primary,
-    borderRadius: 8,
-    paddingVertical: 16,
+    borderRadius: radius.md,
+    paddingVertical: spacing.md,
     alignItems: 'center',
     marginBottom: spacing.md,
   },
@@ -200,7 +200,7 @@ const styles = StyleSheet.create({
   },
   saveCard: {
     backgroundColor: colors.surface,
-    borderRadius: 8,
+    borderRadius: radius.md,
     marginBottom: spacing.sm,
     borderWidth: 1,
     borderColor: colors.border,
@@ -233,17 +233,17 @@ const styles = StyleSheet.create({
   saveMeta: {
     color: colors.textSecondary,
     fontSize: fontSize.sm,
-    marginTop: 2,
+    marginTop: spacing.xxs,
   },
   saveDifficulty: {
     color: colors.textMuted,
     fontSize: fontSize.xs,
-    marginTop: 2,
+    marginTop: spacing.xxs,
     textTransform: 'capitalize',
   },
   noSavesContainer: {
     backgroundColor: colors.surface,
-    borderRadius: 8,
+    borderRadius: radius.md,
     padding: spacing.lg,
     alignItems: 'center',
     borderWidth: 1,
@@ -261,7 +261,7 @@ const styles = StyleSheet.create({
     paddingTop: spacing.md,
   },
   langButton: {
-    paddingVertical: 4,
+    paddingVertical: spacing.xs,
     paddingHorizontal: spacing.sm,
     borderRadius: 6,
     borderWidth: 1,

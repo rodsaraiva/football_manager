@@ -9,7 +9,7 @@ import {
   ScrollView,
   Alert,
 } from 'react-native';
-import { colors, spacing, fontSize } from '@/theme';
+import { colors, spacing, fontSize, radius } from '@/theme';
 import { useTranslation } from '@/i18n';
 
 export type OfferKind = 'transfer' | 'loan';
@@ -323,7 +323,7 @@ const styles = StyleSheet.create({
   playerMeta: {
     color: colors.textSecondary,
     fontSize: fontSize.sm,
-    marginTop: 2,
+    marginTop: spacing.xxs,
   },
   playerStats: {
     flexDirection: 'row',
@@ -343,7 +343,7 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontSize: fontSize.md,
     fontWeight: '600',
-    marginTop: 2,
+    marginTop: spacing.xxs,
   },
   fieldLabel: {
     color: colors.textMuted,
@@ -359,7 +359,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: 8,
+    borderRadius: radius.md,
     paddingHorizontal: spacing.md,
     paddingVertical: 10,
     color: colors.text,
@@ -374,7 +374,7 @@ const styles = StyleSheet.create({
   helperRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 4,
+    marginTop: spacing.xs,
   },
   helperText: {
     color: colors.textSecondary,
@@ -383,7 +383,7 @@ const styles = StyleSheet.create({
   errorText: {
     color: colors.danger,
     fontSize: fontSize.sm,
-    marginTop: 4,
+    marginTop: spacing.xs,
   },
   presets: {
     flexDirection: 'row',
@@ -395,8 +395,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: 8,
-    paddingVertical: 8,
+    borderRadius: radius.md,
+    paddingVertical: spacing.sm,
     alignItems: 'center',
   },
   presetActive: {
@@ -418,12 +418,12 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     marginBottom: spacing.md,
-    padding: 4,
+    padding: spacing.xs,
   },
   kindTab: {
     flex: 1,
     paddingVertical: 10,
-    borderRadius: 8,
+    borderRadius: radius.md,
     alignItems: 'center',
   },
   kindTabActive: {
@@ -446,7 +446,7 @@ const styles = StyleSheet.create({
   btn: {
     flex: 1,
     paddingVertical: 12,
-    borderRadius: 8,
+    borderRadius: radius.md,
     alignItems: 'center',
   },
   btnPrimary: {

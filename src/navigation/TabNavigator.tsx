@@ -1,6 +1,6 @@
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Text } from 'react-native';
-import { colors } from '@/theme';
+import { colors, fontSize } from '@/theme';
 import { useClubAccent } from '@/theme/useClubAccent';
 import { useTranslation } from '@/i18n';
 import { HomeScreen } from '@/screens/home/HomeScreen';
@@ -27,32 +27,32 @@ export function TabNavigator() {
       <Tab.Screen
         name="HomeTab"
         component={HomeScreen}
-        options={{ title: t('nav.tab_matches'), tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 20 }}>⚽</Text> }}
+        options={{ title: t('nav.tab_matches'), tabBarIcon: ({ color }) => <Text style={{ color, fontSize: fontSize.xl }}>⚽</Text> }}
       />
       <Tab.Screen
         name="SquadTab"
         component={SquadListScreen}
-        options={{ title: t('nav.tab_squad'), tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 20 }}>👥</Text> }}
+        options={{ title: t('nav.tab_squad'), tabBarIcon: ({ color }) => <Text style={{ color, fontSize: fontSize.xl }}>👥</Text> }}
       />
       <Tab.Screen
         name="NewsTab"
         component={NewsScreen}
-        options={{ title: t('nav.tab_news'), tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 20 }}>📰</Text> }}
+        options={{ title: t('nav.tab_news'), tabBarIcon: ({ color }) => <Text style={{ color, fontSize: fontSize.xl }}>📰</Text> }}
       />
       <Tab.Screen
         name="TacticsTab"
         component={TacticsScreen}
-        options={{ title: t('nav.tab_tactics'), tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 20 }}>📋</Text> }}
+        options={{ title: t('nav.tab_tactics'), tabBarIcon: ({ color }) => <Text style={{ color, fontSize: fontSize.xl }}>📋</Text> }}
       />
       <Tab.Screen
         name="ClubTab"
         component={ClubOverviewScreen}
-        options={{ title: t('nav.tab_club'), tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 20 }}>💰</Text> }}
+        options={{ title: t('nav.tab_club'), tabBarIcon: ({ color }) => <Text style={{ color, fontSize: fontSize.xl }}>💰</Text> }}
       />
       <Tab.Screen
         name="ReportsTab"
         component={ReportsHubScreen}
-        options={{ title: t('nav.tab_reports'), tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 20 }}>📈</Text> }}
+        options={{ title: t('nav.tab_reports'), tabBarIcon: ({ color }) => <Text style={{ color, fontSize: fontSize.xl }}>📈</Text> }}
       />
     </Tab.Navigator>
   );

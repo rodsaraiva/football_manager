@@ -12,7 +12,7 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useTranslation } from '@/i18n';
-import { colors, spacing, fontSize, commonStyles } from '@/theme';
+import { colors, spacing, fontSize, radius, commonStyles } from '@/theme';
 import { useDatabaseStore } from '@/store/database-store';
 import { useGameStore } from '@/store/game-store';
 import { getAllLeagues, getAllCountries } from '@/database/queries/leagues';
@@ -504,7 +504,7 @@ const styles = StyleSheet.create({
   },
   accordionHeader: {
     backgroundColor: colors.surface,
-    borderRadius: 8,
+    borderRadius: radius.md,
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.md,
     flexDirection: 'row',
@@ -535,7 +535,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surfaceLight,
     borderRadius: 6,
     padding: spacing.md,
-    marginTop: 2,
+    marginTop: spacing.xxs,
     marginLeft: spacing.md,
     borderWidth: 1,
     borderColor: colors.border,
@@ -548,7 +548,7 @@ const styles = StyleSheet.create({
   leagueMeta: {
     color: colors.textSecondary,
     fontSize: fontSize.sm,
-    marginTop: 2,
+    marginTop: spacing.xxs,
   },
   profileDesc: {
     color: colors.textSecondary,
@@ -577,7 +577,7 @@ const styles = StyleSheet.create({
   },
   clubCard: {
     backgroundColor: colors.surface,
-    borderRadius: 8,
+    borderRadius: radius.md,
     padding: spacing.md,
     marginBottom: spacing.sm,
     borderWidth: 1,
@@ -618,7 +618,7 @@ const styles = StyleSheet.create({
   },
   confirmCard: {
     backgroundColor: colors.surface,
-    borderRadius: 8,
+    borderRadius: radius.md,
     padding: spacing.md,
     marginHorizontal: spacing.md,
     marginBottom: spacing.md,
@@ -641,7 +641,7 @@ const styles = StyleSheet.create({
   confirmMeta: {
     color: colors.textSecondary,
     fontSize: fontSize.sm,
-    marginTop: 2,
+    marginTop: spacing.xxs,
   },
   difficultyRow: {
     flexDirection: 'row',
@@ -671,8 +671,8 @@ const styles = StyleSheet.create({
   },
   startButton: {
     backgroundColor: colors.primary,
-    borderRadius: 8,
-    paddingVertical: 16,
+    borderRadius: radius.md,
+    paddingVertical: spacing.md,
     marginHorizontal: spacing.md,
     alignItems: 'center',
     marginTop: spacing.sm,

@@ -1,6 +1,6 @@
 import React, { Component, ReactNode } from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
-import { colors, commonStyles, fontSize, spacing } from '@/theme';
+import { colors, spacing, fontSize, radius, commonStyles } from '@/theme';
 import { translate } from '@/i18n/translate';
 import { useI18nStore } from '@/store/i18n-store';
 
@@ -47,6 +47,6 @@ const styles = StyleSheet.create({
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing.lg },
   title: { color: colors.danger, fontSize: fontSize.xxl, fontWeight: 'bold', marginBottom: spacing.md, textAlign: 'center' },
   message: { color: colors.text, fontSize: fontSize.md, textAlign: 'center', marginBottom: spacing.lg },
-  retry: { backgroundColor: colors.primary, borderRadius: 8, paddingVertical: spacing.sm, paddingHorizontal: spacing.lg },
+  retry: { backgroundColor: colors.primary, borderRadius: radius.md, paddingVertical: spacing.sm, paddingHorizontal: spacing.lg },
   retryText: { color: colors.text, fontSize: fontSize.md, fontWeight: '600' },
 });

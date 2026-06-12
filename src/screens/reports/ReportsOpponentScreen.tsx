@@ -14,7 +14,7 @@ import {
   RefreshControl,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import { alpha, colors, spacing, fontSize, commonStyles } from '@/theme';
+import { colors, alpha, spacing, fontSize, radius, commonStyles } from '@/theme';
 import { useTranslation } from '@/i18n';
 import { SectionCard } from '@/components/SectionCard';
 import { EmptyState } from '@/components/EmptyState';
@@ -219,7 +219,7 @@ const styles = StyleSheet.create({
   emptyText: { color: colors.textMuted, fontSize: fontSize.md, textAlign: 'center' },
   headerCard: {
     backgroundColor: colors.surface,
-    borderRadius: 12,
+    borderRadius: radius.lg,
     padding: spacing.md,
     marginHorizontal: spacing.md,
     marginBottom: spacing.sm,
@@ -240,11 +240,11 @@ const styles = StyleSheet.create({
   fixtureInfo: {
     color: colors.textSecondary,
     fontSize: fontSize.sm,
-    marginTop: 2,
+    marginTop: spacing.xxs,
   },
   repBadge: {
     borderWidth: 2,
-    borderRadius: 8,
+    borderRadius: radius.md,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
   },
@@ -276,7 +276,7 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   resultChip: {
-    borderRadius: 8,
+    borderRadius: radius.md,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
     alignItems: 'center',
@@ -319,7 +319,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surfaceLight,
     borderRadius: 6,
     paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
+    paddingVertical: spacing.xxs,
     borderWidth: 1,
     borderColor: colors.border,
   },
@@ -344,7 +344,7 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     fontSize: fontSize.xs,
     textAlign: 'center',
-    marginTop: 2,
+    marginTop: spacing.xxs,
   },
   statDivider: {
     width: 1,
