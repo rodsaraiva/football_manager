@@ -24,12 +24,19 @@ import { buildContractAlerts, ContractAlert } from '@/engine/reports/contract-al
 import { buildLineEfficiency, LineEfficiency } from '@/engine/reports/line-efficiency';
 import { MatchEvent } from '@/types';
 import { RootStackParamList } from '@/navigation/types';
+import { useTranslation } from '@/i18n';
+import type { TKey } from '@/i18n/translate';
+
+function attrI18nKey(k: string): TKey {
+  return ('tactics.attr_' + k.replace(/([A-Z])/g, '_$1').toLowerCase()) as TKey;
+}
 
 const WINDOW_OPTIONS = [3, 5, 10] as const;
 type WindowOption = (typeof WINDOW_OPTIONS)[number];
 type NavProp = NativeStackNavigationProp<RootStackParamList>;
 
 export function ReportsTechnicalScreen() {
+  const { t } = useTranslation();
   const navigation = useNavigation<NavProp>();
   const { playerClubId, season, week, currentSave } = useGameStore();
   const saveId = currentSave?.id;
@@ -129,7 +136,7 @@ export function ReportsTechnicalScreen() {
   if (!report) {
     return (
       <View style={[commonStyles.screen, styles.center]}>
-        <Text style={styles.subtitle}>Sem dados para analisar.</Text>
+        <Text style={styles.subtitle}>{t('report.tech_no_data_to_analyze')}</Text>
       </View>
     );
   }
@@ -144,10 +151,14 @@ export function ReportsTechnicalScreen() {
     >
       <View style={styles.header}>
         <Text style={styles.headerSummary}>
-          {report.inForm.length} em alta · {report.outOfForm.length} em baixa · {report.replacementSuggestions.length} merecem chance
+          {t('report.tech_header_summary', {
+            up: report.inForm.length,
+            down: report.outOfForm.length,
+            deserve: report.replacementSuggestions.length,
+          })}
         </Text>
         <View style={styles.windowPicker}>
-          <Text style={styles.headerIntro}>Janela:</Text>
+          <Text style={styles.headerIntro}>{t('report.tech_window')}</Text>
           {WINDOW_OPTIONS.map((opt) => (
             <Pressable
               key={opt}
@@ -167,7 +178,7 @@ export function ReportsTechnicalScreen() {
       <SquadSummarySection summary={report.squadSummary} />
       {lineEfficiency.length > 0 && <LineEfficiencySection lines={lineEfficiency} />}
 
-      <Section title="🔥 Em grande fase" subtitle="Maior rating médio recente">
+      <Section title={t('report.tech_inform_title')} subtitle={t('report.tech_inform_subtitle')}>
         {report.inForm.length === 0 ? (
           <EmptyLine />
         ) : (
@@ -182,9 +193,9 @@ export function ReportsTechnicalScreen() {
         )}
       </Section>
 
-      <Section title="📉 Em má fase" subtitle="Rating médio abaixo do esperado">
+      <Section title={t('report.tech_outform_title')} subtitle={t('report.tech_outform_subtitle')}>
         {report.outOfForm.length === 0 ? (
-          <EmptyLine label="Nenhum jogador em má fase — bom sinal." />
+          <EmptyLine label={t('report.tech_outform_empty')} />
         ) : (
           report.outOfForm.map((item) => (
             <FormLine
@@ -197,7 +208,7 @@ export function ReportsTechnicalScreen() {
         )}
       </Section>
 
-      <Section title="🌱 Em evolução" subtitle="Jovens com espaço para crescer">
+      <Section title={t('report.tech_rising_title')} subtitle={t('report.tech_rising_subtitle')}>
         {report.rising.length === 0 ? (
           <EmptyLine />
         ) : (
@@ -210,7 +221,12 @@ export function ReportsTechnicalScreen() {
               <View style={styles.risingLeft}>
                 <Text style={styles.playerName}>{p.name}</Text>
                 <Text style={styles.playerMeta}>
-                  {p.position} · {p.age}a · OVR {p.overall} → Pot {p.effectivePotential}
+                  {t('report.tech_rising_meta', {
+                    position: p.position,
+                    age: p.age,
+                    ovr: p.overall,
+                    pot: p.effectivePotential,
+                  })}
                 </Text>
               </View>
               <ValueBadge value={`+${p.effectivePotential - p.overall}`} tone="success" />
@@ -219,9 +235,9 @@ export function ReportsTechnicalScreen() {
         )}
       </Section>
 
-      <Section title="🎯 Merecem ser titulares" subtitle="Reservas com overall competitivo">
+      <Section title={t('report.tech_replacement_title')} subtitle={t('report.tech_replacement_subtitle')}>
         {report.replacementSuggestions.length === 0 ? (
-          <EmptyLine label="Ninguém no banco em posição de superar os titulares." />
+          <EmptyLine label={t('report.tech_replacement_empty')} />
         ) : (
           report.replacementSuggestions.map((s) => (
             <Pressable
@@ -235,9 +251,9 @@ export function ReportsTechnicalScreen() {
         )}
       </Section>
 
-      <Section title="🪑 Banco ocioso" subtitle="Jogadores bons sem minutos">
+      <Section title={t('report.tech_benched_title')} subtitle={t('report.tech_benched_subtitle')}>
         {report.benchedButDeservesMinutes.length === 0 ? (
-          <EmptyLine label="Todo mundo apto está sendo usado." />
+          <EmptyLine label={t('report.tech_benched_empty')} />
         ) : (
           report.benchedButDeservesMinutes.map((p) => (
             <Pressable
@@ -247,7 +263,12 @@ export function ReportsTechnicalScreen() {
             >
               <Text style={styles.playerName}>{p.name}</Text>
               <Text style={styles.playerMeta}>
-                {p.position} · {p.age}a · OVR {p.overall} — 0 jogos nas últimas {windowSize}
+                {t('report.tech_benched_meta', {
+                  position: p.position,
+                  age: p.age,
+                  ovr: p.overall,
+                  window: windowSize,
+                })}
               </Text>
             </Pressable>
           ))
@@ -260,15 +281,16 @@ export function ReportsTechnicalScreen() {
 // ─── Subcomponents ──────────────────────────────────────────────────────────
 
 function MoraleSection({ report }: { report: MoraleReport }) {
+  const { t } = useTranslation();
   const { avgMorale, topMorale, bottomMorale, alertLevel } = report;
   const gaugeColor =
     alertLevel === 'critical' ? colors.danger : alertLevel === 'warning' ? colors.warning : colors.success;
 
   return (
-    <SectionCard title="💬 Moral do Elenco" subtitle="Índice coletivo e extremos de motivação">
+    <SectionCard title={t('report.tech_morale_title')} subtitle={t('report.tech_morale_subtitle')}>
       {alertLevel === 'critical' && (
         <View style={styles.moraleBanner}>
-          <Text style={styles.moraleBannerText}>⚠️ Atenção: moral coletiva crítica</Text>
+          <Text style={styles.moraleBannerText}>{t('report.tech_morale_critical_banner')}</Text>
         </View>
       )}
 
@@ -282,7 +304,7 @@ function MoraleSection({ report }: { report: MoraleReport }) {
 
       {topMorale.length > 0 && (
         <>
-          <Text style={styles.summaryGroupLabel}>Top 3 Moral Alta</Text>
+          <Text style={styles.summaryGroupLabel}>{t('report.tech_morale_top_high')}</Text>
           <View style={styles.sectionBody}>
             {topMorale.map((e) => (
               <View key={e.playerId} style={styles.moraleRow}>
@@ -298,7 +320,7 @@ function MoraleSection({ report }: { report: MoraleReport }) {
 
       {bottomMorale.length > 0 && (
         <>
-          <Text style={[styles.summaryGroupLabel, { marginTop: spacing.sm }]}>Top 3 Moral Baixa</Text>
+          <Text style={[styles.summaryGroupLabel, { marginTop: spacing.sm }]}>{t('report.tech_morale_top_low')}</Text>
           <View style={styles.sectionBody}>
             {bottomMorale.map((e) => (
               <View key={e.playerId} style={styles.moraleRow}>
@@ -313,13 +335,14 @@ function MoraleSection({ report }: { report: MoraleReport }) {
       )}
 
       {topMorale.length === 0 && bottomMorale.length === 0 && (
-        <Text style={styles.empty}>Sem dados de moral para analisar.</Text>
+        <Text style={styles.empty}>{t('report.tech_morale_empty')}</Text>
       )}
     </SectionCard>
   );
 }
 
 function ContractAlertsSection({ alerts }: { alerts: ContractAlert[] }) {
+  const { t } = useTranslation();
   const urgencyColor = (u: ContractAlert['urgency']) => {
     if (u === 'critical') return colors.danger;
     if (u === 'warning') return colors.warning;
@@ -327,9 +350,9 @@ function ContractAlertsSection({ alerts }: { alerts: ContractAlert[] }) {
   };
 
   return (
-    <SectionCard title="⚠️ Contratos Vencendo" subtitle="Jogadores OVR > 70 com contrato expirando em até 2 temporadas">
+    <SectionCard title={t('report.tech_contracts_title')} subtitle={t('report.tech_contracts_subtitle')}>
       {alerts.length === 0 ? (
-        <Text style={styles.empty}>Nenhum contrato crítico no momento.</Text>
+        <Text style={styles.empty}>{t('report.tech_contracts_empty')}</Text>
       ) : (
         alerts.map((alert) => (
           <View key={alert.player.id} style={styles.contractRow}>
@@ -337,11 +360,13 @@ function ContractAlertsSection({ alerts }: { alerts: ContractAlert[] }) {
               <Text style={styles.playerName}>{alert.player.name}</Text>
               <Text style={styles.playerMeta}>
                 {alert.player.position} · OVR {alert.player.overall}
-                {alert.player.wage != null ? ` · ${alert.player.wage.toLocaleString('pt-BR')} /sem` : ''}
+                {alert.player.wage != null
+                  ? t('report.tech_contracts_wage', { wage: alert.player.wage.toLocaleString('pt-BR') })
+                  : ''}
               </Text>
             </View>
             <ValueBadge
-              value={`Vence T${alert.contractEnd}`}
+              value={t('report.tech_contracts_expires', { season: alert.contractEnd })}
               tone={alert.urgency === 'critical' ? 'danger' : alert.urgency === 'warning' ? 'warning' : 'primary'}
               size="sm"
             />
@@ -353,20 +378,21 @@ function ContractAlertsSection({ alerts }: { alerts: ContractAlert[] }) {
 }
 
 function SquadSummarySection({ summary }: { summary: SquadSummary }) {
+  const { t } = useTranslation();
   const { collectiveStrengths, collectiveWeaknesses, individualHighlights } = summary;
   const hasData = collectiveStrengths.length > 0;
 
   return (
-    <SectionCard title="📊 Resumo do Elenco" subtitle="Pontos fortes, fracos e destaques individuais">
+    <SectionCard title={t('report.tech_summary_title')} subtitle={t('report.tech_summary_subtitle')}>
       {!hasData ? (
-        <Text style={styles.empty}>Sem dados de atributos para analisar.</Text>
+        <Text style={styles.empty}>{t('report.tech_summary_empty')}</Text>
       ) : (
         <>
-          <Text style={styles.summaryGroupLabel}>Pontos fortes coletivos</Text>
+          <Text style={styles.summaryGroupLabel}>{t('report.tech_summary_strengths')}</Text>
           <View style={styles.sectionBody}>
             {collectiveStrengths.map((item) => (
               <View key={item.attribute} style={styles.attrRow}>
-                <Text style={styles.attrLabel}>{item.label}</Text>
+                <Text style={styles.attrLabel}>{t(attrI18nKey(item.attribute))}</Text>
                 <View style={[styles.attrBar, { borderColor: colors.success }]}>
                   <Text style={[styles.attrValue, { color: colors.success }]}>
                     {item.avg.toFixed(1)}
@@ -376,11 +402,11 @@ function SquadSummarySection({ summary }: { summary: SquadSummary }) {
             ))}
           </View>
 
-          <Text style={[styles.summaryGroupLabel, { marginTop: spacing.sm }]}>Pontos fracos coletivos</Text>
+          <Text style={[styles.summaryGroupLabel, { marginTop: spacing.sm }]}>{t('report.tech_summary_weaknesses')}</Text>
           <View style={styles.sectionBody}>
             {collectiveWeaknesses.map((item) => (
               <View key={item.attribute} style={styles.attrRow}>
-                <Text style={styles.attrLabel}>{item.label}</Text>
+                <Text style={styles.attrLabel}>{t(attrI18nKey(item.attribute))}</Text>
                 <View style={[styles.attrBar, { borderColor: colors.danger }]}>
                   <Text style={[styles.attrValue, { color: colors.danger }]}>
                     {item.avg.toFixed(1)}
@@ -392,7 +418,7 @@ function SquadSummarySection({ summary }: { summary: SquadSummary }) {
 
           {individualHighlights.length > 0 && (
             <>
-              <Text style={[styles.summaryGroupLabel, { marginTop: spacing.sm }]}>Destaques individuais</Text>
+              <Text style={[styles.summaryGroupLabel, { marginTop: spacing.sm }]}>{t('report.tech_summary_highlights')}</Text>
               <View style={styles.sectionBody}>
                 {individualHighlights.map((item) => (
                   <Pressable
@@ -402,7 +428,7 @@ function SquadSummarySection({ summary }: { summary: SquadSummary }) {
                   >
                     <View style={styles.highlightLeft}>
                       <Text style={styles.playerName}>{item.playerName}</Text>
-                      <Text style={styles.playerMeta}>{item.position} · {item.label}</Text>
+                      <Text style={styles.playerMeta}>{item.position} · {t(attrI18nKey(item.attribute))}</Text>
                     </View>
                     <View style={[styles.attrBar, { borderColor: colors.primary }]}>
                       <Text style={[styles.attrValue, { color: colors.primary }]}>{item.value}</Text>
@@ -419,12 +445,15 @@ function SquadSummarySection({ summary }: { summary: SquadSummary }) {
 }
 
 function LineEfficiencySection({ lines }: { lines: LineEfficiency[] }) {
+  const { t } = useTranslation();
   const hasAnyData = lines.some((l) => l.appearances > 0);
+  const lineLabelKey = (g: LineEfficiency['group']): TKey =>
+    ('report.tech_line_' + g.toLowerCase()) as TKey;
 
   return (
-    <SectionCard title="📊 Eficiência por Linha" subtitle="Rating médio dos setores no período analisado">
+    <SectionCard title={t('report.tech_line_title')} subtitle={t('report.tech_line_subtitle')}>
       {!hasAnyData ? (
-        <Text style={styles.empty}>Sem aparições registradas no período.</Text>
+        <Text style={styles.empty}>{t('report.tech_line_empty')}</Text>
       ) : (
         lines.map((line) => {
           const barColor = line.isWeakest
@@ -437,11 +466,11 @@ function LineEfficiencySection({ lines }: { lines: LineEfficiency[] }) {
           return (
             <View key={line.group} style={styles.lineRow}>
               <View style={styles.lineLeft}>
-                <Text style={styles.playerName}>{line.label}</Text>
+                <Text style={styles.playerName}>{t(lineLabelKey(line.group))}</Text>
                 {line.appearances === 0 ? (
-                  <Text style={[styles.playerMeta, { fontStyle: 'italic' }]}>Sem dados</Text>
+                  <Text style={[styles.playerMeta, { fontStyle: 'italic' }]}>{t('report.tech_line_no_data')}</Text>
                 ) : (
-                  <Text style={styles.playerMeta}>{line.appearances} aparições</Text>
+                  <Text style={styles.playerMeta}>{t('report.tech_line_appearances', { count: line.appearances })}</Text>
                 )}
               </View>
               <View style={styles.lineBarContainer}>
@@ -455,7 +484,7 @@ function LineEfficiencySection({ lines }: { lines: LineEfficiency[] }) {
               {(line.isWeakest || line.isStrongest) && (
                 <View style={[styles.lineTag, { borderColor: barColor }]}>
                   <Text style={[styles.lineTagText, { color: barColor }]}>
-                    {line.isWeakest ? 'Mais fraco' : 'Mais forte'}
+                    {line.isWeakest ? t('report.tech_line_weakest') : t('report.tech_line_strongest')}
                   </Text>
                 </View>
               )}
@@ -492,6 +521,7 @@ function FormLine({
   tone: 'good' | 'bad';
   onPress?: () => void;
 }) {
+  const { t } = useTranslation();
   const accent = tone === 'good' ? colors.success : colors.danger;
   return (
     <Pressable
@@ -505,7 +535,12 @@ function FormLine({
       <View style={styles.formLeft}>
         <Text style={styles.playerName}>{item.player.name}</Text>
         <Text style={styles.playerMeta}>
-          {item.player.position} · {item.form.appearances} jogos · {item.form.goals}G {item.form.assists}A
+          {t('report.tech_form_meta', {
+            position: item.player.position,
+            games: item.form.appearances,
+            goals: item.form.goals,
+            assists: item.form.assists,
+          })}
         </Text>
       </View>
       <ValueBadge value={item.form.avgRating.toFixed(1)} tone={tone === 'good' ? 'success' : 'danger'} />
@@ -514,18 +549,25 @@ function FormLine({
 }
 
 function SuggestionInner({ item }: { item: ReplacementSuggestion }) {
+  const { t } = useTranslation();
   return (
     <>
       <Text style={styles.playerName}>{item.benchPlayer.name}</Text>
       <Text style={styles.playerMeta}>
-        {item.benchPlayer.position} · OVR {item.benchPlayer.overall} — concorre com {item.starter.name} (OVR {item.starter.overall})
+        {t('report.tech_suggestion_meta', {
+          position: item.benchPlayer.position,
+          ovr: item.benchPlayer.overall,
+          starter: item.starter.name,
+          starterOvr: item.starter.overall,
+        })}
       </Text>
     </>
   );
 }
 
 function EmptyLine({ label }: { label?: string } = {}) {
-  return <Text style={styles.empty}>{label ?? 'Nada a reportar.'}</Text>;
+  const { t } = useTranslation();
+  return <Text style={styles.empty}>{label ?? t('report.tech_nothing_to_report')}</Text>;
 }
 
 // ─── Styles ─────────────────────────────────────────────────────────────────

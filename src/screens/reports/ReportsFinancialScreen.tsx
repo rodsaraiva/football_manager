@@ -11,21 +11,28 @@ import { getFinancesBySeason } from '@/database/queries/finances';
 import { getPlayersByClub } from '@/database/queries/players';
 import { buildFinancialReport, FinancialReport } from '@/engine/reports/financial-report';
 import { RootStackParamList } from '@/navigation/types';
+import { useTranslation } from '@/i18n';
+import type { TKey } from '@/i18n/translate';
 
 type NavProp = NativeStackNavigationProp<RootStackParamList>;
 
-const CATEGORY_LABELS: Record<string, string> = {
-  ticket: 'Bilheteria',
-  tv: 'TV',
-  sponsor: 'Patrocínio',
-  transfer_in: 'Vendas',
-  transfer_out: 'Compras',
-  wages: 'Salários',
-  maintenance: 'Manutenção',
-  bonus: 'Bônus',
-  upgrade: 'Melhorias',
+const CATEGORY_LABEL_KEYS: Record<string, TKey> = {
+  ticket: 'report.fin_cat_ticket',
+  tv: 'report.fin_cat_tv',
+  sponsor: 'report.fin_cat_sponsor',
+  transfer_in: 'report.fin_cat_transfer_in',
+  transfer_out: 'report.fin_cat_transfer_out',
+  wages: 'report.fin_cat_wages',
+  maintenance: 'report.fin_cat_maintenance',
+  bonus: 'report.fin_cat_bonus',
+  upgrade: 'report.fin_cat_upgrade',
+  prize: 'report.fin_cat_prize',
+  assistant_wage: 'report.fin_cat_assistant_wage',
 };
-const labelFor = (type: string) => CATEGORY_LABELS[type] ?? type;
+const labelFor = (t: (k: TKey) => string, type: string): string => {
+  const key = CATEGORY_LABEL_KEYS[type];
+  return key ? t(key) : type;
+};
 
 function formatMoney(n: number): string {
   const sign = n < 0 ? '-' : '';
@@ -36,6 +43,7 @@ function formatMoney(n: number): string {
 }
 
 export function ReportsFinancialScreen() {
+  const { t } = useTranslation();
   const navigation = useNavigation<NavProp>();
   const { playerClubId, season, week, currentSave } = useGameStore();
   const { dbHandle } = useDatabaseStore();
@@ -100,7 +108,7 @@ export function ReportsFinancialScreen() {
   if (!report) {
     return (
       <View style={[commonStyles.screen, styles.center]}>
-        <Text style={styles.subtitle}>Sem dados financeiros ainda.</Text>
+        <Text style={styles.subtitle}>{t('report.fin_no_data')}</Text>
       </View>
     );
   }
@@ -122,24 +130,24 @@ export function ReportsFinancialScreen() {
     >
       {/* Budget highlight */}
       <View style={styles.card}>
-        <Text style={styles.cardLabel}>CAIXA ATUAL</Text>
+        <Text style={styles.cardLabel}>{t('report.fin_current_cash')}</Text>
         <Text style={styles.budgetAmount}>{formatMoney(report.budget)}</Text>
       </View>
 
       {/* Season summary */}
       <View style={styles.card}>
-        <Text style={styles.cardLabel}>TEMPORADA</Text>
-        <StatRow label="Receita" value={formatMoney(report.seasonIncome)} color={colors.success} />
-        <StatRow label="Despesa" value={formatMoney(-report.seasonExpenses)} color={colors.danger} />
+        <Text style={styles.cardLabel}>{t('report.fin_season')}</Text>
+        <StatRow label={t('report.fin_revenue')} value={formatMoney(report.seasonIncome)} color={colors.success} />
+        <StatRow label={t('report.fin_expense')} value={formatMoney(-report.seasonExpenses)} color={colors.danger} />
         <View style={styles.divider} />
-        <StatRow label="Saldo" value={formatMoney(report.seasonNet)} color={netColor} emphasis />
+        <StatRow label={t('report.fin_balance')} value={formatMoney(report.seasonNet)} color={netColor} emphasis />
       </View>
 
       {/* Transfer balance */}
       <View style={styles.card}>
-        <Text style={styles.cardLabel}>TRANSFERÊNCIAS</Text>
+        <Text style={styles.cardLabel}>{t('report.fin_transfers')}</Text>
         <StatRow
-          label="Saldo de transferências"
+          label={t('report.fin_transfer_balance')}
           value={formatMoney(report.transferBalance)}
           color={tbColor}
           emphasis
@@ -148,12 +156,12 @@ export function ReportsFinancialScreen() {
 
       {/* Payroll */}
       <View style={styles.card}>
-        <Text style={styles.cardLabel}>FOLHA SALARIAL</Text>
-        <StatRow label="Folha semanal" value={`${formatMoney(report.weeklyPayroll)}/sem`} color={colors.text} />
-        <StatRow label="Orçamento" value={`${formatMoney(report.wageBudget)}/sem`} color={colors.textSecondary} />
+        <Text style={styles.cardLabel}>{t('report.fin_payroll')}</Text>
+        <StatRow label={t('report.fin_weekly_payroll')} value={`${formatMoney(report.weeklyPayroll)}${t('report.fin_per_week')}`} color={colors.text} />
+        <StatRow label={t('report.fin_budget')} value={`${formatMoney(report.wageBudget)}${t('report.fin_per_week')}`} color={colors.textSecondary} />
         <View style={styles.divider} />
         <StatRow
-          label="Uso do orçamento"
+          label={t('report.fin_budget_usage')}
           value={`${Math.round(report.payrollRatio * 100)}%`}
           color={payrollColor}
           emphasis
@@ -162,9 +170,9 @@ export function ReportsFinancialScreen() {
 
       {/* Projection */}
       <View style={styles.card}>
-        <Text style={styles.cardLabel}>PROJEÇÃO</Text>
+        <Text style={styles.cardLabel}>{t('report.fin_projection')}</Text>
         <StatRow
-          label="Caixa em 10 semanas"
+          label={t('report.fin_cash_in_10_weeks')}
           value={formatMoney(report.projectedBudgetIn10Weeks)}
           color={report.projectedBudgetIn10Weeks >= report.budget ? colors.success : colors.warning}
         />
@@ -173,14 +181,14 @@ export function ReportsFinancialScreen() {
       {/* Category breakdown */}
       {(report.breakdown.income.length > 0 || report.breakdown.expenses.length > 0) && (
         <View style={styles.card}>
-          <Text style={styles.cardLabel}>POR CATEGORIA</Text>
+          <Text style={styles.cardLabel}>{t('report.fin_by_category')}</Text>
           {report.breakdown.income.length > 0 && (
             <>
-              <Text style={styles.subSection}>Receitas</Text>
+              <Text style={styles.subSection}>{t('report.fin_revenues')}</Text>
               {report.breakdown.income.map((b) => (
                 <StatRow
                   key={`in-${b.type}`}
-                  label={labelFor(b.type)}
+                  label={labelFor(t, b.type)}
                   value={formatMoney(b.total)}
                   color={colors.success}
                 />
@@ -189,11 +197,11 @@ export function ReportsFinancialScreen() {
           )}
           {report.breakdown.expenses.length > 0 && (
             <>
-              <Text style={[styles.subSection, { marginTop: 8 }]}>Despesas</Text>
+              <Text style={[styles.subSection, { marginTop: 8 }]}>{t('report.fin_expenses')}</Text>
               {report.breakdown.expenses.map((b) => (
                 <StatRow
                   key={`out-${b.type}`}
-                  label={labelFor(b.type)}
+                  label={labelFor(t, b.type)}
                   value={formatMoney(-b.total)}
                   color={colors.danger}
                 />
@@ -206,18 +214,18 @@ export function ReportsFinancialScreen() {
       {/* Previous season comparison */}
       {report.previousSeason && (
         <View style={styles.card}>
-          <Text style={styles.cardLabel}>VS. TEMPORADA ANTERIOR</Text>
-          <DeltaRow label="Receita" delta={report.previousSeason.incomeDelta} positiveIsGood />
-          <DeltaRow label="Despesa" delta={report.previousSeason.expensesDelta} positiveIsGood={false} />
+          <Text style={styles.cardLabel}>{t('report.fin_vs_previous_season')}</Text>
+          <DeltaRow label={t('report.fin_revenue')} delta={report.previousSeason.incomeDelta} positiveIsGood />
+          <DeltaRow label={t('report.fin_expense')} delta={report.previousSeason.expensesDelta} positiveIsGood={false} />
           <View style={styles.divider} />
-          <DeltaRow label="Saldo" delta={report.previousSeason.netDelta} positiveIsGood emphasis />
+          <DeltaRow label={t('report.fin_balance')} delta={report.previousSeason.netDelta} positiveIsGood emphasis />
         </View>
       )}
 
       {/* Top salaries */}
       {report.topSalaries.length > 0 && (
         <View style={styles.card}>
-          <Text style={styles.cardLabel}>MAIORES SALÁRIOS</Text>
+          <Text style={styles.cardLabel}>{t('report.fin_top_salaries')}</Text>
           {report.topSalaries.map((s) => (
             <Pressable
               key={s.playerId}
@@ -227,10 +235,10 @@ export function ReportsFinancialScreen() {
               <View style={{ flex: 1 }}>
                 <Text style={styles.salaryName}>{s.name}</Text>
                 <Text style={styles.salaryMeta}>
-                  {s.position} · {Math.round(s.shareOfPayroll * 100)}% da folha
+                  {s.position} · {t('report.fin_share_of_payroll', { pct: Math.round(s.shareOfPayroll * 100) })}
                 </Text>
               </View>
-              <Text style={styles.salaryValue}>{formatMoney(s.wage)}/sem</Text>
+              <Text style={styles.salaryValue}>{formatMoney(s.wage)}{t('report.fin_per_week')}</Text>
             </Pressable>
           ))}
         </View>
@@ -238,7 +246,7 @@ export function ReportsFinancialScreen() {
 
       {/* Suggestions */}
       <View style={styles.card}>
-        <Text style={styles.cardLabel}>RECOMENDAÇÕES</Text>
+        <Text style={styles.cardLabel}>{t('report.fin_recommendations')}</Text>
         {report.suggestions.map((s, i) => (
           <View key={i} style={styles.suggestionLine}>
             <Text style={styles.suggestionBullet}>•</Text>

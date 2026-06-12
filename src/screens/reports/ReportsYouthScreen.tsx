@@ -15,6 +15,8 @@ import { buildYouthReport, YouthReport, YouthListItem, U21_AGE_LIMIT } from '@/e
 import { FORM_WINDOW, SquadPlayer } from '@/engine/reports/technical-report';
 import { MatchEvent, Position } from '@/types';
 import { RootStackParamList } from '@/navigation/types';
+import { useTranslation } from '@/i18n';
+import type { TKey } from '@/i18n/translate';
 
 type NavProp = NativeStackNavigationProp<RootStackParamList>;
 type PositionFilter = 'ALL' | 'GK' | 'DEF' | 'MID' | 'ATT';
@@ -25,15 +27,20 @@ const POSITION_GROUPS: Record<Exclude<PositionFilter, 'ALL'>, Position[]> = {
   MID: ['CDM', 'CM', 'CAM', 'LM', 'RM'],
   ATT: ['LW', 'RW', 'ST'],
 };
-const FILTER_LABELS: Record<PositionFilter, string> = {
-  ALL: 'Todos',
-  GK: 'GK',
-  DEF: 'DEF',
-  MID: 'MEI',
-  ATT: 'ATA',
-};
+const FILTER_ORDER: PositionFilter[] = ['ALL', 'GK', 'DEF', 'MID', 'ATT'];
+function filterLabel(opt: PositionFilter, t: (k: TKey) => string): string {
+  if (opt === 'ALL') return t('report.youth_filter_all');
+  const labels: Record<Exclude<PositionFilter, 'ALL'>, string> = {
+    GK: 'GK',
+    DEF: 'DEF',
+    MID: 'MEI',
+    ATT: 'ATA',
+  };
+  return labels[opt];
+}
 
 export function ReportsYouthScreen() {
+  const { t } = useTranslation();
   const navigation = useNavigation<NavProp>();
   const { playerClubId, season, week, currentSave } = useGameStore();
   const saveId = currentSave?.id;
@@ -114,7 +121,7 @@ export function ReportsYouthScreen() {
   if (!report || report.topProspects.length === 0) {
     return (
       <View style={[commonStyles.screen, styles.center]}>
-        <EmptyState icon="🌱" title={`Nenhum jogador com até ${U21_AGE_LIMIT} anos no elenco.`} />
+        <EmptyState icon="🌱" title={t('report.youth_empty_squad', { limit: U21_AGE_LIMIT })} />
       </View>
     );
   }
@@ -139,10 +146,10 @@ export function ReportsYouthScreen() {
     >
       <View style={styles.header}>
         <Text style={styles.headerIntro}>
-          Análise detalhada dos atletas com até {U21_AGE_LIMIT} anos.
+          {t('report.youth_intro', { limit: U21_AGE_LIMIT })}
         </Text>
         <View style={styles.filterRow}>
-          {(Object.keys(FILTER_LABELS) as PositionFilter[]).map((opt) => (
+          {FILTER_ORDER.map((opt) => (
             <Pressable
               key={opt}
               onPress={() => setFilter(opt)}
@@ -151,7 +158,7 @@ export function ReportsYouthScreen() {
               <Text
                 style={[styles.filterChipText, filter === opt && styles.filterChipTextActive]}
               >
-                {FILTER_LABELS[opt]}
+                {filterLabel(opt, t)}
               </Text>
             </Pressable>
           ))}
@@ -159,7 +166,7 @@ export function ReportsYouthScreen() {
       </View>
 
       {filteredTop.length > 0 ? (
-        <Section title="⭐ Principais promessas" subtitle="Mistura de overall atual e potencial">
+        <Section title={t('report.youth_section_prospects')} subtitle={t('report.youth_section_prospects_sub')}>
           {filteredTop.map((it) => (
             <Pressable
               key={it.player.id}
@@ -171,13 +178,13 @@ export function ReportsYouthScreen() {
           ))}
         </Section>
       ) : (
-        <SectionCard title="⭐ Principais promessas">
-          <EmptyState icon="🌱" title="Nenhum jovem nesta posição." />
+        <SectionCard title={t('report.youth_section_prospects')}>
+          <EmptyState icon="🌱" title={t('report.youth_empty_position')} />
         </SectionCard>
       )}
 
       {filteredUnderused.length > 0 && (
-        <Section title="⏱️ Subutilizados" subtitle="Bom overall, nenhum minuto recente">
+        <Section title={t('report.youth_section_underused')} subtitle={t('report.youth_section_underused_sub')}>
           {filteredUnderused.map((it) => (
             <Pressable
               key={it.player.id}
@@ -191,7 +198,7 @@ export function ReportsYouthScreen() {
       )}
 
       {filteredGaps.length > 0 && (
-        <Section title="📈 Maior espaço para crescer" subtitle="Maior gap de potencial não atingido">
+        <Section title={t('report.youth_section_gaps')} subtitle={t('report.youth_section_gaps_sub')}>
           {filteredGaps.map((it) => (
             <Pressable
               key={it.player.id}
@@ -224,6 +231,7 @@ function Section({
 }
 
 function YouthCard({ item, ready = false }: { item: YouthListItem; ready?: boolean }) {
+  const { t } = useTranslation();
   const { player, form, potentialGap, starterComparison, insight } = item;
   return (
     <View style={styles.youthCard}>
@@ -233,16 +241,16 @@ function YouthCard({ item, ready = false }: { item: YouthListItem; ready?: boole
             <Text style={styles.youthName}>{player.name}</Text>
             {ready ? (
               <View style={styles.readyBadge}>
-                <Text style={styles.readyBadgeText}>PRONTO</Text>
+                <Text style={styles.readyBadgeText}>{t('report.youth_badge_ready')}</Text>
               </View>
             ) : (
               <View style={styles.promiseBadge}>
-                <Text style={styles.promiseBadgeText}>PROMESSA</Text>
+                <Text style={styles.promiseBadgeText}>{t('report.youth_badge_promise')}</Text>
               </View>
             )}
           </View>
           <Text style={styles.youthMeta}>
-            {player.position} · {player.age}a
+            {t('report.youth_pos_age', { position: player.position, age: player.age })}
           </Text>
         </View>
         <View style={styles.youthBadges}>
@@ -253,16 +261,16 @@ function YouthCard({ item, ready = false }: { item: YouthListItem; ready?: boole
 
       <View style={styles.youthStats}>
         <StatChip icon="⚽" label={`${form.goals}G ${form.assists}A`} />
-        <StatChip icon="🏟️" label={`${form.appearances} jogos`} />
+        <StatChip icon="🏟️" label={t('report.youth_stat_games', { count: form.appearances })} />
         {form.appearances > 0 && (
-          <StatChip icon="📊" label={`${form.avgRating.toFixed(1)} média`} />
+          <StatChip icon="📊" label={t('report.youth_stat_rating', { rating: form.avgRating.toFixed(1) })} />
         )}
-        <StatChip icon="📈" label={`gap ${potentialGap}`} />
+        <StatChip icon="📈" label={t('report.youth_stat_gap', { gap: potentialGap })} />
       </View>
 
       {starterComparison && (
         <Text style={styles.comparisonText}>
-          Titular da posição:{' '}
+          {t('report.youth_starter_label')}{' '}
           <Text style={styles.comparisonBold}>{starterComparison.starterName}</Text>{' '}
           (OVR {starterComparison.starterOverall}){' '}
           <Text
@@ -282,12 +290,17 @@ function YouthCard({ item, ready = false }: { item: YouthListItem; ready?: boole
 }
 
 function CompactRow({ item, showGap = false }: { item: YouthListItem; showGap?: boolean }) {
+  const { t } = useTranslation();
   return (
     <View style={styles.compactRow}>
       <View style={styles.compactLeft}>
         <Text style={styles.compactName}>{item.player.name}</Text>
         <Text style={styles.compactMeta}>
-          {item.player.position} · {item.player.age}a · OVR {item.player.overall}
+          {t('report.youth_pos_age_ovr', {
+            position: item.player.position,
+            age: item.player.age,
+            ovr: item.player.overall,
+          })}
         </Text>
       </View>
       {showGap && (

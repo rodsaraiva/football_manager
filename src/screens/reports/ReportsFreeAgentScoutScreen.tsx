@@ -17,6 +17,8 @@ import {
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { colors, spacing, fontSize, commonStyles } from '@/theme';
+import { useTranslation } from '@/i18n';
+import type { TKey } from '@/i18n/translate';
 import { EmptyState } from '@/components/EmptyState';
 import { useGameStore } from '@/store/game-store';
 import { useDatabaseStore } from '@/store/database-store';
@@ -64,6 +66,7 @@ function FitBar({ score }: { score: number }) {
 // ─── AgentCard ───────────────────────────────────────────────────────────────
 
 function AgentCard({ item, onPress }: { item: FreeAgentFit; onPress: () => void }) {
+  const { t } = useTranslation();
   const isInjured = item.player.injuryWeeksLeft > 0;
 
   return (
@@ -77,23 +80,23 @@ function AgentCard({ item, onPress }: { item: FreeAgentFit; onPress: () => void 
             <Text style={styles.playerName}>{item.player.name}</Text>
             {isInjured && (
               <View style={styles.injuredBadge}>
-                <Text style={styles.injuredText}>Lesionado</Text>
+                <Text style={styles.injuredText}>{t('report.scout_injured')}</Text>
               </View>
             )}
           </View>
           <Text style={styles.playerMeta}>
-            {item.coversPosition} · {item.player.age} anos · OVR {item.overall}
+            {item.coversPosition} · {t('report.scout_years', { age: item.player.age })} · OVR {item.overall}
           </Text>
         </View>
         <View style={styles.wageBox}>
           <Text style={styles.wageValue}>{formatWage(item.player.wage)}</Text>
-          <Text style={styles.wageLabel}>/sem</Text>
+          <Text style={styles.wageLabel}>{t('report.scout_per_week')}</Text>
         </View>
       </View>
 
       <View style={styles.fitRow}>
         <Text style={[styles.fitLabel, { color: fitScoreColor(item.fitScore) }]}>
-          Fit {item.fitScore.toFixed(0)}
+          {t('report.scout_fit', { score: item.fitScore.toFixed(0) })}
         </Text>
         <FitBar score={item.fitScore} />
         <Text style={styles.gapText}>
@@ -113,11 +116,12 @@ function formatWage(w: number): string {
 // ─── SquadGapsSection ────────────────────────────────────────────────────────
 
 function SquadGapsSection({ gaps }: { gaps: SquadGap[] }) {
+  const { t } = useTranslation();
   if (gaps.length === 0) return null;
   const top5 = gaps.slice(0, 5);
   return (
     <View style={styles.gapsSection}>
-      <Text style={styles.sectionTitle}>Lacunas no elenco</Text>
+      <Text style={styles.sectionTitle}>{t('report.scout_squad_gaps')}</Text>
       <View style={styles.gapsRow}>
         {top5.map((g) => (
           <View key={g.position} style={styles.gapChip}>
@@ -150,6 +154,7 @@ interface FiltersBarProps {
 }
 
 function FiltersBar({ filters, onChange, maxBudget }: FiltersBarProps) {
+  const { t } = useTranslation();
   const steps = [0, 50, 60, 70, 80];
   const wageLimits = [0, 10_000, 50_000, 100_000, 250_000, 500_000, 1_000_000];
   const effectiveMax = maxBudget > 0 ? maxBudget : 1_000_000;
@@ -157,7 +162,7 @@ function FiltersBar({ filters, onChange, maxBudget }: FiltersBarProps) {
   return (
     <View style={styles.filtersContainer}>
       {/* Position filter */}
-      <Text style={styles.filterLabel}>Posição</Text>
+      <Text style={styles.filterLabel}>{t('report.scout_filter_position')}</Text>
       <FlatList
         horizontal
         data={POSITIONS}
@@ -178,14 +183,14 @@ function FiltersBar({ filters, onChange, maxBudget }: FiltersBarProps) {
                 filters.position === pos && styles.filterChipTextActive,
               ]}
             >
-              {pos}
+              {pos === ALL_POSITIONS ? t('report.scout_filter_all') : pos}
             </Text>
           </Pressable>
         )}
       />
 
       {/* Min overall filter */}
-      <Text style={styles.filterLabel}>OVR mínimo</Text>
+      <Text style={styles.filterLabel}>{t('report.scout_filter_min_ovr')}</Text>
       <View style={styles.filterRow}>
         {steps.map((s) => (
           <Pressable
@@ -194,14 +199,14 @@ function FiltersBar({ filters, onChange, maxBudget }: FiltersBarProps) {
             onPress={() => onChange({ ...filters, minOverall: s })}
           >
             <Text style={[styles.filterChipText, filters.minOverall === s && styles.filterChipTextActive]}>
-              {s === 0 ? 'Todos' : `${s}+`}
+              {s === 0 ? t('report.scout_filter_all') : `${s}+`}
             </Text>
           </Pressable>
         ))}
       </View>
 
       {/* Max wage filter */}
-      <Text style={styles.filterLabel}>Salário máx.</Text>
+      <Text style={styles.filterLabel}>{t('report.scout_filter_max_wage')}</Text>
       <FlatList
         horizontal
         data={wageLimits}
@@ -209,7 +214,7 @@ function FiltersBar({ filters, onChange, maxBudget }: FiltersBarProps) {
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.filterRow}
         renderItem={({ item: w }) => {
-          const label = w === 0 ? 'Todos' : formatWage(w);
+          const label = w === 0 ? t('report.scout_filter_all') : formatWage(w);
           const active = filters.maxWage === (w === 0 ? Infinity : w);
           return (
             <Pressable
@@ -230,6 +235,7 @@ function FiltersBar({ filters, onChange, maxBudget }: FiltersBarProps) {
 // ─── Main Screen ─────────────────────────────────────────────────────────────
 
 export function ReportsFreeAgentScoutScreen() {
+  const { t } = useTranslation();
   const { playerClubId, playerClub, currentSave } = useGameStore();
   const { dbHandle } = useDatabaseStore();
   const saveId = currentSave?.id;
@@ -313,7 +319,7 @@ export function ReportsFreeAgentScoutScreen() {
   if (!scoutData) {
     return (
       <View style={[commonStyles.screen, styles.center]}>
-        <Text style={styles.emptyText}>Sem dados disponíveis.</Text>
+        <Text style={styles.emptyText}>{t('report.scout_no_data')}</Text>
       </View>
     );
   }
@@ -323,10 +329,10 @@ export function ReportsFreeAgentScoutScreen() {
       <SquadGapsSection gaps={scoutData.squadGaps} />
       <View style={styles.budgetBar}>
         <Text style={styles.budgetText}>
-          Espaço salarial: {formatWage(scoutData.wageBudgetRemaining)}
+          {t('report.scout_wage_space', { value: formatWage(scoutData.wageBudgetRemaining) })}
         </Text>
         <Text style={styles.budgetSub}>
-          {scoutData.fits.length} agentes avaliados
+          {t('report.scout_agents_evaluated', { count: scoutData.fits.length })}
         </Text>
       </View>
       <FiltersBar
@@ -337,8 +343,8 @@ export function ReportsFreeAgentScoutScreen() {
       {filteredFits.length === 0 && (
         <EmptyState
           icon="👍"
-          title="Nenhum agente encontrado"
-          description="O teu elenco está bem coberto para os filtros selecionados. Tenta ampliar os critérios."
+          title={t('report.scout_empty_title')}
+          description={t('report.scout_empty_description')}
         />
       )}
     </>
