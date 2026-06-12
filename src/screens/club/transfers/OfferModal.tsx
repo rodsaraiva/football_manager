@@ -10,6 +10,7 @@ import {
   Alert,
 } from 'react-native';
 import { colors, spacing, fontSize } from '@/theme';
+import { useTranslation } from '@/i18n';
 
 export type OfferKind = 'transfer' | 'loan';
 
@@ -56,6 +57,7 @@ export function OfferModal({
   buyerBudget,
   currentSeason,
 }: OfferModalProps) {
+  const { t } = useTranslation();
   const suggestedFee = Math.round(marketValue * 1.05);
   const suggestedWage = Math.round(currentWage * 1.1);
   // Loan fee is typically 10-20% of market value
@@ -95,15 +97,15 @@ export function OfferModal({
 
   const handleSubmit = async () => {
     if (insufficientBudget) {
-      Alert.alert('Insufficient budget', `Your budget is ${formatMoney(buyerBudget)}, the offer is ${formatMoney(fee)}.`);
+      Alert.alert(t('transfer.alert_budget_title'), t('transfer.alert_budget_msg', { budget: formatMoney(buyerBudget), offer: formatMoney(fee) }));
       return;
     }
     if (fee < 0) {
-      Alert.alert('Invalid fee', 'Fee cannot be negative.');
+      Alert.alert(t('transfer.alert_fee_title'), t('transfer.alert_fee_msg'));
       return;
     }
     if (wage <= 0) {
-      Alert.alert('Invalid wage', 'Wage must be greater than zero.');
+      Alert.alert(t('transfer.alert_wage_title'), t('transfer.alert_wage_msg'));
       return;
     }
     setSubmitting(true);
@@ -123,7 +125,7 @@ export function OfferModal({
       <View style={styles.backdrop}>
         <View style={styles.sheet}>
           <ScrollView contentContainerStyle={styles.sheetContent}>
-            <Text style={styles.title}>Make an Offer</Text>
+            <Text style={styles.title}>{t('transfer.make_offer')}</Text>
 
             {/* Type toggle */}
             <View style={styles.kindRow}>
@@ -132,7 +134,7 @@ export function OfferModal({
                 onPress={() => setKind('transfer')}
               >
                 <Text style={[styles.kindTabText, kind === 'transfer' && styles.kindTabTextActive]}>
-                  Transfer
+                  {t('transfer.kind_transfer')}
                 </Text>
               </Pressable>
               <Pressable
@@ -140,7 +142,7 @@ export function OfferModal({
                 onPress={() => setKind('loan')}
               >
                 <Text style={[styles.kindTabText, kind === 'loan' && styles.kindTabTextActive]}>
-                  Loan
+                  {t('transfer.kind_loan')}
                 </Text>
               </Pressable>
             </View>
@@ -149,22 +151,22 @@ export function OfferModal({
             <View style={styles.playerCard}>
               <Text style={styles.playerName}>{playerName}</Text>
               <Text style={styles.playerMeta}>
-                {playerPosition} · Age {playerAge} · OVR {playerOverall}
+                {t('transfer.player_meta', { position: playerPosition, age: playerAge, ovr: playerOverall })}
               </Text>
               <View style={styles.playerStats}>
                 <View style={styles.playerStat}>
-                  <Text style={styles.playerStatLabel}>Market Value</Text>
+                  <Text style={styles.playerStatLabel}>{t('transfer.market_value')}</Text>
                   <Text style={styles.playerStatValue}>{formatMoney(marketValue)}</Text>
                 </View>
                 <View style={styles.playerStat}>
-                  <Text style={styles.playerStatLabel}>Current Wage</Text>
+                  <Text style={styles.playerStatLabel}>{t('transfer.current_wage')}</Text>
                   <Text style={styles.playerStatValue}>{formatMoney(currentWage)}/wk</Text>
                 </View>
               </View>
             </View>
 
             {/* Fee input */}
-            <Text style={styles.fieldLabel}>{kind === 'loan' ? 'Loan Fee' : 'Transfer Fee'}</Text>
+            <Text style={styles.fieldLabel}>{kind === 'loan' ? t('transfer.loan_fee') : t('transfer.transfer_fee')}</Text>
             <TextInput
               style={[
                 styles.input,
@@ -174,42 +176,42 @@ export function OfferModal({
               value={feeStr}
               onChangeText={setFeeStr}
               keyboardType="numeric"
-              placeholder="Fee"
+              placeholder={t('transfer.fee_placeholder')}
               placeholderTextColor={colors.textMuted}
             />
             <View style={styles.helperRow}>
               <Text style={styles.helperText}>{formatMoney(fee)}</Text>
               <Text style={[styles.helperText, feeRatioColor(feeRatio)]}>
-                {Math.round(feeRatio * 100)}% of market value
+                {t('transfer.pct_of_market', { pct: Math.round(feeRatio * 100) })}
               </Text>
             </View>
             {insufficientBudget && (
               <Text style={styles.errorText}>
-                Exceeds your budget ({formatMoney(buyerBudget)})
+                {t('transfer.exceeds_budget', { budget: formatMoney(buyerBudget) })}
               </Text>
             )}
 
             {/* Wage input */}
-            <Text style={[styles.fieldLabel, styles.fieldLabelSpaced]}>Weekly Wage</Text>
+            <Text style={[styles.fieldLabel, styles.fieldLabelSpaced]}>{t('transfer.weekly_wage')}</Text>
             <TextInput
               style={styles.input}
               value={wageStr}
               onChangeText={setWageStr}
               keyboardType="numeric"
-              placeholder="Wage / week"
+              placeholder={t('transfer.wage_placeholder')}
               placeholderTextColor={colors.textMuted}
             />
             <View style={styles.helperRow}>
               <Text style={styles.helperText}>{formatMoney(wage)}/wk</Text>
               <Text style={styles.helperText}>
-                {currentWage > 0 ? `${Math.round((wage / currentWage) * 100)}% of current` : ''}
+                {currentWage > 0 ? t('transfer.pct_of_current', { pct: Math.round((wage / currentWage) * 100) }) : ''}
               </Text>
             </View>
 
             {/* Loan duration (only when kind = loan) */}
             {kind === 'loan' && (
               <>
-                <Text style={[styles.fieldLabel, styles.fieldLabelSpaced]}>Loan Duration</Text>
+                <Text style={[styles.fieldLabel, styles.fieldLabelSpaced]}>{t('transfer.loan_duration')}</Text>
                 <View style={styles.presets}>
                   {[1, 2].map((yr) => (
                     <Pressable
@@ -223,13 +225,13 @@ export function OfferModal({
                           loanSeasons === yr && styles.presetTextActive,
                         ]}
                       >
-                        {yr} season{yr > 1 ? 's' : ''}
+                        {t(yr > 1 ? 'transfer.seasons_other' : 'transfer.seasons_one', { n: yr })}
                       </Text>
                     </Pressable>
                   ))}
                 </View>
                 <Text style={styles.helperText}>
-                  Returns to parent club after season {currentSeason + loanSeasons}
+                  {t('transfer.loan_returns', { season: currentSeason + loanSeasons })}
                 </Text>
               </>
             )}
@@ -240,7 +242,7 @@ export function OfferModal({
                 style={styles.preset}
                 onPress={() => setFeeStr(String(marketValue))}
               >
-                <Text style={styles.presetText}>Market Value</Text>
+                <Text style={styles.presetText}>{t('transfer.market_value')}</Text>
               </Pressable>
               <Pressable
                 style={styles.preset}
@@ -259,14 +261,14 @@ export function OfferModal({
             {/* Actions */}
             <View style={styles.actions}>
               <Pressable style={[styles.btn, styles.btnSecondary]} onPress={onClose} disabled={submitting}>
-                <Text style={styles.btnSecondaryText}>Cancel</Text>
+                <Text style={styles.btnSecondaryText}>{t('common.cancel')}</Text>
               </Pressable>
               <Pressable
                 style={[styles.btn, styles.btnPrimary, (insufficientBudget || submitting) && styles.btnDisabled]}
                 onPress={handleSubmit}
                 disabled={insufficientBudget || submitting}
               >
-                <Text style={styles.btnPrimaryText}>{submitting ? 'Sending...' : 'Send Offer'}</Text>
+                <Text style={styles.btnPrimaryText}>{submitting ? t('transfer.sending') : t('transfer.send_offer')}</Text>
               </Pressable>
             </View>
           </ScrollView>
