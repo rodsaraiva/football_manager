@@ -382,7 +382,7 @@ export default function PlayerDetailScreen({ player, onBack }: PlayerDetailScree
                   onChangeText={setAskingPriceText}
                   onBlur={handleBlurAskingPrice}
                   keyboardType="numeric"
-                  placeholder="Open to offers"
+                  placeholder={t('tactics.asking_price_placeholder')}
                   placeholderTextColor={colors.textMuted}
                 />
               </View>
