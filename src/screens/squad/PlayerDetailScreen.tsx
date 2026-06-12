@@ -49,39 +49,21 @@ function formatCurrency(value: number): string {
 }
 
 
-const TECHNICAL_ATTRS: { key: keyof PlayerAttributes; label: string }[] = [
-  { key: 'finishing', label: 'Finishing' },
-  { key: 'passing', label: 'Passing' },
-  { key: 'crossing', label: 'Crossing' },
-  { key: 'dribbling', label: 'Dribbling' },
-  { key: 'heading', label: 'Heading' },
-  { key: 'longShots', label: 'Long Shots' },
-  { key: 'freeKicks', label: 'Free Kicks' },
-];
+/** Maps a camelCase PlayerAttributes key to its shared `tactics.attr_*` i18n key. */
+function attrI18nKey(k: keyof PlayerAttributes): TKey {
+  return ('tactics.attr_' + String(k).replace(/([A-Z])/g, '_$1').toLowerCase()) as TKey;
+}
 
-const MENTAL_ATTRS: { key: keyof PlayerAttributes; label: string }[] = [
-  { key: 'vision', label: 'Vision' },
-  { key: 'composure', label: 'Composure' },
-  { key: 'decisions', label: 'Decisions' },
-  { key: 'positioning', label: 'Positioning' },
-  { key: 'aggression', label: 'Aggression' },
-  { key: 'leadership', label: 'Leadership' },
-];
+const TECHNICAL_ATTRS: (keyof PlayerAttributes)[] = ['finishing', 'passing', 'crossing', 'dribbling', 'heading', 'longShots', 'freeKicks'];
+const MENTAL_ATTRS: (keyof PlayerAttributes)[] = ['vision', 'composure', 'decisions', 'positioning', 'aggression', 'leadership'];
+const PHYSICAL_ATTRS: (keyof PlayerAttributes)[] = ['pace', 'stamina', 'strength', 'agility', 'jumping'];
 
-const PHYSICAL_ATTRS: { key: keyof PlayerAttributes; label: string }[] = [
-  { key: 'pace', label: 'Pace' },
-  { key: 'stamina', label: 'Stamina' },
-  { key: 'strength', label: 'Strength' },
-  { key: 'agility', label: 'Agility' },
-  { key: 'jumping', label: 'Jumping' },
-];
-
-function awardLabel(a: SeasonAward): string {
+function awardLabel(a: SeasonAward, t: (k: TKey, v?: Record<string, string | number>) => string): string {
   switch (a.awardType) {
-    case 'top_scorer': return `Top Scorer (rank ${a.rank})`;
-    case 'top_assister': return `Top Assister (rank ${a.rank})`;
-    case 'mvp': return 'MVP';
-    case 'breakthrough': return 'Breakthrough Player';
+    case 'top_scorer': return t('playerdetail.award_top_scorer', { rank: a.rank });
+    case 'top_assister': return t('playerdetail.award_top_assister', { rank: a.rank });
+    case 'mvp': return t('history.mvp');
+    case 'breakthrough': return t('playerdetail.award_breakthrough');
   }
 }
 
@@ -177,11 +159,11 @@ export default function PlayerDetailScreen({ player, onBack }: PlayerDetailScree
     if (!dbHandle || !player || saveId == null) return;
     let cancelled = false;
     (async () => {
-      const [a, t] = await Promise.all([
+      const [a, ttls] = await Promise.all([
         getPlayerAwards(dbHandle, saveId, player.id),
         getPlayerTitles(dbHandle, saveId, player.id),
       ]);
-      if (!cancelled) { setAwards(a); setTitles(t); }
+      if (!cancelled) { setAwards(a); setTitles(ttls); }
     })();
     return () => { cancelled = true; };
   }, [dbHandle, player?.id]);
@@ -227,10 +209,10 @@ export default function PlayerDetailScreen({ player, onBack }: PlayerDetailScree
     return (
       <View style={commonStyles.screen}>
         <Pressable style={styles.backButton} onPress={onBack}>
-          <Text style={styles.backButtonText}>← Back to Squad</Text>
+          <Text style={styles.backButtonText}>{t('playerdetail.back')}</Text>
         </Pressable>
         <View style={styles.centered}>
-          <Text style={{ color: colors.textMuted, fontSize: fontSize.md }}>Player not found</Text>
+          <Text style={{ color: colors.textMuted, fontSize: fontSize.md }}>{t('playerdetail.not_found')}</Text>
         </View>
       </View>
     );
@@ -243,7 +225,7 @@ export default function PlayerDetailScreen({ player, onBack }: PlayerDetailScree
   return (
     <View style={commonStyles.screen}>
       <Pressable style={styles.backButton} onPress={onBack}>
-        <Text style={styles.backButtonText}>← Back to Squad</Text>
+        <Text style={styles.backButtonText}>{t('playerdetail.back')}</Text>
       </Pressable>
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
@@ -258,7 +240,7 @@ export default function PlayerDetailScreen({ player, onBack }: PlayerDetailScree
                     {player.position}
                   </Text>
                 </View>
-                <Text style={styles.metaText}>Age {player.age}</Text>
+                <Text style={styles.metaText}>{t('tactics.detail_age', { age: player.age })}</Text>
                 <Text style={styles.metaText}>{player.nationality}</Text>
               </View>
             </View>
@@ -277,11 +259,11 @@ export default function PlayerDetailScreen({ player, onBack }: PlayerDetailScree
           {/* Foot info */}
           <View style={styles.footRow}>
             <View style={styles.footItem}>
-              <Text style={styles.footLabel}>Pé Preferido</Text>
-              <Text style={styles.footValue}>{player.preferredFoot === 'left' ? 'Esquerdo' : 'Direito'}</Text>
+              <Text style={styles.footLabel}>{t('playerdetail.preferred_foot')}</Text>
+              <Text style={styles.footValue}>{player.preferredFoot === 'left' ? t('playerdetail.foot_left') : t('playerdetail.foot_right')}</Text>
             </View>
             <View style={styles.footItem}>
-              <Text style={styles.footLabel}>Pé Ruim</Text>
+              <Text style={styles.footLabel}>{t('tactics.detail_weak_foot')}</Text>
               <Text style={styles.footStars}>{'★'.repeat(player.weakFootAbility)}{'☆'.repeat(5 - player.weakFootAbility)}</Text>
             </View>
           </View>
@@ -297,40 +279,40 @@ export default function PlayerDetailScreen({ player, onBack }: PlayerDetailScree
 
         {/* Attributes */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Technical</Text>
-          {TECHNICAL_ATTRS.map(({ key, label }) => (
-            <StatBar key={key} label={label} value={player.attributes[key]} />
+          <Text style={styles.sectionTitle}>{t('tactics.section_technical')}</Text>
+          {TECHNICAL_ATTRS.map((key) => (
+            <StatBar key={key} label={t(attrI18nKey(key))} value={player.attributes[key]} />
           ))}
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Mental</Text>
-          {MENTAL_ATTRS.map(({ key, label }) => (
-            <StatBar key={key} label={label} value={player.attributes[key]} />
+          <Text style={styles.sectionTitle}>{t('tactics.section_mental')}</Text>
+          {MENTAL_ATTRS.map((key) => (
+            <StatBar key={key} label={t(attrI18nKey(key))} value={player.attributes[key]} />
           ))}
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Physical</Text>
-          {PHYSICAL_ATTRS.map(({ key, label }) => (
-            <StatBar key={key} label={label} value={player.attributes[key]} />
+          <Text style={styles.sectionTitle}>{t('tactics.section_physical')}</Text>
+          {PHYSICAL_ATTRS.map((key) => (
+            <StatBar key={key} label={t(attrI18nKey(key))} value={player.attributes[key]} />
           ))}
         </View>
 
         {/* Contract Info */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Contract</Text>
+          <Text style={styles.sectionTitle}>{t('playerdetail.contract')}</Text>
           <View style={styles.contractRow}>
             <View style={styles.contractItem}>
-              <Text style={commonStyles.label}>Weekly Wage</Text>
+              <Text style={commonStyles.label}>{t('transfer.weekly_wage')}</Text>
               <Text style={styles.contractValue}>{formatCurrency(player.wage)}</Text>
             </View>
             <View style={styles.contractItem}>
-              <Text style={commonStyles.label}>Contract Ends</Text>
-              <Text style={styles.contractValue}>Season {player.contractEnd}</Text>
+              <Text style={commonStyles.label}>{t('playerdetail.contract_ends')}</Text>
+              <Text style={styles.contractValue}>{t('standings.season', { season: player.contractEnd })}</Text>
             </View>
             <View style={styles.contractItem}>
-              <Text style={commonStyles.label}>Market Value</Text>
+              <Text style={commonStyles.label}>{t('transfer.market_value')}</Text>
               <Text style={styles.contractValue}>{formatCurrency(player.marketValue)}</Text>
             </View>
           </View>
@@ -351,21 +333,21 @@ export default function PlayerDetailScreen({ player, onBack }: PlayerDetailScree
 
         {/* Career */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Career</Text>
+          <Text style={styles.sectionTitle}>{t('playerdetail.career')}</Text>
 
-          <Text style={styles.careerSubHeading}>Titles</Text>
-          {titles.length === 0 && <Text style={styles.careerEmpty}>No titles yet.</Text>}
-          {titles.map((t, i) => (
+          <Text style={styles.careerSubHeading}>{t('playerdetail.titles')}</Text>
+          {titles.length === 0 && <Text style={styles.careerEmpty}>{t('playerdetail.no_titles')}</Text>}
+          {titles.map((title, i) => (
             <Text key={`title-${i}`} style={styles.careerRow}>
-              {t.competitionName} — Season {t.season}
+              {title.competitionName} — {t('standings.season', { season: title.season })}
             </Text>
           ))}
 
-          <Text style={styles.careerSubHeading}>Individual Awards</Text>
-          {awards.length === 0 && <Text style={styles.careerEmpty}>No awards yet.</Text>}
+          <Text style={styles.careerSubHeading}>{t('playerdetail.awards')}</Text>
+          {awards.length === 0 && <Text style={styles.careerEmpty}>{t('playerdetail.no_awards')}</Text>}
           {awards.map((a, i) => (
             <Text key={`award-${i}`} style={styles.careerRow}>
-              {awardLabel(a)} — {a.competitionName} ({a.season})
+              {awardLabel(a, t)} — {a.competitionName} ({a.season})
               {a.awardType === 'top_scorer' || a.awardType === 'top_assister' ? ` · ${a.value}` : ''}
             </Text>
           ))}
