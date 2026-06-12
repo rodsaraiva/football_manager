@@ -50,3 +50,17 @@ export const YELLOW_SUSPENSION_WEEKS = 1;
 // Pressing modifier on attack, centred on medium (pressFactor 0.5).
 // high(0.8) ⇒ +3.6% attack, low(0.3) ⇒ -2.4% attack.
 export const PRESSING_ATTACK_GAIN = 0.12;
+
+// ─── Morale dynamics (progression-wired) ─────────────────────────────────────
+export const MORALE_WIN_BONUS = 3;
+export const MORALE_LOSS_PENALTY = -4;
+export const MORALE_DRAW_DELTA = 0;
+export const MORALE_BENCH_PENALTY = -2;          // per match while benched
+export const MORALE_BENCH_STREAK_EXTRA = -0.5;   // additional per consecutive benched week
+export const MORALE_HEAVY_DEFEAT_EXTRA = -1;     // applied when conceding by >=3
+export const MORALE_DRIFT_TARGET = 50;
+export const MORALE_DRIFT_RATE = 0.1;            // fraction of the gap closed per idle week
+
+// ─── Ordinary (age-based) retirement (progression-wired) ─────────────────────
+export const ORDINARY_RETIREMENT_BASE_PROB = 0.05;   // at RETIREMENT_MIN_AGE
+export const ORDINARY_RETIREMENT_AGE_SLOPE = 0.07;   // added per year above the min age
