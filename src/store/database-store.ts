@@ -91,6 +91,9 @@ export const useDatabaseStore = create<DatabaseStore>((set) => ({
       await addColumnIfMissing(db, 'players', 'loan_wage', 'INTEGER');
       await addColumnIfMissing(db, 'clubs', 'debt_weeks', 'INTEGER NOT NULL DEFAULT 0');
 
+      // Board stakes: game-over flag once the manager is dismissed.
+      await addColumnIfMissing(db, 'save_games', 'ended', 'INTEGER NOT NULL DEFAULT 0');
+
       // Progression wiring: club-wide training focus + fractional attribute accumulators
       await addColumnIfMissing(db, 'clubs', 'training_focus', "TEXT NOT NULL DEFAULT 'balanced'");
       for (const c of [

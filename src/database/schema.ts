@@ -301,6 +301,7 @@ CREATE TABLE IF NOT EXISTS save_games (
   player_club_id  INTEGER NOT NULL REFERENCES clubs(id),
   difficulty      TEXT    NOT NULL DEFAULT 'normal',
   board_trust     INTEGER NOT NULL DEFAULT 50,
+  ended           INTEGER NOT NULL DEFAULT 0,
   created_at      TEXT    NOT NULL,
   updated_at      TEXT    NOT NULL
 );
