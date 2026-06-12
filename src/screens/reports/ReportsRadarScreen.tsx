@@ -24,6 +24,8 @@ import { getPlayersWithAttributesByClub } from '@/database/queries/players';
 import { getClubsByLeague } from '@/database/queries/clubs';
 import { calculateOverall } from '@/utils/overall';
 import { ATTRIBUTE_LABELS, SquadPlayer } from '@/engine/reports/technical-report';
+import { useTranslation } from '@/i18n';
+import type { TKey } from '@/i18n/translate';
 import { PlayerAttributes, Position } from '@/types';
 import { RadarChart, RadarProfile } from '@/components/RadarChart';
 import { RootStackParamList } from '@/navigation/types';
@@ -33,7 +35,11 @@ type RadarRouteProps = RouteProp<RootStackParamList, 'ReportsRadar'>;
 type CompareMode = 'player' | 'position_avg';
 
 const ATTR_KEYS = Object.keys(ATTRIBUTE_LABELS) as (keyof PlayerAttributes)[];
-const AXIS_LABELS = ATTR_KEYS.map((k) => ATTRIBUTE_LABELS[k]);
+
+/** Maps a camelCase PlayerAttributes key to its shared `tactics.attr_*` i18n key. */
+function attrI18nKey(k: keyof PlayerAttributes): TKey {
+  return ('tactics.attr_' + String(k).replace(/([A-Z])/g, '_$1').toLowerCase()) as TKey;
+}
 
 function buildValues(attrs: PlayerAttributes): number[] {
   return ATTR_KEYS.map((k) => attrs[k] as number);
@@ -53,6 +59,8 @@ function computePositionAvgFromMap(
 
 export function ReportsRadarScreen() {
   const route = useRoute<RadarRouteProps>();
+  const { t } = useTranslation();
+  const AXIS_LABELS = ATTR_KEYS.map((k) => t(attrI18nKey(k)));
   const { playerClub, playerClubId, currentSave } = useGameStore();
   const saveId = currentSave?.id;
   const { dbHandle } = useDatabaseStore();
@@ -131,7 +139,7 @@ export function ReportsRadarScreen() {
   if (compareMode === 'position_avg' && playerA) {
     const avgVals = computePositionAvgFromMap(leagueByPos, playerA.position);
     profiles.push({
-      label: `Média da Liga · ${playerA.position}`,
+      label: t('report.radar_league_avg_profile', { position: playerA.position }),
       color: colors.accent,
       values: avgVals,
     });
@@ -144,7 +152,7 @@ export function ReportsRadarScreen() {
   }
 
   // Delta table (only when 2 profiles with attrs)
-  const deltaRows: { label: string; attrKey: keyof PlayerAttributes; delta: number }[] = [];
+  const deltaRows: { attrKey: keyof PlayerAttributes; delta: number }[] = [];
   if (profiles.length === 2 && playerA?.attributes) {
     const bVals =
       compareMode === 'position_avg' && playerA
@@ -154,7 +162,6 @@ export function ReportsRadarScreen() {
         : null;
     if (bVals) {
       const rows = ATTR_KEYS.map((k, i) => ({
-        label: ATTRIBUTE_LABELS[k],
         attrKey: k,
         delta: (playerA.attributes![k] as number) - bVals[i],
       }));
@@ -166,10 +173,10 @@ export function ReportsRadarScreen() {
   return (
     <ScrollView style={commonStyles.screen} contentContainerStyle={styles.container}>
       {/* Player A Picker */}
-      <SectionCard title="Jogador A">
+      <SectionCard title={t('report.radar_player_a')}>
         <Pressable style={styles.pickerBtn} onPress={() => setShowPickerA(!showPickerA)}>
           <Text style={styles.pickerBtnText}>
-            {playerA ? `${playerA.name} · ${playerA.position} · OVR ${playerA.overall}` : 'Selecionar jogador'}
+            {playerA ? `${playerA.name} · ${playerA.position} · OVR ${playerA.overall}` : t('report.radar_select')}
           </Text>
           <Text style={styles.chevron}>{showPickerA ? '▲' : '▼'}</Text>
         </Pressable>
@@ -194,14 +201,14 @@ export function ReportsRadarScreen() {
       </SectionCard>
 
       {/* Compare mode toggle */}
-      <SectionCard title="Comparar com">
+      <SectionCard title={t('report.radar_compare_with')}>
         <View style={styles.modeRow}>
           <Pressable
             style={[styles.modeChip, compareMode === 'position_avg' && styles.modeChipActive]}
             onPress={() => setCompareMode('position_avg')}
           >
             <Text style={[styles.modeChipText, compareMode === 'position_avg' && styles.modeChipTextActive]}>
-              Média da Liga
+              {t('report.radar_league_avg')}
             </Text>
           </Pressable>
           <Pressable
@@ -209,7 +216,7 @@ export function ReportsRadarScreen() {
             onPress={() => setCompareMode('player')}
           >
             <Text style={[styles.modeChipText, compareMode === 'player' && styles.modeChipTextActive]}>
-              Outro Jogador
+              {t('report.radar_other_player')}
             </Text>
           </Pressable>
         </View>
@@ -217,10 +224,10 @@ export function ReportsRadarScreen() {
 
       {/* Player B Picker (only if mode = player) */}
       {compareMode === 'player' && (
-        <SectionCard title="Jogador B">
+        <SectionCard title={t('report.radar_player_b')}>
           <Pressable style={styles.pickerBtn} onPress={() => setShowPickerB(!showPickerB)}>
             <Text style={styles.pickerBtnText}>
-              {playerB ? `${playerB.name} · ${playerB.position} · OVR ${playerB.overall}` : 'Selecionar jogador'}
+              {playerB ? `${playerB.name} · ${playerB.position} · OVR ${playerB.overall}` : t('report.radar_select')}
             </Text>
             <Text style={styles.chevron}>{showPickerB ? '▲' : '▼'}</Text>
           </Pressable>
@@ -256,10 +263,10 @@ export function ReportsRadarScreen() {
 
       {/* Delta table */}
       {deltaRows.length > 0 && (
-        <SectionCard title="Diferença por Atributo" subtitle="Positivo = A superior · Negativo = A inferior">
-          {deltaRows.map(({ label, attrKey, delta }) => (
+        <SectionCard title={t('report.radar_diff_title')} subtitle={t('report.radar_diff_sub')}>
+          {deltaRows.map(({ attrKey, delta }) => (
             <View key={attrKey} style={styles.deltaRow}>
-              <Text style={styles.deltaLabel}>{label}</Text>
+              <Text style={styles.deltaLabel}>{t(attrI18nKey(attrKey))}</Text>
               <ValueBadge
                 value={`${delta >= 0 ? '+' : ''}${delta}`}
                 tone={delta >= 0 ? 'success' : 'danger'}

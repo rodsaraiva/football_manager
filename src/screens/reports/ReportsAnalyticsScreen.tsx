@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator, RefreshControl } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { colors, fontSize, spacing, commonStyles } from '@/theme';
+import { useTranslation } from '@/i18n';
 import { EmptyState } from '@/components/EmptyState';
 import { useGameStore } from '@/store/game-store';
 import { useDatabaseStore } from '@/store/database-store';
@@ -26,6 +27,7 @@ const DEF_POS: Position[] = ['CB', 'LB', 'RB'];
 const avg = (xs: number[]) => (xs.length === 0 ? 0 : xs.reduce((s, v) => s + v, 0) / xs.length);
 
 export function ReportsAnalyticsScreen() {
+  const { t } = useTranslation();
   const { playerClub, playerClubId, season, week, currentSave } = useGameStore();
   const { dbHandle } = useDatabaseStore();
   const saveId = currentSave?.id;
@@ -130,7 +132,7 @@ export function ReportsAnalyticsScreen() {
   if (!report || report.lines.length === 0) {
     return (
       <View style={[commonStyles.screen, styles.center]}>
-        <EmptyState icon="📊" title="Sem dados suficientes para análise comparativa ainda." />
+        <EmptyState icon="📊" title={t('report.analytics_empty')} />
       </View>
     );
   }
@@ -145,7 +147,7 @@ export function ReportsAnalyticsScreen() {
     >
       <View style={styles.header}>
         <Text style={styles.headerIntro}>
-          Comparação da sua equipa vs. os outros {report.lines[0].total - 1} clubes da liga.
+          {t('report.analytics_intro', { count: report.lines[0].total - 1 })}
         </Text>
       </View>
 
@@ -157,6 +159,7 @@ export function ReportsAnalyticsScreen() {
 }
 
 function RankCard({ line }: { line: RankLine }) {
+  const { t } = useTranslation();
   const rankColor =
     line.rank === 1 ? colors.gold
     : line.rank <= 3 ? colors.success
@@ -187,8 +190,8 @@ function RankCard({ line }: { line: RankLine }) {
         />
       </View>
       <View style={styles.barLegend}>
-        <Text style={styles.barLegendText}>pior</Text>
-        <Text style={styles.barLegendText}>melhor</Text>
+        <Text style={styles.barLegendText}>{t('report.worst')}</Text>
+        <Text style={styles.barLegendText}>{t('report.best')}</Text>
       </View>
       <Text style={styles.description}>{line.description}</Text>
     </View>
