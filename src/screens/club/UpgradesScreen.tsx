@@ -9,6 +9,8 @@ import {
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { colors, spacing, fontSize, commonStyles } from '@/theme';
+import { useTranslation } from '@/i18n';
+import type { TKey } from '@/i18n/translate';
 import { useGameStore } from '@/store/game-store';
 import { useDatabaseStore } from '@/store/database-store';
 import { getClubById } from '@/database/queries/clubs';
@@ -31,9 +33,9 @@ function formatCost(amount: number): string {
 
 interface FacilityConfig {
   type: FacilityType;
-  label: string;
+  labelKey: TKey;
   icon: string;
-  description: string;
+  descKey: TKey;
   currentLevel: number;
 }
 
@@ -62,6 +64,7 @@ interface UpgradeCardProps {
 }
 
 function UpgradeCard({ config, budget, clubId, saveId, season, week, dbHandle, onUpgradeComplete }: UpgradeCardProps) {
+  const { t } = useTranslation();
   const isMaxed = config.currentLevel >= MAX_LEVEL;
   const upgradeCost = isMaxed ? null : calculateUpgradeCost(config.type, config.currentLevel);
   const canAfford = !isMaxed && upgradeCost != null && budget >= upgradeCost.cost;
@@ -69,18 +72,18 @@ function UpgradeCard({ config, budget, clubId, saveId, season, week, dbHandle, o
   async function handleUpgrade() {
     if (isMaxed || !upgradeCost) return;
     if (budget < upgradeCost.cost) {
-      Alert.alert('Insufficient Budget', `You need ${formatCost(upgradeCost.cost)} to upgrade ${config.label}.`);
+      Alert.alert(t('upgrades.insufficient_budget'), t('upgrades.insufficient_budget_msg', { cost: formatCost(upgradeCost.cost), facility: t(config.labelKey) }));
       return;
     }
     const result = await applyUpgrade(dbHandle, saveId, clubId, config.type, config.currentLevel, season, week);
     if (!result.success) {
-      Alert.alert('Upgrade Failed', result.reason ?? 'Unknown error');
+      Alert.alert(t('upgrades.failed'), result.reason ?? t('transfer.unknown_error'));
       return;
     }
     onUpgradeComplete();
     Alert.alert(
-      'Upgrade Complete!',
-      `${config.label} upgraded to level ${result.newLevel} for ${formatCost(result.cost ?? 0)}.`,
+      t('upgrades.complete'),
+      t('upgrades.complete_msg', { facility: t(config.labelKey), level: result.newLevel ?? 0, cost: formatCost(result.cost ?? 0) }),
     );
   }
 
@@ -89,29 +92,29 @@ function UpgradeCard({ config, budget, clubId, saveId, season, week, dbHandle, o
       <View style={styles.cardHeader}>
         <Text style={styles.cardIcon}>{config.icon}</Text>
         <View style={styles.cardHeaderText}>
-          <Text style={styles.cardTitle}>{config.label}</Text>
-          <Text style={styles.cardDesc}>{config.description}</Text>
+          <Text style={styles.cardTitle}>{t(config.labelKey)}</Text>
+          <Text style={styles.cardDesc}>{t(config.descKey)}</Text>
         </View>
       </View>
 
       <View style={styles.levelRow}>
-        <Text style={styles.levelLabel}>Level {config.currentLevel}/{MAX_LEVEL}</Text>
+        <Text style={styles.levelLabel}>{t('upgrades.level', { current: config.currentLevel, max: MAX_LEVEL })}</Text>
         <LevelBar current={config.currentLevel} />
       </View>
 
       {isMaxed ? (
         <View style={styles.maxedBadge}>
-          <Text style={styles.maxedText}>MAX LEVEL</Text>
+          <Text style={styles.maxedText}>{t('upgrades.max_level')}</Text>
         </View>
       ) : (
         <View style={styles.upgradeRow}>
           <View style={styles.costBlock}>
-            <Text style={styles.costLabel}>COST</Text>
+            <Text style={styles.costLabel}>{t('upgrades.cost')}</Text>
             <Text style={styles.costValue}>{upgradeCost ? formatCost(upgradeCost.cost) : '—'}</Text>
           </View>
           <View style={styles.costBlock}>
-            <Text style={styles.costLabel}>DURATION</Text>
-            <Text style={styles.costValue}>{upgradeCost ? `${upgradeCost.weeks} wks` : '—'}</Text>
+            <Text style={styles.costLabel}>{t('upgrades.duration')}</Text>
+            <Text style={styles.costValue}>{upgradeCost ? t('upgrades.weeks', { n: upgradeCost.weeks }) : '—'}</Text>
           </View>
           <TouchableOpacity
             style={[styles.upgradeButton, !canAfford && styles.upgradeButtonDisabled]}
@@ -119,19 +122,20 @@ function UpgradeCard({ config, budget, clubId, saveId, season, week, dbHandle, o
             disabled={!canAfford}
             activeOpacity={0.8}
           >
-            <Text style={styles.upgradeButtonText}>Upgrade</Text>
+            <Text style={styles.upgradeButtonText}>{t('upgrades.upgrade_btn')}</Text>
           </TouchableOpacity>
         </View>
       )}
 
       {!isMaxed && !canAfford && (
-        <Text style={styles.insufficientFunds}>Insufficient funds</Text>
+        <Text style={styles.insufficientFunds}>{t('upgrades.insufficient_funds')}</Text>
       )}
     </View>
   );
 }
 
 export function UpgradesScreen() {
+  const { t } = useTranslation();
   const { playerClubId, season, week, currentSave } = useGameStore();
   const { dbHandle } = useDatabaseStore();
   const [club, setClub] = useState<Club | null>(null);
@@ -156,7 +160,7 @@ export function UpgradesScreen() {
   if (!club) {
     return (
       <View style={[commonStyles.screen, styles.center]}>
-        <Text style={styles.emptyText}>Loading...</Text>
+        <Text style={styles.emptyText}>{t('newgame.loading')}</Text>
       </View>
     );
   }
@@ -164,30 +168,30 @@ export function UpgradesScreen() {
   const facilities: FacilityConfig[] = [
     {
       type: 'stadium',
-      label: 'Stadium',
+      labelKey: 'upgrades.fac_stadium',
       icon: '🏟',
-      description: 'Increase capacity and matchday revenue',
+      descKey: 'upgrades.fac_stadium_desc',
       currentLevel: Math.min(club.stadiumCapacity > 60000 ? 5 : club.stadiumCapacity > 45000 ? 4 : club.stadiumCapacity > 30000 ? 3 : club.stadiumCapacity > 15000 ? 2 : 1, MAX_LEVEL),
     },
     {
       type: 'training',
-      label: 'Training Facilities',
+      labelKey: 'upgrades.fac_training',
       icon: '⚽',
-      description: 'Boost player development and performance',
+      descKey: 'upgrades.fac_training_desc',
       currentLevel: Math.min(club.trainingFacilities, MAX_LEVEL),
     },
     {
       type: 'youth',
-      label: 'Youth Academy',
+      labelKey: 'upgrades.fac_youth',
       icon: '🌱',
-      description: 'Improve youth player quality and intake',
+      descKey: 'upgrades.fac_youth_desc',
       currentLevel: Math.min(club.youthAcademy, MAX_LEVEL),
     },
     {
       type: 'medical',
-      label: 'Medical Department',
+      labelKey: 'upgrades.fac_medical',
       icon: '🏥',
-      description: 'Reduce injury frequency and recovery time',
+      descKey: 'upgrades.fac_medical_desc',
       currentLevel: Math.min(club.medicalDepartment, MAX_LEVEL),
     },
   ];
@@ -195,7 +199,7 @@ export function UpgradesScreen() {
   return (
     <ScrollView style={commonStyles.screen} contentContainerStyle={styles.container}>
       <View style={styles.budgetBanner}>
-        <Text style={styles.budgetLabel}>AVAILABLE BUDGET</Text>
+        <Text style={styles.budgetLabel}>{t('upgrades.available_budget')}</Text>
         <Text style={[styles.budgetAmount, { color: club.budget >= 0 ? colors.success : colors.danger }]}>
           {club.budget < 0 ? '-' : ''}${Math.abs(club.budget).toLocaleString()}
         </Text>
