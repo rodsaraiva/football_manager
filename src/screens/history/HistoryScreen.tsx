@@ -8,11 +8,13 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { colors, spacing, fontSize, commonStyles } from '@/theme';
+import { useTranslation } from '@/i18n';
 import { useGameStore } from '@/store/game-store';
 import { useDatabaseStore } from '@/store/database-store';
 import { getSeasonSummary, SeasonCompetitionSummary } from '@/database/queries/history';
 
 export function HistoryScreen() {
+  const { t } = useTranslation();
   const { season: currentSeason, currentSave } = useGameStore();
   const { dbHandle } = useDatabaseStore();
   const saveId = currentSave?.id;
@@ -44,7 +46,7 @@ export function HistoryScreen() {
   if (seasons.length === 0) {
     return (
       <View style={[commonStyles.screen, styles.center]}>
-        <Text style={styles.emptyText}>No completed seasons yet.</Text>
+        <Text style={styles.emptyText}>{t('history.no_seasons')}</Text>
       </View>
     );
   }
@@ -65,7 +67,7 @@ export function HistoryScreen() {
             onPress={() => setSelectedSeason(s)}
           >
             <Text style={[styles.chipText, selectedSeason === s && styles.chipTextSelected]}>
-              Season {s}
+              {t('standings.season', { season: s })}
             </Text>
           </TouchableOpacity>
         ))}
@@ -78,7 +80,7 @@ export function HistoryScreen() {
         </View>
       ) : summary.length === 0 ? (
         <View style={styles.center}>
-          <Text style={styles.emptyText}>No data recorded for Season {selectedSeason}.</Text>
+          <Text style={styles.emptyText}>{t('history.no_data', { season: selectedSeason })}</Text>
         </View>
       ) : (
         summary.map((entry) => (
@@ -90,6 +92,7 @@ export function HistoryScreen() {
 }
 
 function SummaryCard({ entry }: { entry: SeasonCompetitionSummary }) {
+  const { t } = useTranslation();
   const topScorer = entry.topScorers[0] ?? null;
   const topAssister = entry.topAssisters[0] ?? null;
 
@@ -102,40 +105,40 @@ function SummaryCard({ entry }: { entry: SeasonCompetitionSummary }) {
 
       {/* Champion / Runner-up */}
       <View style={styles.section}>
-        <Row label="Champion" value={`Club ${entry.championClubId}`} valueColor={colors.gold} />
+        <Row label={t('history.champion')} value={`Club ${entry.championClubId}`} valueColor={colors.gold} />
         {entry.runnerUpClubId != null && (
-          <Row label="Runner-up" value={`Club ${entry.runnerUpClubId}`} valueColor={colors.silver} />
+          <Row label={t('history.runner_up')} value={`Club ${entry.runnerUpClubId}`} valueColor={colors.silver} />
         )}
       </View>
 
       {/* Awards */}
       {(topScorer || topAssister || entry.mvp || entry.breakthrough) && (
         <View style={[styles.section, styles.sectionBorder]}>
-          <Text style={styles.sectionLabel}>AWARDS</Text>
+          <Text style={styles.sectionLabel}>{t('history.awards')}</Text>
           {topScorer && (
             <Row
-              label="Top Scorer"
+              label={t('history.top_scorer')}
               value={`Player ${topScorer.playerId} — ${topScorer.value} goals`}
               valueColor={colors.text}
             />
           )}
           {topAssister && (
             <Row
-              label="Top Assister"
+              label={t('history.top_assister')}
               value={`Player ${topAssister.playerId} — ${topAssister.value} assists`}
               valueColor={colors.text}
             />
           )}
           {entry.mvp && (
             <Row
-              label="MVP"
+              label={t('history.mvp')}
               value={`Player ${entry.mvp.playerId}`}
               valueColor={colors.primaryLight}
             />
           )}
           {entry.breakthrough && (
             <Row
-              label="Breakthrough"
+              label={t('history.breakthrough')}
               value={`Player ${entry.breakthrough.playerId}`}
               valueColor={colors.success}
             />
@@ -146,7 +149,7 @@ function SummaryCard({ entry }: { entry: SeasonCompetitionSummary }) {
       {/* Relegated clubs */}
       {entry.relegated.length > 0 && (
         <View style={[styles.section, styles.sectionBorder]}>
-          <Text style={styles.sectionLabel}>RELEGATED</Text>
+          <Text style={styles.sectionLabel}>{t('history.relegated')}</Text>
           {entry.relegated.map((rel) => (
             <Row
               key={rel.clubId}

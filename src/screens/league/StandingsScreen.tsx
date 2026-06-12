@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { colors, spacing, fontSize, commonStyles } from '@/theme';
+import { useTranslation } from '@/i18n';
 import { useGameStore } from '@/store/game-store';
 import { useDatabaseStore } from '@/store/database-store';
 import { getClubsByLeague } from '@/database/queries/clubs';
@@ -11,6 +12,7 @@ import { Fixture } from '@/types';
 import StandingsTable from '@/components/StandingsTable';
 
 export function StandingsScreen() {
+  const { t } = useTranslation();
   const { playerClub, playerClubId, season, week, currentSave } = useGameStore();
   const saveId = currentSave?.id;
   const { dbHandle } = useDatabaseStore();
@@ -18,7 +20,7 @@ export function StandingsScreen() {
   const [entries, setEntries] = useState<StandingsEntry[]>([]);
   const [clubNames, setClubNames] = useState<Record<number, string>>({});
   const [loading, setLoading] = useState(true);
-  const [leagueName, setLeagueName] = useState('League Table');
+  const [leagueName, setLeagueName] = useState(t('nav.league_table'));
 
   useEffect(() => {
     if (!dbHandle || !playerClub || saveId == null) {
@@ -77,12 +79,12 @@ export function StandingsScreen() {
       <View style={commonStyles.screen}>
         <View style={styles.header}>
           <Text style={styles.leagueName}>{leagueName}</Text>
-          <Text style={styles.seasonText}>Season {season}</Text>
+          <Text style={styles.seasonText}>{t('standings.season', { season })}</Text>
         </View>
         <View style={styles.emptyCard}>
-          <Text style={styles.emptyTitle}>No matches played yet</Text>
+          <Text style={styles.emptyTitle}>{t('standings.empty_title')}</Text>
           <Text style={styles.emptySubtext}>
-            Standings will update as matches are played
+            {t('standings.empty_sub')}
           </Text>
         </View>
       </View>
@@ -93,7 +95,7 @@ export function StandingsScreen() {
     <View style={commonStyles.screen}>
       <View style={styles.header}>
         <Text style={styles.leagueName}>{leagueName}</Text>
-        <Text style={styles.seasonText}>Season {season}</Text>
+        <Text style={styles.seasonText}>{t('standings.season', { season })}</Text>
       </View>
       <StandingsTable
         entries={entries}
