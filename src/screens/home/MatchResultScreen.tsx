@@ -10,6 +10,7 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { colors, spacing, fontSize, commonStyles } from '@/theme';
+import { useTranslation } from '@/i18n';
 import { useGameStore } from '@/store/game-store';
 import MatchEventItem from '@/components/MatchEventItem';
 import { RootStackParamList } from '@/navigation/types';
@@ -125,15 +126,16 @@ function getRatingColor(rating: number): string {
 }
 
 export function MatchResultScreen() {
+  const { t } = useTranslation();
   const navigation = useNavigation<NavProp>();
   const { lastMatchResult, playerClub, lastMatchIsHome, lastMatchOpponentName } = useGameStore();
 
   if (!lastMatchResult) {
     return (
       <View style={[commonStyles.screen, styles.centered]}>
-        <Text style={styles.noDataText}>No match data</Text>
+        <Text style={styles.noDataText}>{t('matchresult.no_data')}</Text>
         <TouchableOpacity style={styles.continueButton} onPress={() => navigation.goBack()}>
-          <Text style={styles.continueButtonText}>Continue</Text>
+          <Text style={styles.continueButtonText}>{t('matchresult.continue')}</Text>
         </TouchableOpacity>
       </View>
     );
@@ -142,8 +144,8 @@ export function MatchResultScreen() {
   const { homeGoals, awayGoals, events, homeRatings, awayRatings, stats } = lastMatchResult;
   // Determine home/away names from the stored match context. When the player
   // was the away team, their club goes on the right.
-  const opponentName = lastMatchOpponentName ?? 'Opponent';
-  const playerName = playerClub?.name ?? 'Home';
+  const opponentName = lastMatchOpponentName ?? t('matchresult.opponent');
+  const playerName = playerClub?.name ?? t('matchresult.home');
   const homeTeam = lastMatchIsHome === false ? opponentName : playerName;
   const awayTeam = lastMatchIsHome === false ? playerName : opponentName;
 
@@ -164,14 +166,14 @@ export function MatchResultScreen() {
           <Text style={[styles.teamName, styles.teamNameRight]} numberOfLines={1}>{awayTeam}</Text>
         </View>
         <Text style={styles.attendanceText}>
-          Attendance: {lastMatchResult.attendance.toLocaleString()}
+          {t('matchresult.attendance', { count: lastMatchResult.attendance.toLocaleString() })}
         </Text>
       </View>
 
       {/* Match Events */}
       {goalEvents.length > 0 && (
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Goals</Text>
+          <Text style={styles.sectionTitle}>{t('matchresult.goals')}</Text>
           {goalEvents.map((event: MatchEvent, idx: number) => (
             <MatchEventItem
               key={idx}
@@ -189,7 +191,7 @@ export function MatchResultScreen() {
       {/* All Events */}
       {events.length > 0 && (
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Match Events</Text>
+          <Text style={styles.sectionTitle}>{t('matchresult.events')}</Text>
           {events.map((event: MatchEvent, idx: number) => (
             <MatchEventItem
               key={idx}
@@ -206,22 +208,22 @@ export function MatchResultScreen() {
 
       {/* Stats */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Match Stats</Text>
+        <Text style={styles.sectionTitle}>{t('matchresult.stats')}</Text>
         <View style={styles.statsCard}>
-          <StatRow label="Possession %" home={stats.homePossession} away={stats.awayPossession} />
+          <StatRow label={t('matchresult.possession')} home={stats.homePossession} away={stats.awayPossession} />
           <View style={styles.divider} />
-          <StatRow label="Shots" home={stats.homeShots} away={stats.awayShots} />
+          <StatRow label={t('matchresult.shots')} home={stats.homeShots} away={stats.awayShots} />
           <View style={styles.divider} />
-          <StatRow label="Fouls" home={stats.homeFouls} away={stats.awayFouls} />
+          <StatRow label={t('matchresult.fouls')} home={stats.homeFouls} away={stats.awayFouls} />
           <View style={styles.divider} />
-          <StatRow label="Corners" home={stats.homeCorners} away={stats.awayCorners} />
+          <StatRow label={t('matchresult.corners')} home={stats.homeCorners} away={stats.awayCorners} />
         </View>
       </View>
 
       {/* Player Ratings */}
       {allRatings.length > 0 && (
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Player Ratings</Text>
+          <Text style={styles.sectionTitle}>{t('matchresult.player_ratings')}</Text>
           <View style={styles.ratingsCard}>
             {allRatings.map((pr: PlayerRating, idx: number) => (
               <View key={idx} style={styles.ratingRow}>
@@ -241,7 +243,7 @@ export function MatchResultScreen() {
         onPress={() => navigation.goBack()}
         activeOpacity={0.8}
       >
-        <Text style={styles.continueButtonText}>Continue</Text>
+        <Text style={styles.continueButtonText}>{t('matchresult.continue')}</Text>
       </TouchableOpacity>
     </ScrollView>
   );

@@ -116,7 +116,7 @@ export function SquadListScreen() {
             onPress={() => setFilter(tab)}
           >
             <Text style={[styles.filterChipText, filter === tab && styles.filterChipTextActive]}>
-              {tab}
+              {tab === 'All' ? t('transfer.filter_all') : tab}
             </Text>
           </Pressable>
         ))}
@@ -128,7 +128,7 @@ export function SquadListScreen() {
         </View>
       ) : filtered.length === 0 ? (
         <View style={styles.centered}>
-          <Text style={styles.emptyText}>No players found</Text>
+          <Text style={styles.emptyText}>{t('transfer.no_players_found')}</Text>
         </View>
       ) : (
         <FlatList
