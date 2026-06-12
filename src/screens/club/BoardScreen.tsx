@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, ScrollView, StyleSheet } from 'react-native';
-import { colors, spacing, fontSize, commonStyles } from '@/theme';
+import { colors, spacing, fontSize, radius, commonStyles } from '@/theme';
 import { useTranslation, objectiveDescriptor } from '@/i18n';
 import { useBoardStore } from '@/store/board-store';
 import { useGameStore } from '@/store/game-store';
@@ -90,24 +90,24 @@ const styles = StyleSheet.create({
   container: { padding: spacing.md, gap: spacing.md },
   card: {
     backgroundColor: colors.surface,
-    borderRadius: 8,
+    borderRadius: radius.md,
     padding: spacing.md,
     gap: spacing.xs,
   },
   label: { color: colors.textSecondary, fontSize: fontSize.xs, fontWeight: '700', letterSpacing: 1 },
-  bigNumber: { color: colors.primary, fontSize: 56, fontWeight: '900', textAlign: 'center' },
+  bigNumber: { color: colors.primary, fontSize: fontSize.display, fontWeight: '900', textAlign: 'center' },
   subLabel: { color: colors.text, fontSize: fontSize.sm, textAlign: 'center' },
   objectiveText: { color: colors.text, fontSize: fontSize.md },
   warning: { fontSize: fontSize.sm, marginTop: spacing.xs },
   trustBarRow: { flexDirection: 'row', gap: spacing.xs, marginVertical: spacing.xs },
   trustSegment: {
-    flex: 1, height: 12, borderRadius: 4,
-    backgroundColor: colors.border ?? '#333',
+    flex: 1, height: 12, borderRadius: radius.sm,
+    backgroundColor: colors.border,
   },
   historyRow: {
     flexDirection: 'row', justifyContent: 'space-between',
     paddingVertical: spacing.xs,
-    borderBottomWidth: 1, borderBottomColor: colors.border ?? '#222',
+    borderBottomWidth: 1, borderBottomColor: colors.border,
   },
   historySeason: { color: colors.textSecondary, fontSize: fontSize.sm, flex: 1 },
   historyRep: { color: colors.text, fontSize: fontSize.sm, width: 40, textAlign: 'center' },
