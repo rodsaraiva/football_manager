@@ -18,7 +18,10 @@ import {
   updateFixtureResult,
   addMatchEvent,
 } from '@/database/queries/fixtures';
-import { getClubById } from '@/database/queries/clubs';
+import { getClubById, getClubTrainingFocus } from '@/database/queries/clubs';
+import { getStaffByClub } from '@/database/queries/staff';
+import { getRecentForm } from '@/database/queries/player-stats';
+import { getStaffEffects } from '@/engine/staff/staff-effects';
 import { getActiveTactic, getTacticLineup } from '@/database/queries/tactics';
 import { updateSaveWeek } from '@/database/queries/saves';
 import { SeededRng } from './rng';
@@ -30,7 +33,7 @@ import { PlayerForStrength } from './simulation/team-strength';
 import { simulateWeekFixtures, ClubMatchData, FixtureSimInput } from './simulation/match-runner';
 import { computeWeeklyClubFinance } from './finance/weekly-finance';
 import { calculateWeeklyProgression } from './training/progression';
-import { Fixture } from '@/types';
+import { Fixture, PlayerAttributes } from '@/types';
 import { archiveSeason } from './history/season-archiver';
 import { retirePlayer } from '@/database/queries/players';
 import {
@@ -44,6 +47,28 @@ import {
   RETIREMENT_MORALE_THRESHOLD,
   SEASON_END_WEEK,
 } from './balance';
+
+// attribute change key → (INTEGER column, fractional *_progress accumulator column)
+const ATTR_MAP: Array<{ change: keyof PlayerAttributes; col: string; prog: string }> = [
+  { change: 'finishing', col: 'finishing', prog: 'finishing_progress' },
+  { change: 'passing', col: 'passing', prog: 'passing_progress' },
+  { change: 'crossing', col: 'crossing', prog: 'crossing_progress' },
+  { change: 'dribbling', col: 'dribbling', prog: 'dribbling_progress' },
+  { change: 'heading', col: 'heading', prog: 'heading_progress' },
+  { change: 'longShots', col: 'long_shots', prog: 'long_shots_progress' },
+  { change: 'freeKicks', col: 'free_kicks', prog: 'free_kicks_progress' },
+  { change: 'vision', col: 'vision', prog: 'vision_progress' },
+  { change: 'composure', col: 'composure', prog: 'composure_progress' },
+  { change: 'decisions', col: 'decisions', prog: 'decisions_progress' },
+  { change: 'positioning', col: 'positioning', prog: 'positioning_progress' },
+  { change: 'aggression', col: 'aggression', prog: 'aggression_progress' },
+  { change: 'leadership', col: 'leadership', prog: 'leadership_progress' },
+  { change: 'pace', col: 'pace', prog: 'pace_progress' },
+  { change: 'stamina', col: 'stamina', prog: 'stamina_progress' },
+  { change: 'strength', col: 'strength', prog: 'strength_progress' },
+  { change: 'agility', col: 'agility', prog: 'agility_progress' },
+  { change: 'jumping', col: 'jumping', prog: 'jumping_progress' },
+];
 
 // ─── Persist per-match player stats ──────────────────────────────────────────
 
@@ -271,56 +296,66 @@ export async function advanceGameWeek(params: AdvanceWeekParams): Promise<Advanc
     const awayXiIds = clubData.get(playerFixture.awayClubId)?.squad.map(p => p.id) ?? [];
     const startingIds = new Set<number>([...homeXiIds, ...awayXiIds]);
 
-    // 5. Apply player progression for player's squad
+    // 5. Apply real weekly progression for the player's squad: staff bonus + club
+    //    training focus + real recent form feed the pure engine; fractional weekly
+    //    gains accumulate in *_progress instead of being rounded away each week.
     const playerClubData = await getClubById(db, saveId, playerClubId);
     const trainingFacilityLevel = playerClubData?.trainingFacilities ?? 3;
+
+    const staff = await getStaffByClub(db, saveId, playerClubId);
+    const abilityByRole = (role: string) => staff.find((s) => s.role === role)?.ability ?? 0;
+    const staffEffects = getStaffEffects({
+      fitnessCoachAbility: abilityByRole('fitness_coach'),
+      physioAbility: abilityByRole('physio'),
+      scoutAbility: abilityByRole('scout'),
+      youthCoachAbility: abilityByRole('youth_coach'),
+      assistantAbility: abilityByRole('assistant'),
+    });
+    const trainingFocus = await getClubTrainingFocus(db, playerClubId);
 
     const playerClubPlayers = await getPlayersByClub(db, saveId, playerClubId);
     for (const p of playerSquadRaw) {
       const fullPlayer = playerClubPlayers.find(pl => pl.id === p.id);
+      const form = await getRecentForm(db, saveId, p.id, season);
       const progression = calculateWeeklyProgression({
         age: fullPlayer?.age ?? 25,
         attributes: p.attributes,
         effectivePotential: fullPlayer?.effectivePotential ?? 60,
-        minutesPlayedRecent: 90,
-        totalPossibleMinutes: 90,
-        avgRatingRecent: 6.5,
-        trainingFocus: 'balanced',
+        minutesPlayedRecent: form.minutesPlayed,
+        totalPossibleMinutes: form.totalPossibleMinutes,
+        avgRatingRecent: form.avgRating,
+        trainingFocus,
         trainingFacilityLevel,
-        staffTrainingBonus: 0, // wired to real staff effects in a later task
+        staffTrainingBonus: staffEffects.trainingBonus,
       });
 
-      // Apply attribute changes to DB
+      // Read current fractional accumulators, carry whole points into the INTEGER
+      // column, keep the residue.
+      const progRow = (await db
+        .prepare(`SELECT ${ATTR_MAP.map((m) => m.prog).join(', ')} FROM player_attributes WHERE player_id = ?`)
+        .get(p.id)) as Record<string, number> | undefined;
+
       const changes = progression.attributeChanges;
-      const attrs = p.attributes;
-      await db.prepare(
-        `UPDATE player_attributes SET
-          finishing = ?, passing = ?, crossing = ?, dribbling = ?, heading = ?,
-          long_shots = ?, free_kicks = ?, vision = ?, composure = ?, decisions = ?,
-          positioning = ?, aggression = ?, leadership = ?,
-          pace = ?, stamina = ?, strength = ?, agility = ?, jumping = ?
-         WHERE player_id = ?`,
-      ).run(
-        Math.round(Math.min(99, Math.max(1, attrs.finishing + (changes.finishing ?? 0)))),
-        Math.round(Math.min(99, Math.max(1, attrs.passing + (changes.passing ?? 0)))),
-        Math.round(Math.min(99, Math.max(1, attrs.crossing + (changes.crossing ?? 0)))),
-        Math.round(Math.min(99, Math.max(1, attrs.dribbling + (changes.dribbling ?? 0)))),
-        Math.round(Math.min(99, Math.max(1, attrs.heading + (changes.heading ?? 0)))),
-        Math.round(Math.min(99, Math.max(1, attrs.longShots + (changes.longShots ?? 0)))),
-        Math.round(Math.min(99, Math.max(1, attrs.freeKicks + (changes.freeKicks ?? 0)))),
-        Math.round(Math.min(99, Math.max(1, attrs.vision + (changes.vision ?? 0)))),
-        Math.round(Math.min(99, Math.max(1, attrs.composure + (changes.composure ?? 0)))),
-        Math.round(Math.min(99, Math.max(1, attrs.decisions + (changes.decisions ?? 0)))),
-        Math.round(Math.min(99, Math.max(1, attrs.positioning + (changes.positioning ?? 0)))),
-        Math.round(Math.min(99, Math.max(1, attrs.aggression + (changes.aggression ?? 0)))),
-        Math.round(Math.min(99, Math.max(1, attrs.leadership + (changes.leadership ?? 0)))),
-        Math.round(Math.min(99, Math.max(1, attrs.pace + (changes.pace ?? 0)))),
-        Math.round(Math.min(99, Math.max(1, attrs.stamina + (changes.stamina ?? 0)))),
-        Math.round(Math.min(99, Math.max(1, attrs.strength + (changes.strength ?? 0)))),
-        Math.round(Math.min(99, Math.max(1, attrs.agility + (changes.agility ?? 0)))),
-        Math.round(Math.min(99, Math.max(1, attrs.jumping + (changes.jumping ?? 0)))),
-        p.id,
-      );
+      const attrs = p.attributes as Record<keyof PlayerAttributes, number>;
+      const newInts: number[] = [];
+      const newProgs: number[] = [];
+      for (const m of ATTR_MAP) {
+        const acc = (progRow?.[m.prog] ?? 0) + (changes[m.change] ?? 0);
+        const whole = Math.trunc(acc);
+        const residue = acc - whole;
+        const nextInt = Math.min(99, Math.max(1, attrs[m.change] + whole));
+        const clampedAtTop = attrs[m.change] + whole >= 99 && residue > 0;
+        const clampedAtBottom = attrs[m.change] + whole <= 1 && residue < 0;
+        newInts.push(nextInt);
+        newProgs.push(clampedAtTop || clampedAtBottom ? 0 : residue);
+      }
+
+      const setClause =
+        ATTR_MAP.map((m) => `${m.col} = ?`).join(', ') + ', ' +
+        ATTR_MAP.map((m) => `${m.prog} = ?`).join(', ');
+      await db
+        .prepare(`UPDATE player_attributes SET ${setClause} WHERE player_id = ?`)
+        .run(...newInts, ...newProgs, p.id);
     }
 
     // 6. Update fitness for player's club squad (played → drop, rested → recover).
