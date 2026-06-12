@@ -112,3 +112,43 @@ export async function getPlayerStatsForPlayer(
     .all(saveId, playerId) as PlayerStatsRow[];
   return rows.map(rowToPlayerStats);
 }
+
+export interface RecentForm {
+  minutesPlayed: number;
+  totalPossibleMinutes: number;
+  avgRating: number;
+}
+
+/**
+ * Aggregates a player's real season form from player_stats: total minutes, the
+ * appearance-based possible minutes (appearances * 90), and the minutes-weighted
+ * average rating across competitions. avg_rating per row is already minutes-weighted
+ * within its (player, season, competition) group, so weighting by minutes is correct.
+ */
+export async function getRecentForm(
+  db: DbHandle,
+  saveId: number,
+  playerId: number,
+  season: number,
+): Promise<RecentForm> {
+  const rows = (await db
+    .prepare(
+      'SELECT appearances, avg_rating, minutes_played FROM player_stats WHERE save_id = ? AND player_id = ? AND season = ?',
+    )
+    .all(saveId, playerId, season)) as Array<{
+      appearances: number;
+      avg_rating: number;
+      minutes_played: number;
+    }>;
+
+  let minutesPlayed = 0;
+  let totalPossibleMinutes = 0;
+  let weightedRatingSum = 0;
+  for (const r of rows) {
+    minutesPlayed += r.minutes_played;
+    totalPossibleMinutes += r.appearances * 90;
+    weightedRatingSum += r.avg_rating * r.minutes_played;
+  }
+  const avgRating = minutesPlayed > 0 ? weightedRatingSum / minutesPlayed : 0;
+  return { minutesPlayed, totalPossibleMinutes, avgRating };
+}
