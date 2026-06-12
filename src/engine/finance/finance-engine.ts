@@ -1,3 +1,5 @@
+import { gateReceiptMultiplier, CompetitionType } from './prize-money';
+
 export interface WeeklyIncomeInput {
   clubReputation: number;
   stadiumCapacity: number;
@@ -9,6 +11,8 @@ export interface WeeklyIncomeInput {
    *  revenue is computed from this figure instead of the rep-based estimate.
    *  Falls back to the formula when undefined or null (e.g. old saves). */
   actualAttendance?: number | null;
+  /** Competition of the home fixture; scales gate receipts. Defaults to 'league' (1.0). */
+  competitionType?: CompetitionType;
 }
 
 export interface WeeklyIncome {
@@ -40,15 +44,16 @@ export type FacilityType = 'stadium' | 'training' | 'youth' | 'medical';
 
 export function calculateWeeklyIncome(input: WeeklyIncomeInput): WeeklyIncome {
   const avgTicketPrice = 30 + (input.clubReputation / 100) * 40;
+  const gateMult = gateReceiptMultiplier(input.competitionType ?? 'league');
   let ticket = 0;
   if (input.hasHomeMatch) {
     if (input.actualAttendance != null) {
       // Use the real persisted attendance for accuracy
-      ticket = Math.round(input.actualAttendance * avgTicketPrice);
+      ticket = Math.round(input.actualAttendance * avgTicketPrice * gateMult);
     } else {
       // Fallback: estimate from reputation + capacity (pre-match or old saves)
       const occupancy = Math.min(0.95, 0.4 + (input.clubReputation / 100) * 0.55);
-      ticket = Math.round(input.stadiumCapacity * occupancy * avgTicketPrice);
+      ticket = Math.round(input.stadiumCapacity * occupancy * avgTicketPrice * gateMult);
     }
   }
   const annualTvBase = 50_000_000;

@@ -203,3 +203,31 @@ describe('applyUpgrade', () => {
     expect(result.success).toBe(false);
   });
 });
+
+describe('calculateWeeklyIncome — competition gate receipts', () => {
+  const base = {
+    clubReputation: 70,
+    stadiumCapacity: 40000,
+    hasHomeMatch: true,
+    leaguePosition: 1,
+    season: 2025,
+    week: 5,
+    actualAttendance: 30000,
+  };
+  it('a continental home match earns more ticket revenue than a league match', () => {
+    const league = calculateWeeklyIncome({ ...base, competitionType: 'league' });
+    const cl = calculateWeeklyIncome({ ...base, competitionType: 'continental' });
+    expect(cl.ticket).toBeGreaterThan(league.ticket);
+  });
+  it('defaults to the league (1.0) multiplier when competitionType is omitted', () => {
+    const omitted = calculateWeeklyIncome(base);
+    const league = calculateWeeklyIncome({ ...base, competitionType: 'league' });
+    expect(omitted.ticket).toBe(league.ticket);
+  });
+  it('does not change tv/sponsor (only ticket scales)', () => {
+    const league = calculateWeeklyIncome({ ...base, competitionType: 'league' });
+    const cup = calculateWeeklyIncome({ ...base, competitionType: 'cup' });
+    expect(cup.tv).toBe(league.tv);
+    expect(cup.sponsor).toBe(league.sponsor);
+  });
+});
