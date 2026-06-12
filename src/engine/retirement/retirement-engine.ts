@@ -1,4 +1,5 @@
 import { Player } from '@/types';
+import { SeededRng } from '@/engine/rng';
 import {
   RETIREMENT_MIN_AGE,
   RETIREMENT_MAX_AGE,
@@ -8,6 +9,8 @@ import {
   RETIREMENT_ANNOUNCE_WINDOW_OPEN_OFFSET,
   RETIREMENT_ANNOUNCE_WINDOW_CLOSE_OFFSET,
   SEASON_END_WEEK,
+  ORDINARY_RETIREMENT_BASE_PROB,
+  ORDINARY_RETIREMENT_AGE_SLOPE,
 } from '@/engine/balance';
 
 export interface RetirementDecision {
@@ -55,4 +58,35 @@ export function shouldAnnounceRetirement(input: AnnounceInput): boolean {
 /** Avança o streak de moral-baixa pra uma semana. `morale < threshold` incrementa; caso contrário zera. */
 export function nextMoraleStreak(currentStreak: number, morale: number): number {
   return morale < RETIREMENT_MORALE_THRESHOLD ? currentStreak + 1 : 0;
+}
+
+export interface OrdinaryInput {
+  id: number;
+  name: string;
+  age: number;
+  isFreeAgent: boolean;
+  willRetireAtSeasonEnd: boolean;
+}
+
+/**
+ * Aposentadoria ordinária por idade na faixa [RETIREMENT_MIN_AGE, MAX_PLAYER_AGE).
+ * Probabilidade cresce com a idade; independe de moral. Determinística via rng.
+ * Não pega quem já foi anunciado (moral) nem free agents; ≥ MAX_PLAYER_AGE é da compulsória.
+ */
+export function detectOrdinaryRetirements(
+  players: OrdinaryInput[],
+  rng: SeededRng,
+): RetirementDecision[] {
+  const out: RetirementDecision[] = [];
+  for (const p of players) {
+    if (p.isFreeAgent || p.willRetireAtSeasonEnd) continue;
+    if (p.age < RETIREMENT_MIN_AGE || p.age >= MAX_PLAYER_AGE) continue;
+    const prob =
+      ORDINARY_RETIREMENT_BASE_PROB +
+      (p.age - RETIREMENT_MIN_AGE) * ORDINARY_RETIREMENT_AGE_SLOPE;
+    if (rng.next() < prob) {
+      out.push({ playerId: p.id, playerName: p.name, age: p.age, reason: 'max_age' });
+    }
+  }
+  return out;
 }
