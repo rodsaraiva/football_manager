@@ -14,7 +14,9 @@ import { useDatabaseStore } from '@/store/database-store';
 import { getPlayersByClub, getPlayerById } from '@/database/queries/players';
 import { calculateOverall } from '@/utils/overall';
 import { Player, PlayerAttributes, Position } from '@/types';
-import PlayerDetailScreen from './PlayerDetailScreen';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { RootStackParamList } from '@/navigation/types';
 
 type FilterCategory = 'All' | 'GK' | 'DEF' | 'MID' | 'FWD';
 
@@ -48,11 +50,11 @@ export function SquadListScreen() {
   const playerClubId = useGameStore((s) => s.playerClubId);
   const saveId = useGameStore((s) => s.currentSave?.id);
   const dbHandle = useDatabaseStore((s) => s.dbHandle);
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
   const [players, setPlayers] = useState<PlayerWithAttributes[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<FilterCategory>('All');
-  const [selectedPlayerId, setSelectedPlayerId] = useState<number | null>(null);
 
   useEffect(() => {
     if (!dbHandle || playerClubId === null || saveId == null) {
@@ -88,23 +90,10 @@ export function SquadListScreen() {
 
   const filtered = players.filter((p) => matchesFilter(p.position, filter));
 
-  const handleSelectPlayer = useCallback((id: number) => {
-    setSelectedPlayerId(id);
-  }, []);
-
-  const handleBack = useCallback(() => {
-    setSelectedPlayerId(null);
-  }, []);
-
-  if (selectedPlayerId !== null) {
-    const player = players.find((p) => p.id === selectedPlayerId) ?? null;
-    return (
-      <PlayerDetailScreen
-        player={player}
-        onBack={handleBack}
-      />
-    );
-  }
+  const handleSelectPlayer = useCallback(
+    (id: number) => navigation.navigate('PlayerDetail', { playerId: id }),
+    [navigation],
+  );
 
   return (
     <View style={commonStyles.screen}>

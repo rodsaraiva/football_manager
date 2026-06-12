@@ -39,6 +39,7 @@ export type RootStackParamList = {
 
 export type TabParamList = {
   HomeTab: undefined;
+  SquadTab: undefined;
   NewsTab: undefined;
   TacticsTab: undefined;
   ClubTab: undefined;

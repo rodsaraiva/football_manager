@@ -3,6 +3,7 @@ import { Text } from 'react-native';
 import { colors } from '@/theme';
 import { useClubAccent } from '@/theme/useClubAccent';
 import { HomeScreen } from '@/screens/home/HomeScreen';
+import { SquadListScreen } from '@/screens/squad/SquadListScreen';
 import { NewsScreen } from '@/screens/news/NewsScreen';
 import { TacticsScreen } from '@/screens/tactics/TacticsScreen';
 import { ClubOverviewScreen } from '@/screens/club/ClubOverviewScreen';
@@ -25,6 +26,11 @@ export function TabNavigator() {
         name="HomeTab"
         component={HomeScreen}
         options={{ title: 'Matches', tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 20 }}>⚽</Text> }}
+      />
+      <Tab.Screen
+        name="SquadTab"
+        component={SquadListScreen}
+        options={{ title: 'Squad', tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 20 }}>👥</Text> }}
       />
       <Tab.Screen
         name="NewsTab"
