@@ -294,13 +294,13 @@ export function HomeScreen() {
               {myGoals ?? '-'} - {oppGoals ?? '-'}
             </Text>
             <Text style={styles.resultWeek}>
-              Week {item.week}, Season {item.season}
+              {t('home.result_week', { week: item.week, season: item.season })}
             </Text>
           </View>
         </View>
       );
     },
-    [playerClub?.id],
+    [playerClub?.id, t],
   );
 
   return (
@@ -494,13 +494,13 @@ export function HomeScreen() {
               setLoadingOpponent(false);
             }}
           >
-            <Text style={styles.scoutButtonText}>Relatório do Adversário</Text>
+            <Text style={styles.scoutButtonText}>{t('home.scout_button')}</Text>
           </TouchableOpacity>
         </View>
       ) : (
         <View style={styles.card}>
-          <Text style={styles.cardLabel}>NEXT MATCH</Text>
-          <Text style={styles.nextMatchText}>No upcoming matches this week</Text>
+          <Text style={styles.cardLabel}>{t('home.next_match_label')}</Text>
+          <Text style={styles.nextMatchText}>{t('home.no_upcoming')}</Text>
         </View>
       )}
 
@@ -515,22 +515,22 @@ export function HomeScreen() {
           <View style={styles.advancingRow}>
             <ActivityIndicator color={colors.text} size="small" />
             <Text style={[styles.advanceButtonText, { marginLeft: spacing.sm }]}>
-              Simulating...
+              {t('home.simulating')}
             </Text>
           </View>
         ) : (
-          <Text style={styles.advanceButtonText}>ADVANCE WEEK</Text>
+          <Text style={styles.advanceButtonText}>{t('home.advance_week')}</Text>
         )}
       </TouchableOpacity>
 
       {/* Recent Results */}
       <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>Recent Results</Text>
+        <Text style={styles.sectionTitle}>{t('home.recent_results')}</Text>
       </View>
 
       {recentResults.length === 0 ? (
         <View style={styles.emptyCard}>
-          <Text style={styles.emptyText}>No results yet</Text>
+          <Text style={styles.emptyText}>{t('home.no_results')}</Text>
         </View>
       ) : (
         <FlatList
@@ -551,7 +551,7 @@ export function HomeScreen() {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Match Result</Text>
+            <Text style={styles.modalTitle}>{t('home.modal_match_title')}</Text>
 
             {lastMatchResult && (
               <>
@@ -612,7 +612,7 @@ export function HomeScreen() {
 
                   return (
                     <View style={styles.modalEvents}>
-                      <Text style={styles.modalEventsTitle}>Match Events</Text>
+                      <Text style={styles.modalEventsTitle}>{t('home.modal_match_events')}</Text>
                       <ScrollView style={styles.modalEventsList} nestedScrollEnabled>
                         {visible.map((evt, idx) => {
                           const isHome = homeIds.has(evt.playerId);
@@ -700,7 +700,7 @@ export function HomeScreen() {
               onPress={() => setShowMatchModal(false)}
               activeOpacity={0.8}
             >
-              <Text style={styles.modalCloseText}>Close</Text>
+              <Text style={styles.modalCloseText}>{t('home.modal_close')}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -715,10 +715,10 @@ export function HomeScreen() {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>{nextOpponent?.club.name ?? 'Opponent'}</Text>
+            <Text style={styles.modalTitle}>{nextOpponent?.club.name ?? t('home.opponent_default')}</Text>
             <View style={styles.oppInfoRow}>
-              <Text style={styles.oppInfoLabel}>Formation: {opponentFormation}</Text>
-              <Text style={styles.oppInfoLabel}>Rep: {nextOpponent?.club.reputation}</Text>
+              <Text style={styles.oppInfoLabel}>{t('home.opponent_formation', { formation: opponentFormation })}</Text>
+              <Text style={styles.oppInfoLabel}>{t('home.opponent_rep', { rep: nextOpponent?.club.reputation ?? 0 })}</Text>
             </View>
 
             {loadingOpponent ? (
@@ -773,7 +773,7 @@ export function HomeScreen() {
 
               return (
                 <ScrollView style={styles.oppSquadList} nestedScrollEnabled>
-                  <Text style={styles.oppSectionLabel}>STARTING XI</Text>
+                  <Text style={styles.oppSectionLabel}>{t('home.starting_xi')}</Text>
                   <View style={styles.oppPitchView}>
                     {startingXI.map((row, ri) => (
                       <View key={ri} style={styles.oppPitchRow}>
@@ -797,7 +797,7 @@ export function HomeScreen() {
 
                   {subs.length > 0 && (
                     <>
-                      <Text style={styles.oppSectionLabel}>SUBSTITUTES</Text>
+                      <Text style={styles.oppSectionLabel}>{t('home.substitutes')}</Text>
                       {subs.map((p, idx) => {
                         const ovrColor = p.overall >= 75 ? colors.success : p.overall >= 60 ? colors.warning : colors.danger;
                         return (
@@ -819,7 +819,7 @@ export function HomeScreen() {
               onPress={() => setShowOpponentModal(false)}
               activeOpacity={0.8}
             >
-              <Text style={styles.modalCloseText}>Close</Text>
+              <Text style={styles.modalCloseText}>{t('home.modal_close')}</Text>
             </TouchableOpacity>
           </View>
         </View>
