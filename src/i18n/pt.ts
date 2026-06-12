@@ -251,4 +251,11 @@ export const pt = {
   'home.cup_bracket_title': 'Copa',
   'home.cup_bracket_sub': 'Acompanhe a chave do mata-mata',
   'staff.hire_coming_soon': 'Contratação de comissão em breve',
+  'objective.no_relegation': 'Evitar o rebaixamento nesta temporada',
+  'objective.top_half': 'Terminar na metade de cima (top {target})',
+  'objective.league_position': 'Terminar no top {target}',
+  'objective.win_league': 'Vencer o campeonato da liga',
+  'objective.cup_win': 'Vencer uma competição de copa nesta temporada',
+  'objective.budget_balance': 'Manter as finanças do clube no azul',
+  'objective.promotion': 'Conquistar o acesso à divisão superior',
 } as const;

@@ -1,0 +1,12 @@
+import { Language } from './types';
+
+/** Ordinal localizado. EN: 1st/2nd/3rd/Nth. PT: Nº (masculino, "lugar"/"posição"). */
+export function ordinal(lang: Language, n: number): string {
+  if (lang === 'pt') return `${n}º`;
+  const mod10 = n % 10;
+  const mod100 = n % 100;
+  if (mod10 === 1 && mod100 !== 11) return `${n}st`;
+  if (mod10 === 2 && mod100 !== 12) return `${n}nd`;
+  if (mod10 === 3 && mod100 !== 13) return `${n}rd`;
+  return `${n}th`;
+}

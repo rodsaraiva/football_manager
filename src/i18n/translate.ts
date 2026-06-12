@@ -20,3 +20,9 @@ export function translate(
   }
   return s;
 }
+
+/** Texto deferido: chave + params, resolvido pela UI via t(). Mantém a engine sem string. */
+export interface TextDescriptor {
+  key: TKey;
+  vars?: Record<string, string | number>;
+}

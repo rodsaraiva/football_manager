@@ -253,4 +253,11 @@ export const en: Record<keyof typeof pt, string> = {
   'home.cup_bracket_title': 'Cup',
   'home.cup_bracket_sub': 'Follow the knockout bracket',
   'staff.hire_coming_soon': 'Staff hiring coming soon',
+  'objective.no_relegation': 'Avoid relegation this season',
+  'objective.top_half': 'Finish in the top half (top {target})',
+  'objective.league_position': 'Finish in the top {target}',
+  'objective.win_league': 'Win the league championship',
+  'objective.cup_win': 'Win a cup competition this season',
+  'objective.budget_balance': 'Keep the club finances in the black',
+  'objective.promotion': 'Earn promotion to the higher division',
 };
