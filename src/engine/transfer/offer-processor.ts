@@ -2,6 +2,7 @@ import { DbHandle } from '@/database/queries/players';
 import { getPendingOffers, updateOfferStatus, createTransfer } from '@/database/queries/transfers';
 import { addFinanceEntry } from '@/database/queries/finances';
 import { evaluateOffer } from './transfer-ai';
+import { canAffordTransfer } from '@/engine/finance/affordability';
 import {
   blockClubFromPlayer,
   incrementOfferRound,
@@ -250,6 +251,17 @@ export async function processPendingOffers(
     const maxedOut = await hasExceededMaxRounds(db, saveId, offer.id);
 
     if (result.decision === 'accept') {
+      // Gate: the offering club must actually be able to pay the fee. Without
+      // this, AI sellers happily accept bids the buyer cannot fund and the
+      // buyer budget goes arbitrarily negative.
+      const buyer = (await db
+        .prepare('SELECT budget FROM clubs WHERE save_id = ? AND id = ?')
+        .get(saveId, offer.offeringClubId)) as { budget: number } | undefined;
+      if (!buyer || !canAffordTransfer(buyer.budget, offer.feeOffered)) {
+        await updateOfferStatus(db, saveId, offer.id, 'rejected', week);
+        await blockClubFromPlayer(db, saveId, offer.playerId, offer.offeringClubId, season, week);
+        continue;
+      }
       // Execute immediately
       await executeAcceptedTransfer(db, saveId, {
         offerId: offer.id,
