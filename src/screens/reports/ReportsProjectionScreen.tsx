@@ -16,6 +16,8 @@ import {
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { colors, spacing, fontSize, commonStyles } from '@/theme';
+import { useTranslation } from '@/i18n';
+import type { TKey } from '@/i18n/translate';
 import { ValueBadge } from '@/components/ValueBadge';
 import { EmptyState } from '@/components/EmptyState';
 import { useGameStore } from '@/store/game-store';
@@ -35,6 +37,7 @@ const DEF_POS: Position[] = ['CB', 'LB', 'RB'];
 const avg = (xs: number[]) => (xs.length === 0 ? 60 : xs.reduce((s, v) => s + v, 0) / xs.length);
 
 export function ReportsProjectionScreen() {
+  const { t } = useTranslation();
   const { playerClub, playerClubId, season, week, currentSave } = useGameStore();
   const { dbHandle } = useDatabaseStore();
   const saveId = currentSave?.id;
@@ -43,7 +46,7 @@ export function ReportsProjectionScreen() {
   const [projection, setProjection] = useState<ProjectedStanding[]>([]);
   const [clubNames, setClubNames] = useState<Map<number, string>>(new Map());
   const [nextFiveFixtures, setNextFiveFixtures] = useState<
-    { fixtureId: number; opponentName: string; difficulty: 'Fácil' | 'Médio' | 'Difícil'; week: number }[]
+    { fixtureId: number; opponentName: string; difficulty: 'easy' | 'medium' | 'hard'; week: number }[]
   >([]);
 
   const load = useCallback(async () => {
@@ -119,10 +122,10 @@ export function ReportsProjectionScreen() {
           const oppId = f.homeClubId === playerClubId ? f.awayClubId : f.homeClubId;
           const oppOvr = overallByClub.get(oppId) ?? 60;
           const diff = oppOvr - myOvr;
-          let difficulty: 'Fácil' | 'Médio' | 'Difícil';
-          if (diff < -10) difficulty = 'Fácil';
-          else if (diff > 10) difficulty = 'Difícil';
-          else difficulty = 'Médio';
+          let difficulty: 'easy' | 'medium' | 'hard';
+          if (diff < -10) difficulty = 'easy';
+          else if (diff > 10) difficulty = 'hard';
+          else difficulty = 'medium';
           return {
             fixtureId: f.id,
             opponentName: namesMap.get(oppId) ?? `Club ${oppId}`,
@@ -154,7 +157,7 @@ export function ReportsProjectionScreen() {
   if (projection.length === 0) {
     return (
       <View style={[commonStyles.screen, styles.center]}>
-        <EmptyState icon="📈" title="Dados insuficientes para projeção." />
+        <EmptyState icon="📈" title={t('report.projection_empty')} />
       </View>
     );
   }
@@ -174,15 +177,15 @@ export function ReportsProjectionScreen() {
         <>
           {myEntry && (
             <View style={[styles.myStatusCard, { borderLeftColor: statusColor(myEntry.status) }]}>
-              <Text style={styles.myStatusTitle}>Sua posição projetada</Text>
+              <Text style={styles.myStatusTitle}>{t('report.projection_my_status')}</Text>
               <View style={styles.myStatusRow}>
                 <Text style={styles.myPosition}>{myEntry.projectedPosition}º</Text>
                 <View style={styles.myStatusInfo}>
-                  <Text style={styles.myPoints}>{myEntry.projectedPoints.toFixed(1)} pts projetados</Text>
-                  <Text style={styles.myPointsCurrent}>{myEntry.points} pts atuais · {myEntry.remainingFixtures} jogos restantes</Text>
+                  <Text style={styles.myPoints}>{t('report.projection_pts_proj', { pts: myEntry.projectedPoints.toFixed(1) })}</Text>
+                  <Text style={styles.myPointsCurrent}>{t('report.projection_pts_current', { pts: myEntry.points, games: myEntry.remainingFixtures })}</Text>
                 </View>
                 <ValueBadge
-                  value={statusLabel(myEntry.status)}
+                  value={t(statusLabelKey(myEntry.status))}
                   tone={myEntry.status === 'title' ? 'warning' : myEntry.status === 'promotion' || myEntry.status === 'continental' ? 'success' : myEntry.status === 'relegation' ? 'danger' : 'neutral'}
                   size="sm"
                 />
@@ -192,15 +195,15 @@ export function ReportsProjectionScreen() {
 
           {nextFiveFixtures.length > 0 && (
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Próximos 5 Jogos</Text>
-              <Text style={styles.sectionSub}>Dificuldade estimada por overall comparativo</Text>
+              <Text style={styles.sectionTitle}>{t('report.projection_next5')}</Text>
+              <Text style={styles.sectionSub}>{t('report.projection_next5_sub')}</Text>
               {nextFiveFixtures.map((f, i) => (
                 <View key={f.fixtureId} style={styles.fixtureRow}>
                   <Text style={styles.fixtureWeek}>S{f.week}</Text>
                   <Text style={styles.fixtureName}>{f.opponentName}</Text>
                   <ValueBadge
-                    value={f.difficulty}
-                    tone={f.difficulty === 'Fácil' ? 'success' : f.difficulty === 'Difícil' ? 'danger' : 'warning'}
+                    value={t(`report.difficulty_${f.difficulty}` as TKey)}
+                    tone={f.difficulty === 'easy' ? 'success' : f.difficulty === 'hard' ? 'danger' : 'warning'}
                     size="sm"
                   />
                 </View>
@@ -210,7 +213,7 @@ export function ReportsProjectionScreen() {
 
           <View style={styles.tableHeader}>
             <Text style={[styles.headerCell, { width: 28 }]}>#</Text>
-            <Text style={[styles.headerCell, { flex: 1 }]}>Clube</Text>
+            <Text style={[styles.headerCell, { flex: 1 }]}>{t('report.col_club')}</Text>
             <Text style={[styles.headerCell, { width: 42, textAlign: 'right' }]}>Pts</Text>
             <Text style={[styles.headerCell, { width: 52, textAlign: 'right' }]}>Proj.</Text>
             <Text style={[styles.headerCell, { width: 34, textAlign: 'right' }]}>Res.</Text>
@@ -226,7 +229,7 @@ export function ReportsProjectionScreen() {
       )}
       ListFooterComponent={
         <Text style={styles.disclaimer}>
-          Projeção baseada em overall comparativo — não inclui fator sorte.
+          {t('report.projection_disclaimer')}
         </Text>
       }
     />
@@ -274,20 +277,14 @@ function statusColor(status: ProjectedStanding['status']): string {
   }
 }
 
-function statusLabel(status: ProjectedStanding['status']): string {
+function statusLabelKey(status: ProjectedStanding['status']): TKey {
   switch (status) {
-    case 'title': return 'Zona de Título';
-    case 'promotion': return 'Zona de Classificação';
-    case 'continental': return 'Vaga Continental';
-    case 'relegation': return 'Zona de Rebaixamento';
-    default: return 'Zona Segura';
+    case 'title': return 'report.projection_zone_title';
+    case 'promotion': return 'report.projection_zone_promotion';
+    case 'continental': return 'report.projection_zone_continental';
+    case 'relegation': return 'report.projection_zone_relegation';
+    default: return 'report.projection_zone_safe';
   }
-}
-
-function diffColor(d: 'Fácil' | 'Médio' | 'Difícil'): string {
-  if (d === 'Fácil') return colors.success;
-  if (d === 'Difícil') return colors.danger;
-  return colors.warning;
 }
 
 const styles = StyleSheet.create({
