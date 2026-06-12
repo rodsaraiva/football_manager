@@ -44,6 +44,7 @@ const FINANCE_TYPE_LABELS: Record<FinanceType, string> = {
   bonus: 'Bonus',
   upgrade: 'Facility Upgrade',
   assistant_wage: 'Assistant Wages',
+  prize: 'Prize Money',
 };
 
 function typeIcon(type: FinanceType): string {

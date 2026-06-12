@@ -5,6 +5,7 @@ import { regenerateAiSquadSeason } from '@/engine/rollover/squad-regeneration';
 import { calculateOverall } from '@/utils/overall';
 import { recalcSquadPotential, generateClubYouth, applyOrdinaryRetirements } from '@/engine/season/end-of-season-ops';
 import { returnExpiredLoans } from '@/engine/transfer/loan-returns';
+import { expireContracts, recalculateMarketValues } from '@/engine/finance/rollover-economy';
 import { ensureSeasonFixtures } from '@/engine/competition/calendar';
 import { runInTransaction } from '@/database/transaction';
 
@@ -43,16 +44,16 @@ export async function rolloverSeason(p: RolloverSeasonParams): Promise<RolloverS
       .prepare('UPDATE players SET age = age + 1 WHERE save_id = ? AND (club_id IS NOT NULL OR is_free_agent = 1)')
       .run(saveId);
 
-    // 2. Contract expiry (EndOfSeasonScreen.tsx:362).
-    await db
-      .prepare('UPDATE players SET is_free_agent = 1 WHERE save_id = ? AND contract_end <= ? AND club_id IS NOT NULL')
-      .run(saveId, endedSeason);
+    // 2. Return loaned players to their parent clubs FIRST, so a player on loan
+    //    whose contract ended is restored to the parent before expiry releases him.
+    await returnExpiredLoans(db, saveId, endedSeason);
+
+    // 2b. Contract expiry — release players whose contract ended with the full
+    //     free-agent state (club_id NULL, wage 0) so they stop being paid.
+    await expireContracts(db, saveId, endedSeason);
     const freed = (await db
       .prepare('SELECT COUNT(*) as n FROM players WHERE save_id = ? AND is_free_agent = 1')
       .get(saveId)) as { n: number };
-
-    // 2b. Return loaned players (EndOfSeasonScreen.tsx:365).
-    await returnExpiredLoans(db, saveId, endedSeason);
 
     // 3. Dynamic potential recalculation for the player's squad — now uses each
     //    player's REAL overall (was a hardcoded 70).
@@ -102,6 +103,10 @@ export async function rolloverSeason(p: RolloverSeasonParams): Promise<RolloverS
 
     // 4c. Ordinary age-based retirement across every club (progression-wired).
     await applyOrdinaryRetirements(db, saveId, p.rng);
+
+    // 4d. Recompute market values for every attached/free player with fresh
+    //     overall/age/potential/contract — values stop being frozen at seed.
+    await recalculateMarketValues(db, saveId, newSeason);
 
     // 5. Regenerate the calendar for the new season. ensureSeasonFixtures is already
     // save-scoped + offset, so we delegate instead of duplicating the offset math here.
