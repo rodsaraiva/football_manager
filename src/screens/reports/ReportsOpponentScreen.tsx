@@ -108,7 +108,7 @@ export function ReportsOpponentScreen() {
   if (loading) {
     return (
       <View style={[commonStyles.screen, styles.center]}>
-        <ActivityIndicator color={colors.primary} size="large" />
+        <ActivityIndicator color={colors.reportOpponent} size="large" />
       </View>
     );
   }
@@ -126,7 +126,7 @@ export function ReportsOpponentScreen() {
       style={commonStyles.screen}
       contentContainerStyle={styles.container}
       refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.reportOpponent} />
       }
     >
       {/* Header */}

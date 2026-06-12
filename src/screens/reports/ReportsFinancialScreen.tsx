@@ -100,7 +100,7 @@ export function ReportsFinancialScreen() {
   if (loading) {
     return (
       <View style={[commonStyles.screen, styles.center]}>
-        <ActivityIndicator color={colors.primary} size="large" />
+        <ActivityIndicator color={colors.reportFinancial} size="large" />
       </View>
     );
   }
@@ -125,7 +125,7 @@ export function ReportsFinancialScreen() {
       style={commonStyles.screen}
       contentContainerStyle={styles.container}
       refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.reportFinancial} />
       }
     >
       {/* Budget highlight */}

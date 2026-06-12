@@ -119,7 +119,7 @@ export function ReportsRadarScreen() {
   if (loading) {
     return (
       <View style={[commonStyles.screen, styles.center]}>
-        <ActivityIndicator color={colors.primary} size="large" />
+        <ActivityIndicator color={colors.reportRadar} size="large" />
       </View>
     );
   }

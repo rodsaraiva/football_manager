@@ -124,7 +124,7 @@ export function ReportsTransferROIScreen() {
   if (loading) {
     return (
       <View style={[commonStyles.screen, styles.center]}>
-        <ActivityIndicator color={colors.primary} size="large" />
+        <ActivityIndicator color={colors.reportROI} size="large" />
       </View>
     );
   }
@@ -173,7 +173,7 @@ export function ReportsTransferROIScreen() {
           keyExtractor={(item) => `${item.transfer.id}`}
           contentContainerStyle={styles.listContent}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.reportROI} />
           }
           renderItem={({ item }) => <ROICard entry={item} tab={tab} />}
         />

@@ -113,7 +113,7 @@ export function ReportsYouthScreen() {
   if (loading) {
     return (
       <View style={[commonStyles.screen, styles.center]}>
-        <ActivityIndicator color={colors.primary} size="large" />
+        <ActivityIndicator color={colors.reportYouth} size="large" />
       </View>
     );
   }
@@ -141,7 +141,7 @@ export function ReportsYouthScreen() {
       style={commonStyles.screen}
       contentContainerStyle={styles.container}
       refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.reportYouth} />
       }
     >
       <View style={styles.header}>

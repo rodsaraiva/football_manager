@@ -128,7 +128,7 @@ export function ReportsTechnicalScreen() {
   if (loading) {
     return (
       <View style={[commonStyles.screen, styles.center]}>
-        <ActivityIndicator color={colors.primary} size="large" />
+        <ActivityIndicator color={colors.reportTechnical} size="large" />
       </View>
     );
   }
@@ -146,7 +146,7 @@ export function ReportsTechnicalScreen() {
       style={commonStyles.screen}
       contentContainerStyle={styles.container}
       refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.reportTechnical} />
       }
     >
       <View style={styles.header}>
