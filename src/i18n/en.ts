@@ -231,4 +231,10 @@ export const en: Record<keyof typeof pt, string> = {
   'renewal.counter_accept': 'Accept request',
   'renewal.rejected': 'The player declined the offer.',
   'renewal.wage_budget_exceeded': 'Exceeds the club wage budget.',
+  'gameover.title': 'GAME OVER',
+  'gameover.dismissed': 'You have been dismissed by the board.',
+  'gameover.reason_label': 'Reason',
+  'gameover.objective_label': 'Season objective',
+  'gameover.final_trust': 'Final trust',
+  'gameover.back_to_menu': 'Back to menu',
 };

@@ -229,4 +229,10 @@ export const pt = {
   'renewal.counter_accept': 'Aceitar pedido',
   'renewal.rejected': 'O jogador recusou a proposta.',
   'renewal.wage_budget_exceeded': 'Estoura o teto salarial do clube.',
+  'gameover.title': 'FIM DE JOGO',
+  'gameover.dismissed': 'Você foi demitido pela diretoria.',
+  'gameover.reason_label': 'Motivo',
+  'gameover.objective_label': 'Objetivo da temporada',
+  'gameover.final_trust': 'Confiança final',
+  'gameover.back_to_menu': 'Voltar ao menu',
 } as const;

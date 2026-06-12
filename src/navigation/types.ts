@@ -5,6 +5,7 @@ export type RootStackParamList = {
   MatchResult: { fixtureId: number };
   PlayerDetail: { playerId: number };
   EndOfSeason: undefined;
+  GameOver: { reason: string; trust: number; objectiveDescription: string };
   // Club sub-screens
   ClubFinances: undefined;
   ClubStaff: undefined;

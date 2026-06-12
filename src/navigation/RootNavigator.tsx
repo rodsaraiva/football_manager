@@ -4,6 +4,7 @@ import { useClubAccent } from '@/theme/useClubAccent';
 import { MainMenuScreen } from '@/screens/MainMenuScreen';
 import { NewGameScreen } from '@/screens/NewGameScreen';
 import { EndOfSeasonScreen } from '@/screens/EndOfSeasonScreen';
+import { GameOverScreen } from '@/screens/GameOverScreen';
 import { FinancesScreen } from '@/screens/club/FinancesScreen';
 import { StaffScreen } from '@/screens/club/StaffScreen';
 import { UpgradesScreen } from '@/screens/club/UpgradesScreen';
@@ -50,6 +51,7 @@ export function RootNavigator() {
         component={EndOfSeasonScreen}
         options={{ title: 'End of Season', headerShown: false }}
       />
+      <Stack.Screen name="GameOver" component={GameOverScreen} options={{ headerShown: false }} />
       {/* Player detail + match result (reachable from reports, squad, results) */}
       <Stack.Screen name="PlayerDetail" component={PlayerDetailRoute} options={{ title: 'Player' }} />
       <Stack.Screen name="MatchResult" component={MatchResultScreen} options={{ title: 'Match Result' }} />
