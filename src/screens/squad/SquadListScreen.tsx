@@ -5,9 +5,11 @@ import {
   Pressable,
   StyleSheet,
   Text,
+  TouchableOpacity,
   View,
 } from 'react-native';
 import { colors, commonStyles, fontSize, spacing } from '@/theme';
+import { useTranslation } from '@/i18n';
 import PlayerCard from '@/components/PlayerCard';
 import { useGameStore } from '@/store/game-store';
 import { useDatabaseStore } from '@/store/database-store';
@@ -51,6 +53,7 @@ export function SquadListScreen() {
   const saveId = useGameStore((s) => s.currentSave?.id);
   const dbHandle = useDatabaseStore((s) => s.dbHandle);
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const { t } = useTranslation();
 
   const [players, setPlayers] = useState<PlayerWithAttributes[]>([]);
   const [loading, setLoading] = useState(true);
@@ -97,6 +100,13 @@ export function SquadListScreen() {
 
   return (
     <View style={commonStyles.screen}>
+      <TouchableOpacity
+        style={styles.youthLink}
+        activeOpacity={0.8}
+        onPress={() => navigation.navigate('YouthAcademy')}
+      >
+        <Text style={styles.youthLinkText}>🌱 {t('home.youth_academy_link')}</Text>
+      </TouchableOpacity>
       {/* Filter chips */}
       <View style={styles.filterRow}>
         {FILTER_TABS.map((tab) => (
@@ -152,6 +162,18 @@ export function SquadListScreen() {
 }
 
 const styles = StyleSheet.create({
+  youthLink: {
+    marginHorizontal: spacing.md,
+    marginTop: spacing.sm,
+    marginBottom: spacing.xs,
+    paddingVertical: spacing.sm,
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  youthLinkText: { color: colors.primary, fontSize: fontSize.sm, fontWeight: '600' },
   filterRow: {
     flexDirection: 'row',
     paddingHorizontal: spacing.md,

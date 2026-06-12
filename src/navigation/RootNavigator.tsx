@@ -30,6 +30,8 @@ import { ReportsFreeAgentScoutScreen } from '@/screens/reports/ReportsFreeAgentS
 import { HistoryScreen } from '@/screens/history/HistoryScreen';
 import { PlayerDetailRoute } from '@/screens/squad/PlayerDetailRoute';
 import { MatchResultScreen } from '@/screens/home/MatchResultScreen';
+import { CalendarScreen } from '@/screens/home/CalendarScreen';
+import { YouthAcademyScreen } from '@/screens/squad/YouthAcademyScreen';
 import { TabNavigator } from './TabNavigator';
 import { RootStackParamList } from './types';
 
@@ -83,6 +85,9 @@ export function RootNavigator() {
       <Stack.Screen name="ReportsFreeAgentScout" component={ReportsFreeAgentScoutScreen} options={{ title: 'Scouting de Free Agents' }} />
       {/* History hub */}
       <Stack.Screen name="SeasonHistory" component={HistoryScreen} options={{ title: 'History' }} />
+      {/* Orphan screens wired in */}
+      <Stack.Screen name="Calendar" component={CalendarScreen} options={{ title: 'Calendar' }} />
+      <Stack.Screen name="YouthAcademy" component={YouthAcademyScreen} options={{ title: 'Youth Academy' }} />
     </Stack.Navigator>
   );
 }

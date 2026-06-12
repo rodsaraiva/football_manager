@@ -235,4 +235,7 @@ export const pt = {
   'gameover.objective_label': 'Objetivo da temporada',
   'gameover.final_trust': 'Confiança final',
   'gameover.back_to_menu': 'Voltar ao menu',
+  'home.calendar_title': 'Calendário',
+  'home.calendar_sub': 'Veja o calendário completo da temporada',
+  'home.youth_academy_link': 'Academia de Base',
 } as const;

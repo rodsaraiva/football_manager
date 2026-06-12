@@ -35,6 +35,9 @@ export type RootStackParamList = {
   MyListings: undefined;
   // History hub
   SeasonHistory: undefined;
+  // Orphan screens wired in
+  Calendar: undefined;
+  YouthAcademy: undefined;
 };
 
 export type TabParamList = {

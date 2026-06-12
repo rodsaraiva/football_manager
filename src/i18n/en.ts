@@ -237,4 +237,7 @@ export const en: Record<keyof typeof pt, string> = {
   'gameover.objective_label': 'Season objective',
   'gameover.final_trust': 'Final trust',
   'gameover.back_to_menu': 'Back to menu',
+  'home.calendar_title': 'Calendar',
+  'home.calendar_sub': 'View the full season calendar',
+  'home.youth_academy_link': 'Youth Academy',
 };

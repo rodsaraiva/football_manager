@@ -376,6 +376,20 @@ export function HomeScreen() {
         <Text style={styles.leagueTableChevron}>›</Text>
       </TouchableOpacity>
 
+      {/* Calendar shortcut */}
+      <TouchableOpacity
+        style={styles.leagueTableBtn}
+        activeOpacity={0.8}
+        onPress={() => navigation.navigate('Calendar')}
+      >
+        <Text style={styles.leagueTableIcon}>📅</Text>
+        <View style={styles.leagueTableContent}>
+          <Text style={styles.leagueTableTitle}>{t('home.calendar_title')}</Text>
+          <Text style={styles.leagueTableSub}>{t('home.calendar_sub')}</Text>
+        </View>
+        <Text style={styles.leagueTableChevron}>›</Text>
+      </TouchableOpacity>
+
       {/* Last Match Result Banner */}
       {lastMatchResult !== null && (
         <TouchableOpacity
