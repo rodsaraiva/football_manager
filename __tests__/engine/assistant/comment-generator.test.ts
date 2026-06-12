@@ -59,13 +59,29 @@ describe('maybeGenerateComment', () => {
     expect(comment!.assistantName).toBe('Alan Bright');
   });
 
-  it('comment text is non-empty', () => {
+  it('comment carries a localizable descriptor (key under assistant.*)', () => {
     let comment = null;
     for (let seed = 0; seed < 200; seed++) {
       comment = maybeGenerateComment(baseAssistant, baseContext, new SeededRng(seed));
       if (comment) break;
     }
-    expect(comment!.text.length).toBeGreaterThan(0);
+    expect(comment!.comment.key.startsWith('assistant.')).toBe(true);
+    expect(typeof comment!.comment.key).toBe('string');
+  });
+
+  it('same seed → same comment key (deterministic descriptor)', () => {
+    let key: string | null = null;
+    let key2: string | null = null;
+    for (let seed = 0; seed < 200; seed++) {
+      const a = maybeGenerateComment(baseAssistant, baseContext, new SeededRng(seed));
+      if (a) {
+        key = a.comment.key;
+        key2 = maybeGenerateComment(baseAssistant, baseContext, new SeededRng(seed))!.comment.key;
+        break;
+      }
+    }
+    expect(key).not.toBeNull();
+    expect(key).toBe(key2);
   });
 
   it('comment role matches assistant role', () => {
@@ -102,6 +118,7 @@ describe('maybeGenerateComment', () => {
   it('is deterministic for same seed', () => {
     const a = maybeGenerateComment(baseAssistant, baseContext, new SeededRng(5));
     const b = maybeGenerateComment(baseAssistant, baseContext, new SeededRng(5));
-    expect(a?.text).toBe(b?.text);
+    expect(a?.comment.key).toBe(b?.comment.key);
+    expect(a?.comment.vars).toEqual(b?.comment.vars);
   });
 });

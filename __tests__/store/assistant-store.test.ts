@@ -26,13 +26,13 @@ describe('assistant-store', () => {
   });
 
   it('setPendingComment stores the comment', () => {
-    const comment = { assistantId: 1, assistantName: 'Alan', archetype: 'analytics' as const, role: 'squad' as const, text: 'Hello' };
+    const comment = { assistantId: 1, assistantName: 'Alan', archetype: 'analytics' as const, role: 'squad' as const, comment: { key: 'assistant.squad.analytics.2' as const } };
     useAssistantStore.getState().setPendingComment(comment);
-    expect(useAssistantStore.getState().pendingComment?.text).toBe('Hello');
+    expect(useAssistantStore.getState().pendingComment?.comment.key).toBe('assistant.squad.analytics.2');
   });
 
   it('setPendingComment(null) clears the comment', () => {
-    const comment = { assistantId: 1, assistantName: 'Alan', archetype: 'analytics' as const, role: 'squad' as const, text: 'Hello' };
+    const comment = { assistantId: 1, assistantName: 'Alan', archetype: 'analytics' as const, role: 'squad' as const, comment: { key: 'assistant.squad.analytics.2' as const } };
     useAssistantStore.getState().setPendingComment(comment);
     useAssistantStore.getState().setPendingComment(null);
     expect(useAssistantStore.getState().pendingComment).toBeNull();

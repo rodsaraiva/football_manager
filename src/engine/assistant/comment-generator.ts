@@ -1,6 +1,7 @@
 import { SeededRng } from '@/engine/rng';
 import { AssistantArchetype, AssistantComment, AssistantRole, AssistantWithQuality } from '@/types/assistant';
 import { ASSISTANT_COMMENT_CHANCE_PER_WEEK } from '@/engine/balance';
+import { TextDescriptor } from '@/i18n/translate';
 
 export interface CommentContext {
   leaguePosition: number | null;
@@ -12,104 +13,136 @@ export interface CommentContext {
   topYouthPotential: number | null;
 }
 
-type CommentTemplate = (ctx: CommentContext) => string;
+type CommentTemplate = (ctx: CommentContext) => TextDescriptor;
 
 const SQUAD_TEMPLATES: Record<AssistantArchetype, CommentTemplate[]> = {
   old_school: [
-    (ctx) => ctx.leaguePosition && ctx.leaguePosition <= 5 ? "Good position in the table. Keep the discipline." : "We need to sharpen up. No room for complacency.",
-    (ctx) => `Week ${ctx.week} — the squad needs to stay focused. Character is built in moments like these.`,
-    () => "The lads are working hard. Consistency is what separates good teams from great ones.",
+    (ctx) => ctx.leaguePosition && ctx.leaguePosition <= 5
+      ? { key: 'assistant.squad.old_school.0_a' }
+      : { key: 'assistant.squad.old_school.0_b' },
+    (ctx) => ({ key: 'assistant.squad.old_school.1', vars: { week: ctx.week } }),
+    () => ({ key: 'assistant.squad.old_school.2' }),
   ],
   analytics: [
-    (ctx) => ctx.leaguePosition ? `Position ${ctx.leaguePosition}/${ctx.totalTeams}. Expected performance range: +/- 2 spots. Trending ${ctx.leaguePosition <= ctx.totalTeams / 2 ? 'above' : 'below'} median.` : "Insufficient positional data to generate projection.",
-    (ctx) => `xG differential this block suggests ${ctx.budgetBalance > 0 ? 'sustainable' : 'strained'} squad output. Recommend tactical review.`,
-    () => "Data shows squad rotation reduces injury rate by ~18%. Consider squad depth in upcoming fixtures.",
+    (ctx) => ctx.leaguePosition
+      ? {
+          key: ctx.leaguePosition <= ctx.totalTeams / 2 ? 'assistant.squad.analytics.0_above' : 'assistant.squad.analytics.0_below',
+          vars: { pos: ctx.leaguePosition, total: ctx.totalTeams },
+        }
+      : { key: 'assistant.squad.analytics.0_b' },
+    (ctx) => ({ key: ctx.budgetBalance > 0 ? 'assistant.squad.analytics.1_sustainable' : 'assistant.squad.analytics.1_strained' }),
+    () => ({ key: 'assistant.squad.analytics.2' }),
   ],
   motivator: [
-    (ctx) => ctx.leaguePosition && ctx.leaguePosition <= 3 ? "The boys are flying! Let's keep the energy up!" : "We're capable of so much more. I believe in this group!",
-    () => "Every training session, every rep — it all counts. The team is building something special.",
-    () => "The spirit in the dressing room is strong. That's what wins championships.",
+    (ctx) => ctx.leaguePosition && ctx.leaguePosition <= 3
+      ? { key: 'assistant.squad.motivator.0_a' }
+      : { key: 'assistant.squad.motivator.0_b' },
+    () => ({ key: 'assistant.squad.motivator.1' }),
+    () => ({ key: 'assistant.squad.motivator.2' }),
   ],
   tactician: [
-    (ctx) => `Week ${ctx.week} — I've been analyzing the pressing triggers. We can exploit space behind their midfield line.`,
-    () => "The 4-3-3 pressing shape is working, but we need sharper rotations in the final third.",
-    () => "Set pieces are still an area of opportunity. We're leaving points on the table.",
+    (ctx) => ({ key: 'assistant.squad.tactician.0', vars: { week: ctx.week } }),
+    () => ({ key: 'assistant.squad.tactician.1' }),
+    () => ({ key: 'assistant.squad.tactician.2' }),
   ],
   developer: [
-    (ctx) => ctx.topYouthPotential ? `Top youth talent has potential of ${ctx.topYouthPotential}. Worth investing playtime this block.` : "The youth pipeline looks solid. Keep developing the youngsters.",
-    () => "Young players need minutes to grow. Consider rotating in the next fixture.",
-    () => "The academy players are progressing well. A few are knocking on the first-team door.",
+    (ctx) => ctx.topYouthPotential
+      ? { key: 'assistant.squad.developer.0_a', vars: { pot: ctx.topYouthPotential } }
+      : { key: 'assistant.squad.developer.0_b' },
+    () => ({ key: 'assistant.squad.developer.1' }),
+    () => ({ key: 'assistant.squad.developer.2' }),
   ],
   pragmatic: [
-    (ctx) => ctx.leaguePosition && ctx.leaguePosition > ctx.totalTeams * 0.7 ? "We need points urgently. Pragmatic approach — protect what we have." : "Results are acceptable. Stay the course.",
-    () => "No need to overthink it. Defend well, hit on the counter. Simple game plan.",
-    () => "The opposition won't adapt to us — we adapt to them. That's how this works.",
+    (ctx) => ctx.leaguePosition && ctx.leaguePosition > ctx.totalTeams * 0.7
+      ? { key: 'assistant.squad.pragmatic.0_a' }
+      : { key: 'assistant.squad.pragmatic.0_b' },
+    () => ({ key: 'assistant.squad.pragmatic.1' }),
+    () => ({ key: 'assistant.squad.pragmatic.2' }),
   ],
 };
 
 const FINANCIAL_TEMPLATES: Record<AssistantArchetype, CommentTemplate[]> = {
   pragmatic: [
-    (ctx) => ctx.budgetBalance >= 0 ? "Finances are stable. No alarm bells — keep an eye on wage commitments." : "We're in the red. Need to look at trimming costs or moving on some players.",
-    () => "Transfer budget is tight. Better to develop from within than overpay in the market.",
-    () => "Don't let sentiment drive financial decisions. If a player's value is high, consider selling.",
+    (ctx) => ctx.budgetBalance >= 0
+      ? { key: 'assistant.financial.pragmatic.0_a' }
+      : { key: 'assistant.financial.pragmatic.0_b' },
+    () => ({ key: 'assistant.financial.pragmatic.1' }),
+    () => ({ key: 'assistant.financial.pragmatic.2' }),
   ],
   analytics: [
-    (ctx) => `Budget balance: ${ctx.budgetBalance >= 0 ? '+' : ''}${Math.round(ctx.budgetBalance / 1000)}K. ${ctx.budgetBalance >= 0 ? 'Within sustainable range.' : 'Below zero — cost reduction required.'}`,
-    () => "Wage-to-revenue ratio is worth monitoring. Recommend quarterly financial review.",
-    () => "Transfer ROI metrics suggest we're generating above-average value from recent signings.",
+    (ctx) => ({
+      key: ctx.budgetBalance >= 0 ? 'assistant.financial.analytics.0_pos' : 'assistant.financial.analytics.0_neg',
+      vars: { k: Math.round(ctx.budgetBalance / 1000) },
+    }),
+    () => ({ key: 'assistant.financial.analytics.1' }),
+    () => ({ key: 'assistant.financial.analytics.2' }),
   ],
   old_school: [
-    (ctx) => ctx.budgetBalance >= 0 ? "Money's in order. Don't spend what you don't have — that's my advice." : "We're spending more than we earn. That's not how I run things.",
-    () => "Back in my day, clubs lived within their means. Still the right approach.",
-    () => "The wage bill is the biggest risk. Keep it manageable.",
+    (ctx) => ctx.budgetBalance >= 0
+      ? { key: 'assistant.financial.old_school.0_a' }
+      : { key: 'assistant.financial.old_school.0_b' },
+    () => ({ key: 'assistant.financial.old_school.1' }),
+    () => ({ key: 'assistant.financial.old_school.2' }),
   ],
   motivator: [
-    (ctx) => ctx.budgetBalance >= 0 ? "We're in a healthy spot financially! Resources are there to invest in the squad!" : "Tight budget, but we've overcome bigger challenges. Let's make smart moves.",
-    () => "Every signing is an opportunity to bring in someone who believes in what we're building!",
-    () => "Financial discipline now means more freedom later. Trust the process!",
+    (ctx) => ctx.budgetBalance >= 0
+      ? { key: 'assistant.financial.motivator.0_a' }
+      : { key: 'assistant.financial.motivator.0_b' },
+    () => ({ key: 'assistant.financial.motivator.1' }),
+    () => ({ key: 'assistant.financial.motivator.2' }),
   ],
   tactician: [
-    (ctx) => `Budget analysis: ${ctx.budgetBalance >= 0 ? 'positive' : 'negative'} balance. Recommend targeting positions of highest tactical need.`,
-    () => "Investing in the right profile matters more than the price tag. Quality over quantity.",
-    () => "The best financial decision is a signing that fills a specific tactical gap.",
+    (ctx) => ({ key: ctx.budgetBalance >= 0 ? 'assistant.financial.tactician.0_pos' : 'assistant.financial.tactician.0_neg' }),
+    () => ({ key: 'assistant.financial.tactician.1' }),
+    () => ({ key: 'assistant.financial.tactician.2' }),
   ],
   developer: [
-    () => "Youth development pays dividends. An academy product costs a fraction of a transfer.",
-    (ctx) => ctx.budgetBalance < 0 ? "With limited funds, promoting youth is the smart play." : "Healthy budget — consider investing in youth infrastructure.",
-    () => "Free agents and loan deals can bridge gaps without breaking the bank.",
+    () => ({ key: 'assistant.financial.developer.0' }),
+    (ctx) => ctx.budgetBalance < 0
+      ? { key: 'assistant.financial.developer.1_a' }
+      : { key: 'assistant.financial.developer.1_b' },
+    () => ({ key: 'assistant.financial.developer.2' }),
   ],
 };
 
 const YOUTH_TEMPLATES: Record<AssistantArchetype, CommentTemplate[]> = {
   developer: [
-    (ctx) => ctx.topYouthPotential && ctx.topYouthPotential >= 80 ? `One of our youngsters has potential of ${ctx.topYouthPotential}. This lad could be something special.` : "The youth group is progressing steadily. Patience is key.",
-    () => "Loan deals should be a priority for players who need competitive minutes.",
-    () => "A player's peak development window is 16-23. Let's not waste it on the bench.",
+    (ctx) => ctx.topYouthPotential && ctx.topYouthPotential >= 80
+      ? { key: 'assistant.youth.developer.0_a', vars: { pot: ctx.topYouthPotential } }
+      : { key: 'assistant.youth.developer.0_b' },
+    () => ({ key: 'assistant.youth.developer.1' }),
+    () => ({ key: 'assistant.youth.developer.2' }),
   ],
   motivator: [
-    () => "The young ones are hungry — give them a chance and they'll deliver!",
-    (ctx) => ctx.topYouthPotential ? `Potential of ${ctx.topYouthPotential}? That's exciting! This player deserves a shot!` : "The youth group has energy and ambition. That's half the battle!",
-    () => "Nothing builds a player faster than knowing their manager believes in them.",
+    () => ({ key: 'assistant.youth.motivator.0' }),
+    (ctx) => ctx.topYouthPotential
+      ? { key: 'assistant.youth.motivator.1_a', vars: { pot: ctx.topYouthPotential } }
+      : { key: 'assistant.youth.motivator.1_b' },
+    () => ({ key: 'assistant.youth.motivator.2' }),
   ],
   old_school: [
-    () => "Young players need discipline before flair. Make sure they earn their minutes.",
-    () => "I've seen more talent wasted by impatience than by anything else.",
-    () => "The best thing for a young player is a good loan — proper football, proper development.",
+    () => ({ key: 'assistant.youth.old_school.0' }),
+    () => ({ key: 'assistant.youth.old_school.1' }),
+    () => ({ key: 'assistant.youth.old_school.2' }),
   ],
   analytics: [
-    (ctx) => ctx.topYouthPotential ? `Projected development trajectory for top youth (pot: ${ctx.topYouthPotential}): reaching peak in 3-5 seasons if given 1500+ minutes/year.` : "Youth development data suggests regular playtime is the key variable.",
-    () => "Statistical models show loan players in active squads develop 2x faster than bench-warmers.",
-    () => "Tracking youth performance metrics weekly. No surprises — data tells the story early.",
+    (ctx) => ctx.topYouthPotential
+      ? { key: 'assistant.youth.analytics.0_a', vars: { pot: ctx.topYouthPotential } }
+      : { key: 'assistant.youth.analytics.0_b' },
+    () => ({ key: 'assistant.youth.analytics.1' }),
+    () => ({ key: 'assistant.youth.analytics.2' }),
   ],
   tactician: [
-    () => "Young players must understand the system first. Technical skill follows tactical understanding.",
-    () => "I'm running position-specific drills with the U21s. Two of them are ready to step up.",
-    (ctx) => `Week ${ctx.week} — identified a youngster who fits our pressing profile perfectly. Worth promoting.`,
+    () => ({ key: 'assistant.youth.tactician.0' }),
+    () => ({ key: 'assistant.youth.tactician.1' }),
+    (ctx) => ({ key: 'assistant.youth.tactician.2', vars: { week: ctx.week } }),
   ],
   pragmatic: [
-    () => "Youth is valuable, but only if they're actually ready. Don't rush it.",
-    () => "A loan is better than sitting in the reserves. Get them game time.",
-    (ctx) => ctx.topYouthPotential && ctx.topYouthPotential >= 75 ? "This one might be worth keeping. High upside, low cost. Think long-term." : "Manage expectations — not every youngster makes it.",
+    () => ({ key: 'assistant.youth.pragmatic.0' }),
+    () => ({ key: 'assistant.youth.pragmatic.1' }),
+    (ctx) => ctx.topYouthPotential && ctx.topYouthPotential >= 75
+      ? { key: 'assistant.youth.pragmatic.2_a' }
+      : { key: 'assistant.youth.pragmatic.2_b' },
   ],
 };
 
@@ -129,13 +162,13 @@ export function maybeGenerateComment(
 
   const templates = TEMPLATES_BY_ROLE[assistant.role][assistant.archetype];
   const template = templates[rng.nextInt(0, templates.length - 1)];
-  const text = template(context);
+  const descriptor = template(context);
 
   return {
     assistantId: assistant.id,
     assistantName: assistant.name,
     archetype: assistant.archetype,
     role: assistant.role,
-    text,
+    comment: descriptor,
   };
 }

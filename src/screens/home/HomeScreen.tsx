@@ -315,7 +315,7 @@ export function HomeScreen() {
           onPress={() => setPendingComment(null)}
         >
           <Text style={styles.commentAuthor}>{pendingComment.assistantName}</Text>
-          <Text style={styles.commentText}>{pendingComment.text}</Text>
+          <Text style={styles.commentText}>{t(pendingComment.comment.key, pendingComment.comment.vars)}</Text>
           <Text style={styles.commentDismiss}>{t('home.tap_dismiss')}</Text>
         </TouchableOpacity>
       )}

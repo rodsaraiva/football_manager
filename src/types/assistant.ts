@@ -41,5 +41,5 @@ export interface AssistantComment {
   assistantName: string;
   archetype: AssistantArchetype;
   role: AssistantRole;
-  text: string;
+  comment: import('@/i18n/translate').TextDescriptor;
 }
