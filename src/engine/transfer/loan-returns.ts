@@ -48,9 +48,10 @@ export async function returnExpiredLoans(
       .get(saveId, loan.player_id)) as { club_id: number | null } | undefined;
     if (!player || player.club_id !== loan.to_club_id) continue;
 
-    // Move back to parent club. We don't touch wage here (parent decides).
+    // Move back to parent club and clear the loan-wage override so the parent
+    // resumes paying the preserved `wage`.
     await db
-      .prepare('UPDATE players SET club_id = ? WHERE save_id = ? AND id = ?')
+      .prepare('UPDATE players SET club_id = ?, loan_wage = NULL WHERE save_id = ? AND id = ?')
       .run(loan.from_club_id, saveId, loan.player_id);
 
     // Neutralize the loan record so it isn't returned again

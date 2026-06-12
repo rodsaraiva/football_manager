@@ -42,10 +42,19 @@ export async function executeAcceptedTransfer(
     loanEnd = null,
   } = params;
 
-  // Move player to the buying club, update wage, reset free-agent flag
-  await db
-    .prepare('UPDATE players SET club_id = ?, wage = ?, is_free_agent = 0 WHERE save_id = ? AND id = ?')
-    .run(toClubId, wageOffered, saveId, playerId);
+  // Move player to the buying/borrowing club.
+  if (offerType === 'loan') {
+    // Loan: preserve the parent club's `wage`; the borrowing club pays the agreed
+    // share in `loan_wage` (restored on return). Avoids the wage-bleed bug.
+    await db
+      .prepare('UPDATE players SET club_id = ?, loan_wage = ?, is_free_agent = 0 WHERE save_id = ? AND id = ?')
+      .run(toClubId, wageOffered, saveId, playerId);
+  } else {
+    // Permanent: the buying club takes over the full wage.
+    await db
+      .prepare('UPDATE players SET club_id = ?, wage = ?, loan_wage = NULL, is_free_agent = 0 WHERE save_id = ? AND id = ?')
+      .run(toClubId, wageOffered, saveId, playerId);
+  }
 
   // Transfer funds between clubs
   if (fee > 0) {
