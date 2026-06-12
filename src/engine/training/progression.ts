@@ -11,7 +11,7 @@ export interface ProgressionInput {
   avgRatingRecent: number;        // avg rating last 4-6 weeks (0 if no games)
   trainingFocus: TrainingFocus;
   trainingFacilityLevel: number;  // 1-5
-  staffTrainingBonus: number;     // 0..~0.3, from getStaffEffects().trainingBonus
+  staffTrainingBonus?: number;    // 0..~0.3, from getStaffEffects().trainingBonus; default 0
 }
 
 export interface ProgressionResult {
@@ -91,7 +91,7 @@ export function calculateWeeklyProgression(input: ProgressionInput): Progression
     avgRatingRecent,
     trainingFocus,
     trainingFacilityLevel,
-    staffTrainingBonus,
+    staffTrainingBonus = 0,
   } = input;
 
   const minutesPct = totalPossibleMinutes > 0

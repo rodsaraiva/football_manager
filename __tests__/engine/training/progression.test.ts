@@ -98,3 +98,35 @@ describe('calculateWeeklyProgression', () => {
     expect(Number.isFinite(change)).toBe(true);
   });
 });
+
+const attrs40: PlayerAttributes = {
+  finishing: 40, passing: 40, crossing: 40, dribbling: 40, heading: 40,
+  longShots: 40, freeKicks: 40, vision: 40, composure: 40, decisions: 40,
+  positioning: 40, aggression: 40, leadership: 40, pace: 40, stamina: 40,
+  strength: 40, agility: 40, jumping: 40,
+};
+
+const growing: ProgressionInput = {
+  age: 19,
+  attributes: attrs40,
+  effectivePotential: 85,
+  minutesPlayedRecent: 90,
+  totalPossibleMinutes: 90,
+  avgRatingRecent: 7.5,
+  trainingFocus: 'balanced',
+  trainingFacilityLevel: 3,
+};
+
+describe('calculateWeeklyProgression staffTrainingBonus', () => {
+  it('a positive staffTrainingBonus increases growth vs none', () => {
+    const without = calculateWeeklyProgression({ ...growing });
+    const withBonus = calculateWeeklyProgression({ ...growing, staffTrainingBonus: 0.3 });
+    expect(withBonus.attributeChanges.passing).toBeGreaterThan(without.attributeChanges.passing);
+  });
+
+  it('defaults to no change in behaviour when bonus is omitted (back-compat)', () => {
+    const omitted = calculateWeeklyProgression({ ...growing });
+    const zero = calculateWeeklyProgression({ ...growing, staffTrainingBonus: 0 });
+    expect(zero.attributeChanges.passing).toBeCloseTo(omitted.attributeChanges.passing, 10);
+  });
+});
