@@ -87,6 +87,10 @@ export const useDatabaseStore = create<DatabaseStore>((set) => ({
       await addColumnIfMissing(db, 'tactics', 'attack_focus', "TEXT NOT NULL DEFAULT 'balanced'");
       await addColumnIfMissing(db, 'tactics', 'sub_strategy', "TEXT NOT NULL DEFAULT 'balanced'");
 
+      // Economy depth: preserve parent wage during loans; track consecutive debt weeks.
+      await addColumnIfMissing(db, 'players', 'loan_wage', 'INTEGER');
+      await addColumnIfMissing(db, 'clubs', 'debt_weeks', 'INTEGER NOT NULL DEFAULT 0');
+
       // Progression wiring: club-wide training focus + fractional attribute accumulators
       await addColumnIfMissing(db, 'clubs', 'training_focus', "TEXT NOT NULL DEFAULT 'balanced'");
       for (const c of [

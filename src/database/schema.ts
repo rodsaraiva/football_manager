@@ -65,7 +65,8 @@ CREATE TABLE IF NOT EXISTS clubs (
   medical_department  INTEGER NOT NULL CHECK (medical_department BETWEEN 1 AND 5),
   primary_color       TEXT    NOT NULL,
   secondary_color     TEXT    NOT NULL,
-  training_focus      TEXT    NOT NULL DEFAULT 'balanced'
+  training_focus      TEXT    NOT NULL DEFAULT 'balanced',
+  debt_weeks          INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS players (
@@ -92,6 +93,7 @@ CREATE TABLE IF NOT EXISTS players (
   is_loan_listed     INTEGER NOT NULL DEFAULT 0,
   asking_price       INTEGER,
   loan_wage_share    REAL,
+  loan_wage          INTEGER,
   consecutive_low_morale_weeks INTEGER NOT NULL DEFAULT 0,
   will_retire_at_season_end    INTEGER NOT NULL DEFAULT 0,
   suspension_weeks_left        INTEGER NOT NULL DEFAULT 0

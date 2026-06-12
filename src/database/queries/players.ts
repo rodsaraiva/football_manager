@@ -31,6 +31,7 @@ interface PlayerRow {
   is_loan_listed: number;
   asking_price: number | null;
   loan_wage_share: number | null;
+  loan_wage: number | null;
   consecutive_low_morale_weeks: number;
   will_retire_at_season_end: number;
   suspension_weeks_left: number;
@@ -83,6 +84,7 @@ function rowToPlayer(row: PlayerRow): Player {
     isLoanListed: row.is_loan_listed === 1,
     askingPrice: row.asking_price ?? null,
     loanWageShare: row.loan_wage_share ?? null,
+    loanWage: row.loan_wage ?? null,
     consecutiveLowMoraleWeeks: row.consecutive_low_morale_weeks ?? 0,
     willRetireAtSeasonEnd: (row.will_retire_at_season_end ?? 0) === 1,
   };
@@ -112,8 +114,10 @@ function rowToAttributes(row: PlayerAttributesRow): PlayerAttributes {
 }
 
 export async function getPlayersByClub(db: DbHandle, saveId: number, clubId: number): Promise<Player[]> {
+  // Defensive guard: a freed player (is_free_agent=1) must never count as squad,
+  // even if a buggy path left club_id intact (economy-depth wage-bleed fix).
   const rows = await db
-    .prepare('SELECT * FROM players WHERE save_id = ? AND club_id = ?')
+    .prepare('SELECT * FROM players WHERE save_id = ? AND club_id = ? AND is_free_agent = 0')
     .all(saveId, clubId) as PlayerRow[];
   return rows.map(rowToPlayer);
 }
@@ -293,4 +297,27 @@ export async function setPlayerSuspension(db: DbHandle, playerId: number, weeks:
   await db
     .prepare('UPDATE players SET suspension_weeks_left = suspension_weeks_left + ? WHERE id = ?')
     .run(weeks, playerId);
+}
+
+// Contract renewal: player ids are globally unique (offset per save), so id alone scopes.
+export async function updatePlayerContract(
+  db: DbHandle,
+  playerId: number,
+  wage: number,
+  contractEnd: number,
+): Promise<void> {
+  await db
+    .prepare('UPDATE players SET wage = ?, contract_end = ? WHERE id = ?')
+    .run(wage, contractEnd, playerId);
+}
+
+export async function getPlayerContractInfo(
+  db: DbHandle,
+  playerId: number,
+): Promise<{ wage: number; contractEnd: number; clubId: number | null } | null> {
+  const row = (await db
+    .prepare('SELECT wage, contract_end, club_id FROM players WHERE id = ?')
+    .get(playerId)) as { wage: number; contract_end: number; club_id: number | null } | undefined;
+  if (!row) return null;
+  return { wage: row.wage, contractEnd: row.contract_end, clubId: row.club_id == null ? null : Number(row.club_id) };
 }

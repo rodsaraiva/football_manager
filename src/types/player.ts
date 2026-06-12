@@ -50,6 +50,7 @@ export interface Player {
   isLoanListed: boolean;
   askingPrice: number | null;
   loanWageShare: number | null;
+  loanWage: number | null;
   consecutiveLowMoraleWeeks: number;
   willRetireAtSeasonEnd: boolean;
 }
