@@ -1,0 +1,56 @@
+import { DbHandle } from './players';
+import { SetPieceTakers } from '@/engine/simulation/match-engine';
+
+interface SetPieceTakerRow {
+  penalty_taker_id: number | null;
+  free_kick_taker_id: number | null;
+  corner_taker_id: number | null;
+}
+
+/**
+ * Reads a club's designated set-piece takers. Returns null when no row exists
+ * (the engine then auto-picks by attribute for every set piece). Save-isolated:
+ * save_id is the leading WHERE term.
+ */
+export async function getSetPieceTakers(
+  db: DbHandle,
+  saveId: number,
+  clubId: number,
+): Promise<SetPieceTakers | null> {
+  const row = (await db
+    .prepare(
+      'SELECT penalty_taker_id, free_kick_taker_id, corner_taker_id FROM set_piece_takers WHERE save_id = ? AND club_id = ?',
+    )
+    .get(saveId, clubId)) as SetPieceTakerRow | undefined;
+  if (!row) return null;
+  return {
+    penaltyTakerId: row.penalty_taker_id,
+    freeKickTakerId: row.free_kick_taker_id,
+    cornerTakerId: row.corner_taker_id,
+  };
+}
+
+/**
+ * Upserts a club's set-piece takers. A null id clears that taker (auto-pick).
+ * INSERT OR REPLACE keeps a single row per (save_id, club_id).
+ */
+export async function setSetPieceTakers(
+  db: DbHandle,
+  saveId: number,
+  clubId: number,
+  takers: SetPieceTakers,
+): Promise<void> {
+  await db
+    .prepare(
+      `INSERT OR REPLACE INTO set_piece_takers
+         (save_id, club_id, penalty_taker_id, free_kick_taker_id, corner_taker_id)
+       VALUES (?, ?, ?, ?, ?)`,
+    )
+    .run(
+      saveId,
+      clubId,
+      takers.penaltyTakerId ?? null,
+      takers.freeKickTakerId ?? null,
+      takers.cornerTakerId ?? null,
+    );
+}

@@ -6,6 +6,15 @@ import { PlayerRating, PlayerMatchInput, calculatePlayerRatings } from './player
 import { calculateOverall } from '@/utils/overall';
 import { formationModifiers } from '../formations';
 
+// P7: manager-designated set-piece takers. Each id nullable/undefined → engine
+// auto-picks by attribute (legacy behavior). Threaded as an optional MatchInput
+// field so the no-designation path is byte-for-byte identical to before.
+export interface SetPieceTakers {
+  penaltyTakerId?: number | null;
+  freeKickTakerId?: number | null;
+  cornerTakerId?: number | null;
+}
+
 export interface MatchInput {
   fixtureId: number;
   homeSquad: PlayerForStrength[];
@@ -17,6 +26,8 @@ export interface MatchInput {
   homeClubReputation: number;
   awayClubReputation: number;
   attendance?: number; // #9: for home advantage scaling
+  homeSetPieceTakers?: SetPieceTakers; // P7
+  awaySetPieceTakers?: SetPieceTakers; // P7
   rng: SeededRng;
 }
 

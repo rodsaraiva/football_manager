@@ -168,6 +168,19 @@ export const useDatabaseStore = create<DatabaseStore>((set) => ({
         CREATE INDEX IF NOT EXISTS idx_scouting_save ON scouting(save_id);
       `);
 
+      // P7 set-piece takers: per-club designated penalty/free-kick/corner taker
+      // (NULL id = engine auto-picks, the legacy behavior). Only the user's club rows.
+      await db.execAsync(`
+        CREATE TABLE IF NOT EXISTS set_piece_takers (
+          save_id            INTEGER NOT NULL,
+          club_id            INTEGER NOT NULL,
+          penalty_taker_id   INTEGER,
+          free_kick_taker_id INTEGER,
+          corner_taker_id    INTEGER,
+          PRIMARY KEY (save_id, club_id)
+        );
+      `);
+
       // Migration: corrige wages inflados em 100x por bug antigo em computeWage (Math.round * 10 em vez de /10).
       // Heurística: média de wage acima de 50k indica DB seedado pelo código bugado — divide por 100.
       const wageProbe = await db.getFirstAsync<{ avg: number | null }>('SELECT AVG(wage) AS avg FROM players') ?? { avg: null };

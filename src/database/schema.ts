@@ -31,6 +31,7 @@ export const TABLE_NAMES: string[] = [
   'app_settings',
   'scouting',
   'job_offers',
+  'set_piece_takers',
 ];
 
 export const SCHEMA_SQL = `
@@ -478,6 +479,18 @@ CREATE INDEX IF NOT EXISTS idx_transfer_offers_club   ON transfer_offers(offerin
 CREATE INDEX IF NOT EXISTS idx_friendlies_save_season ON friendlies(save_id, season);
 CREATE INDEX IF NOT EXISTS idx_scouting_save ON scouting(save_id);
 CREATE INDEX IF NOT EXISTS idx_job_offers_save_status ON job_offers(save_id, season, status);
+
+-- P7 set-piece takers: per-club designated penalty/free-kick/corner taker. Each
+-- id is nullable (NULL = engine auto-picks by attribute, the legacy behavior).
+-- Only the user's club ever gets a row; AI clubs stay on the auto-pick fallback.
+CREATE TABLE IF NOT EXISTS set_piece_takers (
+  save_id            INTEGER NOT NULL REFERENCES save_games(id),
+  club_id            INTEGER NOT NULL REFERENCES clubs(id),
+  penalty_taker_id   INTEGER,
+  free_kick_taker_id INTEGER,
+  corner_taker_id    INTEGER,
+  PRIMARY KEY (save_id, club_id)
+);
 `;
 
 // Composite save_id indexes are created AFTER the save_id migration (database-store),
