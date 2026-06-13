@@ -17,7 +17,6 @@ import type { TKey } from '@/i18n/translate';
 import { updatePlayerMorale, updatePlayerContract } from '@/database/queries/players';
 import { getRecentForm } from '@/database/queries/player-stats';
 import { getClubById } from '@/database/queries/clubs';
-import { computeTeamTalkDelta, TeamTalkTone } from '@/engine/morale/team-talk';
 import { applyMoraleDelta } from '@/engine/morale/morale-engine';
 import { evaluatePraise, evaluateCriticism, InteractionReaction } from '@/engine/morale/interactions';
 import { hasInteractedThisWeek, recordInteraction } from '@/database/queries/interactions';
@@ -158,15 +157,6 @@ export default function PlayerDetailScreen({ player, onBack }: PlayerDetailScree
       return;
     }
     await persistRenewal(offeredWage, offeredYears);
-  }
-
-  async function handleTeamTalk(tone: TeamTalkTone) {
-    if (!dbHandle || !player || saveId == null) return;
-    const form = await getRecentForm(dbHandle, saveId, player.id, season);
-    const delta = computeTeamTalkDelta({ tone, recentAvgRating: form.avgRating });
-    const next = applyMoraleDelta(morale, delta);
-    setMorale(next);
-    await updatePlayerMorale(dbHandle, saveId, player.id, next);
   }
 
   async function handleInteraction(kind: 'praise' | 'criticize') {
@@ -349,23 +339,11 @@ export default function PlayerDetailScreen({ player, onBack }: PlayerDetailScree
           </View>
         </View>
 
-        {/* Team Talk */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{t('morale.section_title')}</Text>
-          <Text style={styles.moraleValue}>{t('morale.label')}: {morale}</Text>
-          <View style={styles.teamTalkRow}>
-            {(['praise', 'motivate', 'criticize'] as const).map((tone) => (
-              <Pressable key={tone} style={styles.teamTalkButton} onPress={() => handleTeamTalk(tone)}>
-                <Text style={styles.teamTalkButtonText}>{t(`morale.${tone}` as TKey)}</Text>
-              </Pressable>
-            ))}
-          </View>
-        </View>
-
         {/* Individual interactions (own squad only) */}
         {isOwnPlayer && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>{t('interaction.section_title')}</Text>
+            <Text style={styles.moraleValue}>{t('morale.label')}: {morale}</Text>
             <View style={styles.teamTalkRow}>
               {(['praise', 'criticize'] as const).map((kind) => (
                 <Pressable
