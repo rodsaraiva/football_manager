@@ -149,6 +149,23 @@ export async function getNextFixtureForClub(
 }
 
 /**
+ * Counts the user's club's WON fixtures across the whole save (all seasons/competitions),
+ * including friendlies-free official matches only (the friendlies table is separate, so it
+ * is naturally excluded). Used by the post-match achievement checkpoint (totalWins).
+ */
+export async function countClubWins(db: DbHandle, saveId: number, clubId: number): Promise<number> {
+  const row = (await db
+    .prepare(
+      `SELECT COUNT(*) AS wins FROM fixtures
+       WHERE save_id = ? AND played = 1
+         AND ((home_club_id = ? AND home_goals > away_goals)
+           OR (away_club_id = ? AND away_goals > home_goals))`,
+    )
+    .get(saveId, clubId, clubId)) as { wins: number } | undefined;
+  return row?.wins ?? 0;
+}
+
+/**
  * Returns recent played fixtures for a club in a season, most recent first.
  */
 export async function getRecentFixturesForClub(
