@@ -32,6 +32,7 @@ import { ScoutingScreen } from '@/screens/reports/ScoutingScreen';
 import { HistoryScreen } from '@/screens/history/HistoryScreen';
 import { PlayerDetailRoute } from '@/screens/squad/PlayerDetailRoute';
 import { TeamTalkScreen } from '@/screens/squad/TeamTalkScreen';
+import { SetPiecesScreen } from '@/screens/tactics/SetPiecesScreen';
 import { MatchResultScreen } from '@/screens/home/MatchResultScreen';
 import { MatchHalftimeScreen } from '@/screens/home/MatchHalftimeScreen';
 import { PressConferenceScreen } from '@/screens/match/PressConferenceScreen';
@@ -67,6 +68,7 @@ export function RootNavigator() {
       {/* Player detail + match result (reachable from reports, squad, results) */}
       <Stack.Screen name="PlayerDetail" component={PlayerDetailRoute} options={{ title: t('nav.player') }} />
       <Stack.Screen name="TeamTalk" component={TeamTalkScreen} options={{ title: t('nav.team_talk') }} />
+      <Stack.Screen name="SetPieces" component={SetPiecesScreen} options={{ title: t('nav.set_pieces') }} />
       <Stack.Screen name="MatchResult" component={MatchResultScreen} options={{ title: t('nav.match_result') }} />
       <Stack.Screen name="MatchHalftime" component={MatchHalftimeScreen} options={{ title: t('nav.halftime') }} />
       <Stack.Screen name="PressConference" component={PressConferenceScreen} options={{ title: t('nav.press') }} />

@@ -8,6 +8,7 @@ export type RootStackParamList = {
   PlayerDetail: { playerId: number };
   EndOfSeason: undefined;
   TeamTalk: undefined;
+  SetPieces: undefined;
   GameOver: { reason: string; trust: number; objectiveDescription: string };
   // Club sub-screens
   ClubFinances: undefined;

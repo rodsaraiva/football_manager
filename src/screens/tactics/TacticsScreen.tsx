@@ -28,6 +28,9 @@ import { Formation, Tactic, AttackFocus, SubstitutionStrategy } from '@/types';
 import { Player, PlayerAttributes, Position } from '@/types';
 import { FORMATION_ROWS } from '@/engine/formations';
 import { useTranslation } from '@/i18n';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { RootStackParamList } from '@/navigation/types';
 
 const ATTACK_FOCUS_VALUES: AttackFocus[] = [
   'balanced',
@@ -137,6 +140,7 @@ type SelectedPlayer = {
 
 export function TacticsScreen() {
   const { t } = useTranslation();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const playerClubId = useGameStore((s) => s.playerClubId);
   const currentSave = useGameStore((s) => s.currentSave);
   const dbHandle = useDatabaseStore((s) => s.dbHandle);
@@ -561,6 +565,11 @@ export function TacticsScreen() {
 
       <Text style={styles.dragHintText}>{t('tactics.drag_hint')}</Text>
 
+      {/* Set pieces sub-screen link */}
+      <Pressable style={styles.setPiecesLink} onPress={() => navigation.navigate('SetPieces')}>
+        <Text style={styles.setPiecesLinkText}>{t('tactics.set_pieces_link')} →</Text>
+      </Pressable>
+
       {/* Pitch */}
       <View style={styles.pitchView}>
         {displayLineup.map((row, rowIdx) => (
@@ -824,6 +833,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingBottom: spacing.xs,
   },
+  setPiecesLink: {
+    marginHorizontal: spacing.md,
+    marginBottom: spacing.sm,
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    alignItems: 'center',
+  },
+  setPiecesLinkText: { color: colors.primary, fontSize: fontSize.sm, fontWeight: '700' },
 
   // Pitch
   pitchView: {
