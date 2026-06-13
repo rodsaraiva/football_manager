@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import { SaveGame, Club, Player, Fixture, Competition } from '@/types';
-import { MatchResult } from '@/engine/simulation/match-engine';
+import { MatchResult, HalftimeState } from '@/engine/simulation/match-engine';
+import { PlayerForStrength } from '@/engine/simulation/team-strength';
+import { Tactic } from '@/types/tactic';
 import { StandingsEntry } from '@/engine/competition/standings';
 import { useBoardStore } from '@/store/board-store';
 import { useAssistantStore } from '@/store/assistant-store';
@@ -22,6 +24,15 @@ interface GameState {
   lastMatchResult: MatchResult | null;
   lastMatchIsHome: boolean | null;
   lastMatchOpponentName: string | null;
+  // P4 (halftime): live in-memory halftime snapshot of the user's watched match.
+  // Holds the LIVE rng instance — transient for a single in-session interaction;
+  // a page reload mid-halftime discards it (acceptable for MVP).
+  halftime: HalftimeState | null;
+  halftimeIsHome: boolean | null;
+  halftimeOpponentName: string | null;
+  halftimeBench: PlayerForStrength[];
+  halftimeTactic: Tactic | null;
+  halftimeFixtureId: number | null;
   // UI flags
   isAdvancing: boolean;
   isNewSeason: boolean;
@@ -43,6 +54,14 @@ interface GameActions {
   updateWeek: (season: number, week: number) => void;
   setLastMatchResult: (result: MatchResult | null) => void;
   setLastMatchContext: (isHome: boolean | null, opponentName: string | null) => void;
+  setHalftime: (ctx: {
+    halftime: HalftimeState;
+    isHome: boolean;
+    opponentName: string;
+    bench: PlayerForStrength[];
+    tactic: Tactic;
+    fixtureId: number;
+  } | null) => void;
   setNewSeason: (isNew: boolean) => void;
   setPreseasonPending: (pending: boolean) => void;
   setLastRetiredPlayerIds: (ids: number[]) => void;
@@ -70,6 +89,12 @@ const initialState: GameState = {
   lastMatchResult: null,
   lastMatchIsHome: null,
   lastMatchOpponentName: null,
+  halftime: null,
+  halftimeIsHome: null,
+  halftimeOpponentName: null,
+  halftimeBench: [],
+  halftimeTactic: null,
+  halftimeFixtureId: null,
   isAdvancing: false,
   isNewSeason: false,
   preseasonPending: false,
@@ -108,6 +133,12 @@ export const useGameStore = create<GameStore>((set) => ({
       lastMatchResult: null,
       lastMatchIsHome: null,
       lastMatchOpponentName: null,
+      halftime: null,
+      halftimeIsHome: null,
+      halftimeOpponentName: null,
+      halftimeBench: [],
+      halftimeTactic: null,
+      halftimeFixtureId: null,
       playerClub: null,
       isNewSeason: false,
       preseasonPending: save.preseasonPending,
@@ -123,6 +154,24 @@ export const useGameStore = create<GameStore>((set) => ({
   setLastMatchResult: (result) => set({ lastMatchResult: result }),
   setLastMatchContext: (isHome, opponentName) =>
     set({ lastMatchIsHome: isHome, lastMatchOpponentName: opponentName }),
+  setHalftime: (ctx) =>
+    set(ctx
+      ? {
+          halftime: ctx.halftime,
+          halftimeIsHome: ctx.isHome,
+          halftimeOpponentName: ctx.opponentName,
+          halftimeBench: ctx.bench,
+          halftimeTactic: ctx.tactic,
+          halftimeFixtureId: ctx.fixtureId,
+        }
+      : {
+          halftime: null,
+          halftimeIsHome: null,
+          halftimeOpponentName: null,
+          halftimeBench: [],
+          halftimeTactic: null,
+          halftimeFixtureId: null,
+        }),
   setNewSeason: (isNew) => set({ isNewSeason: isNew }),
   setPreseasonPending: (pending) => set({ preseasonPending: pending }),
   setLastRetiredPlayerIds: (ids) => set({ lastRetiredPlayerIds: ids }),
