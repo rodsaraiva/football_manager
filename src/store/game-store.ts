@@ -40,6 +40,10 @@ interface GameState {
   preseasonPending: boolean;
   // P5 press conference pending (set after a user match, cleared on the press screen)
   pressPending: boolean;
+  // P6 career: rival job offers pending at season-end (resolved before pre-season)
+  jobOffersPending: boolean;
+  // P6 career: career-wide MANAGER reputation (persists across club switches)
+  managerReputation: number;
   // Retirement: IDs aposentados na última virada de temporada
   lastRetiredPlayerIds: number[];
   // IDs com aposentadoria anunciada nesta semana
@@ -67,6 +71,8 @@ interface GameActions {
   setNewSeason: (isNew: boolean) => void;
   setPreseasonPending: (pending: boolean) => void;
   setPressPending: (pending: boolean) => void;
+  setJobOffersPending: (pending: boolean) => void;
+  setManagerReputation: (rep: number) => void;
   setLastRetiredPlayerIds: (ids: number[]) => void;
   setPendingAnnouncedRetirementIds: (ids: number[]) => void;
   // Data loading
@@ -102,6 +108,8 @@ const initialState: GameState = {
   isNewSeason: false,
   preseasonPending: false,
   pressPending: false,
+  jobOffersPending: false,
+  managerReputation: 50,
   lastRetiredPlayerIds: [],
   pendingAnnouncedRetirementIds: [],
 };
@@ -119,12 +127,15 @@ export const useGameStore = create<GameStore>((set) => ({
         difficulty: 'normal',
         preseasonPending: false,
         pressPending: false,
+        managerReputation: 50,
         createdAt: '',
         updatedAt: '',
       },
       playerClubId: clubId,
       season,
       week,
+      managerReputation: 50,
+      jobOffersPending: false,
     }),
   loadSave: (save) => {
     useBoardStore.getState().reset();
@@ -148,6 +159,8 @@ export const useGameStore = create<GameStore>((set) => ({
       isNewSeason: false,
       preseasonPending: save.preseasonPending,
       pressPending: save.pressPending,
+      jobOffersPending: false,
+      managerReputation: save.managerReputation,
     });
   },
   clearGame: () => {
@@ -181,6 +194,8 @@ export const useGameStore = create<GameStore>((set) => ({
   setNewSeason: (isNew) => set({ isNewSeason: isNew }),
   setPreseasonPending: (pending) => set({ preseasonPending: pending }),
   setPressPending: (pending) => set({ pressPending: pending }),
+  setJobOffersPending: (pending) => set({ jobOffersPending: pending }),
+  setManagerReputation: (rep) => set({ managerReputation: rep }),
   setLastRetiredPlayerIds: (ids) => set({ lastRetiredPlayerIds: ids }),
   setPendingAnnouncedRetirementIds: (ids) => set({ pendingAnnouncedRetirementIds: ids }),
   setSquad: (squad) => set({ squad }),
