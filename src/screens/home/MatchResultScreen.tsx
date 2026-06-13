@@ -128,13 +128,25 @@ function getRatingColor(rating: number): string {
 export function MatchResultScreen() {
   const { t } = useTranslation();
   const navigation = useNavigation<NavProp>();
-  const { lastMatchResult, playerClub, lastMatchIsHome, lastMatchOpponentName } = useGameStore();
+  const { lastMatchResult, playerClub, lastMatchIsHome, lastMatchOpponentName, pressPending } = useGameStore();
+
+  // After acknowledging the result, route into the press conference when the gate is
+  // armed (set by advanceGameWeek when a user match was played). Covers the halftime-
+  // resume path, which navigates here. The gate is cleared on the press screen, so
+  // there is no double-navigation with HomeScreen's effect.
+  const continuePress = () => {
+    if (pressPending) {
+      navigation.navigate('PressConference');
+    } else {
+      navigation.goBack();
+    }
+  };
 
   if (!lastMatchResult) {
     return (
       <View style={[commonStyles.screen, styles.centered]}>
         <Text style={styles.noDataText}>{t('matchresult.no_data')}</Text>
-        <TouchableOpacity style={styles.continueButton} onPress={() => navigation.goBack()}>
+        <TouchableOpacity style={styles.continueButton} onPress={continuePress}>
           <Text style={styles.continueButtonText}>{t('matchresult.continue')}</Text>
         </TouchableOpacity>
       </View>
@@ -240,7 +252,7 @@ export function MatchResultScreen() {
       {/* Continue Button */}
       <TouchableOpacity
         style={styles.continueButton}
-        onPress={() => navigation.goBack()}
+        onPress={continuePress}
         activeOpacity={0.8}
       >
         <Text style={styles.continueButtonText}>{t('matchresult.continue')}</Text>

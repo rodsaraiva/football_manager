@@ -49,10 +49,12 @@ export function HomeScreen() {
     isAdvancing,
     isNewSeason,
     preseasonPending,
+    pressPending,
     lastMatchResult,
     currentSave,
     setAdvancing,
     updateWeek,
+    setPressPending,
     setLastMatchResult,
     setLastMatchContext,
     setHalftime,
@@ -163,6 +165,24 @@ export function HomeScreen() {
     }
   }, [preseasonPending, isNewSeason, navigation]);
 
+  // Route to the post-match press conference. Sequencing vs the result modal: when a
+  // match was just played, the result modal opens and the close handler drives the
+  // press navigation, so they never clash. This effect is the fallback path — it only
+  // fires when there is NO result modal to acknowledge (e.g. a mid-gate page reload
+  // cleared lastMatchResult but the DB gate is still set). Guarded on the season/
+  // pre-season gates; the gate is cleared on the press screen, so it fires once.
+  useEffect(() => {
+    if (
+      pressPending &&
+      !lastMatchResult &&
+      !showMatchModal &&
+      !isNewSeason &&
+      !preseasonPending
+    ) {
+      navigation.navigate('PressConference');
+    }
+  }, [pressPending, lastMatchResult, showMatchModal, isNewSeason, preseasonPending, navigation]);
+
   // Load player names and show modal after match
   useEffect(() => {
     if (!lastMatchResult || !dbHandle || !currentSave) return;
@@ -232,6 +252,9 @@ export function HomeScreen() {
 
       updateWeek(result.newSeason, result.newWeek);
       if (result.playerMatchResult) setLastMatchResult(result.playerMatchResult);
+      // Mirror the press gate the engine armed when a user match was played, so the
+      // post-match press-conference effect below can fire once the result modal closes.
+      if (result.playerMatchResult) setPressPending(true);
       if (result.assistantComment) {
         setPendingComment(result.assistantComment);
         setLastCommentWeek(result.newWeek);
@@ -762,7 +785,14 @@ export function HomeScreen() {
 
             <TouchableOpacity
               style={styles.modalCloseButton}
-              onPress={() => setShowMatchModal(false)}
+              onPress={() => {
+                setShowMatchModal(false);
+                // Acknowledging the result leads straight into the press conference
+                // when the gate is armed (a user match was played this week).
+                if (pressPending && !isNewSeason && !preseasonPending) {
+                  navigation.navigate('PressConference');
+                }
+              }}
               activeOpacity={0.8}
             >
               <Text style={styles.modalCloseText}>{t('home.modal_close')}</Text>

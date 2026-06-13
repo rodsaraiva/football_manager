@@ -89,6 +89,7 @@ export function MatchHalftimeScreen() {
     setLastMatchResult,
     setLastMatchContext,
     setHalftime,
+    setPressPending,
     updateWeek,
     setPlayerClub,
     setRecentResults,
@@ -227,6 +228,9 @@ export function MatchHalftimeScreen() {
 
       updateWeek(result.newSeason, result.newWeek);
       if (result.playerMatchResult) setLastMatchResult(result.playerMatchResult);
+      // Mirror the press gate the engine armed (a user match was played) so the
+      // MatchResult continue button routes into the press conference.
+      if (result.playerMatchResult) setPressPending(true);
       if (result.assistantComment) {
         setPendingComment(result.assistantComment);
         setLastCommentWeek(result.newWeek);
