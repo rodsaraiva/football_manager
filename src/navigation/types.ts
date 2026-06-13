@@ -49,6 +49,8 @@ export type RootStackParamList = {
   PreSeason: undefined;
   // Career: rival job offers at season-end
   JobOffers: undefined;
+  // Career: achievements / milestones
+  Achievements: undefined;
 };
 
 export type TabParamList = {

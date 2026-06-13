@@ -191,6 +191,13 @@ export function ReportsHubScreen() {
           accent={colors.reportHistory}
           onPress={() => navigation.navigate('SeasonHistory')}
         />
+        <HubCard
+          icon="🏆"
+          title={t('achievements.hub_title')}
+          subtitle={t('achievements.hub_sub')}
+          accent={colors.gold}
+          onPress={() => navigation.navigate('Achievements')}
+        />
       </View>
     </ScrollView>
   );

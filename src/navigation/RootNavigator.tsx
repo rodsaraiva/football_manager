@@ -39,6 +39,7 @@ import { PressConferenceScreen } from '@/screens/match/PressConferenceScreen';
 import { CalendarScreen } from '@/screens/home/CalendarScreen';
 import { PreSeasonScreen } from '@/screens/home/PreSeasonScreen';
 import { JobOffersScreen } from '@/screens/career/JobOffersScreen';
+import { AchievementsScreen } from '@/screens/career/AchievementsScreen';
 import { YouthAcademyScreen } from '@/screens/squad/YouthAcademyScreen';
 import { TopScorersScreen } from '@/screens/league/TopScorersScreen';
 import { CupBracketScreen } from '@/screens/league/CupBracketScreen';
@@ -105,6 +106,7 @@ export function RootNavigator() {
       <Stack.Screen name="Calendar" component={CalendarScreen} options={{ title: t('nav.calendar') }} />
       <Stack.Screen name="PreSeason" component={PreSeasonScreen} options={{ title: t('nav.preseason') }} />
       <Stack.Screen name="JobOffers" component={JobOffersScreen} options={{ title: t('nav.job_offers') }} />
+      <Stack.Screen name="Achievements" component={AchievementsScreen} options={{ title: t('nav.achievements') }} />
       <Stack.Screen name="YouthAcademy" component={YouthAcademyScreen} options={{ title: t('nav.youth_academy') }} />
       <Stack.Screen name="TopScorers" component={TopScorersScreen} options={{ title: t('nav.top_scorers') }} />
       <Stack.Screen name="CupBracket" component={CupBracketScreen} options={{ title: t('nav.cup_bracket') }} />
