@@ -161,6 +161,11 @@ export interface AdvanceWeekParams {
   playerClubId: number;
   saveId: number;
   rng: SeededRng;
+  // P4 (halftime): when present, the user's fixture is NOT re-simulated — this
+  // already-computed result (from the watched/resumed match) is persisted and
+  // its consequences applied instead. AI fixtures still run with the week rng,
+  // excluding the user's fixture from the batch so the stream is unaffected.
+  userMatchResultOverride?: MatchResult;
 }
 
 export interface AdvanceWeekResult {
@@ -251,23 +256,32 @@ function isTransferWindow(week: number): boolean {
 // ─── Main function ────────────────────────────────────────────────────────────
 
 export async function advanceGameWeek(params: AdvanceWeekParams): Promise<AdvanceWeekResult> {
-  const { dbHandle: db, season, week, playerClubId, saveId, rng } = params;
+  const { dbHandle: db, season, week, playerClubId, saveId, rng, userMatchResultOverride } = params;
 
   // 1. Fixtures + batch-load every club playing this week (one query set per club).
   const fixtures = await getFixturesByWeek(db, saveId, season, week);
   const clubData = await loadWeekClubData(db, saveId, fixtures);
 
-  // 2. Simulate ALL fixtures with the real engine (human + AI, same engine — no
-  //    reputation coin-flip). The runner sorts by fixture id for determinism.
-  const simInputs: FixtureSimInput[] = fixtures.map(f => ({
-    fixtureId: f.id, homeClubId: f.homeClubId, awayClubId: f.awayClubId,
-  }));
-  const simulated = simulateWeekFixtures({ fixtures: simInputs, clubData, rng });
-  const resultByFixture = new Map(simulated.map(s => [s.fixtureId, s.result]));
-
   const playerFixture = fixtures.find(
     f => f.homeClubId === playerClubId || f.awayClubId === playerClubId,
   );
+
+  // 2. Simulate fixtures with the real engine (human + AI, same engine — no
+  //    reputation coin-flip). The runner sorts by fixture id for determinism.
+  //    When the user's match was watched and resumed elsewhere, its result is
+  //    supplied via userMatchResultOverride; we exclude that fixture from the
+  //    batch (so the week rng stream is identical to the AI-only path) and inject
+  //    the override into the result map afterwards.
+  const useOverride = userMatchResultOverride != null && playerFixture != null;
+  const simInputs: FixtureSimInput[] = fixtures
+    .filter(f => !(useOverride && f.id === playerFixture!.id))
+    .map(f => ({ fixtureId: f.id, homeClubId: f.homeClubId, awayClubId: f.awayClubId }));
+  const simulated = simulateWeekFixtures({ fixtures: simInputs, clubData, rng });
+  const resultByFixture = new Map(simulated.map(s => [s.fixtureId, s.result]));
+  if (useOverride) {
+    resultByFixture.set(playerFixture!.id, userMatchResultOverride!);
+  }
+
   let playerMatchResult: MatchResult | null = null;
 
   // 3. Persist every fixture; player_stats for ALL clubs; full event log only for
