@@ -20,6 +20,20 @@ export const REPUTATION_SQUAD_STRONG_THRESHOLD = 80;
 export const REPUTATION_SQUAD_GOOD_THRESHOLD = 70;
 export const REPUTATION_SQUAD_WEAK_THRESHOLD = 50;
 
+// Manager (career) reputation deltas — modest, same discipline as the club ones.
+// The MANAGER's reputation is career-wide (persists across club switches), distinct
+// from a club's reputation. Defaults to 50, clamped [1,100].
+export const MANAGER_REP_INITIAL = 50;
+export const MANAGER_REP_LEAGUE_TITLE_BONUS = 8;
+export const MANAGER_REP_CUP_BONUS = 4;
+export const MANAGER_REP_PROMOTION_BONUS = 5;
+export const MANAGER_REP_TOP_THIRD_BONUS = 2;
+export const MANAGER_REP_RELEGATION_PENALTY = -6;
+export const MANAGER_REP_OBJECTIVE_FAILED_PENALTY = -3;
+// A rival club won't poach a manager whose reputation is far below the club's level.
+export const MANAGER_JOB_OFFER_STEP = 12;
+export const MANAGER_JOB_OFFER_MAX = 3;
+
 export const RETIREMENT_MIN_AGE = 33;
 export const RETIREMENT_MAX_AGE = 40;
 export const RETIREMENT_MORALE_THRESHOLD = 50;
