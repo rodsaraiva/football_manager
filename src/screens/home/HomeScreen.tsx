@@ -82,6 +82,9 @@ export function HomeScreen() {
   const [loadingOpponent, setLoadingOpponent] = useState(false);
 
   const boardLoadedRef = useRef(false);
+  // Only the instant-advance path auto-opens the result modal on Home; the halftime
+  // path already shows the result on MatchResultScreen, so its modal would be redundant.
+  const autoShowResultRef = useRef(false);
 
   // Load club data, reset stale fixtures, and load recent results on save load
   useEffect(() => {
@@ -201,7 +204,10 @@ export function HomeScreen() {
         } catch { /* ignore */ }
       }
       setPlayerNames(names);
-      setShowMatchModal(true);
+      if (autoShowResultRef.current) {
+        setShowMatchModal(true);
+        autoShowResultRef.current = false;
+      }
     })();
   }, [lastMatchResult, dbHandle, currentSave]);
 
@@ -251,10 +257,13 @@ export function HomeScreen() {
       });
 
       updateWeek(result.newSeason, result.newWeek);
-      if (result.playerMatchResult) setLastMatchResult(result.playerMatchResult);
-      // Mirror the press gate the engine armed when a user match was played, so the
-      // post-match press-conference effect below can fire once the result modal closes.
-      if (result.playerMatchResult) setPressPending(true);
+      if (result.playerMatchResult) {
+        autoShowResultRef.current = true;
+        setLastMatchResult(result.playerMatchResult);
+        // Mirror the press gate the engine armed; the post-match press-conference
+        // effect fires once the result modal closes.
+        setPressPending(true);
+      }
       if (result.assistantComment) {
         setPendingComment(result.assistantComment);
         setLastCommentWeek(result.newWeek);
