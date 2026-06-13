@@ -97,7 +97,9 @@ CREATE TABLE IF NOT EXISTS players (
   loan_wage          INTEGER,
   consecutive_low_morale_weeks INTEGER NOT NULL DEFAULT 0,
   will_retire_at_season_end    INTEGER NOT NULL DEFAULT 0,
-  suspension_weeks_left        INTEGER NOT NULL DEFAULT 0
+  suspension_weeks_left        INTEGER NOT NULL DEFAULT 0,
+  last_interaction_season      INTEGER,
+  last_interaction_week        INTEGER
 );
 
 CREATE TABLE IF NOT EXISTS player_attributes (
