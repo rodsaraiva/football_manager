@@ -27,6 +27,7 @@ import { getRecentForm } from '@/database/queries/player-stats';
 import { getStaffEffects, assistantAbilityFromStars } from '@/engine/staff/staff-effects';
 import { getActiveTactic, getTacticLineup } from '@/database/queries/tactics';
 import { updateSaveWeek } from '@/database/queries/saves';
+import { setPressPending } from '@/database/queries/save';
 import { SeededRng } from './rng';
 import { simulateMatch, MatchResult } from './simulation/match-engine';
 import { assignMatchInjuries } from './simulation/injury';
@@ -471,6 +472,13 @@ export async function advanceGameWeek(params: AdvanceWeekParams): Promise<Advanc
       if (newMorale !== mp.morale) {
         await updatePlayerMorale(db, saveId, mp.id, newMorale);
       }
+    }
+
+    // 9b. P5: a user match was played this week → arm the post-match press
+    // conference gate. Both the instant and halftime-resume paths call
+    // advanceGameWeek, so this single set covers both. Cleared on the press screen.
+    if (saveId >= 0) {
+      await setPressPending(db, saveId, true);
     }
   }
 
