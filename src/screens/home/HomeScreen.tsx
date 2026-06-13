@@ -57,6 +57,7 @@ export function HomeScreen() {
     setLastMatchContext,
     setHalftime,
     lastMatchIsHome,
+    lastMatchOpponentName,
     setNewSeason,
     setPlayerClub,
     setRecentResults,
@@ -73,7 +74,6 @@ export function HomeScreen() {
   const [nextOpponent, setNextOpponent] = useState<{ club: Club; isHome: boolean } | null>(null);
   const [showMatchModal, setShowMatchModal] = useState(false);
   const [playerNames, setPlayerNames] = useState<Record<number, string>>({});
-  const [matchOpponentName, setMatchOpponentName] = useState<string>('Opponent');
   const [showOpponentModal, setShowOpponentModal] = useState(false);
   const [opponentSquad, setOpponentSquad] = useState<Array<{ name: string; position: Position; overall: number }>>([]);
   const [opponentFormation, setOpponentFormation] = useState('4-4-2');
@@ -216,7 +216,6 @@ export function HomeScreen() {
         const oppId = isHome ? myFixture.awayClubId : myFixture.homeClubId;
         const oppClub = await getClubById(dbHandle, currentSave.id, oppId);
         if (oppClub) {
-          setMatchOpponentName(oppClub.name);
           setLastMatchContext(isHome, oppClub.name);
         }
       }
@@ -623,7 +622,7 @@ export function HomeScreen() {
               <>
                 <View style={styles.modalScoreRow}>
                   <Text style={styles.modalTeamName}>
-                    {lastMatchIsHome === false ? matchOpponentName : (playerClub?.name ?? 'Home')}
+                    {lastMatchIsHome === false ? (lastMatchOpponentName ?? t('matchresult.opponent')) : (playerClub?.name ?? 'Home')}
                   </Text>
                   <View style={styles.modalScoreBox}>
                     <Text style={styles.modalScore}>
@@ -631,7 +630,7 @@ export function HomeScreen() {
                     </Text>
                   </View>
                   <Text style={[styles.modalTeamName, { textAlign: 'right' }]}>
-                    {lastMatchIsHome === false ? (playerClub?.name ?? 'Home') : matchOpponentName}
+                    {lastMatchIsHome === false ? (playerClub?.name ?? 'Home') : (lastMatchOpponentName ?? t('matchresult.opponent'))}
                   </Text>
                 </View>
 
