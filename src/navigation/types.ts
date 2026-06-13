@@ -3,6 +3,7 @@ export type RootStackParamList = {
   NewGame: undefined;
   Game: undefined;
   MatchResult: { fixtureId: number };
+  MatchHalftime: undefined;
   PlayerDetail: { playerId: number };
   EndOfSeason: undefined;
   TeamTalk: undefined;

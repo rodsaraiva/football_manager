@@ -27,6 +27,7 @@ import { getPlayerById, getPlayersByClub, getPlayersAboutToRetire } from '@/data
 import { getActiveTactic } from '@/database/queries/tactics';
 import { getBoardObjective, getSaveBoardTrust, getReputationHistory } from '@/database/queries/board';
 import { advanceGameWeek } from '@/engine/game-loop';
+import { startUserMatchHalftime } from '@/engine/match-day/halftime';
 import { resolveAdvanceReload } from '@/engine/advance-reload';
 import { ensureSeasonFixtures } from '@/engine/competition/calendar';
 import { FORMATION_ROWS } from '@/engine/formations';
@@ -54,6 +55,7 @@ export function HomeScreen() {
     updateWeek,
     setLastMatchResult,
     setLastMatchContext,
+    setHalftime,
     lastMatchIsHome,
     setNewSeason,
     setPlayerClub,
@@ -277,6 +279,50 @@ export function HomeScreen() {
     setRecentResults,
     setPendingComment,
     setLastCommentWeek,
+  ]);
+
+  const handleWatchLive = useCallback(async () => {
+    if (isAdvancing || !dbHandle || !playerClubId || !currentSave) return;
+    setAdvancing(true);
+    try {
+      const ctx = await startUserMatchHalftime({
+        dbHandle,
+        season,
+        week,
+        playerClubId,
+        saveId: currentSave.id,
+      });
+      if (!ctx) {
+        // No user fixture this week — fall back to instant advance.
+        setAdvancing(false);
+        await handleAdvanceWeek();
+        return;
+      }
+      setHalftime({
+        halftime: ctx.halftime,
+        isHome: ctx.isHome,
+        opponentName: ctx.opponentName,
+        bench: ctx.homeBench,
+        tactic: ctx.homeTactic,
+        fixtureId: ctx.fixtureId,
+      });
+      navigation.navigate('MatchHalftime');
+    } catch (err) {
+      console.error('[HomeScreen] startUserMatchHalftime failed:', err);
+    } finally {
+      setAdvancing(false);
+    }
+  }, [
+    isAdvancing,
+    dbHandle,
+    playerClubId,
+    currentSave,
+    season,
+    week,
+    setAdvancing,
+    setHalftime,
+    navigation,
+    handleAdvanceWeek,
   ]);
 
   const renderRecentResult = useCallback(
@@ -510,6 +556,18 @@ export function HomeScreen() {
           <Text style={styles.cardLabel}>{t('home.next_match_label')}</Text>
           <Text style={styles.nextMatchText}>{t('home.no_upcoming')}</Text>
         </View>
+      )}
+
+      {/* Watch Live Button — only when the user has a fixture this week */}
+      {nextOpponent && (
+        <TouchableOpacity
+          style={[styles.watchLiveButton, isAdvancing && styles.advanceButtonDisabled]}
+          onPress={handleWatchLive}
+          disabled={isAdvancing}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.watchLiveButtonText}>{t('home.watch_live')}</Text>
+        </TouchableOpacity>
       )}
 
       {/* Advance Week Button */}
@@ -1016,6 +1074,22 @@ const styles = StyleSheet.create({
   nextMatchText: {
     color: colors.textSecondary,
     fontSize: fontSize.md,
+  },
+  watchLiveButton: {
+    backgroundColor: colors.surfaceLight,
+    borderRadius: 10,
+    paddingVertical: 16,
+    marginHorizontal: spacing.md,
+    alignItems: 'center',
+    marginBottom: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.primary,
+  },
+  watchLiveButtonText: {
+    color: colors.primary,
+    fontSize: fontSize.lg,
+    fontWeight: 'bold',
+    letterSpacing: 1,
   },
   advanceButton: {
     backgroundColor: colors.primary,
