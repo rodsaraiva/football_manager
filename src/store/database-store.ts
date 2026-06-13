@@ -101,6 +101,22 @@ export const useDatabaseStore = create<DatabaseStore>((set) => ({
       // P5 press conference: one-time gate set after a user match, cleared on the
       // press screen. Mirrors preseason_pending exactly.
       await addColumnIfMissing(db, 'save_games', 'press_pending', 'INTEGER NOT NULL DEFAULT 0');
+
+      // P6 manager career: career-wide manager reputation (persists across club switches)
+      // + a one-time gate set at season-end when rival clubs offered the job.
+      await addColumnIfMissing(db, 'save_games', 'manager_reputation', 'INTEGER NOT NULL DEFAULT 50');
+      await addColumnIfMissing(db, 'save_games', 'job_offers_pending', 'INTEGER NOT NULL DEFAULT 0');
+      await db.execAsync(`
+        CREATE TABLE IF NOT EXISTS job_offers (
+          id               INTEGER PRIMARY KEY AUTOINCREMENT,
+          save_id          INTEGER NOT NULL,
+          season           INTEGER NOT NULL,
+          offering_club_id INTEGER NOT NULL,
+          status           TEXT    NOT NULL DEFAULT 'pending',
+          UNIQUE(save_id, season, offering_club_id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_job_offers_save_status ON job_offers(save_id, status);
+      `);
       await db.execAsync(`
         CREATE TABLE IF NOT EXISTS friendlies (
           id            INTEGER PRIMARY KEY AUTOINCREMENT,

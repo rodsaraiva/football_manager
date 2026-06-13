@@ -30,6 +30,7 @@ export const TABLE_NAMES: string[] = [
   'assistants',
   'app_settings',
   'scouting',
+  'job_offers',
 ];
 
 export const SCHEMA_SQL = `
@@ -308,8 +309,21 @@ CREATE TABLE IF NOT EXISTS save_games (
   ended           INTEGER NOT NULL DEFAULT 0,
   preseason_pending INTEGER NOT NULL DEFAULT 0,
   press_pending   INTEGER NOT NULL DEFAULT 0,
+  manager_reputation INTEGER NOT NULL DEFAULT 50,
+  job_offers_pending INTEGER NOT NULL DEFAULT 0,
   created_at      TEXT    NOT NULL,
   updated_at      TEXT    NOT NULL
+);
+
+-- P6 manager career: rival clubs that offered the user's manager a job at season-end.
+-- One row per (save, season, offering club). status: pending | accepted | expired.
+CREATE TABLE IF NOT EXISTS job_offers (
+  id              INTEGER PRIMARY KEY AUTOINCREMENT,
+  save_id         INTEGER NOT NULL REFERENCES save_games(id),
+  season          INTEGER NOT NULL,
+  offering_club_id INTEGER NOT NULL REFERENCES clubs(id),
+  status          TEXT    NOT NULL DEFAULT 'pending',
+  UNIQUE(save_id, season, offering_club_id)
 );
 
 -- Pre-season friendlies live in their own table, fully separate from official
@@ -463,6 +477,7 @@ CREATE INDEX IF NOT EXISTS idx_transfer_offers_status ON transfer_offers(status)
 CREATE INDEX IF NOT EXISTS idx_transfer_offers_club   ON transfer_offers(offering_club_id);
 CREATE INDEX IF NOT EXISTS idx_friendlies_save_season ON friendlies(save_id, season);
 CREATE INDEX IF NOT EXISTS idx_scouting_save ON scouting(save_id);
+CREATE INDEX IF NOT EXISTS idx_job_offers_save_status ON job_offers(save_id, status);
 `;
 
 // Composite save_id indexes are created AFTER the save_id migration (database-store),

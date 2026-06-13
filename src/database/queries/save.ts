@@ -32,3 +32,27 @@ export async function isPressPending(db: DbHandle, saveId: number): Promise<bool
     .get(saveId)) as { press_pending: number } | undefined;
   return row?.press_pending === 1;
 }
+
+// ─── P6 manager career: reputation + job-offers gate ──────────────────────────
+
+export async function getManagerReputation(db: DbHandle, saveId: number): Promise<number> {
+  const row = (await db
+    .prepare('SELECT manager_reputation FROM save_games WHERE id = ?')
+    .get(saveId)) as { manager_reputation: number } | undefined;
+  return row?.manager_reputation ?? 50;
+}
+
+export async function setManagerReputation(db: DbHandle, saveId: number, rep: number): Promise<void> {
+  await db.prepare('UPDATE save_games SET manager_reputation = ? WHERE id = ?').run(rep, saveId);
+}
+
+export async function setJobOffersPending(db: DbHandle, saveId: number, pending: boolean): Promise<void> {
+  await db.prepare('UPDATE save_games SET job_offers_pending = ? WHERE id = ?').run(pending ? 1 : 0, saveId);
+}
+
+export async function isJobOffersPending(db: DbHandle, saveId: number): Promise<boolean> {
+  const row = (await db
+    .prepare('SELECT job_offers_pending FROM save_games WHERE id = ?')
+    .get(saveId)) as { job_offers_pending: number } | undefined;
+  return row?.job_offers_pending === 1;
+}

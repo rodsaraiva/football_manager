@@ -9,6 +9,7 @@ export interface SaveGame {
   difficulty: Difficulty;
   preseasonPending: boolean;
   pressPending: boolean;
+  managerReputation: number;
   createdAt: string;
   updatedAt: string;
 }
