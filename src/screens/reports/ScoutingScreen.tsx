@@ -7,7 +7,7 @@ import type { TKey } from '@/i18n/translate';
 import { useGameStore } from '@/store/game-store';
 import { useDatabaseStore } from '@/store/database-store';
 import { getStaffByClub } from '@/database/queries/staff';
-import { getFreeAgents, getListedPlayers } from '@/database/queries/players';
+import { searchPlayers } from '@/database/queries/players';
 import {
   getScoutingRows,
   assignScout,
@@ -16,6 +16,8 @@ import {
 } from '@/database/queries/scouting';
 import { knowledgeTier, ScoutingTier } from '@/engine/scouting/scouting-engine';
 import { Staff, Player } from '@/types';
+
+const TARGET_CAP = 50;
 
 const TIER_KEY: Record<ScoutingTier, TKey> = {
   unknown: 'scouting.tier_unknown',
@@ -56,18 +58,23 @@ export function ScoutingScreen() {
 
   const load = useCallback(async () => {
     if (!dbHandle || playerClubId == null || saveId == null) return;
-    const [staff, freeAgents, listed, scoutingRows] = await Promise.all([
+    const [staff, allPlayers, scoutingRows] = await Promise.all([
       getStaffByClub(dbHandle, saveId, playerClubId),
-      getFreeAgents(dbHandle, saveId),
-      getListedPlayers(dbHandle, saveId, 'transfer'),
+      searchPlayers(dbHandle, saveId, {}),
       getScoutingRows(dbHandle, saveId),
     ]);
     setScouts(staff.filter((s) => s.role === 'scout'));
-    // Scoutable pool = transfer-listed players from OTHER clubs + free agents.
-    const pool = new Map<number, Player>();
-    for (const p of listed) if (p.clubId !== playerClubId) pool.set(p.id, p);
-    for (const p of freeAgents) pool.set(p.id, p);
-    setTargets([...pool.values()].sort((a, b) => b.marketValue - a.marketValue));
+    // Scoutable pool = players from OTHER clubs + free agents, by market value.
+    // Already-scouted players always shown; the rest capped to keep the list tight.
+    const scoutedIds = new Set(scoutingRows.map((r) => r.playerId));
+    const others = allPlayers
+      .filter((p) => p.clubId !== playerClubId)
+      .sort((a, b) => b.marketValue - a.marketValue);
+    const pool = [
+      ...others.filter((p) => scoutedIds.has(p.id)),
+      ...others.filter((p) => !scoutedIds.has(p.id)).slice(0, TARGET_CAP),
+    ];
+    setTargets(pool);
     setRows(scoutingRows);
   }, [dbHandle, playerClubId, saveId]);
 
