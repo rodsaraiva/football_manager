@@ -38,6 +38,8 @@ interface GameState {
   isNewSeason: boolean;
   // Pre-season window pending (player should play friendlies before round 1)
   preseasonPending: boolean;
+  // P5 press conference pending (set after a user match, cleared on the press screen)
+  pressPending: boolean;
   // Retirement: IDs aposentados na última virada de temporada
   lastRetiredPlayerIds: number[];
   // IDs com aposentadoria anunciada nesta semana
@@ -64,6 +66,7 @@ interface GameActions {
   } | null) => void;
   setNewSeason: (isNew: boolean) => void;
   setPreseasonPending: (pending: boolean) => void;
+  setPressPending: (pending: boolean) => void;
   setLastRetiredPlayerIds: (ids: number[]) => void;
   setPendingAnnouncedRetirementIds: (ids: number[]) => void;
   // Data loading
@@ -98,6 +101,7 @@ const initialState: GameState = {
   isAdvancing: false,
   isNewSeason: false,
   preseasonPending: false,
+  pressPending: false,
   lastRetiredPlayerIds: [],
   pendingAnnouncedRetirementIds: [],
 };
@@ -114,6 +118,7 @@ export const useGameStore = create<GameStore>((set) => ({
         playerClubId: clubId,
         difficulty: 'normal',
         preseasonPending: false,
+        pressPending: false,
         createdAt: '',
         updatedAt: '',
       },
@@ -142,6 +147,7 @@ export const useGameStore = create<GameStore>((set) => ({
       playerClub: null,
       isNewSeason: false,
       preseasonPending: save.preseasonPending,
+      pressPending: save.pressPending,
     });
   },
   clearGame: () => {
@@ -174,6 +180,7 @@ export const useGameStore = create<GameStore>((set) => ({
         }),
   setNewSeason: (isNew) => set({ isNewSeason: isNew }),
   setPreseasonPending: (pending) => set({ preseasonPending: pending }),
+  setPressPending: (pending) => set({ pressPending: pending }),
   setLastRetiredPlayerIds: (ids) => set({ lastRetiredPlayerIds: ids }),
   setPendingAnnouncedRetirementIds: (ids) => set({ pendingAnnouncedRetirementIds: ids }),
   setSquad: (squad) => set({ squad }),

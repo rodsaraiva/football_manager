@@ -21,3 +21,14 @@ export async function isPreseasonPending(db: DbHandle, saveId: number): Promise<
     .get(saveId)) as { preseason_pending: number } | undefined;
   return row?.preseason_pending === 1;
 }
+
+export async function setPressPending(db: DbHandle, saveId: number, pending: boolean): Promise<void> {
+  await db.prepare('UPDATE save_games SET press_pending = ? WHERE id = ?').run(pending ? 1 : 0, saveId);
+}
+
+export async function isPressPending(db: DbHandle, saveId: number): Promise<boolean> {
+  const row = (await db
+    .prepare('SELECT press_pending FROM save_games WHERE id = ?')
+    .get(saveId)) as { press_pending: number } | undefined;
+  return row?.press_pending === 1;
+}

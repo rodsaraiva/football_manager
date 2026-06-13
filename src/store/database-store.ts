@@ -97,6 +97,10 @@ export const useDatabaseStore = create<DatabaseStore>((set) => ({
       // Pre-season: pending-window flag + standalone friendlies table (kept out of
       // the official fixtures/competitions so it never pollutes standings/history).
       await addColumnIfMissing(db, 'save_games', 'preseason_pending', 'INTEGER NOT NULL DEFAULT 0');
+
+      // P5 press conference: one-time gate set after a user match, cleared on the
+      // press screen. Mirrors preseason_pending exactly.
+      await addColumnIfMissing(db, 'save_games', 'press_pending', 'INTEGER NOT NULL DEFAULT 0');
       await db.execAsync(`
         CREATE TABLE IF NOT EXISTS friendlies (
           id            INTEGER PRIMARY KEY AUTOINCREMENT,

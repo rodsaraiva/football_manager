@@ -307,6 +307,7 @@ CREATE TABLE IF NOT EXISTS save_games (
   board_trust     INTEGER NOT NULL DEFAULT 50,
   ended           INTEGER NOT NULL DEFAULT 0,
   preseason_pending INTEGER NOT NULL DEFAULT 0,
+  press_pending   INTEGER NOT NULL DEFAULT 0,
   created_at      TEXT    NOT NULL,
   updated_at      TEXT    NOT NULL
 );
