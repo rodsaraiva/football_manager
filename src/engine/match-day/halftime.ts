@@ -78,6 +78,10 @@ export async function startUserMatchHalftime(params: {
     awayTactic: opponentData.tactic,
     homeClubReputation: userData.reputation,
     awayClubReputation: opponentData.reputation,
+    // P7: user is always the engine's "home" side, so their designated takers
+    // ride on homeSetPieceTakers. Opponent (AI) stays on the auto-pick fallback.
+    homeSetPieceTakers: userData.setPieceTakers,
+    awaySetPieceTakers: opponentData.setPieceTakers,
     rng: new SeededRng(halftimeSeed(season, week, fixture.id)),
   };
 

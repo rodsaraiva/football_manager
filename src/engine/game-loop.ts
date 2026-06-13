@@ -26,6 +26,7 @@ import { advanceScouting } from '@/engine/scouting/scouting-engine';
 import { getRecentForm } from '@/database/queries/player-stats';
 import { getStaffEffects, assistantAbilityFromStars } from '@/engine/staff/staff-effects';
 import { getActiveTactic, getTacticLineup } from '@/database/queries/tactics';
+import { getSetPieceTakers } from '@/database/queries/set-piece-takers';
 import { updateSaveWeek } from '@/database/queries/saves';
 import { setPressPending } from '@/database/queries/save';
 import { SeededRng } from './rng';
@@ -235,7 +236,11 @@ export async function loadClubMatchData(
     attackFocus: 'balanced' as const, subStrategy: 'balanced' as const,
   };
 
-  return { clubId, reputation: club?.reputation ?? 50, squad, bench, tactic: resolvedTactic };
+  // P7: designated set-piece takers (null when no row — AI clubs and any club the
+  // user never configured → undefined → engine auto-picks = legacy behavior).
+  const setPieceTakers = (await getSetPieceTakers(db, saveId, clubId)) ?? undefined;
+
+  return { clubId, reputation: club?.reputation ?? 50, squad, bench, tactic: resolvedTactic, setPieceTakers };
 }
 
 // Loads each club appearing in this week's fixtures once, keyed by clubId. Feeds

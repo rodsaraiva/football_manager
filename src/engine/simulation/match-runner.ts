@@ -1,7 +1,7 @@
 import { SeededRng } from '@/engine/rng';
 import { Tactic } from '@/types/tactic';
 import { PlayerForStrength } from './team-strength';
-import { simulateMatch, MatchResult } from './match-engine';
+import { simulateMatch, MatchResult, SetPieceTakers } from './match-engine';
 
 export interface ClubMatchData {
   clubId: number;
@@ -9,6 +9,7 @@ export interface ClubMatchData {
   squad: PlayerForStrength[]; // XI elegível
   bench: PlayerForStrength[];
   tactic: Tactic;
+  setPieceTakers?: SetPieceTakers; // P7: undefined = auto-pick (AI clubs)
 }
 
 export interface FixtureSimInput {
@@ -69,6 +70,8 @@ export function simulateWeekFixtures(args: {
       awayTactic: away?.tactic ?? home!.tactic,
       homeClubReputation: home?.reputation ?? 50,
       awayClubReputation: away?.reputation ?? 50,
+      homeSetPieceTakers: home?.setPieceTakers,
+      awaySetPieceTakers: away?.setPieceTakers,
       rng,
     });
     out.push({ fixtureId: fx.fixtureId, result });
