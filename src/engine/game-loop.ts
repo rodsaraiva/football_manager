@@ -204,9 +204,41 @@ async function loadSquadWithAttributes(db: DbHandle, saveId: number, clubId: num
   }));
 }
 
-// Loads each club appearing in this week's fixtures once: XI + bench (saved or
-// best-available) + tactic + reputation, keyed by clubId. Feeds the real engine
-// for every match (human + AI). Touches DB, so it lives in the loop file.
+// Loads one club's XI + bench (saved lineup or best-available) + tactic +
+// reputation as the engine needs it. Shared by the weekly batch loader and the
+// P4 halftime helper. Touches DB, so it lives in the loop file.
+export async function loadClubMatchData(
+  db: DbHandle,
+  saveId: number,
+  clubId: number,
+): Promise<ClubMatchData> {
+  const raw = await loadSquadWithAttributes(db, saveId, clubId);
+  const club = await getClubById(db, saveId, clubId);
+  const tactic = await getActiveTactic(db, saveId, clubId);
+  const formation = tactic?.formation ?? '4-4-2';
+  const lineup = tactic ? await getTacticLineup(db, saveId, tactic.id) : null;
+
+  const squad = lineup
+    ? buildSquadFromSavedIds(lineup.starterIds, raw, formation)
+    : pickStartingEleven(raw, formation);
+  const startIds = new Set(squad.map(p => p.id));
+  const bench = lineup
+    ? buildBenchFromSavedIds(lineup.benchIds, raw, startIds)
+    : buildBench(raw, startIds);
+
+  const resolvedTactic = tactic ?? {
+    id: 0, clubId, name: 'Default', isActive: true,
+    formation: '4-4-2' as const, mentality: 'balanced' as const,
+    pressing: 'medium' as const, passingStyle: 'mixed' as const,
+    tempo: 'normal' as const, width: 'normal' as const,
+    attackFocus: 'balanced' as const, subStrategy: 'balanced' as const,
+  };
+
+  return { clubId, reputation: club?.reputation ?? 50, squad, bench, tactic: resolvedTactic };
+}
+
+// Loads each club appearing in this week's fixtures once, keyed by clubId. Feeds
+// the real engine for every match (human + AI).
 async function loadWeekClubData(
   db: DbHandle,
   saveId: number,
@@ -217,29 +249,7 @@ async function loadWeekClubData(
 
   const map = new Map<number, ClubMatchData>();
   for (const clubId of clubIds) {
-    const raw = await loadSquadWithAttributes(db, saveId, clubId);
-    const club = await getClubById(db, saveId, clubId);
-    const tactic = await getActiveTactic(db, saveId, clubId);
-    const formation = tactic?.formation ?? '4-4-2';
-    const lineup = tactic ? await getTacticLineup(db, saveId, tactic.id) : null;
-
-    const squad = lineup
-      ? buildSquadFromSavedIds(lineup.starterIds, raw, formation)
-      : pickStartingEleven(raw, formation);
-    const startIds = new Set(squad.map(p => p.id));
-    const bench = lineup
-      ? buildBenchFromSavedIds(lineup.benchIds, raw, startIds)
-      : buildBench(raw, startIds);
-
-    const resolvedTactic = tactic ?? {
-      id: 0, clubId, name: 'Default', isActive: true,
-      formation: '4-4-2' as const, mentality: 'balanced' as const,
-      pressing: 'medium' as const, passingStyle: 'mixed' as const,
-      tempo: 'normal' as const, width: 'normal' as const,
-      attackFocus: 'balanced' as const, subStrategy: 'balanced' as const,
-    };
-
-    map.set(clubId, { clubId, reputation: club?.reputation ?? 50, squad, bench, tactic: resolvedTactic });
+    map.set(clubId, await loadClubMatchData(db, saveId, clubId));
   }
   return map;
 }
