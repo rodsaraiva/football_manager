@@ -136,6 +136,18 @@ export const useDatabaseStore = create<DatabaseStore>((set) => ({
       await addColumnIfMissing(db, 'players', 'last_interaction_season', 'INTEGER');
       await addColumnIfMissing(db, 'players', 'last_interaction_week',   'INTEGER');
 
+      // Scouting fog-of-war: knowledge per scouted (non-own) player (added post-initial-schema).
+      await db.execAsync(`
+        CREATE TABLE IF NOT EXISTS scouting (
+          save_id   INTEGER NOT NULL,
+          player_id INTEGER NOT NULL,
+          knowledge INTEGER NOT NULL DEFAULT 0,
+          scout_id  INTEGER,
+          PRIMARY KEY (save_id, player_id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_scouting_save ON scouting(save_id);
+      `);
+
       // Migration: corrige wages inflados em 100x por bug antigo em computeWage (Math.round * 10 em vez de /10).
       // Heurística: média de wage acima de 50k indica DB seedado pelo código bugado — divide por 100.
       const wageProbe = await db.getFirstAsync<{ avg: number | null }>('SELECT AVG(wage) AS avg FROM players') ?? { avg: null };

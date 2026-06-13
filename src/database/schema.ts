@@ -29,6 +29,7 @@ export const TABLE_NAMES: string[] = [
   'board_trust_history',
   'assistants',
   'app_settings',
+  'scouting',
 ];
 
 export const SCHEMA_SQL = `
@@ -429,6 +430,17 @@ CREATE TABLE IF NOT EXISTS app_settings (
   value TEXT NOT NULL
 );
 
+-- Scouting fog-of-war: how well the user's club knows a player NOT in its squad.
+-- knowledge 0–100; scout_id NULL = not actively scouted. Own players are
+-- implicitly fully known (knowledge = 100) and never get a row here.
+CREATE TABLE IF NOT EXISTS scouting (
+  save_id   INTEGER NOT NULL REFERENCES save_games(id),
+  player_id INTEGER NOT NULL REFERENCES players(id),
+  knowledge INTEGER NOT NULL DEFAULT 0,
+  scout_id  INTEGER,
+  PRIMARY KEY (save_id, player_id)
+);
+
 CREATE INDEX IF NOT EXISTS idx_awards_player        ON season_awards(player_id);
 CREATE INDEX IF NOT EXISTS idx_awards_season_comp   ON season_awards(season, competition_id);
 CREATE INDEX IF NOT EXISTS idx_results_season       ON season_competition_results(season);
@@ -449,6 +461,7 @@ CREATE INDEX IF NOT EXISTS idx_player_stats_season    ON player_stats(season, co
 CREATE INDEX IF NOT EXISTS idx_transfer_offers_status ON transfer_offers(status);
 CREATE INDEX IF NOT EXISTS idx_transfer_offers_club   ON transfer_offers(offering_club_id);
 CREATE INDEX IF NOT EXISTS idx_friendlies_save_season ON friendlies(save_id, season);
+CREATE INDEX IF NOT EXISTS idx_scouting_save ON scouting(save_id);
 `;
 
 // Composite save_id indexes are created AFTER the save_id migration (database-store),
