@@ -100,13 +100,22 @@ export function SquadListScreen() {
 
   return (
     <View style={commonStyles.screen}>
-      <TouchableOpacity
-        style={styles.youthLink}
-        activeOpacity={0.8}
-        onPress={() => navigation.navigate('YouthAcademy')}
-      >
-        <Text style={styles.youthLinkText}>🌱 {t('home.youth_academy_link')}</Text>
-      </TouchableOpacity>
+      <View style={styles.topLinks}>
+        <TouchableOpacity
+          style={[styles.youthLink, styles.topLinkItem]}
+          activeOpacity={0.8}
+          onPress={() => navigation.navigate('YouthAcademy')}
+        >
+          <Text style={styles.youthLinkText}>🌱 {t('home.youth_academy_link')}</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.youthLink, styles.topLinkItem]}
+          activeOpacity={0.8}
+          onPress={() => navigation.navigate('TeamTalk')}
+        >
+          <Text style={styles.youthLinkText}>📣 {t('interaction.team_talk_link')}</Text>
+        </TouchableOpacity>
+      </View>
       {/* Filter chips */}
       <View style={styles.filterRow}>
         {FILTER_TABS.map((tab) => (
@@ -162,10 +171,20 @@ export function SquadListScreen() {
 }
 
 const styles = StyleSheet.create({
-  youthLink: {
+  topLinks: {
+    flexDirection: 'row',
+    gap: spacing.sm,
     marginHorizontal: spacing.md,
     marginTop: spacing.sm,
     marginBottom: spacing.xs,
+  },
+  topLinkItem: {
+    flex: 1,
+    marginHorizontal: 0,
+    marginTop: 0,
+    marginBottom: 0,
+  },
+  youthLink: {
     paddingVertical: spacing.sm,
     alignItems: 'center',
     backgroundColor: colors.surface,

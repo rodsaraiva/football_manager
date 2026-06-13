@@ -30,6 +30,7 @@ import { ReportsProjectionScreen } from '@/screens/reports/ReportsProjectionScre
 import { ReportsFreeAgentScoutScreen } from '@/screens/reports/ReportsFreeAgentScoutScreen';
 import { HistoryScreen } from '@/screens/history/HistoryScreen';
 import { PlayerDetailRoute } from '@/screens/squad/PlayerDetailRoute';
+import { TeamTalkScreen } from '@/screens/squad/TeamTalkScreen';
 import { MatchResultScreen } from '@/screens/home/MatchResultScreen';
 import { CalendarScreen } from '@/screens/home/CalendarScreen';
 import { PreSeasonScreen } from '@/screens/home/PreSeasonScreen';
@@ -61,6 +62,7 @@ export function RootNavigator() {
       <Stack.Screen name="GameOver" component={GameOverScreen} options={{ headerShown: false }} />
       {/* Player detail + match result (reachable from reports, squad, results) */}
       <Stack.Screen name="PlayerDetail" component={PlayerDetailRoute} options={{ title: t('nav.player') }} />
+      <Stack.Screen name="TeamTalk" component={TeamTalkScreen} options={{ title: t('nav.team_talk') }} />
       <Stack.Screen name="MatchResult" component={MatchResultScreen} options={{ title: t('nav.match_result') }} />
       {/* Club sub-screens */}
       <Stack.Screen name="ClubFinances" component={FinancesScreen} options={{ title: t('nav.finances') }} />
