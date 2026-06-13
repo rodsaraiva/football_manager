@@ -19,6 +19,8 @@ import { getRecentForm } from '@/database/queries/player-stats';
 import { getClubById } from '@/database/queries/clubs';
 import { computeTeamTalkDelta, TeamTalkTone } from '@/engine/morale/team-talk';
 import { applyMoraleDelta } from '@/engine/morale/morale-engine';
+import { evaluatePraise, evaluateCriticism, InteractionReaction } from '@/engine/morale/interactions';
+import { hasInteractedThisWeek, recordInteraction } from '@/database/queries/interactions';
 import { evaluateRenewal } from '@/engine/transfer/contract-renewal';
 import { canAffordWage } from '@/engine/finance/affordability';
 import StatBar from '@/components/StatBar';
@@ -73,9 +75,23 @@ export default function PlayerDetailScreen({ player, onBack }: PlayerDetailScree
   const playerClubId = useGameStore((s) => s.playerClubId);
   const saveId = useGameStore((s) => s.currentSave?.id);
   const season = useGameStore((s) => s.season);
+  const week = useGameStore((s) => s.week);
   const navigation = useNavigation<NavProp>();
   const [morale, setMorale] = useState<number>(player?.morale ?? 50);
   useEffect(() => { setMorale(player?.morale ?? 50); }, [player?.id]);
+
+  // Individual interaction (praise/criticize): one per player per week.
+  const [interactionDone, setInteractionDone] = useState(false);
+  const [reaction, setReaction] = useState<InteractionReaction | null>(null);
+  useEffect(() => {
+    if (!dbHandle || !player || saveId == null) return;
+    let cancelled = false;
+    (async () => {
+      const done = await hasInteractedThisWeek(dbHandle, saveId, player.id, season, week);
+      if (!cancelled) { setInteractionDone(done); setReaction(null); }
+    })();
+    return () => { cancelled = true; };
+  }, [dbHandle, saveId, player?.id, season, week]);
 
   // Contract renewal modal
   const [renewalOpen, setRenewalOpen] = useState(false);
@@ -151,6 +167,21 @@ export default function PlayerDetailScreen({ player, onBack }: PlayerDetailScree
     const next = applyMoraleDelta(morale, delta);
     setMorale(next);
     await updatePlayerMorale(dbHandle, saveId, player.id, next);
+  }
+
+  async function handleInteraction(kind: 'praise' | 'criticize') {
+    if (!dbHandle || !player || saveId == null || interactionDone) return;
+    const form = await getRecentForm(dbHandle, saveId, player.id, season);
+    const result =
+      kind === 'praise'
+        ? evaluatePraise({ recentAvgRating: form.avgRating, currentMorale: morale })
+        : evaluateCriticism({ recentAvgRating: form.avgRating, currentMorale: morale });
+    const next = applyMoraleDelta(morale, result.delta);
+    setMorale(next);
+    setReaction(result.reaction);
+    setInteractionDone(true);
+    await updatePlayerMorale(dbHandle, saveId, player.id, next);
+    await recordInteraction(dbHandle, saveId, player.id, season, week);
   }
 
   const [awards, setAwards] = useState<SeasonAward[]>([]);
@@ -330,6 +361,33 @@ export default function PlayerDetailScreen({ player, onBack }: PlayerDetailScree
             ))}
           </View>
         </View>
+
+        {/* Individual interactions (own squad only) */}
+        {isOwnPlayer && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>{t('interaction.section_title')}</Text>
+            <View style={styles.teamTalkRow}>
+              {(['praise', 'criticize'] as const).map((kind) => (
+                <Pressable
+                  key={kind}
+                  style={[styles.teamTalkButton, interactionDone && styles.disabledButton]}
+                  disabled={interactionDone}
+                  onPress={() => handleInteraction(kind)}
+                >
+                  <Text style={styles.teamTalkButtonText}>{t(`interaction.${kind}` as TKey)}</Text>
+                </Pressable>
+              ))}
+            </View>
+            {reaction != null && (
+              <Text style={[styles.reactionText, styles[`reaction_${reaction}` as const]]}>
+                {t(`interaction.reaction_${reaction}` as TKey)}
+              </Text>
+            )}
+            {interactionDone && reaction == null && (
+              <Text style={styles.cooldownText}>{t('interaction.cooldown')}</Text>
+            )}
+          </View>
+        )}
 
         {/* Career */}
         <View style={styles.section}>
@@ -666,6 +724,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   teamTalkButtonText: { fontSize: fontSize.sm, color: colors.text, fontWeight: 'bold' },
+  disabledButton: { opacity: 0.4 },
+  reactionText: { fontSize: fontSize.sm, fontWeight: '600', marginTop: spacing.sm },
+  reaction_positive: { color: colors.success },
+  reaction_neutral: { color: colors.textSecondary },
+  reaction_negative: { color: colors.danger },
+  cooldownText: { fontSize: fontSize.sm, color: colors.textMuted, marginTop: spacing.sm, fontStyle: 'italic' },
   renewButton: {
     backgroundColor: colors.primary,
     borderRadius: radius.md,
