@@ -249,8 +249,10 @@ export function EndOfSeasonScreen() {
                 rng: new SeededRng(season * 6151 + saveId),
               });
               if (offers.length > 0) {
+                // Keyed to the season that just FINISHED (the trigger), so a later
+                // historical lookup ("who offered me a job after season X") is correct.
                 for (const o of offers) {
-                  await insertJobOffer(dbHandle, saveId, season, o.offeringClubId);
+                  await insertJobOffer(dbHandle, saveId, endedSeason, o.offeringClubId);
                 }
                 await setJobOffersPending(dbHandle, saveId, true);
                 setStoreJobOffersPending(true);

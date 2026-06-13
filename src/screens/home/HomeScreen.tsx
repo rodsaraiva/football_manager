@@ -166,10 +166,10 @@ export function HomeScreen() {
   // Career gate: rival job offers at season-end resolve BEFORE pre-season. Accepting an
   // offer sets preseason_pending for the chosen club, which then fires the gate below.
   useEffect(() => {
-    if (jobOffersPending && !isNewSeason) {
+    if (jobOffersPending && !isNewSeason && !pressPending) {
       navigation.navigate('JobOffers');
     }
-  }, [jobOffersPending, isNewSeason, navigation]);
+  }, [jobOffersPending, isNewSeason, pressPending, navigation]);
 
   // Route to the pre-season window whenever it is pending (new game / season turn).
   // Deferred to the job-offers gate: pre-season only starts once offers are resolved.

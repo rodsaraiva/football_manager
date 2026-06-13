@@ -9,7 +9,8 @@ import { BOARD_TRUST_INITIAL } from '@/engine/balance';
 import { SeededRng } from '@/engine/rng';
 
 const SAVE_ID = TEST_SAVE_ID;
-const SEASON = 2;
+const OFFER_SEASON = 2; // the season that just finished (offers keyed here)
+const NEW_SEASON = 3;   // the upcoming season the manager will work
 
 describe('acceptJobOffer (integration, real SQLite)', () => {
   let rawDb: Database.Database;
@@ -27,14 +28,14 @@ describe('acceptJobOffer (integration, real SQLite)', () => {
     offeringClubId = (rawDb.prepare('SELECT id FROM clubs WHERE id != ? ORDER BY reputation DESC LIMIT 1').get(currentClubId) as { id: number }).id;
 
     // Seed the pre-switch state: a board objective + non-initial trust + an extra rival offer.
-    await upsertBoardObjective(db, SAVE_ID, { clubId: currentClubId, season: SEASON, type: 'top_half', target: 8, description: '' });
+    await upsertBoardObjective(db, SAVE_ID, { clubId: currentClubId, season: NEW_SEASON, type: 'top_half', target: 8, description: '' });
     rawDb.prepare('UPDATE save_games SET board_trust = 90 WHERE id = ?').run(SAVE_ID);
     await setManagerReputation(db, SAVE_ID, 72);
     await setJobOffersPending(db, SAVE_ID, true);
 
     const otherRival = (rawDb.prepare('SELECT id FROM clubs WHERE id NOT IN (?, ?) ORDER BY id LIMIT 1').get(currentClubId, offeringClubId) as { id: number }).id;
-    await insertJobOffer(db, SAVE_ID, SEASON, offeringClubId);
-    await insertJobOffer(db, SAVE_ID, SEASON, otherRival);
+    await insertJobOffer(db, SAVE_ID, OFFER_SEASON, offeringClubId);
+    await insertJobOffer(db, SAVE_ID, OFFER_SEASON, otherRival);
   });
   afterEach(() => rawDb.close());
 
@@ -45,7 +46,8 @@ describe('acceptJobOffer (integration, real SQLite)', () => {
       db,
       saveId: SAVE_ID,
       offeringClubId,
-      season: SEASON,
+      offerSeason: OFFER_SEASON,
+      newSeason: NEW_SEASON,
       rng: new SeededRng(1),
     });
 
@@ -58,14 +60,14 @@ describe('acceptJobOffer (integration, real SQLite)', () => {
     const trust = (rawDb.prepare('SELECT board_trust AS t FROM save_games WHERE id = ?').get(SAVE_ID) as { t: number }).t;
     expect(trust).toBe(BOARD_TRUST_INITIAL);
 
-    // 3. a fresh objective exists for the NEW club + season.
-    const obj = await getBoardObjective(db, SAVE_ID, offeringClubId, SEASON);
+    // 3. a fresh objective exists for the NEW club + NEW season.
+    const obj = await getBoardObjective(db, SAVE_ID, offeringClubId, NEW_SEASON);
     expect(obj).not.toBeNull();
     expect(result.newObjective.clubId).toBe(offeringClubId);
-    expect(result.newObjective.season).toBe(SEASON);
+    expect(result.newObjective.season).toBe(NEW_SEASON);
 
     // 4. accepted offer marked accepted, the other expired → no pending remain.
-    const pending = await getPendingJobOffers(db, SAVE_ID, SEASON);
+    const pending = await getPendingJobOffers(db, SAVE_ID, OFFER_SEASON);
     expect(pending).toHaveLength(0);
     const accepted = rawDb.prepare("SELECT offering_club_id AS c FROM job_offers WHERE status = 'accepted'").all() as { c: number }[];
     expect(accepted.map((r) => r.c)).toEqual([offeringClubId]);

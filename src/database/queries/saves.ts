@@ -10,6 +10,7 @@ interface SaveGameRow {
   difficulty: string;
   preseason_pending: number | null;
   press_pending: number | null;
+  job_offers_pending: number | null;
   manager_reputation: number | null;
   created_at: string;
   updated_at: string;
@@ -25,6 +26,7 @@ function rowToSaveGame(row: SaveGameRow): SaveGame {
     difficulty: row.difficulty as Difficulty,
     preseasonPending: row.preseason_pending === 1,
     pressPending: row.press_pending === 1,
+    jobOffersPending: row.job_offers_pending === 1,
     managerReputation: row.manager_reputation ?? 50,
     createdAt: row.created_at,
     updatedAt: row.updated_at,

@@ -13,7 +13,10 @@ export interface AcceptJobOfferParams {
   db: DbHandle;
   saveId: number;
   offeringClubId: number;
-  season: number;
+  /** Season the offer is keyed to (the season that just finished). Used for offer status. */
+  offerSeason: number;
+  /** The upcoming season the manager will work — the fresh objective is keyed here. */
+  newSeason: number;
   rng: SeededRng;
 }
 
@@ -27,7 +30,7 @@ export interface AcceptJobOfferParams {
  * stays in objective-generator; this orchestrates the persisted state transition.
  */
 export async function acceptJobOffer(p: AcceptJobOfferParams): Promise<{ newClub: Club; newObjective: BoardObjective }> {
-  const { db, saveId, offeringClubId, season } = p;
+  const { db, saveId, offeringClubId, offerSeason, newSeason } = p;
 
   // 1. The new club + its league shape (numTeams / divisionLevel) for the objective.
   const newClub = await getClubById(db, saveId, offeringClubId);
@@ -53,21 +56,21 @@ export async function acceptJobOffer(p: AcceptJobOfferParams): Promise<{ newClub
   });
   await upsertBoardObjective(db, saveId, {
     clubId: offeringClubId,
-    season,
+    season: newSeason,
     type: objective.type,
     target: objective.target,
     description: '',
   });
 
-  // 4. Mark the chosen offer accepted; expire any other pending offers this season.
-  await setJobOfferStatus(db, saveId, season, offeringClubId, 'accepted');
-  await expirePendingJobOffers(db, saveId, season);
+  // 4. Mark the chosen offer accepted; expire any other pending offers from that window.
+  await setJobOfferStatus(db, saveId, offerSeason, offeringClubId, 'accepted');
+  await expirePendingJobOffers(db, saveId, offerSeason);
 
   // 5/6. Clear the job-offers gate; open pre-season for the new club.
   await setJobOffersPending(db, saveId, false);
   await setPreseasonPending(db, saveId, true);
 
-  const newObjective = await getBoardObjective(db, saveId, offeringClubId, season);
+  const newObjective = await getBoardObjective(db, saveId, offeringClubId, newSeason);
   if (!newObjective) throw new Error('acceptJobOffer: failed to read back the new objective');
 
   return { newClub, newObjective };

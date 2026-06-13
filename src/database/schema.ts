@@ -477,7 +477,7 @@ CREATE INDEX IF NOT EXISTS idx_transfer_offers_status ON transfer_offers(status)
 CREATE INDEX IF NOT EXISTS idx_transfer_offers_club   ON transfer_offers(offering_club_id);
 CREATE INDEX IF NOT EXISTS idx_friendlies_save_season ON friendlies(save_id, season);
 CREATE INDEX IF NOT EXISTS idx_scouting_save ON scouting(save_id);
-CREATE INDEX IF NOT EXISTS idx_job_offers_save_status ON job_offers(save_id, status);
+CREATE INDEX IF NOT EXISTS idx_job_offers_save_status ON job_offers(save_id, season, status);
 `;
 
 // Composite save_id indexes are created AFTER the save_id migration (database-store),

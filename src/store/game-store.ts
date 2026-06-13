@@ -127,6 +127,7 @@ export const useGameStore = create<GameStore>((set) => ({
         difficulty: 'normal',
         preseasonPending: false,
         pressPending: false,
+        jobOffersPending: false,
         managerReputation: 50,
         createdAt: '',
         updatedAt: '',
@@ -159,7 +160,7 @@ export const useGameStore = create<GameStore>((set) => ({
       isNewSeason: false,
       preseasonPending: save.preseasonPending,
       pressPending: save.pressPending,
-      jobOffersPending: false,
+      jobOffersPending: save.jobOffersPending,
       managerReputation: save.managerReputation,
     });
   },

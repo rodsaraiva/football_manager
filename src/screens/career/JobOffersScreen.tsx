@@ -34,6 +34,9 @@ export function JobOffersScreen() {
   const { dbHandle } = useDatabaseStore();
   const { setCurrentObjective, setCurrentTrust } = useBoardStore();
   const saveId = currentSave?.id;
+  // Offers are keyed to the season that just finished (the trigger). The store's `season`
+  // already points at the new season, so the offer season is one behind.
+  const offerSeason = season - 1;
 
   const [offers, setOffers] = useState<PendingJobOffer[]>([]);
   const [loading, setLoading] = useState(true);
@@ -42,10 +45,10 @@ export function JobOffersScreen() {
   const load = useCallback(async () => {
     if (!dbHandle || saveId == null) return;
     setLoading(true);
-    const pending = await getPendingJobOffers(dbHandle, saveId, season);
+    const pending = await getPendingJobOffers(dbHandle, saveId, offerSeason);
     setOffers(pending);
     setLoading(false);
-  }, [dbHandle, saveId, season]);
+  }, [dbHandle, saveId, offerSeason]);
 
   useFocusEffect(
     useCallback(() => {
@@ -61,7 +64,8 @@ export function JobOffersScreen() {
         db: dbHandle,
         saveId,
         offeringClubId: offer.offeringClubId,
-        season,
+        offerSeason,
+        newSeason: season,
         rng: new SeededRng(season * 4099 + offer.offeringClubId),
       });
       // Mirror the persisted switch into the stores. Manager reputation is intentionally
@@ -84,7 +88,7 @@ export function JobOffersScreen() {
     if (!dbHandle || saveId == null || busy) return;
     setBusy(true);
     try {
-      await expirePendingJobOffers(dbHandle, saveId, season);
+      await expirePendingJobOffers(dbHandle, saveId, offerSeason);
       await persistJobOffersGate(dbHandle, saveId, false);
       setJobOffersPending(false);
       // Keep current club; its own pre-season gate (already set by the rollover) drives the flow.

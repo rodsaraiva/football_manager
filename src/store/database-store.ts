@@ -115,7 +115,7 @@ export const useDatabaseStore = create<DatabaseStore>((set) => ({
           status           TEXT    NOT NULL DEFAULT 'pending',
           UNIQUE(save_id, season, offering_club_id)
         );
-        CREATE INDEX IF NOT EXISTS idx_job_offers_save_status ON job_offers(save_id, status);
+        CREATE INDEX IF NOT EXISTS idx_job_offers_save_status ON job_offers(save_id, season, status);
       `);
       await db.execAsync(`
         CREATE TABLE IF NOT EXISTS friendlies (
