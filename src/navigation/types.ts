@@ -32,6 +32,7 @@ export type RootStackParamList = {
   ReportsTransferROI: undefined;
   ReportsProjection: undefined;
   ReportsFreeAgentScout: undefined;
+  Scouting: undefined;
   // My listings
   MyListings: undefined;
   // History hub

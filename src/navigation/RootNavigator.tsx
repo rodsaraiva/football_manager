@@ -28,6 +28,7 @@ import { ReportsOpponentScreen } from '@/screens/reports/ReportsOpponentScreen';
 import { ReportsTransferROIScreen } from '@/screens/reports/ReportsTransferROIScreen';
 import { ReportsProjectionScreen } from '@/screens/reports/ReportsProjectionScreen';
 import { ReportsFreeAgentScoutScreen } from '@/screens/reports/ReportsFreeAgentScoutScreen';
+import { ScoutingScreen } from '@/screens/reports/ScoutingScreen';
 import { HistoryScreen } from '@/screens/history/HistoryScreen';
 import { PlayerDetailRoute } from '@/screens/squad/PlayerDetailRoute';
 import { TeamTalkScreen } from '@/screens/squad/TeamTalkScreen';
@@ -90,6 +91,7 @@ export function RootNavigator() {
       <Stack.Screen name="ReportsTransferROI" component={ReportsTransferROIScreen} options={{ title: t('nav.reports_transfer_roi') }} />
       <Stack.Screen name="ReportsProjection" component={ReportsProjectionScreen} options={{ title: t('nav.reports_projection') }} />
       <Stack.Screen name="ReportsFreeAgentScout" component={ReportsFreeAgentScoutScreen} options={{ title: t('nav.reports_free_agent_scout') }} />
+      <Stack.Screen name="Scouting" component={ScoutingScreen} options={{ title: t('nav.scouting') }} />
       {/* History hub */}
       <Stack.Screen name="SeasonHistory" component={HistoryScreen} options={{ title: t('nav.history') }} />
       {/* Orphan screens wired in */}

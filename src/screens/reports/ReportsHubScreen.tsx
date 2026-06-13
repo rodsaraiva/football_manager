@@ -168,6 +168,13 @@ export function ReportsHubScreen() {
         accent={colors.reportScout}
         onPress={() => navigation.navigate('ReportsFreeAgentScout')}
       />
+      <HubCard
+        icon="🕵️"
+        title={t('scouting.title')}
+        subtitle={t('scouting.subtitle')}
+        accent={colors.reportScout}
+        onPress={() => navigation.navigate('Scouting')}
+      />
 
       <View style={styles.secondary}>
         <HubCard
