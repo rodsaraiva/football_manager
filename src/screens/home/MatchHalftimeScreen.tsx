@@ -25,7 +25,8 @@ import { advanceGameWeek } from '@/engine/game-loop';
 import { resolveAdvanceReload } from '@/engine/advance-reload';
 import { getPlayerById } from '@/database/queries/players';
 import { getClubById } from '@/database/queries/clubs';
-import { getFixturesByClub as getClubFixtures } from '@/database/queries/fixtures';
+import { getFixturesByClub as getClubFixtures, countClubWins } from '@/database/queries/fixtures';
+import { processAchievementCheckpoint } from '@/engine/achievements/achievements-checkpoint';
 import { SeededRng } from '@/engine/rng';
 
 type NavProp = NativeStackNavigationProp<RootStackParamList>;
@@ -96,6 +97,7 @@ export function MatchHalftimeScreen() {
     setNewSeason,
     setLastRetiredPlayerIds,
     setPendingAnnouncedRetirementIds,
+    setPendingAchievementToastIds,
   } = useGameStore();
   const { dbHandle } = useDatabaseStore();
   const { setPendingComment, setLastCommentWeek } = useAssistantStore();
@@ -231,6 +233,25 @@ export function MatchHalftimeScreen() {
       // Mirror the press gate the engine armed (a user match was played) so the
       // MatchResult continue button routes into the press conference.
       if (result.playerMatchResult) setPressPending(true);
+
+      // Post-match achievement checkpoint (USER perspective). The toast surfaces on Home
+      // via the store, since this path navigates away to MatchResult.
+      if (result.playerMatchResult) {
+        const pmr = result.playerMatchResult;
+        const myGoals = halftimeIsHome ? pmr.homeGoals : pmr.awayGoals;
+        const oppGoals = halftimeIsHome ? pmr.awayGoals : pmr.homeGoals;
+        const totalWins = await countClubWins(dbHandle, currentSave.id, playerClubId);
+        try {
+          const newly = await processAchievementCheckpoint({
+            db: dbHandle,
+            saveId: currentSave.id,
+            season,
+            week,
+            snapshot: { justWon: myGoals > oppGoals, goalMargin: myGoals - oppGoals, totalWins },
+          });
+          if (newly.length > 0) setPendingAchievementToastIds(newly.map((d) => d.id));
+        } catch { /* best-effort */ }
+      }
       if (result.assistantComment) {
         setPendingComment(result.assistantComment);
         setLastCommentWeek(result.newWeek);

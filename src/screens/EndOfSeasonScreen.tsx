@@ -23,6 +23,7 @@ import { buildDivisionPairs, computeDivisionSwaps } from '@/engine/competition/p
 import { Fixture } from '@/types';
 import { SeededRng } from '@/engine/rng';
 import { processSeasonEndBoard } from '@/engine/board/season-end-board';
+import { processAchievementCheckpoint } from '@/engine/achievements/achievements-checkpoint';
 import { isManagerDismissed } from '@/engine/board/season-outcome';
 import { computeManagerReputationDelta } from '@/engine/board/manager-reputation-engine';
 import { generateJobOffers, JobOfferCandidateClub } from '@/engine/board/job-offers-engine';
@@ -55,7 +56,7 @@ interface SeasonStats {
 
 export function EndOfSeasonScreen() {
   const navigation = useNavigation<NavProp>();
-  const { season, playerClub, playerClubId, setNewSeason, updateWeek, currentSave, setPendingAnnouncedRetirementIds, setPreseasonPending, setManagerReputation: setStoreManagerReputation, setJobOffersPending: setStoreJobOffersPending } = useGameStore();
+  const { season, playerClub, playerClubId, setNewSeason, updateWeek, currentSave, setPendingAnnouncedRetirementIds, setPreseasonPending, setManagerReputation: setStoreManagerReputation, setJobOffersPending: setStoreJobOffersPending, setPendingAchievementToastIds: setStorePendingAchievementToastIds } = useGameStore();
   const { dbHandle } = useDatabaseStore();
   const { setCurrentObjective, setCurrentTrust, setLastTrustResult, setReputationHistory } = useBoardStore();
   const { setAssistants } = useAssistantStore();
@@ -230,6 +231,26 @@ export function EndOfSeasonScreen() {
             await setManagerReputation(dbHandle, saveId, managerRep.next);
             setStoreManagerReputation(managerRep.next);
             setManagerRepEval({ before: currentManagerRep, after: managerRep.next, delta: managerRep.delta });
+
+            // ── P8 achievements: season-end checkpoint ──────────────────────────
+            // Facts known here: titles, promotion, manager rep and seasons completed
+            // (finishing season N means N seasons completed). Toast surfaces on Home.
+            try {
+              const newly = await processAchievementCheckpoint({
+                db: dbHandle,
+                saveId,
+                season: endedSeason,
+                week: 1,
+                snapshot: {
+                  wonLeague: leaguePosition === 1,
+                  wonCup,
+                  promoted: promotedRow != null,
+                  managerReputation: managerRep.next,
+                  seasonsCompleted: endedSeason,
+                },
+              });
+              if (newly.length > 0) setStorePendingAchievementToastIds(newly.map((d) => d.id));
+            } catch { /* best-effort */ }
 
             // 2. Job offers — only when NOT fired (rescue offers are explicitly out of scope).
             if (!isManagerDismissed(boardResult.consequence)) {

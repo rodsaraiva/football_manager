@@ -17,6 +17,7 @@ import {
 } from '@/database/queries/job-offers';
 import { setJobOffersPending as persistJobOffersGate } from '@/database/queries/save';
 import { acceptJobOffer } from '@/engine/board/accept-job-offer';
+import { processAchievementCheckpoint } from '@/engine/achievements/achievements-checkpoint';
 import { BOARD_TRUST_INITIAL } from '@/engine/balance';
 
 type NavProp = NativeStackNavigationProp<RootStackParamList>;
@@ -30,6 +31,7 @@ export function JobOffersScreen() {
     setPlayerClub,
     setPreseasonPending,
     setJobOffersPending,
+    setPendingAchievementToastIds,
   } = useGameStore();
   const { dbHandle } = useDatabaseStore();
   const { setCurrentObjective, setCurrentTrust } = useBoardStore();
@@ -75,6 +77,19 @@ export function JobOffersScreen() {
       setCurrentTrust(BOARD_TRUST_INITIAL);
       setJobOffersPending(false);
       setPreseasonPending(true);
+
+      // P8 achievement: changed clubs via offer → 'poached'. Toast surfaces on Home.
+      try {
+        const newly = await processAchievementCheckpoint({
+          db: dbHandle,
+          saveId,
+          season,
+          week: 1,
+          snapshot: { changedClubs: true },
+        });
+        if (newly.length > 0) setPendingAchievementToastIds(newly.map((d) => d.id));
+      } catch { /* best-effort */ }
+
       navigation.navigate('Game');
     } catch {
       // Reload to reflect whatever persisted; the user can retry.

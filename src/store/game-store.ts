@@ -46,6 +46,8 @@ interface GameState {
   managerReputation: number;
   // P8 onboarding: one-time welcome gate (per save). False = show welcome once.
   onboardingSeen: boolean;
+  // P8 achievements: ids unlocked at the last checkpoint, awaiting a toast on Home.
+  pendingAchievementToastIds: string[];
   // Retirement: IDs aposentados na última virada de temporada
   lastRetiredPlayerIds: number[];
   // IDs com aposentadoria anunciada nesta semana
@@ -76,6 +78,7 @@ interface GameActions {
   setJobOffersPending: (pending: boolean) => void;
   setManagerReputation: (rep: number) => void;
   setOnboardingSeen: (seen: boolean) => void;
+  setPendingAchievementToastIds: (ids: string[]) => void;
   setLastRetiredPlayerIds: (ids: number[]) => void;
   setPendingAnnouncedRetirementIds: (ids: number[]) => void;
   // Data loading
@@ -114,6 +117,7 @@ const initialState: GameState = {
   jobOffersPending: false,
   managerReputation: 50,
   onboardingSeen: false,
+  pendingAchievementToastIds: [],
   lastRetiredPlayerIds: [],
   pendingAnnouncedRetirementIds: [],
 };
@@ -205,6 +209,7 @@ export const useGameStore = create<GameStore>((set) => ({
   setJobOffersPending: (pending) => set({ jobOffersPending: pending }),
   setManagerReputation: (rep) => set({ managerReputation: rep }),
   setOnboardingSeen: (seen) => set({ onboardingSeen: seen }),
+  setPendingAchievementToastIds: (ids) => set({ pendingAchievementToastIds: ids }),
   setLastRetiredPlayerIds: (ids) => set({ lastRetiredPlayerIds: ids }),
   setPendingAnnouncedRetirementIds: (ids) => set({ pendingAnnouncedRetirementIds: ids }),
   setSquad: (squad) => set({ squad }),

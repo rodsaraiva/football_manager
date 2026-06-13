@@ -27,6 +27,12 @@ import { getPlayerById, getPlayersByClub, getPlayersAboutToRetire } from '@/data
 import { getActiveTactic } from '@/database/queries/tactics';
 import { getBoardObjective, getSaveBoardTrust, getReputationHistory } from '@/database/queries/board';
 import { advanceGameWeek } from '@/engine/game-loop';
+import { countClubWins } from '@/database/queries/fixtures';
+import { processAchievementCheckpoint } from '@/engine/achievements/achievements-checkpoint';
+import { getAchievementDef } from '@/engine/achievements/achievements-catalog';
+import { isOnboardingSeen, setOnboardingSeen } from '@/database/queries/save';
+import { AchievementToast } from '@/components/AchievementToast';
+import { OnboardingModal } from '@/components/OnboardingModal';
 import { startUserMatchHalftime } from '@/engine/match-day/halftime';
 import { resolveAdvanceReload } from '@/engine/advance-reload';
 import { ensureSeasonFixtures } from '@/engine/competition/calendar';
@@ -52,6 +58,10 @@ export function HomeScreen() {
     pressPending,
     jobOffersPending,
     managerReputation,
+    onboardingSeen,
+    setOnboardingSeen: setStoreOnboardingSeen,
+    pendingAchievementToastIds,
+    setPendingAchievementToastIds,
     lastMatchResult,
     currentSave,
     setAdvancing,
@@ -78,6 +88,7 @@ export function HomeScreen() {
   const [nextOpponent, setNextOpponent] = useState<{ club: Club; isHome: boolean } | null>(null);
   const [showMatchModal, setShowMatchModal] = useState(false);
   const [playerNames, setPlayerNames] = useState<Record<number, string>>({});
+  const [showOnboarding, setShowOnboarding] = useState(false);
   const [showOpponentModal, setShowOpponentModal] = useState(false);
   const [opponentSquad, setOpponentSquad] = useState<Array<{ name: string; position: Position; overall: number }>>([]);
   const [opponentFormation, setOpponentFormation] = useState('4-4-2');
@@ -197,6 +208,31 @@ export function HomeScreen() {
     }
   }, [pressPending, lastMatchResult, showMatchModal, isNewSeason, preseasonPending, navigation]);
 
+  // First-game onboarding: a one-time welcome, LOWER priority than every navigation gate.
+  // Shows only when no gate is pending and nothing is being acknowledged, so the player
+  // sees it on a calm Home. Setting the gate (DB + store) guarantees it never returns.
+  useEffect(() => {
+    if (
+      !onboardingSeen &&
+      !preseasonPending &&
+      !pressPending &&
+      !jobOffersPending &&
+      !isNewSeason &&
+      !lastMatchResult &&
+      !showMatchModal
+    ) {
+      setShowOnboarding(true);
+    }
+  }, [onboardingSeen, preseasonPending, pressPending, jobOffersPending, isNewSeason, lastMatchResult, showMatchModal]);
+
+  const handleDismissOnboarding = useCallback(async () => {
+    setShowOnboarding(false);
+    setStoreOnboardingSeen(true);
+    if (dbHandle && currentSave) {
+      try { await setOnboardingSeen(dbHandle, currentSave.id, true); } catch { /* non-fatal */ }
+    }
+  }, [dbHandle, currentSave, setStoreOnboardingSeen]);
+
   // Load player names and show modal after match
   useEffect(() => {
     if (!lastMatchResult || !dbHandle || !currentSave) return;
@@ -248,12 +284,13 @@ export function HomeScreen() {
       const myFixture = weekFixtures.find(
         f => !f.played && (f.homeClubId === playerClubId || f.awayClubId === playerClubId),
       );
+      let matchIsHome: boolean | null = null;
       if (myFixture) {
-        const isHome = myFixture.homeClubId === playerClubId;
-        const oppId = isHome ? myFixture.awayClubId : myFixture.homeClubId;
+        matchIsHome = myFixture.homeClubId === playerClubId;
+        const oppId = matchIsHome ? myFixture.awayClubId : myFixture.homeClubId;
         const oppClub = await getClubById(dbHandle, currentSave.id, oppId);
         if (oppClub) {
-          setLastMatchContext(isHome, oppClub.name);
+          setLastMatchContext(matchIsHome, oppClub.name);
         }
       }
 
@@ -274,6 +311,23 @@ export function HomeScreen() {
         // Mirror the press gate the engine armed; the post-match press-conference
         // effect fires once the result modal closes.
         setPressPending(true);
+
+        // Post-match achievement checkpoint: facts from the USER's perspective.
+        const pmr = result.playerMatchResult;
+        const myGoals = matchIsHome ? pmr.homeGoals : pmr.awayGoals;
+        const oppGoals = matchIsHome ? pmr.awayGoals : pmr.homeGoals;
+        const justWon = myGoals > oppGoals;
+        const totalWins = await countClubWins(dbHandle, currentSave.id, playerClubId);
+        try {
+          const newly = await processAchievementCheckpoint({
+            db: dbHandle,
+            saveId: currentSave.id,
+            season,
+            week,
+            snapshot: { justWon, goalMargin: myGoals - oppGoals, totalWins },
+          });
+          if (newly.length > 0) setPendingAchievementToastIds(newly.map((d) => d.id));
+        } catch { /* achievements are best-effort */ }
       }
       if (result.assistantComment) {
         setPendingComment(result.assistantComment);
@@ -950,6 +1004,17 @@ export function HomeScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* First-game onboarding welcome (one-time) */}
+      <OnboardingModal visible={showOnboarding} onStart={handleDismissOnboarding} />
+
+      {/* Achievement unlocked toast (post-match, from either advance or halftime path) */}
+      <AchievementToast
+        achievements={pendingAchievementToastIds
+          .map((id) => getAchievementDef(id))
+          .filter((d): d is NonNullable<typeof d> => d != null)}
+        onDismiss={() => setPendingAchievementToastIds([])}
+      />
     </ScrollView>
   );
 }
