@@ -5,6 +5,7 @@ import { PlayerForStrength, TeamStrength, calculateTeamStrength } from './team-s
 import { PlayerRating, PlayerMatchInput, calculatePlayerRatings } from './player-rating';
 import { calculateOverall } from '@/utils/overall';
 import { formationModifiers } from '../formations';
+import { resolveTaker } from './set-piece-takers';
 
 // P7: manager-designated set-piece takers. Each id nullable/undefined → engine
 // auto-picks by attribute (legacy behavior). Threaded as an optional MatchInput
@@ -208,6 +209,7 @@ export interface TeamState {
   squad: PlayerForStrength[];
   bench: PlayerForStrength[]; // #4
   tactic: Tactic;
+  takers?: SetPieceTakers; // P7: manager-designated set-piece takers (undefined = auto-pick)
   isHome: boolean;
   strength: TeamStrength;
   goals: number;
@@ -231,11 +233,13 @@ function makeTeam(
   tactic: Tactic,
   isHome: boolean,
   homeAdvantageMult: number,
+  takers?: SetPieceTakers,
 ): TeamState {
   return {
     squad: [...squad],
     bench: [...bench],
     tactic,
+    takers,
     isHome,
     strength: calculateTeamStrength({ players: squad, tactic, isHome, homeAdvantageMult }),
     goals: 0, shots: 0, shotsOnTarget: 0, corners: 0, fouls: 0, subsUsed: 0,
@@ -367,8 +371,8 @@ export function simulateFirstHalf(input: MatchInput): HalftimeState {
   );
   const homeAdv = homeAdvantageMultiplier(attendanceForAdv);
 
-  const home = makeTeam(homeSquad, homeBench, homeTactic, true, homeAdv);
-  const away = makeTeam(awaySquad, awayBench, awayTactic, false, homeAdv);
+  const home = makeTeam(homeSquad, homeBench, homeTactic, true, homeAdv, input.homeSetPieceTakers);
+  const away = makeTeam(awaySquad, awayBench, awayTactic, false, homeAdv, input.awaySetPieceTakers);
   const events: MatchEvent[] = [];
   const usedMinutes = new Set<number>();
 
@@ -633,7 +637,14 @@ function runBlock(
     } else {
       team.goals++;
       events.push({ fixtureId, minute, type: 'goal', playerId: scorer.id, secondaryPlayerId: null });
-      const crosser = pickAssister(team.squad, scorer.id, rng);
+      // P7: the corner TAKER is the crosser (credited with the assist). A designated
+      // corner taker is used only if on-pitch AND not the scorer (pickAssister
+      // excludes the scorer); otherwise fall back to the RNG-weighted assister pick.
+      const designatedCorner = team.takers?.cornerTakerId;
+      const crosser =
+        designatedCorner != null && designatedCorner !== scorer.id
+          ? resolveTaker(team.squad, designatedCorner, () => pickAssister(team.squad, scorer.id, rng) as PlayerForStrength)
+          : pickAssister(team.squad, scorer.id, rng);
       if (crosser) events.push({ fixtureId, minute, type: 'assist', playerId: crosser.id, secondaryPlayerId: scorer.id });
       // #5: momentum
       opp.momentumBlocksLeft = MOMENTUM_BLOCKS_AFTER_GOAL;
@@ -646,7 +657,11 @@ function runBlock(
   // ── Penalty ────────────────────────────────────────────────────────────
   const penP = PENALTY_PROB * tempo * (team.strength.attack / Math.max(opp.strength.defense, 1));
   if (rng.next() < penP) {
-    const taker = bestAttr(team.squad, p => p.attributes.finishing + p.attributes.composure);
+    const taker = resolveTaker(
+      team.squad,
+      team.takers?.penaltyTakerId,
+      () => bestAttr(team.squad, p => p.attributes.finishing + p.attributes.composure),
+    );
     const penMin = blockToMinute(block, rng, usedMinutes);
     const chance = 0.6 + (taker.attributes.composure + taker.attributes.finishing) / 200 * 0.3;
     team.shots++;
@@ -684,7 +699,11 @@ function runBlock(
       const followUpMin = nextMinute(cMin, usedMinutes);
       const roll = rng.next();
       if (roll < YELLOW_PENALTY_CHANCE) {
-        const taker = bestAttr(opp.squad, p => p.attributes.finishing + p.attributes.composure);
+        const taker = resolveTaker(
+          opp.squad,
+          opp.takers?.penaltyTakerId,
+          () => bestAttr(opp.squad, p => p.attributes.finishing + p.attributes.composure),
+        );
         const chance = 0.6 + (taker.attributes.composure + taker.attributes.finishing) / 200 * 0.3;
         opp.shots++;
         if (rng.next() < chance) {
@@ -694,7 +713,11 @@ function runBlock(
           events.push({ fixtureId, minute: followUpMin, type: 'penalty_missed', playerId: taker.id, secondaryPlayerId: null });
         }
       } else if (roll < YELLOW_PENALTY_CHANCE + YELLOW_FREEKICK_CHANCE) {
-        const fk = bestAttr(opp.squad, p => p.attributes.freeKicks);
+        const fk = resolveTaker(
+          opp.squad,
+          opp.takers?.freeKickTakerId,
+          () => bestAttr(opp.squad, p => p.attributes.freeKicks),
+        );
         const scoreChance = fk.attributes.freeKicks / 100 * 0.35;
         opp.shots++;
         if (rng.next() < scoreChance) {
@@ -719,7 +742,11 @@ function runBlock(
       const followUpMin = nextMinute(rMin, usedMinutes);
       const roll = rng.next();
       if (roll < RED_PENALTY_CHANCE) {
-        const taker = bestAttr(opp.squad, p => p.attributes.finishing + p.attributes.composure);
+        const taker = resolveTaker(
+          opp.squad,
+          opp.takers?.penaltyTakerId,
+          () => bestAttr(opp.squad, p => p.attributes.finishing + p.attributes.composure),
+        );
         const chance = 0.6 + (taker.attributes.composure + taker.attributes.finishing) / 200 * 0.3;
         opp.shots++;
         if (rng.next() < chance) {
@@ -729,7 +756,11 @@ function runBlock(
           events.push({ fixtureId, minute: followUpMin, type: 'penalty_missed', playerId: taker.id, secondaryPlayerId: null });
         }
       } else if (roll < RED_PENALTY_CHANCE + RED_FREEKICK_CHANCE) {
-        const fk = bestAttr(opp.squad, p => p.attributes.freeKicks);
+        const fk = resolveTaker(
+          opp.squad,
+          opp.takers?.freeKickTakerId,
+          () => bestAttr(opp.squad, p => p.attributes.freeKicks),
+        );
         const scoreChance = fk.attributes.freeKicks / 100 * 0.35;
         opp.shots++;
         if (rng.next() < scoreChance) {
