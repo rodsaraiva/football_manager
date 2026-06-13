@@ -181,6 +181,19 @@ export const useDatabaseStore = create<DatabaseStore>((set) => ({
         );
       `);
 
+      // P8 achievements: per-save unlocked milestones + one-time onboarding gate.
+      await addColumnIfMissing(db, 'save_games', 'onboarding_seen', 'INTEGER NOT NULL DEFAULT 0');
+      await db.execAsync(`
+        CREATE TABLE IF NOT EXISTS achievements (
+          save_id        INTEGER NOT NULL,
+          achievement_id TEXT    NOT NULL,
+          season         INTEGER NOT NULL,
+          week           INTEGER NOT NULL,
+          PRIMARY KEY (save_id, achievement_id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_achievements_save ON achievements(save_id);
+      `);
+
       // Migration: corrige wages inflados em 100x por bug antigo em computeWage (Math.round * 10 em vez de /10).
       // Heurística: média de wage acima de 50k indica DB seedado pelo código bugado — divide por 100.
       const wageProbe = await db.getFirstAsync<{ avg: number | null }>('SELECT AVG(wage) AS avg FROM players') ?? { avg: null };

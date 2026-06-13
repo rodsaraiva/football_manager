@@ -44,6 +44,8 @@ interface GameState {
   jobOffersPending: boolean;
   // P6 career: career-wide MANAGER reputation (persists across club switches)
   managerReputation: number;
+  // P8 onboarding: one-time welcome gate (per save). False = show welcome once.
+  onboardingSeen: boolean;
   // Retirement: IDs aposentados na última virada de temporada
   lastRetiredPlayerIds: number[];
   // IDs com aposentadoria anunciada nesta semana
@@ -73,6 +75,7 @@ interface GameActions {
   setPressPending: (pending: boolean) => void;
   setJobOffersPending: (pending: boolean) => void;
   setManagerReputation: (rep: number) => void;
+  setOnboardingSeen: (seen: boolean) => void;
   setLastRetiredPlayerIds: (ids: number[]) => void;
   setPendingAnnouncedRetirementIds: (ids: number[]) => void;
   // Data loading
@@ -110,6 +113,7 @@ const initialState: GameState = {
   pressPending: false,
   jobOffersPending: false,
   managerReputation: 50,
+  onboardingSeen: false,
   lastRetiredPlayerIds: [],
   pendingAnnouncedRetirementIds: [],
 };
@@ -129,6 +133,7 @@ export const useGameStore = create<GameStore>((set) => ({
         pressPending: false,
         jobOffersPending: false,
         managerReputation: 50,
+        onboardingSeen: false,
         createdAt: '',
         updatedAt: '',
       },
@@ -137,6 +142,7 @@ export const useGameStore = create<GameStore>((set) => ({
       week,
       managerReputation: 50,
       jobOffersPending: false,
+      onboardingSeen: false,
     }),
   loadSave: (save) => {
     useBoardStore.getState().reset();
@@ -162,6 +168,7 @@ export const useGameStore = create<GameStore>((set) => ({
       pressPending: save.pressPending,
       jobOffersPending: save.jobOffersPending,
       managerReputation: save.managerReputation,
+      onboardingSeen: save.onboardingSeen,
     });
   },
   clearGame: () => {
@@ -197,6 +204,7 @@ export const useGameStore = create<GameStore>((set) => ({
   setPressPending: (pending) => set({ pressPending: pending }),
   setJobOffersPending: (pending) => set({ jobOffersPending: pending }),
   setManagerReputation: (rep) => set({ managerReputation: rep }),
+  setOnboardingSeen: (seen) => set({ onboardingSeen: seen }),
   setLastRetiredPlayerIds: (ids) => set({ lastRetiredPlayerIds: ids }),
   setPendingAnnouncedRetirementIds: (ids) => set({ pendingAnnouncedRetirementIds: ids }),
   setSquad: (squad) => set({ squad }),

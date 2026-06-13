@@ -32,6 +32,7 @@ export const TABLE_NAMES: string[] = [
   'scouting',
   'job_offers',
   'set_piece_takers',
+  'achievements',
 ];
 
 export const SCHEMA_SQL = `
@@ -312,6 +313,7 @@ CREATE TABLE IF NOT EXISTS save_games (
   press_pending   INTEGER NOT NULL DEFAULT 0,
   manager_reputation INTEGER NOT NULL DEFAULT 50,
   job_offers_pending INTEGER NOT NULL DEFAULT 0,
+  onboarding_seen INTEGER NOT NULL DEFAULT 0,
   created_at      TEXT    NOT NULL,
   updated_at      TEXT    NOT NULL
 );
@@ -491,6 +493,18 @@ CREATE TABLE IF NOT EXISTS set_piece_takers (
   corner_taker_id    INTEGER,
   PRIMARY KEY (save_id, club_id)
 );
+
+-- P8 achievements: one row per (save, achievement) once unlocked, stamped with the
+-- season/week it fired. PRIMARY KEY (save_id, achievement_id) makes re-unlocks idempotent.
+CREATE TABLE IF NOT EXISTS achievements (
+  save_id        INTEGER NOT NULL REFERENCES save_games(id),
+  achievement_id TEXT    NOT NULL,
+  season         INTEGER NOT NULL,
+  week           INTEGER NOT NULL,
+  PRIMARY KEY (save_id, achievement_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_achievements_save ON achievements(save_id);
 `;
 
 // Composite save_id indexes are created AFTER the save_id migration (database-store),

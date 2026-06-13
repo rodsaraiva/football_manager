@@ -11,6 +11,7 @@ export interface SaveGame {
   pressPending: boolean;
   jobOffersPending: boolean;
   managerReputation: number;
+  onboardingSeen: boolean;
   createdAt: string;
   updatedAt: string;
 }

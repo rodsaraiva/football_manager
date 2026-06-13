@@ -12,6 +12,7 @@ interface SaveGameRow {
   press_pending: number | null;
   job_offers_pending: number | null;
   manager_reputation: number | null;
+  onboarding_seen: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -28,6 +29,7 @@ function rowToSaveGame(row: SaveGameRow): SaveGame {
     pressPending: row.press_pending === 1,
     jobOffersPending: row.job_offers_pending === 1,
     managerReputation: row.manager_reputation ?? 50,
+    onboardingSeen: row.onboarding_seen === 1,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -94,7 +96,7 @@ const DELETE_BY_SAVE_TABLES = [
   'transfers', 'transfer_offers', 'transfer_blocks', 'tactics', 'staff', 'board_objectives',
   'board_trust_history', 'club_reputation_history', 'season_competition_results',
   'season_relegated', 'season_promoted', 'season_awards', 'season_player_titles', 'player_stats',
-  'job_offers', 'competitions', 'assistants', 'clubs',
+  'job_offers', 'achievements', 'competitions', 'assistants', 'clubs',
 ];
 
 export async function deleteSave(db: DbHandle, saveId: number): Promise<void> {

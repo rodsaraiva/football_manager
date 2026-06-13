@@ -56,3 +56,17 @@ export async function isJobOffersPending(db: DbHandle, saveId: number): Promise<
     .get(saveId)) as { job_offers_pending: number } | undefined;
   return row?.job_offers_pending === 1;
 }
+
+// ─── P8 onboarding gate ───────────────────────────────────────────────────────
+// One-time per-save welcome. Mirrors the preseason gate exactly.
+
+export async function setOnboardingSeen(db: DbHandle, saveId: number, seen: boolean): Promise<void> {
+  await db.prepare('UPDATE save_games SET onboarding_seen = ? WHERE id = ?').run(seen ? 1 : 0, saveId);
+}
+
+export async function isOnboardingSeen(db: DbHandle, saveId: number): Promise<boolean> {
+  const row = (await db
+    .prepare('SELECT onboarding_seen FROM save_games WHERE id = ?')
+    .get(saveId)) as { onboarding_seen: number } | undefined;
+  return row?.onboarding_seen === 1;
+}
