@@ -170,10 +170,15 @@ describe('E2E · full season simulation', () => {
       if (r.isSeasonEnd) break;
     }
 
-    const after = (ctx.rawDb.prepare('SELECT COUNT(*) as c FROM transfer_blocks').get() as {
-      c: number;
-    }).c;
-    expect(after).toBe(0);
+    // The forced block (season 1, week 2) must be pruned once its window passes.
+    // Count only that specific expired block — AI negotiations legitimately create
+    // NEW blocks with future windows during these weeks, so a total count of 0 is wrong.
+    const expiredRemaining = (ctx.rawDb
+      .prepare(
+        'SELECT COUNT(*) as c FROM transfer_blocks WHERE player_id = 1 AND blocked_until_season = 1 AND blocked_until_week = 2',
+      )
+      .get() as { c: number }).c;
+    expect(expiredRemaining).toBe(0);
   }, 60_000);
 
   it('AI-vs-AI transfers happen in the transfer window but not outside', async () => {
