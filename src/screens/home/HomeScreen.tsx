@@ -50,6 +50,8 @@ export function HomeScreen() {
     isNewSeason,
     preseasonPending,
     pressPending,
+    jobOffersPending,
+    managerReputation,
     lastMatchResult,
     currentSave,
     setAdvancing,
@@ -161,12 +163,21 @@ export function HomeScreen() {
     }
   }, [isNewSeason, navigation]);
 
-  // Route to the pre-season window whenever it is pending (new game / season turn).
+  // Career gate: rival job offers at season-end resolve BEFORE pre-season. Accepting an
+  // offer sets preseason_pending for the chosen club, which then fires the gate below.
   useEffect(() => {
-    if (preseasonPending && !isNewSeason) {
+    if (jobOffersPending && !isNewSeason) {
+      navigation.navigate('JobOffers');
+    }
+  }, [jobOffersPending, isNewSeason, navigation]);
+
+  // Route to the pre-season window whenever it is pending (new game / season turn).
+  // Deferred to the job-offers gate: pre-season only starts once offers are resolved.
+  useEffect(() => {
+    if (preseasonPending && !jobOffersPending && !isNewSeason) {
       navigation.navigate('PreSeason');
     }
-  }, [preseasonPending, isNewSeason, navigation]);
+  }, [preseasonPending, jobOffersPending, isNewSeason, navigation]);
 
   // Route to the post-match press conference. Sequencing vs the result modal: when a
   // match was just played, the result modal opens and the close handler drives the
@@ -448,6 +459,17 @@ export function HomeScreen() {
           </View>
         </TouchableOpacity>
       )}
+
+      {/* Manager (career) reputation — distinct from the club's reputation. */}
+      <View style={styles.managerRepWidget}>
+        <Text style={styles.boardWidgetLabel}>{t('home.manager_reputation')}</Text>
+        <View style={styles.managerRepRow}>
+          <View style={styles.managerRepBarContainer}>
+            <View style={[styles.managerRepBarFill, { width: `${managerReputation}%` as `${number}%` }]} />
+          </View>
+          <Text style={styles.managerRepValue}>{managerReputation}</Text>
+        </View>
+      </View>
 
       {/* League Table shortcut */}
       <TouchableOpacity
@@ -986,6 +1008,22 @@ const styles = StyleSheet.create({
   boardWidgetText: { color: colors.text, fontSize: fontSize.sm, marginTop: spacing.xxs },
   boardMiniBar: { flexDirection: 'row', gap: 3, marginTop: spacing.xs },
   boardMiniSegment: { width: 12, height: 6, borderRadius: 2, backgroundColor: colors.border },
+  managerRepWidget: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    marginHorizontal: spacing.md,
+    marginBottom: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderLeftWidth: 4,
+    borderLeftColor: colors.gold,
+  },
+  managerRepRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.xs },
+  managerRepBarContainer: { flex: 1, height: 6, backgroundColor: colors.border, borderRadius: 3, overflow: 'hidden' },
+  managerRepBarFill: { height: '100%', backgroundColor: colors.gold, borderRadius: 3 },
+  managerRepValue: { color: colors.gold, fontSize: fontSize.sm, fontWeight: '700', minWidth: 28, textAlign: 'right' },
   commentCard: {
     backgroundColor: colors.surface,
     borderRadius: radius.lg,

@@ -24,7 +24,11 @@ import { Fixture } from '@/types';
 import { SeededRng } from '@/engine/rng';
 import { processSeasonEndBoard } from '@/engine/board/season-end-board';
 import { isManagerDismissed } from '@/engine/board/season-outcome';
-import { markSaveEnded } from '@/database/queries/save';
+import { computeManagerReputationDelta } from '@/engine/board/manager-reputation-engine';
+import { generateJobOffers, JobOfferCandidateClub } from '@/engine/board/job-offers-engine';
+import { markSaveEnded, getManagerReputation, setManagerReputation, setJobOffersPending } from '@/database/queries/save';
+import { insertJobOffer } from '@/database/queries/job-offers';
+import { getAllClubs } from '@/database/queries/clubs';
 import { getPlayersWithAttributesByClub } from '@/database/queries/players';
 import { calculateOverall } from '@/utils/overall';
 import { rolloverSeason } from '@/engine/season-rollover';
@@ -51,7 +55,7 @@ interface SeasonStats {
 
 export function EndOfSeasonScreen() {
   const navigation = useNavigation<NavProp>();
-  const { season, playerClub, playerClubId, setNewSeason, updateWeek, currentSave, setPendingAnnouncedRetirementIds, setPreseasonPending } = useGameStore();
+  const { season, playerClub, playerClubId, setNewSeason, updateWeek, currentSave, setPendingAnnouncedRetirementIds, setPreseasonPending, setManagerReputation: setStoreManagerReputation, setJobOffersPending: setStoreJobOffersPending } = useGameStore();
   const { dbHandle } = useDatabaseStore();
   const { setCurrentObjective, setCurrentTrust, setLastTrustResult, setReputationHistory } = useBoardStore();
   const { setAssistants } = useAssistantStore();
@@ -66,6 +70,7 @@ export function EndOfSeasonScreen() {
     trust: number; outcome: TrustOutcome; consequence: TrustConsequence;
     objectiveType: BoardObjectiveType; objectiveTarget: number | null;
   } | null>(null);
+  const [managerRepEval, setManagerRepEval] = useState<{ before: number; after: number; delta: number } | null>(null);
 
   // advanceGameWeek already bumped the season pointer to the upcoming year.
   // The stats/report are about the season that just finished, which is one
@@ -206,6 +211,51 @@ export function EndOfSeasonScreen() {
               objectiveType: boardResult.objectiveType,
               objectiveTarget: boardResult.objectiveTarget,
             });
+
+            // ── P6 manager career ──────────────────────────────────────────────
+            // 1. Accrue career-wide MANAGER reputation (distinct from club rep). objectiveMet
+            //    is derived from the board outcome — anything that is not a failure counts.
+            const objectiveMet = boardResult.outcome !== 'objective_failed';
+            const currentManagerRep = await getManagerReputation(dbHandle, saveId);
+            const managerRep = computeManagerReputationDelta({
+              current: currentManagerRep,
+              leaguePosition,
+              totalTeams,
+              wonLeague: leaguePosition === 1,
+              wonCup,
+              wasPromoted: promotedRow != null,
+              wasRelegated: relegatedRow != null,
+              objectiveMet,
+            });
+            await setManagerReputation(dbHandle, saveId, managerRep.next);
+            setStoreManagerReputation(managerRep.next);
+            setManagerRepEval({ before: currentManagerRep, after: managerRep.next, delta: managerRep.delta });
+
+            // 2. Job offers — only when NOT fired (rescue offers are explicitly out of scope).
+            if (!isManagerDismissed(boardResult.consequence)) {
+              const leaguesForDiv = await getAllLeagues(dbHandle);
+              const divByLeague = new Map(leaguesForDiv.map((l) => [l.id, l.divisionLevel]));
+              const allClubs = await getAllClubs(dbHandle, saveId);
+              const candidates: JobOfferCandidateClub[] = allClubs.map((c) => ({
+                id: c.id,
+                reputation: c.reputation,
+                divisionLevel: divByLeague.get(c.leagueId) ?? 1,
+              }));
+              const offers = generateJobOffers({
+                managerReputation: managerRep.next,
+                currentClubId: playerClubId,
+                currentClubReputation: playerClub.reputation,
+                candidates,
+                rng: new SeededRng(season * 6151 + saveId),
+              });
+              if (offers.length > 0) {
+                for (const o of offers) {
+                  await insertJobOffer(dbHandle, saveId, season, o.offeringClubId);
+                }
+                await setJobOffersPending(dbHandle, saveId, true);
+                setStoreJobOffersPending(true);
+              }
+            }
           } catch {
             // Board eval is best-effort; stats still render.
           }
@@ -460,6 +510,21 @@ export function EndOfSeasonScreen() {
           <Text style={styles.noDataText}>
             {(() => { const d = objectiveDescriptor(boardEval.objectiveType, boardEval.objectiveTarget); return t(d.key, d.vars); })()}
           </Text>
+        </View>
+      )}
+
+      {/* Manager (career) reputation change */}
+      {managerRepEval && (
+        <View style={styles.card}>
+          <Text style={styles.cardLabel}>{t('endseason.manager_rep_label')}</Text>
+          <Text style={[styles.balanceValue, { color: managerRepEval.delta >= 0 ? colors.success : colors.danger }]}>
+            {t('endseason.manager_rep_change', {
+              before: managerRepEval.before,
+              after: managerRepEval.after,
+              delta: managerRepEval.delta >= 0 ? `+${managerRepEval.delta}` : `${managerRepEval.delta}`,
+            })}
+          </Text>
+          <Text style={[styles.noDataText, { marginTop: spacing.xxs }]}>{t('endseason.manager_rep_hint')}</Text>
         </View>
       )}
 

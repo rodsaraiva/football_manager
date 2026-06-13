@@ -46,6 +46,8 @@ export type RootStackParamList = {
   CupBracket: undefined;
   // Pre-season friendlies window
   PreSeason: undefined;
+  // Career: rival job offers at season-end
+  JobOffers: undefined;
 };
 
 export type TabParamList = {
