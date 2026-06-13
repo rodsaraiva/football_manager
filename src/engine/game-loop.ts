@@ -21,6 +21,8 @@ import {
 } from '@/database/queries/fixtures';
 import { getClubById, getClubTrainingFocus } from '@/database/queries/clubs';
 import { getStaffByClub } from '@/database/queries/staff';
+import { getActiveAssignments, setKnowledge } from '@/database/queries/scouting';
+import { advanceScouting } from '@/engine/scouting/scouting-engine';
 import { getRecentForm } from '@/database/queries/player-stats';
 import { getStaffEffects, assistantAbilityFromStars } from '@/engine/staff/staff-effects';
 import { getActiveTactic, getTacticLineup } from '@/database/queries/tactics';
@@ -449,6 +451,30 @@ export async function advanceGameWeek(params: AdvanceWeekParams): Promise<Advanc
   }
 
   // (all fixtures were already simulated + persisted above by the real engine)
+
+  // 3·5 Scouting progression: each active assignment for the human club accrues
+  // knowledge based on the assigned scout's ability. Persisting 100 frees the scout.
+  if (saveId >= 0) {
+    const assignments = await getActiveAssignments(db, saveId);
+    if (assignments.length > 0) {
+      const scoutStaff = await getStaffByClub(db, saveId, playerClubId);
+      const abilityById = new Map(scoutStaff.map((s) => [s.id, s.ability]));
+      for (const a of assignments) {
+        const ability = abilityById.get(a.scoutId);
+        if (ability == null) continue; // scout no longer at the club — skip
+        const current = (await db
+          .prepare('SELECT knowledge FROM scouting WHERE save_id = ? AND player_id = ?')
+          .get(saveId, a.playerId)) as { knowledge: number } | undefined;
+        const [advanced] = advanceScouting([
+          { playerId: a.playerId, knowledge: current?.knowledge ?? 0, scoutAbility: ability },
+        ]);
+        await setKnowledge(db, saveId, a.playerId, advanced.knowledge);
+        // TODO(news): emit an inbox/news item on advanced.reachedFull. Skipped for
+        // now — the news system is pure-generator + no persistent inbox table, so
+        // surfacing a one-off weekly event would need new plumbing (see summary).
+      }
+    }
+  }
 
   // 3a. Advance any knockout competition whose current round just finished.
   await maybeGenerateNextKnockoutRound(db, saveId, season, week, rng);
