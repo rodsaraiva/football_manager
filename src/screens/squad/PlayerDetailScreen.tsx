@@ -20,6 +20,8 @@ import { getClubById } from '@/database/queries/clubs';
 import { applyMoraleDelta } from '@/engine/morale/morale-engine';
 import { evaluatePraise, evaluateCriticism, InteractionReaction } from '@/engine/morale/interactions';
 import { hasInteractedThisWeek, recordInteraction } from '@/database/queries/interactions';
+import { getPlayerKnowledge } from '@/database/queries/scouting';
+import { knowledgeTier, maskedRange, ScoutingTier } from '@/engine/scouting/scouting-engine';
 import { evaluateRenewal } from '@/engine/transfer/contract-renewal';
 import { canAffordWage } from '@/engine/finance/affordability';
 import StatBar from '@/components/StatBar';
@@ -54,6 +56,52 @@ function formatCurrency(value: number): string {
 function attrI18nKey(k: keyof PlayerAttributes): TKey {
   return ('tactics.attr_' + String(k).replace(/([A-Z])/g, '_$1').toLowerCase()) as TKey;
 }
+
+/**
+ * Attribute row that respects scouting fog. Full tier renders the exact StatBar;
+ * lower tiers show a masked range (bar at the range midpoint) or "?" for unknown.
+ */
+function MaskedAttr({ label, value, tier }: { label: string; value: number; tier: ScoutingTier }) {
+  if (tier === 'full') return <StatBar label={label} value={value} />;
+
+  const range = maskedRange(value, tier);
+  if (range == null) {
+    // unknown: empty bar + "?"
+    return (
+      <View style={maskedStyles.container}>
+        <Text style={maskedStyles.label}>{label}</Text>
+        <View style={maskedStyles.barContainer} />
+        <Text style={maskedStyles.unknown}>?</Text>
+      </View>
+    );
+  }
+  const mid = (range.lo + range.hi) / 2;
+  return (
+    <View style={maskedStyles.container}>
+      <Text style={maskedStyles.label}>{label}</Text>
+      <View style={maskedStyles.barContainer}>
+        <View style={[maskedStyles.barFill, { width: `${mid}%` as `${number}%` }]} />
+      </View>
+      <Text style={maskedStyles.range}>{range.lo}–{range.hi}</Text>
+    </View>
+  );
+}
+
+const maskedStyles = StyleSheet.create({
+  container: { flexDirection: 'row', alignItems: 'center', marginVertical: spacing.xs },
+  label: { color: colors.textSecondary, fontSize: fontSize.sm, width: 90 },
+  barContainer: {
+    flex: 1,
+    height: 6,
+    backgroundColor: colors.border,
+    borderRadius: radius.sm,
+    overflow: 'hidden',
+    marginHorizontal: spacing.sm,
+  },
+  barFill: { height: '100%', borderRadius: radius.sm, backgroundColor: colors.textMuted },
+  range: { color: colors.textMuted, fontSize: fontSize.sm, fontWeight: '600', width: 48, textAlign: 'right' },
+  unknown: { color: colors.textMuted, fontSize: fontSize.sm, fontWeight: '600', width: 48, textAlign: 'right' },
+});
 
 const TECHNICAL_ATTRS: (keyof PlayerAttributes)[] = ['finishing', 'passing', 'crossing', 'dribbling', 'heading', 'longShots', 'freeKicks'];
 const MENTAL_ATTRS: (keyof PlayerAttributes)[] = ['vision', 'composure', 'decisions', 'positioning', 'aggression', 'leadership'];
@@ -100,6 +148,20 @@ export default function PlayerDetailScreen({ player, onBack }: PlayerDetailScree
   const [counter, setCounter] = useState<{ wage: number; years: number } | null>(null);
   const [club, setClub] = useState<Club | null>(null);
   const isOwnPlayer = player != null && playerClubId != null && player.clubId === playerClubId;
+
+  // Fog-of-war: non-own players' attributes are masked by scouting knowledge.
+  const [knowledge, setKnowledge] = useState<number>(0);
+  useEffect(() => {
+    if (!dbHandle || !player || saveId == null) return;
+    if (isOwnPlayer) { setKnowledge(100); return; }
+    let cancelled = false;
+    (async () => {
+      const k = await getPlayerKnowledge(dbHandle, saveId, player.id);
+      if (!cancelled) setKnowledge(k);
+    })();
+    return () => { cancelled = true; };
+  }, [dbHandle, saveId, player?.id, isOwnPlayer]);
+  const scoutingTier: ScoutingTier = isOwnPlayer ? 'full' : knowledgeTier(knowledge);
 
   useEffect(() => {
     if (!dbHandle || saveId == null || playerClubId == null || !isOwnPlayer) return;
@@ -264,6 +326,9 @@ export default function PlayerDetailScreen({ player, onBack }: PlayerDetailScree
                 <Text style={styles.metaText}>{t('tactics.detail_age', { age: player.age })}</Text>
                 <Text style={styles.metaText}>{player.nationality}</Text>
               </View>
+              {!isOwnPlayer && (
+                <Text style={styles.scoutingIndicator}>{t('scouting.indicator', { value: knowledge })}</Text>
+              )}
             </View>
             <View style={[styles.overallCircle, { borderColor: overallColor }]}>
               <Text style={[styles.overallNumber, { color: overallColor }]}>{overall}</Text>
@@ -302,21 +367,21 @@ export default function PlayerDetailScreen({ player, onBack }: PlayerDetailScree
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>{t('tactics.section_technical')}</Text>
           {TECHNICAL_ATTRS.map((key) => (
-            <StatBar key={key} label={t(attrI18nKey(key))} value={player.attributes[key]} />
+            <MaskedAttr key={key} label={t(attrI18nKey(key))} value={player.attributes[key]} tier={scoutingTier} />
           ))}
         </View>
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>{t('tactics.section_mental')}</Text>
           {MENTAL_ATTRS.map((key) => (
-            <StatBar key={key} label={t(attrI18nKey(key))} value={player.attributes[key]} />
+            <MaskedAttr key={key} label={t(attrI18nKey(key))} value={player.attributes[key]} tier={scoutingTier} />
           ))}
         </View>
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>{t('tactics.section_physical')}</Text>
           {PHYSICAL_ATTRS.map((key) => (
-            <StatBar key={key} label={t(attrI18nKey(key))} value={player.attributes[key]} />
+            <MaskedAttr key={key} label={t(attrI18nKey(key))} value={player.attributes[key]} tier={scoutingTier} />
           ))}
         </View>
 
@@ -566,6 +631,12 @@ const styles = StyleSheet.create({
   metaText: {
     color: colors.textSecondary,
     fontSize: fontSize.sm,
+  },
+  scoutingIndicator: {
+    color: colors.reportScout,
+    fontSize: fontSize.sm,
+    fontWeight: '600',
+    marginTop: spacing.xs,
   },
   overallCircle: {
     width: 64,
