@@ -18,6 +18,13 @@ import { getClubsByLeague } from '@/database/queries/clubs';
 import { createFixture } from '@/database/queries/fixtures';
 import { advanceGameWeek, AdvanceWeekResult } from '@/engine/game-loop';
 import { SeededRng } from '@/engine/rng';
+import { evaluateSeasonEndBoard } from '@/engine/season/season-end-eval';
+import { runSeasonTransition } from '@/engine/season/season-transition';
+import { acceptJobOffer } from '@/engine/board/accept-job-offer';
+import { getCompetitionsBySeason } from '@/database/queries/leagues';
+import { getClubById } from '@/database/queries/clubs';
+import { setJobOffersPending } from '@/database/queries/save';
+import { getPendingJobOffers } from '@/database/queries/job-offers';
 
 export interface E2EContext {
   rawDb: Database.Database;
@@ -192,4 +199,91 @@ export function getOfferStatus(ctx: E2EContext, offerId: number): string | null 
     .prepare('SELECT status FROM transfer_offers WHERE id = ?')
     .get(offerId) as { status: string } | undefined;
   return row?.status ?? null;
+}
+
+/** Advance week-by-week until the season ends; returns the season-end AdvanceWeekResult. */
+export async function playUntilSeasonEnd(ctx: E2EContext, seed = 42): Promise<AdvanceWeekResult> {
+  let r: AdvanceWeekResult | null = null;
+  let guard = 0;
+  do {
+    r = await stepWeek(ctx, seed);
+    guard++;
+  } while (!r.isSeasonEnd && guard < 70);
+  if (!r || !r.isSeasonEnd) throw new Error('season did not end within 70 weeks');
+  return r;
+}
+
+/**
+ * Responds to the job-offers gate: accepts the given club's offer (club switch) or,
+ * if null, declines all pending offers. Mirrors EndOfSeasonScreen's offer gate.
+ */
+export async function respondToJobOfferGate(
+  ctx: E2EContext,
+  endedSeason: number,
+  offeringClubIdOrNull: number | null,
+): Promise<boolean> {
+  if (offeringClubIdOrNull == null) {
+    await setJobOffersPending(ctx.db, ctx.saveId, false);
+    return false;
+  }
+  await acceptJobOffer({
+    db: ctx.db,
+    saveId: ctx.saveId,
+    offeringClubId: offeringClubIdOrNull,
+    offerSeason: endedSeason,
+    newSeason: ctx.season,
+    rng: new SeededRng(ctx.saveId * 13 + endedSeason),
+  });
+  ctx.playerClubId = offeringClubIdOrNull;
+  return true;
+}
+
+/**
+ * Full headless season-end ceremony, mirroring EndOfSeasonScreen:
+ * evaluate board → run transition → respond to the offer gate.
+ * Call right after playUntilSeasonEnd returns isSeasonEnd. When `accept` is true, picks the
+ * first pending offer (the offer-gate switch). The transition runs with the ORIGINAL club —
+ * exactly like the UI, where rolloverSeason happens before the offer gate.
+ */
+export async function endSeasonHeadless(
+  ctx: E2EContext,
+  opts: { accept: boolean } = { accept: false },
+): Promise<{ switched: boolean; newClubId: number | null }> {
+  const endedSeason = ctx.season - 1; // advanceGameWeek already bumped the pointer
+  const club = (await getClubById(ctx.db, ctx.saveId, ctx.playerClubId))!;
+  const comps = (await getCompetitionsBySeason(ctx.db, ctx.saveId, endedSeason)).map((c) => ({
+    id: c.id,
+    type: c.type,
+  }));
+
+  const evalRes = await evaluateSeasonEndBoard(ctx.db, {
+    saveId: ctx.saveId,
+    playerClubId: ctx.playerClubId,
+    clubReputation: club.reputation,
+    endedSeason,
+    newSeason: ctx.season,
+    competitions: comps,
+    offerRng: new SeededRng(ctx.season * 6151 + ctx.saveId), // espelha o seed da UI (nova temporada)
+  });
+  void evalRes; // available for future asserts; here we just drive the gate
+
+  // Transition runs with the ORIGINAL club (mirrors the UI: rollover before the offer gate).
+  await runSeasonTransition(ctx.db, {
+    saveId: ctx.saveId,
+    playerClubId: ctx.playerClubId,
+    endedSeason,
+    newSeason: ctx.season,
+    youthAcademyLevel: club.youthAcademy,
+    rng: new SeededRng(ctx.season * 7777),
+  });
+
+  // Respond to the offer gate — accept the FIRST pending offer if requested (robust:
+  // does not depend on generatedOfferClubIds; accepts any persisted/pending offer).
+  let newClubId: number | null = null;
+  if (opts.accept) {
+    const pending = await getPendingJobOffers(ctx.db, ctx.saveId, endedSeason);
+    newClubId = pending[0]?.offeringClubId ?? null;
+  }
+  const switched = await respondToJobOfferGate(ctx, endedSeason, newClubId);
+  return { switched, newClubId: switched ? newClubId : null };
 }
