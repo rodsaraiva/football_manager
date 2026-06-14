@@ -68,11 +68,11 @@ Direções de maior escopo (cada uma é um épico/projeto próprio, com spec+pla
 
 ---
 
-## Decisões estratégicas a tomar (definem o roadmap)
+## Decisões estratégicas (RESOLVIDAS 2026-06-14)
 
-1. **Web é alvo de shipping ou só dev?** Define se o fix transversal do `Alert` (e outros ajustes web) é curto-prazo (blocker) ou médio/baixo. PRODUCT.md sugere mobile-primeiro → web secundário.
-2. **Após o MVP release-ready, qual direção?** Expansão geográfica (replayability) vs profundidade (carreira/histórico, motor) vs novo alvo (desktop) vs social (multiplayer).
-3. **Settings global:** agora (curto) ou pós-MVP (médio)?
+1. ✅ **Alvo = só mobile (web é dev/preview).** Consequência: os 29 `Alert.alert` **NÃO** são blocker (funcionam no iOS/Android). O fix transversal `useConfirm`/`<Modal>` desce para **médio/baixo prazo**. Validação no browser (web) que depender de Alert é limitada — usar testes de lógica + validar fluxos Alert-gated no device/emulador, não no web. (No W1 a ação direta foi um bônus que também destrava o dev/web.)
+2. ✅ **Direção #1 pós-MVP = Profundidade de carreira** (hall da fama, recordes, sagas/rivalidades, histórico expandido sobre o season-history). Os outros médios (expansão geográfica, settings, áudio, acessibilidade) ficam na fila atrás dela.
+3. **Settings global:** pós-MVP (médio), junto do polish.
 
 ## Como cada horizonte vira specs/plans
 
