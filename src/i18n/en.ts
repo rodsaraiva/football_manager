@@ -542,6 +542,7 @@ export const en: Record<keyof typeof pt, string> = {
   'nav.cup_bracket': 'Cup Bracket',
   'nav.preseason': 'Pre-Season',
   'nav.scouting': 'Scouting',
+  'nav.internationals': 'Internationals',
   'nav.job_offers': 'Job Offers',
   'nav.tab_matches': 'Matches',
   'nav.tab_squad': 'Squad',
@@ -1106,4 +1107,15 @@ export const en: Record<keyof typeof pt, string> = {
   'onboarding.card_live_title': 'Watch live',
   'onboarding.card_live_desc': 'Watch your matches in real time and make changes at halftime.',
   'onboarding.start': 'Get started',
+
+  // P9 international duty (club-side)
+  'internationals.title': 'Internationals',
+  'internationals.subtitle': 'Squad members at international level, grouped by country',
+  'internationals.empty': 'No squad member is at international level right now.',
+  'internationals.overall': 'Overall {overall}',
+  'internationals.called_up_tag': 'on national-team duty',
+  'internationals.break_banner': 'FIFA window this week — those called up are away.',
+  'internationals.fatigue_note': 'Called-up players return with travel fatigue (-{penalty} fitness).',
+  'internationals.callup_notice': '🌍 {count} player(s) called up to their national teams',
+  'internationals.callup_notice_dismiss': 'Tap to dismiss',
 };

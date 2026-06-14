@@ -540,6 +540,7 @@ export const pt = {
   'nav.cup_bracket': 'Chave da Copa',
   'nav.preseason': 'Pré-temporada',
   'nav.scouting': 'Observação',
+  'nav.internationals': 'Seleções',
   'nav.job_offers': 'Propostas de Emprego',
   'nav.tab_matches': 'Partidas',
   'nav.tab_squad': 'Elenco',
@@ -1104,4 +1105,15 @@ export const pt = {
   'onboarding.card_live_title': 'Acompanhe ao vivo',
   'onboarding.card_live_desc': 'Assista suas partidas em tempo real e faça mudanças no intervalo.',
   'onboarding.start': 'Começar',
+
+  // P9 international duty (club-side)
+  'internationals.title': 'Seleções',
+  'internationals.subtitle': 'Jogadores do elenco em nível de seleção, agrupados por país',
+  'internationals.empty': 'Nenhum jogador do elenco está em nível de seleção no momento.',
+  'internationals.overall': 'Geral {overall}',
+  'internationals.called_up_tag': 'em serviço pela seleção',
+  'internationals.break_banner': 'Janela FIFA esta semana — convocados estão fora.',
+  'internationals.fatigue_note': 'Convocados voltam com fadiga de viagem (-{penalty} de fitness).',
+  'internationals.callup_notice': '🌍 {count} jogador(es) convocado(s) para suas seleções',
+  'internationals.callup_notice_dismiss': 'Toque para fechar',
 } as const;
