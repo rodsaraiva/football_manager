@@ -11,6 +11,7 @@ import { generateCandidates, candidateWillAccept } from '@/engine/assistant/assi
 import { insertAssistant } from '@/database/queries/assistants';
 import { addFinanceEntry } from '@/database/queries/finances';
 import { SeededRng } from '@/engine/rng';
+import { ASSISTANT_RETIREMENT_MIN_AGE, ASSISTANT_RETIREMENT_MAX_AGE } from '@/engine/balance';
 import { AssistantCandidate } from '@/types/assistant';
 import { RootStackParamList } from '@/navigation/types';
 
@@ -99,6 +100,7 @@ export function AssistantHiringScreen() {
           text: t('assistants.hire_btn'),
           onPress: async () => {
             if (!dbHandle || !currentSave || !playerClubId) return;
+            const retireRng = new SeededRng(currentSave.id * 131 + playerClubId * 7 + season + candidate.age);
             await insertAssistant(dbHandle, {
               role: candidate.role,
               clubId: playerClubId,
@@ -107,7 +109,7 @@ export function AssistantHiringScreen() {
               age: candidate.age,
               archetype: candidate.archetype,
               seasonsAtClub: 0,
-              retirementAge: 60 + Math.floor(Math.random() * 11),
+              retirementAge: retireRng.nextInt(ASSISTANT_RETIREMENT_MIN_AGE, ASSISTANT_RETIREMENT_MAX_AGE),
               wagePerMonth: candidate.wagePerMonth,
               willRetireNextSeason: false,
             });

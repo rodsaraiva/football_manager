@@ -136,7 +136,7 @@ async function maybeSeedClKnockout(
 
   // Build per-group standings from group fixtures + entries.
   const entries = (await db
-    .prepare('SELECT club_id, group_name FROM competition_entries WHERE save_id = ? AND competition_id = ? AND group_name IS NOT NULL')
+    .prepare('SELECT club_id, group_name FROM competition_entries WHERE save_id = ? AND competition_id = ? AND group_name IS NOT NULL ORDER BY group_name, club_id')
     .all(saveId, competitionId)) as Array<{ club_id: number; group_name: string }>;
   if (entries.length === 0) return;
 
