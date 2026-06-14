@@ -48,6 +48,9 @@ interface GameState {
   onboardingSeen: boolean;
   // P8 achievements: ids unlocked at the last checkpoint, awaiting a toast on Home.
   pendingAchievementToastIds: string[];
+  // P9 international duty: count of players called up on the last advance, awaiting a
+  // notice on Home (0 = nothing pending). Survives the halftime-resume navigation.
+  pendingInternationalCallUpCount: number;
   // Retirement: IDs aposentados na última virada de temporada
   lastRetiredPlayerIds: number[];
   // IDs com aposentadoria anunciada nesta semana
@@ -79,6 +82,7 @@ interface GameActions {
   setManagerReputation: (rep: number) => void;
   setOnboardingSeen: (seen: boolean) => void;
   setPendingAchievementToastIds: (ids: string[]) => void;
+  setPendingInternationalCallUpCount: (count: number) => void;
   setLastRetiredPlayerIds: (ids: number[]) => void;
   setPendingAnnouncedRetirementIds: (ids: number[]) => void;
   // Data loading
@@ -118,6 +122,7 @@ const initialState: GameState = {
   managerReputation: 50,
   onboardingSeen: false,
   pendingAchievementToastIds: [],
+  pendingInternationalCallUpCount: 0,
   lastRetiredPlayerIds: [],
   pendingAnnouncedRetirementIds: [],
 };
@@ -210,6 +215,7 @@ export const useGameStore = create<GameStore>((set) => ({
   setManagerReputation: (rep) => set({ managerReputation: rep }),
   setOnboardingSeen: (seen) => set({ onboardingSeen: seen }),
   setPendingAchievementToastIds: (ids) => set({ pendingAchievementToastIds: ids }),
+  setPendingInternationalCallUpCount: (count) => set({ pendingInternationalCallUpCount: count }),
   setLastRetiredPlayerIds: (ids) => set({ lastRetiredPlayerIds: ids }),
   setPendingAnnouncedRetirementIds: (ids) => set({ pendingAnnouncedRetirementIds: ids }),
   setSquad: (squad) => set({ squad }),

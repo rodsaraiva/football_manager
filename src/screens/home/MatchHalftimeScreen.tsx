@@ -98,6 +98,7 @@ export function MatchHalftimeScreen() {
     setLastRetiredPlayerIds,
     setPendingAnnouncedRetirementIds,
     setPendingAchievementToastIds,
+    setPendingInternationalCallUpCount,
   } = useGameStore();
   const { dbHandle } = useDatabaseStore();
   const { setPendingComment, setLastCommentWeek } = useAssistantStore();
@@ -256,6 +257,8 @@ export function MatchHalftimeScreen() {
         setPendingComment(result.assistantComment);
         setLastCommentWeek(result.newWeek);
       }
+      // P9: surface the international call-up notice on Home (this path navigates away).
+      setPendingInternationalCallUpCount(result.internationalCallUps?.length ?? 0);
       setHalftime(null);
 
       const updatedClub = await getClubById(dbHandle, currentSave.id, playerClubId);

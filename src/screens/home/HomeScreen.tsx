@@ -62,6 +62,8 @@ export function HomeScreen() {
     setOnboardingSeen: setStoreOnboardingSeen,
     pendingAchievementToastIds,
     setPendingAchievementToastIds,
+    pendingInternationalCallUpCount,
+    setPendingInternationalCallUpCount,
     lastMatchResult,
     currentSave,
     setAdvancing,
@@ -333,6 +335,11 @@ export function HomeScreen() {
         setPendingComment(result.assistantComment);
         setLastCommentWeek(result.newWeek);
       }
+
+      // P9: surface a brief, non-blocking call-up notice when international-break
+      // call-ups happened. It's a bottom toast that coexists with the achievement
+      // toast and never gates the result modal / press conference.
+      setPendingInternationalCallUpCount(result.internationalCallUps?.length ?? 0);
 
       // Reload club data
       const updatedClub = await getClubById(dbHandle, currentSave.id, playerClubId);
@@ -1008,6 +1015,21 @@ export function HomeScreen() {
       {/* First-game onboarding welcome (one-time) */}
       <OnboardingModal visible={showOnboarding} onStart={handleDismissOnboarding} />
 
+      {/* P9 international call-up notice — non-blocking bottom toast. Sits above the
+          achievement toast so the two never overlap when both fire the same week. */}
+      {pendingInternationalCallUpCount > 0 && (
+        <TouchableOpacity
+          style={styles.callUpToast}
+          activeOpacity={0.9}
+          onPress={() => setPendingInternationalCallUpCount(0)}
+        >
+          <Text style={styles.callUpToastText}>
+            {t('internationals.callup_notice', { count: pendingInternationalCallUpCount })}
+          </Text>
+          <Text style={styles.callUpToastDismiss}>{t('internationals.callup_notice_dismiss')}</Text>
+        </TouchableOpacity>
+      )}
+
       {/* Achievement unlocked toast (post-match, from either advance or halftime path) */}
       <AchievementToast
         achievements={pendingAchievementToastIds
@@ -1613,5 +1635,29 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontSize: fontSize.md,
     fontWeight: '600',
+  },
+  callUpToast: {
+    position: 'absolute',
+    left: spacing.md,
+    right: spacing.md,
+    bottom: 120,
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderColor: alpha(colors.primary, 0.6),
+    borderLeftWidth: 4,
+    borderLeftColor: colors.primary,
+  },
+  callUpToastText: {
+    color: colors.text,
+    fontSize: fontSize.md,
+    fontWeight: '600',
+  },
+  callUpToastDismiss: {
+    color: colors.textMuted,
+    fontSize: fontSize.xs,
+    textAlign: 'right',
+    marginTop: spacing.xs,
   },
 });
