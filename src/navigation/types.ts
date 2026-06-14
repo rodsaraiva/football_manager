@@ -36,6 +36,8 @@ export type RootStackParamList = {
   ReportsProjection: undefined;
   ReportsFreeAgentScout: undefined;
   Scouting: undefined;
+  // International duty (club-side): squad members at national-team level
+  Internationals: undefined;
   // My listings
   MyListings: undefined;
   // History hub
