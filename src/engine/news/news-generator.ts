@@ -19,7 +19,12 @@ export type NewsCategory =
   | 'comeback'
   | 'league'
   | 'season_recap'
-  | 'retirement';
+  | 'retirement'
+  | 'press'
+  | 'board'
+  | 'achievement'
+  | 'scouting'
+  | 'callup';
 
 export interface NewsItem {
   id: string;
