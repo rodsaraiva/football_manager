@@ -71,4 +71,19 @@ describe('recalculatePotential', () => {
     const result = recalculatePotential({ ...base, seasonRatings: [] });
     expect(result.newEffectivePotential).toBe(80);
   });
+
+  it('never exceeds 100 even for a near-max base potential (DB constraint guard)', () => {
+    const result = recalculatePotential({
+      basePotential: 99,
+      effectivePotential: 99,
+      currentOverall: 95,
+      seasonRatings: [
+        { avgRating: 9.0, minutesPercent: 90 },
+        { avgRating: 9.0, minutesPercent: 90 },
+        { avgRating: 9.0, minutesPercent: 90 },
+      ],
+    });
+    expect(result.newEffectivePotential).toBeLessThanOrEqual(100);
+    expect(result.newEffectivePotential).toBeGreaterThanOrEqual(1);
+  });
 });

@@ -57,10 +57,12 @@ export function recalculatePotential(input: PotentialInput): PotentialResult {
 
   const rawNew = effectivePotential + totalAdjustment;
 
-  // Clamp: min = max(basePotential - 20, currentOverall), max = basePotential + 15
+  // Clamp: min = max(basePotential - 20, currentOverall), max = basePotential + 15.
+  // Final bound to [1, 100] — effective_potential is a 1-100 attribute (DB CHECK constraint),
+  // so a near-max basePotential (e.g. 99 → maxCap 114) must not push it past 100.
   const minCap = Math.max(basePotential - 20, currentOverall);
   const maxCap = basePotential + 15;
-  const newEffectivePotential = Math.min(maxCap, Math.max(minCap, rawNew));
+  const newEffectivePotential = Math.max(1, Math.min(100, Math.min(maxCap, Math.max(minCap, rawNew))));
 
   return { newEffectivePotential };
 }
