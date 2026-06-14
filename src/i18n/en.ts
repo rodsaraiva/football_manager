@@ -1158,4 +1158,14 @@ export const en: Record<keyof typeof pt, string> = {
   'internationals.fatigue_note': 'Called-up players return with travel fatigue (-{penalty} fitness).',
   'internationals.callup_notice': '🌍 {count} player(s) called up to their national teams',
   'internationals.callup_notice_dismiss': 'Tap to dismiss',
+
+  // W4 contextual hints
+  'hints.toggle': 'Help',
+  'hints.dismiss': 'Got it',
+  'hints.tactics_title': 'Setting up tactics',
+  'hints.tactics_body': 'Choose the formation and mentality. Players out of position perform worse.',
+  'hints.transfers_title': 'Transfer market',
+  'hints.transfers_body': 'Filter targets, make an offer and negotiate. Keep an eye on the budget and wage bill.',
+  'hints.reports_title': 'Reports hub',
+  'hints.reports_body': 'Track metrics, league position projections and squad performance.',
 };

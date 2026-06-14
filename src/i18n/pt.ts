@@ -1156,4 +1156,14 @@ export const pt = {
   'internationals.fatigue_note': 'Convocados voltam com fadiga de viagem (-{penalty} de fitness).',
   'internationals.callup_notice': '🌍 {count} jogador(es) convocado(s) para suas seleções',
   'internationals.callup_notice_dismiss': 'Toque para fechar',
+
+  // W4 contextual hints
+  'hints.toggle': 'Ajuda',
+  'hints.dismiss': 'Entendi',
+  'hints.tactics_title': 'Montando a tática',
+  'hints.tactics_body': 'Escolha a formação e a mentalidade. Jogadores fora de posição rendem menos.',
+  'hints.transfers_title': 'Mercado de transferências',
+  'hints.transfers_body': 'Filtre alvos, faça uma proposta e negocie. Fique de olho no orçamento e na folha salarial.',
+  'hints.reports_title': 'Central de relatórios',
+  'hints.reports_body': 'Acompanhe métricas, projeções de classificação e o desempenho do elenco.',
 } as const;
