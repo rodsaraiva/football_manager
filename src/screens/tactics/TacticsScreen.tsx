@@ -12,6 +12,7 @@ import {
   Platform,
 } from 'react-native';
 import StatBar from '@/components/StatBar';
+import { ContextualHint } from '@/components/ContextualHint';
 import { colors, spacing, fontSize, radius, commonStyles } from '@/theme';
 import { getPositionColor } from '@/utils/player-colors';
 import { useGameStore } from '@/store/game-store';
@@ -563,7 +564,10 @@ export function TacticsScreen() {
         </View>
       </View>
 
-      <Text style={styles.dragHintText}>{t('tactics.drag_hint')}</Text>
+      <View style={styles.dragHintRow}>
+        <Text style={styles.dragHintText}>{t('tactics.drag_hint')}</Text>
+        <ContextualHint screen="tactics" titleKey="hints.tactics_title" bodyKey="hints.tactics_body" />
+      </View>
 
       {/* Set pieces sub-screen link */}
       <Pressable style={styles.setPiecesLink} onPress={() => navigation.navigate('SetPieces')}>
@@ -825,13 +829,20 @@ const styles = StyleSheet.create({
   dropdownItemActive: { backgroundColor: colors.primary },
   dropdownItemText: { color: colors.textSecondary, fontSize: fontSize.sm, fontWeight: '600' },
   dropdownItemTextActive: { color: colors.text },
+  dragHintRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.xs,
+  },
   dragHintText: {
     color: colors.textMuted,
     fontSize: fontSize.xs,
     fontStyle: 'italic',
+    flex: 1,
     textAlign: 'right',
-    paddingHorizontal: spacing.md,
-    paddingBottom: spacing.xs,
   },
   setPiecesLink: {
     marginHorizontal: spacing.md,

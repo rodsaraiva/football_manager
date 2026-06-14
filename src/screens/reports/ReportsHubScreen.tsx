@@ -7,6 +7,7 @@ import { RootStackParamList } from '@/navigation/types';
 import { useGameStore } from '@/store/game-store';
 import { useDatabaseStore } from '@/store/database-store';
 import { useTranslation } from '@/i18n';
+import { ContextualHint } from '@/components/ContextualHint';
 import { getPlayersWithAttributesByClub } from '@/database/queries/players';
 import { getClubsByLeague } from '@/database/queries/clubs';
 import { calculateOverall } from '@/utils/overall';
@@ -100,7 +101,10 @@ export function ReportsHubScreen() {
   return (
     <ScrollView style={commonStyles.screen} contentContainerStyle={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>{t('reports.header_title')}</Text>
+        <View style={styles.headerRow}>
+          <Text style={styles.headerTitle}>{t('reports.header_title')}</Text>
+          <ContextualHint screen="reports" titleKey="hints.reports_title" bodyKey="hints.reports_body" />
+        </View>
         <Text style={styles.headerSub}>{t('reports.header_sub')}</Text>
       </View>
 
@@ -219,6 +223,11 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
     marginBottom: spacing.sm,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
   headerTitle: {
     color: colors.text,

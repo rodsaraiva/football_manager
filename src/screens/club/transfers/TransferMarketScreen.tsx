@@ -8,6 +8,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import { ContextualHint } from '@/components/ContextualHint';
 import { colors, spacing, fontSize, radius, commonStyles } from '@/theme';
 import { useTranslation } from '@/i18n';
 import { getPositionColor, getOverallColor } from '@/utils/player-colors';
@@ -148,6 +149,9 @@ export function TransferMarketScreen() {
         >
           <Text style={styles.dropdownButtonText}>{positionFilter === 'All' ? t('transfer.filter_all') : positionFilter} ▾</Text>
         </Pressable>
+        <View style={styles.hintRight}>
+          <ContextualHint screen="transfers" titleKey="hints.transfers_title" bodyKey="hints.transfers_body" />
+        </View>
       </View>
 
       {showDropdown && (
@@ -240,6 +244,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     gap: spacing.sm,
+  },
+  hintRight: {
+    marginLeft: 'auto',
   },
   filterLabel: {
     color: colors.textSecondary,
