@@ -33,6 +33,7 @@ export const TABLE_NAMES: string[] = [
   'job_offers',
   'set_piece_takers',
   'achievements',
+  'news_items',
 ];
 
 export const SCHEMA_SQL = `
@@ -506,6 +507,27 @@ CREATE TABLE IF NOT EXISTS achievements (
 );
 
 CREATE INDEX IF NOT EXISTS idx_achievements_save ON achievements(save_id);
+
+-- W3 inbox/news: persistent headlines per save (coletiva, transfers, board, etc.).
+-- title/body are i18n keys + JSON vars so the engine stays string-free; read=0 feeds
+-- the unread badge. save_id-scoped like every other world table.
+CREATE TABLE IF NOT EXISTS news_items (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  save_id     INTEGER NOT NULL REFERENCES save_games(id),
+  season      INTEGER NOT NULL,
+  week        INTEGER NOT NULL,
+  category    TEXT    NOT NULL,
+  title_key   TEXT    NOT NULL,
+  title_vars  TEXT    NOT NULL DEFAULT '{}',
+  body_key    TEXT    NOT NULL,
+  body_vars   TEXT    NOT NULL DEFAULT '{}',
+  icon        TEXT    NOT NULL DEFAULT '📰',
+  priority    INTEGER NOT NULL DEFAULT 50,
+  read        INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE INDEX IF NOT EXISTS idx_news_save_season ON news_items(save_id, season, week);
+CREATE INDEX IF NOT EXISTS idx_news_save_read   ON news_items(save_id, read);
 `;
 
 // Composite save_id indexes are created AFTER the save_id migration (database-store),

@@ -197,6 +197,26 @@ export const useDatabaseStore = create<DatabaseStore>((set) => ({
         CREATE INDEX IF NOT EXISTS idx_achievements_save ON achievements(save_id);
       `);
 
+      // W3 inbox/news: persistent headlines per save. Mirror the schema.ts DDL exactly.
+      await db.execAsync(`
+        CREATE TABLE IF NOT EXISTS news_items (
+          id          INTEGER PRIMARY KEY AUTOINCREMENT,
+          save_id     INTEGER NOT NULL REFERENCES save_games(id),
+          season      INTEGER NOT NULL,
+          week        INTEGER NOT NULL,
+          category    TEXT    NOT NULL,
+          title_key   TEXT    NOT NULL,
+          title_vars  TEXT    NOT NULL DEFAULT '{}',
+          body_key    TEXT    NOT NULL,
+          body_vars   TEXT    NOT NULL DEFAULT '{}',
+          icon        TEXT    NOT NULL DEFAULT '📰',
+          priority    INTEGER NOT NULL DEFAULT 50,
+          read        INTEGER NOT NULL DEFAULT 0
+        );
+        CREATE INDEX IF NOT EXISTS idx_news_save_season ON news_items(save_id, season, week);
+        CREATE INDEX IF NOT EXISTS idx_news_save_read   ON news_items(save_id, read);
+      `);
+
       // Migration: corrige wages inflados em 100x por bug antigo em computeWage (Math.round * 10 em vez de /10).
       // Heurística: média de wage acima de 50k indica DB seedado pelo código bugado — divide por 100.
       const wageProbe = await db.getFirstAsync<{ avg: number | null }>('SELECT AVG(wage) AS avg FROM players') ?? { avg: null };
