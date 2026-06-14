@@ -124,14 +124,17 @@ export async function generateAiOffersForSquad(
 
   if (squad.length === 0) return 0;
 
-  // Candidate suitors: other clubs with some budget
-  const suitors = (await db
+  // Candidate suitors: other clubs with some budget. Order deterministically
+  // then sample with the engine's seeded RNG — SQLite's ORDER BY RANDOM() uses
+  // an unseeded PRNG, which would make AI offers non-reproducible across runs.
+  const allSuitors = (await db
     .prepare(
       `SELECT id, reputation, budget FROM clubs
        WHERE save_id = ? AND id != ? AND budget > 1000000
-       ORDER BY RANDOM() LIMIT 10`,
+       ORDER BY id`,
     )
     .all(saveId, playerClubId)) as SuitorClub[];
+  const suitors = rng.shuffle(allSuitors).slice(0, 10);
 
   if (suitors.length === 0) return 0;
 
@@ -281,13 +284,15 @@ export async function generateAiToAiOffers(
   excludeClubId: number | null = null,
   sampleSize: number = 6,
 ): Promise<number> {
-  const targets = (await db
+  // Deterministic order + seeded sampling (see note in generateAiOffersForSquad).
+  const allTargets = (await db
     .prepare(
       `SELECT id FROM clubs
        WHERE save_id = ? AND (? IS NULL OR id != ?)
-       ORDER BY RANDOM() LIMIT ?`,
+       ORDER BY id`,
     )
-    .all(saveId, excludeClubId, excludeClubId, sampleSize)) as Array<{ id: number }>;
+    .all(saveId, excludeClubId, excludeClubId)) as Array<{ id: number }>;
+  const targets = rng.shuffle(allTargets).slice(0, sampleSize);
 
   let created = 0;
   for (const t of targets) {
