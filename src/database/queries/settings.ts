@@ -12,3 +12,13 @@ export async function setSetting(db: DbHandle, key: string, value: string): Prom
     .prepare('INSERT OR REPLACE INTO app_settings (key, value) VALUES (?, ?)')
     .run(key, value);
 }
+
+const HINT_PREFIX = 'hint_seen_';
+
+export async function isHintSeen(db: DbHandle, screen: string): Promise<boolean> {
+  return (await getSetting(db, `${HINT_PREFIX}${screen}`)) === '1';
+}
+
+export async function markHintSeen(db: DbHandle, screen: string): Promise<void> {
+  await setSetting(db, `${HINT_PREFIX}${screen}`, '1');
+}
