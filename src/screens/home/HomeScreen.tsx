@@ -80,6 +80,7 @@ export function HomeScreen() {
     setLastRetiredPlayerIds,
     setPendingAnnouncedRetirementIds,
     pendingAnnouncedRetirementIds,
+    refreshUnreadNewsCount,
   } = useGameStore();
 
   const { dbHandle } = useDatabaseStore();
@@ -360,6 +361,11 @@ export function HomeScreen() {
       } else if (pendingAnnouncedRetirementIds.length > 0) {
         setPendingAnnouncedRetirementIds([]);
       }
+
+      // W3 news: refresh the unread badge after the week's producers ran.
+      try {
+        await refreshUnreadNewsCount(dbHandle);
+      } catch { /* badge is best-effort */ }
     } catch (err) {
       // Surface the error to the console so it can be diagnosed; the week will
       // NOT advance so the user can try again next session.

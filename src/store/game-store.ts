@@ -6,6 +6,8 @@ import { Tactic } from '@/types/tactic';
 import { StandingsEntry } from '@/engine/competition/standings';
 import { useBoardStore } from '@/store/board-store';
 import { useAssistantStore } from '@/store/assistant-store';
+import { countUnread } from '@/database/queries/news';
+import type { DbHandle } from '@/database/queries/players';
 
 interface GameState {
   // Save
@@ -57,6 +59,8 @@ interface GameState {
   lastRetiredPlayerIds: number[];
   // IDs com aposentadoria anunciada nesta semana
   pendingAnnouncedRetirementIds: number[];
+  // W3 news: contador de notícias não-lidas (badge na NewsTab)
+  unreadNewsCount: number;
 }
 
 interface GameActions {
@@ -88,6 +92,8 @@ interface GameActions {
   setPendingInternationalCallUpCount: (count: number) => void;
   setLastRetiredPlayerIds: (ids: number[]) => void;
   setPendingAnnouncedRetirementIds: (ids: number[]) => void;
+  setUnreadNewsCount: (n: number) => void;
+  refreshUnreadNewsCount: (db: DbHandle) => Promise<void>;
   // Data loading
   setSquad: (squad: Player[]) => void;
   setCompetitions: (competitions: Competition[]) => void;
@@ -129,9 +135,10 @@ const initialState: GameState = {
   pendingInternationalCallUpCount: 0,
   lastRetiredPlayerIds: [],
   pendingAnnouncedRetirementIds: [],
+  unreadNewsCount: 0,
 };
 
-export const useGameStore = create<GameStore>((set) => ({
+export const useGameStore = create<GameStore>((set, get) => ({
   ...initialState,
   startNewGame: (saveId, clubId, season, week) =>
     set({
@@ -185,6 +192,7 @@ export const useGameStore = create<GameStore>((set) => ({
       unemployed: save.unemployed,
       managerReputation: save.managerReputation,
       onboardingSeen: save.onboardingSeen,
+      unreadNewsCount: 0,
     });
   },
   clearGame: () => {
@@ -226,6 +234,13 @@ export const useGameStore = create<GameStore>((set) => ({
   setPendingInternationalCallUpCount: (count) => set({ pendingInternationalCallUpCount: count }),
   setLastRetiredPlayerIds: (ids) => set({ lastRetiredPlayerIds: ids }),
   setPendingAnnouncedRetirementIds: (ids) => set({ pendingAnnouncedRetirementIds: ids }),
+  setUnreadNewsCount: (n) => set({ unreadNewsCount: n }),
+  refreshUnreadNewsCount: async (db) => {
+    const save = get().currentSave;
+    if (!save) return;
+    const n = await countUnread(db, save.id);
+    set({ unreadNewsCount: n });
+  },
   setSquad: (squad) => set({ squad }),
   setCompetitions: (competitions) => set({ competitions }),
   setStandings: (standings) => set({ standings }),

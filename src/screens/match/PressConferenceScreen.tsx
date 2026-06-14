@@ -14,6 +14,7 @@ import { getRecentForm } from '@/database/queries/player-stats';
 import { getRecentFixturesForClub } from '@/database/queries/fixtures';
 import { getSaveBoardTrust, updateSaveBoardTrust } from '@/database/queries/board';
 import { setPressPending } from '@/database/queries/save';
+import { insertNewsItem } from '@/database/queries/news';
 import {
   computePressConference,
   pressQuestionKey,
@@ -39,6 +40,7 @@ export function PressConferenceScreen() {
   const playerClubId = useGameStore((s) => s.playerClubId);
   const saveId = useGameStore((s) => s.currentSave?.id);
   const season = useGameStore((s) => s.season);
+  const week = useGameStore((s) => s.week);
   const lastMatchResult = useGameStore((s) => s.lastMatchResult);
   const lastMatchIsHome = useGameStore((s) => s.lastMatchIsHome);
   const setPressPendingStore = useGameStore((s) => s.setPressPending);
@@ -105,6 +107,21 @@ export function PressConferenceScreen() {
       const nextTrust = clampTrust(trust + res.confidenceDelta);
       await updateSaveBoardTrust(dbHandle, saveId, nextTrust);
       setCurrentTrust(nextTrust);
+
+      // W3 news: persist a press headline keyed to the board-confidence swing.
+      const tier =
+        res.confidenceDelta > 0 ? 'positive' : res.confidenceDelta < 0 ? 'negative' : 'neutral';
+      await insertNewsItem(dbHandle, saveId, {
+        season,
+        week,
+        category: 'press',
+        icon: '🎙️',
+        priority: 65,
+        titleKey: `news.persist_press_${tier}_title` as TKey,
+        bodyKey: `news.persist_press_${tier}_body` as TKey,
+      });
+      await useGameStore.getState().refreshUnreadNewsCount?.(dbHandle);
+
       setEmpty(false);
       setResult(res);
     } finally {

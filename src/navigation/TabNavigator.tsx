@@ -3,6 +3,7 @@ import { Text } from 'react-native';
 import { colors, fontSize } from '@/theme';
 import { useClubAccent } from '@/theme/useClubAccent';
 import { useTranslation } from '@/i18n';
+import { useGameStore } from '@/store/game-store';
 import { HomeScreen } from '@/screens/home/HomeScreen';
 import { SquadListScreen } from '@/screens/squad/SquadListScreen';
 import { NewsScreen } from '@/screens/news/NewsScreen';
@@ -16,6 +17,7 @@ const Tab = createBottomTabNavigator<TabParamList>();
 export function TabNavigator() {
   const { accent } = useClubAccent();
   const { t } = useTranslation();
+  const unreadNews = useGameStore((s) => s.unreadNewsCount);
   return (
     <Tab.Navigator screenOptions={{
       headerStyle: { backgroundColor: colors.surface },
@@ -37,7 +39,11 @@ export function TabNavigator() {
       <Tab.Screen
         name="NewsTab"
         component={NewsScreen}
-        options={{ title: t('nav.tab_news'), tabBarIcon: ({ color }) => <Text style={{ color, fontSize: fontSize.xl }}>📰</Text> }}
+        options={{
+          title: t('nav.tab_news'),
+          tabBarBadge: unreadNews > 0 ? unreadNews : undefined,
+          tabBarIcon: ({ color }) => <Text style={{ color, fontSize: fontSize.xl }}>📰</Text>,
+        }}
       />
       <Tab.Screen
         name="TacticsTab"

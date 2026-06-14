@@ -31,6 +31,7 @@ import {
   generateRetirementNews,
   sortNews,
 } from '@/engine/news/news-generator';
+import { getNewsItems, toNewsItem, markNewsRead } from '@/database/queries/news';
 import type { RetirementDecision } from '@/engine/retirement/retirement-engine';
 import type { TKey, TextDescriptor } from '@/i18n/translate';
 
@@ -319,6 +320,14 @@ export function NewsScreen() {
           }
         }
 
+        // ── Persisted news (W3) — merge with on-the-fly stories ──────────
+        const persistedRows = await getNewsItems(dbHandle, saveId, season);
+        const seen = new Set(items.map((i) => i.id));
+        for (const row of persistedRows) {
+          const p = toNewsItem(row);
+          if (!seen.has(p.id)) items.push(p);
+        }
+
         // Empty state
         if (items.length === 0) {
           items.push({
@@ -332,6 +341,10 @@ export function NewsScreen() {
         }
 
         setNews(sortNews(items));
+
+        // W3 news: opening the feed clears the unread badge.
+        await markNewsRead(dbHandle, saveId);
+        useGameStore.getState().setUnreadNewsCount(0);
       } finally {
         setLoading(false);
       }
@@ -372,6 +385,11 @@ export function NewsScreen() {
               item.category === 'league' && styles.cardLeague,
               item.category === 'season_recap' && styles.cardSeasonRecap,
               item.category === 'retirement' && styles.cardRetirement,
+              item.category === 'press' && styles.cardPress,
+              item.category === 'board' && styles.cardBoard,
+              item.category === 'achievement' && styles.cardAchievement,
+              item.category === 'scouting' && styles.cardScouting,
+              item.category === 'callup' && styles.cardCallup,
             ]}
           >
             <Text style={styles.cardIcon}>{item.icon}</Text>
@@ -543,6 +561,21 @@ const styles = StyleSheet.create({
   },
   cardRetirement: {
     borderLeftColor: colors.textSecondary,
+  },
+  cardPress: {
+    borderLeftColor: colors.primary,
+  },
+  cardBoard: {
+    borderLeftColor: colors.gold,
+  },
+  cardAchievement: {
+    borderLeftColor: colors.success,
+  },
+  cardScouting: {
+    borderLeftColor: colors.accent,
+  },
+  cardCallup: {
+    borderLeftColor: colors.primaryLight,
   },
   cardIcon: {
     fontSize: fontSize.xl,
