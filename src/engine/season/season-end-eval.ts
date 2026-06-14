@@ -15,6 +15,8 @@ import { computeManagerReputationDelta } from '@/engine/board/manager-reputation
 import { generateJobOffers, generateRescueOffers, JobOfferCandidateClub } from '@/engine/board/job-offers-engine';
 import { getManagerReputation, setManagerReputation, setJobOffersPending } from '@/database/queries/save';
 import { insertJobOffer } from '@/database/queries/job-offers';
+import { insertNewsItem } from '@/database/queries/news';
+import type { TKey } from '@/i18n/translate';
 
 export interface SeasonEndEval {
   stats: {
@@ -169,6 +171,26 @@ export async function evaluateSeasonEndBoard(
     wonLeague: leaguePosition === 1,
     wonCup,
     squadAverageOverall,
+  });
+
+  // ── News: board verdict persisted to the new-season recap (week 1) ──
+  const boardTier =
+    board.consequence === 'fired'
+      ? 'fired'
+      : board.outcome === 'objective_failed'
+        ? 'failed'
+        : board.outcome === 'objective_partial'
+          ? 'partial'
+          : 'met';
+  await insertNewsItem(db, saveId, {
+    season: newSeason,
+    week: 1,
+    category: 'board',
+    icon: boardTier === 'fired' ? '🚪' : boardTier === 'failed' ? '⚠️' : boardTier === 'partial' ? '🟡' : '🏛️',
+    priority: boardTier === 'fired' ? 100 : 94,
+    titleKey: `news.persist_board_${boardTier}_title` as TKey,
+    bodyKey: `news.persist_board_${boardTier}_body` as TKey,
+    bodyVars: { season: endedSeason },
   });
 
   // ── Manager (career-wide) reputation accrual — persisted ──

@@ -4,6 +4,7 @@ import { getCompetitionsBySeason } from '@/database/queries/leagues';
 import { getClubById } from '@/database/queries/clubs';
 import { getManagerReputation } from '@/database/queries/save';
 import { isManagerDismissed } from '@/engine/board/season-outcome';
+import { getNewsItems } from '@/database/queries/news';
 import { SeededRng } from '@/engine/rng';
 
 it('avalia diretoria, acumula rep do treinador e gera ofertas (se não demitido)', async () => {
@@ -32,6 +33,19 @@ it('avalia diretoria, acumula rep do treinador e gera ofertas (se não demitido)
   expect(evalRes.managerRep.before).toBe(repBefore);
   const repAfter = await getManagerReputation(ctx.db, ctx.saveId);
   expect(repAfter).toBe(evalRes.managerRep.after); // persistido
+
+  // Notícia de diretoria gravada na nova temporada (week 1), espelhando o veredito.
+  const boardNews = (await getNewsItems(ctx.db, ctx.saveId, 2)).filter((n) => n.category === 'board');
+  expect(boardNews).toHaveLength(1);
+  expect(boardNews[0].week).toBe(1);
+  const expectedTier = isManagerDismissed(evalRes.board.consequence)
+    ? 'fired'
+    : evalRes.board.outcome === 'objective_failed'
+      ? 'failed'
+      : evalRes.board.outcome === 'objective_partial'
+        ? 'partial'
+        : 'met';
+  expect(boardNews[0].title_key).toBe(`news.persist_board_${expectedTier}_title`);
   ctx.rawDb.close();
 });
 
@@ -74,5 +88,10 @@ it('demitido: gera ofertas-resgate de clubes de MENOR reputação', async () => 
     const offering = (await getClubById(ctx.db, ctx.saveId, offeringClubId))!;
     expect(offering.reputation).toBeLessThan(club.reputation);
   }
+
+  // Demissão gera manchete de diretoria com tier 'fired'.
+  const boardNews = (await getNewsItems(ctx.db, ctx.saveId, 2)).filter((n) => n.category === 'board');
+  expect(boardNews).toHaveLength(1);
+  expect(boardNews[0].title_key).toBe('news.persist_board_fired_title');
   ctx.rawDb.close();
 });

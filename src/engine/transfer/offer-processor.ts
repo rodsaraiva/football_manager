@@ -1,6 +1,8 @@
 import { DbHandle } from '@/database/queries/players';
 import { getPendingOffers, updateOfferStatus, createTransfer } from '@/database/queries/transfers';
 import { addFinanceEntry } from '@/database/queries/finances';
+import { getClubById } from '@/database/queries/clubs';
+import { insertNewsItem } from '@/database/queries/news';
 import { evaluateOffer } from './transfer-ai';
 import { canAffordTransfer } from '@/engine/finance/affordability';
 import {
@@ -9,6 +11,12 @@ import {
   hasExceededMaxRounds,
 } from './negotiation';
 import { TransferType } from '@/types';
+
+function formatFee(amount: number): string {
+  if (amount >= 1_000_000) return `$${(amount / 1_000_000).toFixed(1)}M`;
+  if (amount >= 1_000) return `$${(amount / 1_000).toFixed(0)}K`;
+  return `$${amount}`;
+}
 
 /**
  * Execute an accepted transfer: move player to buying club, transfer funds,
@@ -28,6 +36,7 @@ export async function executeAcceptedTransfer(
     week: number;
     offerType?: TransferType;
     loanEnd?: number | null;
+    playerClubId?: number | null;
   },
 ): Promise<void> {
   const {
@@ -41,6 +50,7 @@ export async function executeAcceptedTransfer(
     week,
     offerType = 'transfer',
     loanEnd = null,
+    playerClubId = null,
   } = params;
 
   // Move player to the buying/borrowing club.
@@ -93,6 +103,32 @@ export async function executeAcceptedTransfer(
       type: 'transfer_in',
       amount: fee,
       description: `${label} received for player #${playerId}`,
+    });
+  }
+
+  // Persist a transfer headline when the user's club is involved (in/out).
+  // Deals between two AI clubs are covered by the on-the-fly league generator.
+  if (playerClubId != null && (toClubId === playerClubId || fromClubId === playerClubId)) {
+    const incoming = toClubId === playerClubId;
+    const otherClubId = incoming ? fromClubId : toClubId;
+    const playerRow = (await db
+      .prepare('SELECT name FROM players WHERE save_id = ? AND id = ?')
+      .get(saveId, playerId)) as { name: string } | undefined;
+    const otherClub = await getClubById(db, saveId, otherClubId);
+    const playerName = playerRow?.name ?? `#${playerId}`;
+    const otherShort = otherClub?.shortName ?? `#${otherClubId}`;
+    await insertNewsItem(db, saveId, {
+      season,
+      week,
+      category: 'transfer',
+      icon: incoming ? '✍️' : '🔁',
+      priority: 72,
+      titleKey: incoming ? 'news.persist_transfer_in_title' : 'news.persist_transfer_out_title',
+      titleVars: { player: playerName },
+      bodyKey: incoming ? 'news.persist_transfer_in_body' : 'news.persist_transfer_out_body',
+      bodyVars: incoming
+        ? { from: otherShort, fee: formatFee(fee) }
+        : { to: otherShort, fee: formatFee(fee) },
     });
   }
 
@@ -174,6 +210,7 @@ export async function processPendingOffers(
         week,
         offerType: (counter.offer_type as TransferType | null) ?? 'transfer',
         loanEnd: counter.loan_end,
+        playerClubId,
       });
     }
   }
@@ -274,6 +311,7 @@ export async function processPendingOffers(
         week,
         offerType: offer.offerType,
         loanEnd: offer.loanEnd,
+        playerClubId,
       });
     } else if (result.decision === 'reject' || (maxedOut && result.decision === 'counter')) {
       // Firm rejection: block this club from bidding on this player for a while
