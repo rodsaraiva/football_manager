@@ -313,6 +313,7 @@ CREATE TABLE IF NOT EXISTS save_games (
   press_pending   INTEGER NOT NULL DEFAULT 0,
   manager_reputation INTEGER NOT NULL DEFAULT 50,
   job_offers_pending INTEGER NOT NULL DEFAULT 0,
+  unemployed      INTEGER NOT NULL DEFAULT 0,
   onboarding_seen INTEGER NOT NULL DEFAULT 0,
   created_at      TEXT    NOT NULL,
   updated_at      TEXT    NOT NULL

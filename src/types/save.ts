@@ -10,6 +10,7 @@ export interface SaveGame {
   preseasonPending: boolean;
   pressPending: boolean;
   jobOffersPending: boolean;
+  unemployed: boolean;
   managerReputation: number;
   onboardingSeen: boolean;
   createdAt: string;

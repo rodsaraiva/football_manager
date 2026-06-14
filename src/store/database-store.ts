@@ -106,6 +106,9 @@ export const useDatabaseStore = create<DatabaseStore>((set) => ({
       // + a one-time gate set at season-end when rival clubs offered the job.
       await addColumnIfMissing(db, 'save_games', 'manager_reputation', 'INTEGER NOT NULL DEFAULT 50');
       await addColumnIfMissing(db, 'save_games', 'job_offers_pending', 'INTEGER NOT NULL DEFAULT 0');
+      // W2 rescue offers: set when the manager is dismissed at season-end and routed
+      // to smaller-club rescue offers (decline all = game over). Mirrors job_offers_pending.
+      await addColumnIfMissing(db, 'save_games', 'unemployed', 'INTEGER NOT NULL DEFAULT 0');
       await db.execAsync(`
         CREATE TABLE IF NOT EXISTS job_offers (
           id               INTEGER PRIMARY KEY AUTOINCREMENT,

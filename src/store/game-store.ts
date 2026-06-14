@@ -42,6 +42,8 @@ interface GameState {
   pressPending: boolean;
   // P6 career: rival job offers pending at season-end (resolved before pre-season)
   jobOffersPending: boolean;
+  // W2 career: manager dismissed at season-end, routed to smaller-club rescue offers
+  unemployed: boolean;
   // P6 career: career-wide MANAGER reputation (persists across club switches)
   managerReputation: number;
   // P8 onboarding: one-time welcome gate (per save). False = show welcome once.
@@ -79,6 +81,7 @@ interface GameActions {
   setPreseasonPending: (pending: boolean) => void;
   setPressPending: (pending: boolean) => void;
   setJobOffersPending: (pending: boolean) => void;
+  setUnemployed: (unemployed: boolean) => void;
   setManagerReputation: (rep: number) => void;
   setOnboardingSeen: (seen: boolean) => void;
   setPendingAchievementToastIds: (ids: string[]) => void;
@@ -119,6 +122,7 @@ const initialState: GameState = {
   preseasonPending: false,
   pressPending: false,
   jobOffersPending: false,
+  unemployed: false,
   managerReputation: 50,
   onboardingSeen: false,
   pendingAchievementToastIds: [],
@@ -141,6 +145,7 @@ export const useGameStore = create<GameStore>((set) => ({
         preseasonPending: false,
         pressPending: false,
         jobOffersPending: false,
+        unemployed: false,
         managerReputation: 50,
         onboardingSeen: false,
         createdAt: '',
@@ -151,6 +156,7 @@ export const useGameStore = create<GameStore>((set) => ({
       week,
       managerReputation: 50,
       jobOffersPending: false,
+      unemployed: false,
       onboardingSeen: false,
     }),
   loadSave: (save) => {
@@ -176,6 +182,7 @@ export const useGameStore = create<GameStore>((set) => ({
       preseasonPending: save.preseasonPending,
       pressPending: save.pressPending,
       jobOffersPending: save.jobOffersPending,
+      unemployed: save.unemployed,
       managerReputation: save.managerReputation,
       onboardingSeen: save.onboardingSeen,
     });
@@ -212,6 +219,7 @@ export const useGameStore = create<GameStore>((set) => ({
   setPreseasonPending: (pending) => set({ preseasonPending: pending }),
   setPressPending: (pending) => set({ pressPending: pending }),
   setJobOffersPending: (pending) => set({ jobOffersPending: pending }),
+  setUnemployed: (unemployed) => set({ unemployed }),
   setManagerReputation: (rep) => set({ managerReputation: rep }),
   setOnboardingSeen: (seen) => set({ onboardingSeen: seen }),
   setPendingAchievementToastIds: (ids) => set({ pendingAchievementToastIds: ids }),

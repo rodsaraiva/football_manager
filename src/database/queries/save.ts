@@ -57,6 +57,21 @@ export async function isJobOffersPending(db: DbHandle, saveId: number): Promise<
   return row?.job_offers_pending === 1;
 }
 
+// ─── W2 rescue offers: dismissed-manager gate ─────────────────────────────────
+// Set when the manager is fired at season-end and routed to smaller-club rescue
+// offers. Decline all → game over. Mirrors the job-offers gate exactly.
+
+export async function setUnemployed(db: DbHandle, saveId: number, v: boolean): Promise<void> {
+  await db.prepare('UPDATE save_games SET unemployed = ? WHERE id = ?').run(v ? 1 : 0, saveId);
+}
+
+export async function isUnemployed(db: DbHandle, saveId: number): Promise<boolean> {
+  const row = (await db
+    .prepare('SELECT unemployed FROM save_games WHERE id = ?')
+    .get(saveId)) as { unemployed: number } | undefined;
+  return row?.unemployed === 1;
+}
+
 // ─── P8 onboarding gate ───────────────────────────────────────────────────────
 // One-time per-save welcome. Mirrors the preseason gate exactly.
 
