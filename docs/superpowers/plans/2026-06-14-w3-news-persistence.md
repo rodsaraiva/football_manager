@@ -516,16 +516,18 @@ git commit -m "feat(news): transferências do clube do jogador persistem manchet
 - [ ] **Step 1: Chaves i18n**
 
 ```
-'news.persist_board_exceeded_title': 'Diretoria muito satisfeita',
-'news.persist_board_exceeded_body': 'A meta da temporada {season} foi superada.',
 'news.persist_board_met_title': 'Diretoria satisfeita',
 'news.persist_board_met_body': 'A meta da temporada {season} foi cumprida.',
+'news.persist_board_partial_title': 'Diretoria parcialmente satisfeita',
+'news.persist_board_partial_body': 'A meta da temporada {season} foi cumprida em parte.',
 'news.persist_board_failed_title': 'Diretoria insatisfeita',
 'news.persist_board_failed_body': 'A meta da temporada {season} não foi atingida.',
-'news.persist_board_dismissed_title': 'Você foi demitido',
-'news.persist_board_dismissed_body': 'A diretoria encerrou seu ciclo após a temporada {season}.',
+'news.persist_board_fired_title': 'Você foi demitido',
+'news.persist_board_fired_body': 'A diretoria encerrou seu ciclo após a temporada {season}.',
 ```
 (espelhar em en.ts)
+
+> **Valores reais (verificados em `src/types/board.ts`):** `TrustOutcome = 'objective_met' | 'objective_partial' | 'objective_failed'`; `TrustConsequence = 'none' | 'budget_cut' | 'budget_bonus' | 'fired'`. Não existe `'objective_exceeded'` nem `'dismissed'`.
 
 - [ ] **Step 2: Teste falhando**
 
@@ -538,21 +540,19 @@ Run: `npx jest season-end-eval` → FAIL no novo assert.
 Em `season-end-eval.ts`, logo após obter `board` (linha ~172), inserir a news com `season: newSeason, week: 1` (aparece no recap da nova temporada):
 
 ```typescript
-const boardTier = board.consequence === 'dismissed'
-  ? 'dismissed'
-  : board.outcome === 'objective_exceeded' ? 'exceeded'
-  : board.outcome === 'objective_failed' ? 'failed' : 'met';
+const boardTier = board.consequence === 'fired'
+  ? 'fired'
+  : board.outcome === 'objective_failed' ? 'failed'
+  : board.outcome === 'objective_partial' ? 'partial' : 'met';
 await insertNewsItem(db, saveId, {
   season: newSeason, week: 1, category: 'board',
-  icon: boardTier === 'dismissed' ? '🚪' : boardTier === 'failed' ? '⚠️' : '🏛️',
-  priority: boardTier === 'dismissed' ? 100 : 94,
+  icon: boardTier === 'fired' ? '🚪' : boardTier === 'failed' ? '⚠️' : boardTier === 'partial' ? '🟡' : '🏛️',
+  priority: boardTier === 'fired' ? 100 : 94,
   titleKey: `news.persist_board_${boardTier}_title` as TKey,
   bodyKey: `news.persist_board_${boardTier}_body` as TKey,
   bodyVars: { season: endedSeason },
 });
 ```
-
-> Confirmar os valores exatos de `board.outcome` (`'objective_exceeded' | 'objective_met' | 'objective_failed'`) e `board.consequence` (inclui `'dismissed'`) lendo `season-end-board.ts`. Ajustar o mapeamento.
 
 Run: `npx jest season-end-eval` → PASS.
 
@@ -597,15 +597,15 @@ Em `processAchievementCheckpoint`, após obter `newlyIds`/`defs`, antes do `retu
 const defs = newlyIds.map((id) => getAchievementDef(id)).filter((d): d is AchievementDef => d != null);
 for (const def of defs) {
   await insertNewsItem(p.db, p.saveId, {
-    season: p.season, week: p.week, category: 'achievement', icon: '🏅', priority: 96,
+    season: p.season, week: p.week, category: 'achievement', icon: def.icon, priority: 96,
     titleKey: 'news.persist_achievement_title',
-    bodyKey: def.titleKey, // chave já existente do AchievementDef
+    bodyKey: def.titleKey, // chave já existente do AchievementDef (descKey também disponível)
   });
 }
 return defs;
 ```
 
-> Verificar o nome do campo de título em `AchievementDef` (provável `titleKey` ou `nameKey`). Usar o real; não hardcodar texto.
+> **Verificado em `src/engine/achievements/achievements-catalog.ts:7-11`:** `AchievementDef` tem `icon: string`, `titleKey: TKey`, `descKey: TKey`. Usar `def.icon` e `def.titleKey` — não hardcodar texto.
 
 Run: `npx jest achievements-checkpoint-news` → PASS.
 
