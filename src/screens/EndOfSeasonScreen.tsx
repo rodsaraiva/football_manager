@@ -17,7 +17,7 @@ import { getCompetitionsBySeason } from '@/database/queries/leagues';
 import { SeededRng } from '@/engine/rng';
 import { processAchievementCheckpoint } from '@/engine/achievements/achievements-checkpoint';
 import { isManagerDismissed } from '@/engine/board/season-outcome';
-import { markSaveEnded } from '@/database/queries/save';
+import { markSaveEnded, setUnemployed } from '@/database/queries/save';
 import { getAssistantsBySave } from '@/database/queries/assistants';
 import { evaluateSeasonEndBoard } from '@/engine/season/season-end-eval';
 import { runSeasonTransition } from '@/engine/season/season-transition';
@@ -43,7 +43,7 @@ interface SeasonStats {
 
 export function EndOfSeasonScreen() {
   const navigation = useNavigation<NavProp>();
-  const { season, playerClub, playerClubId, setNewSeason, updateWeek, currentSave, setPendingAnnouncedRetirementIds, setPreseasonPending, setManagerReputation: setStoreManagerReputation, setJobOffersPending: setStoreJobOffersPending, setPendingAchievementToastIds: setStorePendingAchievementToastIds } = useGameStore();
+  const { season, playerClub, playerClubId, setNewSeason, updateWeek, currentSave, setPendingAnnouncedRetirementIds, setPreseasonPending, setManagerReputation: setStoreManagerReputation, setJobOffersPending: setStoreJobOffersPending, setUnemployed: setStoreUnemployed, setPendingAchievementToastIds: setStorePendingAchievementToastIds } = useGameStore();
   const { dbHandle } = useDatabaseStore();
   const { setCurrentObjective, setCurrentTrust, setLastTrustResult, setReputationHistory } = useBoardStore();
   const { setAssistants } = useAssistantStore();
@@ -52,6 +52,10 @@ export function EndOfSeasonScreen() {
   const [loading, setLoading] = useState(true);
   const [starting, setStarting] = useState(false);
   const [boardProcessed, setBoardProcessed] = useState(false);
+  // W2: set when the manager was fired AND smaller clubs offered a rescue — the
+  // dismissal branch then rolls the world over and routes to the unemployed gate
+  // instead of ending the save.
+  const [hasRescueOffers, setHasRescueOffers] = useState(false);
   const { t } = useTranslation();
   const [boardEval, setBoardEval] = useState<{
     oldRep: number; newRep: number; delta: number;
@@ -129,6 +133,12 @@ export function EndOfSeasonScreen() {
           } catch { /* best-effort */ }
 
           if (evalRes.generatedOfferClubIds.length > 0) setStoreJobOffersPending(true);
+
+          // W2: a dismissal that still produced offers means rescue offers — flag it so
+          // handleContinue rolls the world over and routes to the unemployed gate.
+          if (isManagerDismissed(evalRes.board.consequence) && evalRes.generatedOfferClubIds.length > 0) {
+            setHasRescueOffers(true);
+          }
         }
       } catch (e) {
         // Fallback empty stats
@@ -154,9 +164,34 @@ export function EndOfSeasonScreen() {
     if (!dbHandle || starting || !playerClubId) return;
     setStarting(true);
 
-    // Dismissal short-circuit: if the board fired the manager, end the save and
-    // route to GameOver BEFORE any rollover mutation (a dead save does zero rollover).
+    // Dismissal branch: the board fired the manager.
     if (currentSave && isManagerDismissed(boardEval?.consequence ?? 'none')) {
+      // W2: smaller clubs offered a rescue → roll the world over (the rescue club's
+      // squad is rolled alongside) and open the unemployed gate, routing to JobOffers.
+      if (hasRescueOffers) {
+        await runSeasonTransition(dbHandle, {
+          saveId: currentSave.id,
+          playerClubId,
+          endedSeason,
+          newSeason: season,
+          youthAcademyLevel: playerClub?.youthAcademy ?? 3,
+          rng: new SeededRng(season * 7777),
+        });
+        setAssistants(await getAssistantsBySave(dbHandle, currentSave.id));
+        await setUnemployed(dbHandle, currentSave.id, true);
+        setStoreUnemployed(true);
+        setStoreJobOffersPending(true);
+        setPendingAnnouncedRetirementIds([]);
+        setNewSeason(false);
+        setPreseasonPending(true);
+        updateWeek(season, 1);
+        setStarting(false);
+        navigation.navigate('Game'); // Home gate → JobOffersScreen (unemployed mode)
+        return;
+      }
+
+      // No rescue → end the save and route to GameOver BEFORE any rollover mutation
+      // (a dead save does zero rollover).
       await markSaveEnded(dbHandle, currentSave.id);
       setStarting(false);
       navigation.navigate('GameOver', {

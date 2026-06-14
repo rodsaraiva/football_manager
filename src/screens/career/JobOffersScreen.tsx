@@ -15,7 +15,7 @@ import {
   expirePendingJobOffers,
   PendingJobOffer,
 } from '@/database/queries/job-offers';
-import { setJobOffersPending as persistJobOffersGate } from '@/database/queries/save';
+import { setJobOffersPending as persistJobOffersGate, markSaveEnded, setUnemployed as persistUnemployed } from '@/database/queries/save';
 import { acceptJobOffer } from '@/engine/board/accept-job-offer';
 import { processAchievementCheckpoint } from '@/engine/achievements/achievements-checkpoint';
 import { BOARD_TRUST_INITIAL } from '@/engine/balance';
@@ -28,9 +28,11 @@ export function JobOffersScreen() {
   const {
     season,
     currentSave,
+    unemployed,
     setPlayerClub,
     setPreseasonPending,
     setJobOffersPending,
+    setUnemployed,
     setPendingAchievementToastIds,
   } = useGameStore();
   const { dbHandle } = useDatabaseStore();
@@ -77,6 +79,12 @@ export function JobOffersScreen() {
       setCurrentTrust(BOARD_TRUST_INITIAL);
       setJobOffersPending(false);
       setPreseasonPending(true);
+      // W2: a rescued manager is no longer unemployed once they sign on. The rescue
+      // club's world was already rolled over in the dismissal branch.
+      if (unemployed) {
+        await persistUnemployed(dbHandle, saveId, false);
+        setUnemployed(false);
+      }
 
       // P8 achievement: changed clubs via offer → 'poached'. Toast surfaces on Home.
       try {
@@ -106,6 +114,21 @@ export function JobOffersScreen() {
       await expirePendingJobOffers(dbHandle, saveId, offerSeason);
       await persistJobOffersGate(dbHandle, saveId, false);
       setJobOffersPending(false);
+
+      // W2: an unemployed (dismissed) manager declining every rescue offer ends the
+      // career — there is no current club to stay at.
+      if (unemployed) {
+        await markSaveEnded(dbHandle, saveId);
+        await persistUnemployed(dbHandle, saveId, false);
+        setUnemployed(false);
+        navigation.navigate('GameOver', {
+          reason: t('endseason.gameover_trust_depleted'),
+          trust: 0,
+          objectiveDescription: '',
+        });
+        return;
+      }
+
       // Keep current club; its own pre-season gate (already set by the rollover) drives the flow.
       navigation.navigate('Game');
     } finally {
@@ -124,8 +147,8 @@ export function JobOffersScreen() {
   return (
     <ScrollView style={commonStyles.screen} contentContainerStyle={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>{t('joboffers.title')}</Text>
-        <Text style={styles.headerSub}>{t('joboffers.subtitle')}</Text>
+        <Text style={styles.headerTitle}>{unemployed ? t('joboffers.unemployed_header') : t('joboffers.title')}</Text>
+        <Text style={styles.headerSub}>{unemployed ? t('joboffers.unemployed_sub') : t('joboffers.subtitle')}</Text>
       </View>
 
       {offers.length === 0 ? (
@@ -174,7 +197,7 @@ export function JobOffersScreen() {
         disabled={busy}
         onPress={handleStay}
       >
-        <Text style={styles.stayText}>{t('joboffers.stay')}</Text>
+        <Text style={styles.stayText}>{unemployed ? t('joboffers.decline_all') : t('joboffers.stay')}</Text>
       </Pressable>
     </ScrollView>
   );

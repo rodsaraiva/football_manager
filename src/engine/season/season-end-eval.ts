@@ -12,7 +12,7 @@ import { calculateOverall } from '@/utils/overall';
 import { processSeasonEndBoard, SeasonEndBoardResult } from '@/engine/board/season-end-board';
 import { isManagerDismissed } from '@/engine/board/season-outcome';
 import { computeManagerReputationDelta } from '@/engine/board/manager-reputation-engine';
-import { generateJobOffers, JobOfferCandidateClub } from '@/engine/board/job-offers-engine';
+import { generateJobOffers, generateRescueOffers, JobOfferCandidateClub } from '@/engine/board/job-offers-engine';
 import { getManagerReputation, setManagerReputation, setJobOffersPending } from '@/database/queries/save';
 import { insertJobOffer } from '@/database/queries/job-offers';
 
@@ -187,9 +187,10 @@ export async function evaluateSeasonEndBoard(
   await setManagerReputation(db, saveId, managerRepDelta.next);
   const managerRep = { before, after: managerRepDelta.next, delta: managerRepDelta.delta };
 
-  // ── Job offers — only when NOT fired (rescue offers are out of scope) ──
+  // ── Job offers — up-band when retained, rescue (down-band) when dismissed ──
+  // A fired manager doesn't get poached UP; smaller clubs offer a fresh start instead.
   const generatedOfferClubIds: number[] = [];
-  if (!isManagerDismissed(board.consequence)) {
+  {
     const leaguesForDiv = await getAllLeagues(db);
     const divByLeague = new Map(leaguesForDiv.map((l) => [l.id, l.divisionLevel]));
     const candidates: JobOfferCandidateClub[] = allClubs.map((c) => ({
@@ -197,13 +198,20 @@ export async function evaluateSeasonEndBoard(
       reputation: c.reputation,
       divisionLevel: divByLeague.get(c.leagueId) ?? 1,
     }));
-    const offers = generateJobOffers({
-      managerReputation: managerRepDelta.next,
-      currentClubId: playerClubId,
-      currentClubReputation: clubReputation,
-      candidates,
-      rng: p.offerRng,
-    });
+    const offers = isManagerDismissed(board.consequence)
+      ? generateRescueOffers({
+          managerReputation: managerRepDelta.next,
+          currentClubId: playerClubId,
+          currentClubReputation: clubReputation,
+          candidates,
+        })
+      : generateJobOffers({
+          managerReputation: managerRepDelta.next,
+          currentClubId: playerClubId,
+          currentClubReputation: clubReputation,
+          candidates,
+          rng: p.offerRng,
+        });
     if (offers.length > 0) {
       for (const o of offers) {
         await insertJobOffer(db, saveId, endedSeason, o.offeringClubId);
