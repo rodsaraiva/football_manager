@@ -23,8 +23,9 @@ import { runSeasonTransition } from '@/engine/season/season-transition';
 import { acceptJobOffer } from '@/engine/board/accept-job-offer';
 import { getCompetitionsBySeason } from '@/database/queries/leagues';
 import { getClubById } from '@/database/queries/clubs';
-import { setJobOffersPending } from '@/database/queries/save';
+import { setJobOffersPending, setUnemployed, markSaveEnded } from '@/database/queries/save';
 import { getPendingJobOffers } from '@/database/queries/job-offers';
+import { isManagerDismissed } from '@/engine/board/season-outcome';
 
 export interface E2EContext {
   rawDb: Database.Database;
@@ -238,17 +239,30 @@ export async function respondToJobOfferGate(
   return true;
 }
 
+export interface EndSeasonHeadlessResult {
+  /** True when the board evaluation dismissed the manager (W2 rescue branch taken). */
+  fired: boolean;
+  /** True when the player ended up at a different club (offer accepted). */
+  switched: boolean;
+  newClubId: number | null;
+}
+
 /**
  * Full headless season-end ceremony, mirroring EndOfSeasonScreen:
- * evaluate board → run transition → respond to the offer gate.
+ * evaluate board → (if fired: rescue branch | else: transition + offer gate).
  * Call right after playUntilSeasonEnd returns isSeasonEnd. When `accept` is true, picks the
  * first pending offer (the offer-gate switch). The transition runs with the ORIGINAL club —
  * exactly like the UI, where rolloverSeason happens before the offer gate.
+ *
+ * W2 dismissed branch (board.consequence === 'fired'), mirroring EndOfSeasonScreen.handleContinue:
+ *   - accept + rescue offers exist → runSeasonTransition (original club, the world rolls) +
+ *     acceptJobOffer (first rescue offer) + setUnemployed(false); { fired, switched:true, newClubId }.
+ *   - else → markSaveEnded (career over); { fired:true, switched:false }.
  */
 export async function endSeasonHeadless(
   ctx: E2EContext,
   opts: { accept: boolean } = { accept: false },
-): Promise<{ switched: boolean; newClubId: number | null }> {
+): Promise<EndSeasonHeadlessResult> {
   const endedSeason = ctx.season - 1; // advanceGameWeek already bumped the pointer
   const club = (await getClubById(ctx.db, ctx.saveId, ctx.playerClubId))!;
   const comps = (await getCompetitionsBySeason(ctx.db, ctx.saveId, endedSeason)).map((c) => ({
@@ -265,9 +279,39 @@ export async function endSeasonHeadless(
     competitions: comps,
     offerRng: new SeededRng(ctx.season * 6151 + ctx.saveId), // espelha o seed da UI (nova temporada)
   });
-  void evalRes; // available for future asserts; here we just drive the gate
 
-  // Transition runs with the ORIGINAL club (mirrors the UI: rollover before the offer gate).
+  // ── W2: dismissed → rescue offers (down-band) instead of an immediate game over ──
+  if (isManagerDismissed(evalRes.board.consequence)) {
+    const pending = await getPendingJobOffers(ctx.db, ctx.saveId, endedSeason);
+    if (opts.accept && pending.length > 0) {
+      // The world rolls with the ORIGINAL club (rescue club rolled along), then we switch.
+      await runSeasonTransition(ctx.db, {
+        saveId: ctx.saveId,
+        playerClubId: ctx.playerClubId,
+        endedSeason,
+        newSeason: ctx.season,
+        youthAcademyLevel: club.youthAcademy,
+        rng: new SeededRng(ctx.season * 7777),
+      });
+      const newClubId = pending[0].offeringClubId;
+      await acceptJobOffer({
+        db: ctx.db,
+        saveId: ctx.saveId,
+        offeringClubId: newClubId,
+        offerSeason: endedSeason,
+        newSeason: ctx.season,
+        rng: new SeededRng(ctx.saveId * 13 + endedSeason),
+      });
+      await setUnemployed(ctx.db, ctx.saveId, false);
+      ctx.playerClubId = newClubId;
+      return { fired: true, switched: true, newClubId };
+    }
+    // No rescue accepted → career over.
+    await markSaveEnded(ctx.db, ctx.saveId);
+    return { fired: true, switched: false, newClubId: null };
+  }
+
+  // ── Retained: transition runs with the ORIGINAL club (rollover before the offer gate) ──
   await runSeasonTransition(ctx.db, {
     saveId: ctx.saveId,
     playerClubId: ctx.playerClubId,
@@ -285,5 +329,5 @@ export async function endSeasonHeadless(
     newClubId = pending[0]?.offeringClubId ?? null;
   }
   const switched = await respondToJobOfferGate(ctx, endedSeason, newClubId);
-  return { switched, newClubId: switched ? newClubId : null };
+  return { fired: false, switched, newClubId: switched ? newClubId : null };
 }

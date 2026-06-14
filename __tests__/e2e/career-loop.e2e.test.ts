@@ -19,6 +19,16 @@ function fixturesCount(ctx: E2EContext, season: number): number {
   ).n;
 }
 
+function fixturesCountForClub(ctx: E2EContext, clubId: number, season: number): number {
+  return (
+    ctx.rawDb
+      .prepare(
+        'SELECT COUNT(*) as n FROM fixtures WHERE save_id = ? AND season = ? AND (home_club_id = ? OR away_club_id = ?)',
+      )
+      .get(ctx.saveId, season, clubId, clubId) as { n: number }
+  ).n;
+}
+
 describe('E2E · career loop (multi-season)', () => {
   let ctx: E2EContext;
   beforeEach(async () => {
@@ -61,6 +71,34 @@ describe('E2E · career loop (multi-season)', () => {
     const r3 = await playUntilSeasonEnd(ctx, 333);
     expect(r3.isSeasonEnd).toBe(true);
     expect(ctx.season).toBe(4);
+  }, 120_000);
+
+  it('demitido com ofertas-resgate: aceita → continua em clube menor com elenco rolado', async () => {
+    await playUntilSeasonEnd(ctx, 555);
+    ctx.rawDb.prepare('UPDATE save_games SET board_trust = 0 WHERE id = ?').run(ctx.saveId); // força demissão
+    const ageBefore = age(ctx, 1);
+    const r = await endSeasonHeadless(ctx, { accept: true });
+    expect(r.fired).toBe(true);            // board_trust=0 DEVE demitir (sem no-op silencioso)
+    expect(r.switched).toBe(true);         // há ofertas-resgate → troca para clube menor
+    expect(ctx.playerClubId).toBe(r.newClubId);
+    // o NOVO clube (resgate) tem fixtures da nova temporada — o mundo rolou para todos os clubes
+    expect(fixturesCount(ctx, 2)).toBeGreaterThan(0);
+    expect(fixturesCountForClub(ctx, r.newClubId!, 2)).toBeGreaterThan(0);
+    expect(age(ctx, 1)).toBe(ageBefore + 1);
+    // segue jogando uma temporada inteira no novo clube sem crash
+    const r2 = await playUntilSeasonEnd(ctx, 556);
+    expect(r2.isSeasonEnd).toBe(true);
+  }, 120_000);
+
+  it('demitido sem aceitar: carreira encerrada (markSaveEnded)', async () => {
+    await playUntilSeasonEnd(ctx, 999);
+    ctx.rawDb.prepare('UPDATE save_games SET board_trust = 0 WHERE id = ?').run(ctx.saveId);
+    const r = await endSeasonHeadless(ctx, { accept: false });
+    expect(r.fired).toBe(true);   // a demissão DEVE disparar (sem no-op silencioso)
+    const ended = ctx.rawDb
+      .prepare('SELECT ended FROM save_games WHERE id = ?')
+      .get(ctx.saveId) as { ended: number };
+    expect(ended.ended).toBe(1);  // recusar todas → carreira encerrada
   }, 120_000);
 
   it('é reprodutível: dois saves, mesmo seed, 2 temporadas → estado-chave idêntico', async () => {
