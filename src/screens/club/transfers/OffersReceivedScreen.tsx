@@ -268,7 +268,7 @@ export function OffersReceivedScreen() {
               )}
 
               {item.offer.status === 'countered' && (
-                <Text style={styles.hint}>Your counter is on the table — the buying club responds next week.</Text>
+                <Text style={styles.hint}>{t('offers.counter_sent_msg')}</Text>
               )}
 
               {isFinal && (

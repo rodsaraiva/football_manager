@@ -10,7 +10,7 @@ import { colors, spacing, fontSize, commonStyles } from '@/theme';
 import { useTranslation, ordinal, Language } from '@/i18n';
 import { useGameStore } from '@/store/game-store';
 import { useDatabaseStore } from '@/store/database-store';
-import { getClubsByLeague } from '@/database/queries/clubs';
+import { getClubsByLeague, getClubById } from '@/database/queries/clubs';
 import { getLeagueById, getCompetitionsBySeason } from '@/database/queries/leagues';
 import { getFixturesByWeek, getMatchEvents } from '@/database/queries/fixtures';
 import { getTransfersBySeason } from '@/database/queries/transfers';
@@ -173,6 +173,26 @@ export function NewsScreen() {
 
         // ── 5. Relevant transfers (big fees) ──────────────────────────
         const transfers = await getTransfersBySeason(dbHandle, saveId, season);
+        // Enrich names for transfer players outside the player's league
+        // (playerNames only covers league clubs), so headlines show real names.
+        const missingIds = [...new Set(transfers.map((tr) => tr.playerId))].filter(
+          (id) => !playerNames.has(id),
+        );
+        if (missingIds.length > 0) {
+          const rows = (await dbHandle
+            .prepare(
+              `SELECT id, name FROM players WHERE id IN (${missingIds.map(() => '?').join(',')})`,
+            )
+            .all(...missingIds)) as Array<{ id: number; name: string }>;
+          for (const r of rows) playerNames.set(r.id, r.name);
+        }
+        // Likewise enrich clubMap for clubs outside the player's league.
+        const missingClubIds = [...new Set(transfers.flatMap((tr) => [tr.fromClubId, tr.toClubId]))]
+          .filter((id): id is number => id != null && !clubMap.has(id));
+        for (const id of missingClubIds) {
+          const c = await getClubById(dbHandle, saveId, id);
+          if (c) clubMap.set(id, c);
+        }
         items.push(...generateRelevantTransfers(transfers, playerNames, clubMap));
 
         // ── 6. Streaks for player's club ──────────────────────────────

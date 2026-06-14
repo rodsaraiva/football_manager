@@ -498,7 +498,7 @@ export default function PlayerDetailScreen({ player, onBack }: PlayerDetailScree
             </View>
             {isLoanListed && (
               <View style={styles.listingRow}>
-                <Text style={styles.listingLabel}>Borrower pays (%)</Text>
+                <Text style={styles.listingLabel}>{t('tactics.loan_wage_share')}</Text>
                 <TextInput
                   style={styles.listingInput}
                   value={loanShareText}
