@@ -48,6 +48,13 @@ import {
   isInAnnounceWindow,
 } from './retirement/retirement-engine';
 import {
+  isInternationalBreak,
+  selectCallUps,
+  applyTravelFatigue,
+  CallUpCandidate,
+} from './national/international-duty';
+import { calculateOverall } from '@/utils/overall';
+import {
   RETIREMENT_MIN_AGE,
   RETIREMENT_MAX_AGE,
   RETIREMENT_MORALE_THRESHOLD,
@@ -182,6 +189,9 @@ export interface AdvanceWeekResult {
   retiringPlayerIds: number[];
   // Comentário espontâneo de assistente (null se nenhum ativou esta semana).
   assistantComment: AssistantComment | null;
+  // P9: jogadores do elenco convocados para suas seleções nesta semana (vazio fora
+  // de janela FIFA). Cada convocado leva uma penalidade de fitness por viagem.
+  internationalCallUps: number[];
 }
 
 // Squad selection (pickStartingEleven / buildSquadFromSavedIds / buildBench /
@@ -487,6 +497,31 @@ export async function advanceGameWeek(params: AdvanceWeekParams): Promise<Advanc
     }
   }
 
+  // 9c. P9 international duty: on FIFA-break weeks the user's international-caliber
+  // players are called up to their national teams and return with TRAVEL FATIGUE.
+  // Runs independently of whether the user had a league fixture this week — the
+  // break is a separate calendar event. Travel fatigue STACKS with any match
+  // fitness change applied above (returning from internationals tired is realistic).
+  const internationalCallUps: number[] = [];
+  if (isInternationalBreak(week)) {
+    const squad = await getPlayersWithAttributesByClub(db, saveId, playerClubId);
+    const candidates: CallUpCandidate[] = squad
+      .filter((p) => !p.isFreeAgent)
+      .map((p) => ({
+        id: p.id,
+        nationality: p.nationality,
+        overall: calculateOverall(p.attributes, p.position),
+      }));
+    const fitnessById = new Map(squad.map((p) => [p.id, p.fitness]));
+    for (const id of selectCallUps(candidates)) {
+      const current = fitnessById.get(id);
+      if (current == null) continue;
+      const next = applyTravelFatigue(current);
+      await db.prepare('UPDATE players SET fitness = ? WHERE save_id = ? AND id = ?').run(next, saveId, id);
+      internationalCallUps.push(id);
+    }
+  }
+
   // (all fixtures were already simulated + persisted above by the real engine)
 
   // 3·5 Scouting progression: each active assignment for the human club accrues
@@ -780,5 +815,6 @@ export async function advanceGameWeek(params: AdvanceWeekParams): Promise<Advanc
     newlyAnnouncedRetirementIds,
     retiringPlayerIds,
     assistantComment,
+    internationalCallUps,
   };
 }
