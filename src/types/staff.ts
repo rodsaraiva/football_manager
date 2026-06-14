@@ -9,3 +9,10 @@ export interface Staff {
   wage: number;
   contractEnd: number;
 }
+
+export interface StaffCandidate {
+  name: string;
+  role: StaffRole;
+  ability: number;
+  wage: number;
+}

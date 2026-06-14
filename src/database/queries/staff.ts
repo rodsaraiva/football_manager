@@ -1,5 +1,9 @@
-import { Staff, StaffRole } from '@/types';
+import { Staff, StaffCandidate, StaffRole } from '@/types';
 import { DbHandle } from './players';
+
+// V1: sem season no escopo desta query. contract_end fica uma temporada à frente do
+// horizonte do seed (anos 2025+1..4), evitando contrato já vencido na contratação.
+const STAFF_HIRE_CONTRACT_END = 2028;
 
 interface StaffRow {
   id: number;
@@ -31,4 +35,23 @@ export async function getStaffByClub(db: DbHandle, saveId: number, clubId: numbe
 export async function getStaffByRole(db: DbHandle, saveId: number, role: StaffRole): Promise<Staff[]> {
   const rows = await db.prepare('SELECT * FROM staff WHERE save_id = ? AND role = ?').all(saveId, role) as StaffRow[];
   return rows.map(rowToStaff);
+}
+
+export async function hireStaff(
+  db: DbHandle,
+  saveId: number,
+  clubId: number,
+  candidate: StaffCandidate,
+): Promise<number> {
+  const result = await db
+    .prepare(
+      `INSERT INTO staff (save_id, name, role, club_id, ability, wage, contract_end)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    )
+    .run(saveId, candidate.name, candidate.role, clubId, candidate.ability, candidate.wage, STAFF_HIRE_CONTRACT_END);
+  return Number((result as { lastInsertRowid: number | bigint }).lastInsertRowid);
+}
+
+export async function fireStaff(db: DbHandle, saveId: number, staffId: number): Promise<void> {
+  await db.prepare('DELETE FROM staff WHERE save_id = ? AND id = ?').run(saveId, staffId);
 }

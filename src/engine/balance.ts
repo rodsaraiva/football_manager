@@ -60,6 +60,19 @@ export const ASSISTANT_COMMENT_CHANCE_PER_WEEK = 0.15;
 // seasonsAtClub thresholds to reach each star level (index = star - 1)
 export const ASSISTANT_QUALITY_THRESHOLDS = [0, 2, 4, 7, 10] as const;
 
+// Staff hiring (scout/physio/assistant/youth_coach/fitness_coach)
+export const STAFF_ROLE_LIMITS: Record<string, number> = {
+  scout: 2,
+  assistant: 2,
+  physio: 1,
+  youth_coach: 1,
+  fitness_coach: 1,
+};
+export const STAFF_CANDIDATE_POOL_SIZE = 6;
+export const STAFF_ABILITY_MIN = 4;
+export const STAFF_ABILITY_MAX = 20;
+export const STAFF_WAGE_PER_ABILITY = 250; // wage semanal ≈ ability * 250 (±)
+
 // ─── Match consequences (suspensions) ────────────────────────────────────────
 // Injury durations live in src/engine/simulation/injury.ts (already wired).
 export const RED_SUSPENSION_WEEKS = 1;
