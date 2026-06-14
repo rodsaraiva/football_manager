@@ -22,6 +22,7 @@ import {
 import { getClubById, getClubTrainingFocus } from '@/database/queries/clubs';
 import { getStaffByClub } from '@/database/queries/staff';
 import { getActiveAssignments, setKnowledge } from '@/database/queries/scouting';
+import { insertNewsItem } from '@/database/queries/news';
 import { advanceScouting } from '@/engine/scouting/scouting-engine';
 import { getRecentForm } from '@/database/queries/player-stats';
 import { getStaffEffects, assistantAbilityFromStars } from '@/engine/staff/staff-effects';
@@ -520,6 +521,14 @@ export async function advanceGameWeek(params: AdvanceWeekParams): Promise<Advanc
       await db.prepare('UPDATE players SET fitness = ? WHERE save_id = ? AND id = ?').run(next, saveId, id);
       internationalCallUps.push(id);
     }
+    if (internationalCallUps.length > 0) {
+      await insertNewsItem(db, saveId, {
+        season, week, category: 'callup', icon: '🌍', priority: 75,
+        titleKey: 'news.persist_callup_title',
+        bodyKey: internationalCallUps.length === 1 ? 'news.persist_callup_body_one' : 'news.persist_callup_body_other',
+        bodyVars: { count: internationalCallUps.length },
+      });
+    }
   }
 
   // (all fixtures were already simulated + persisted above by the real engine)
@@ -541,9 +550,13 @@ export async function advanceGameWeek(params: AdvanceWeekParams): Promise<Advanc
           { playerId: a.playerId, knowledge: current?.knowledge ?? 0, scoutAbility: ability },
         ]);
         await setKnowledge(db, saveId, a.playerId, advanced.knowledge);
-        // TODO(news): emit an inbox/news item on advanced.reachedFull. Skipped for
-        // now — the news system is pure-generator + no persistent inbox table, so
-        // surfacing a one-off weekly event would need new plumbing (see summary).
+        if (advanced.reachedFull) {
+          await insertNewsItem(db, saveId, {
+            season, week, category: 'scouting', icon: '🔎', priority: 80,
+            titleKey: 'news.persist_scouting_title',
+            bodyKey: 'news.persist_scouting_body',
+          });
+        }
       }
     }
   }
