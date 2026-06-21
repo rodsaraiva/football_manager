@@ -74,3 +74,14 @@ export const elevation = {
   e2: { shadowColor: '#000000', shadowOpacity: 0.24, shadowRadius: 10, shadowOffset: { width: 0, height: 3 }, elevation: 6 },
   e3: { shadowColor: '#000000', shadowOpacity: 0.32, shadowRadius: 20, shadowOffset: { width: 0, height: 6 }, elevation: 12 },
 } as const;
+
+// Motion: durações em ms + curvas cubic-bezier (tuplas puras, sem Reanimated nos tokens).
+// standard = Material standard; decelerate = entrada (ease-out); accelerate = saída (ease-in).
+export const motion = {
+  duration: { fast: 120, base: 200, slow: 320 },
+  easing: {
+    standard:   [0.2, 0.0, 0.0, 1.0] as const,
+    decelerate: [0.0, 0.0, 0.2, 1.0] as const,
+    accelerate: [0.4, 0.0, 1.0, 1.0] as const,
+  },
+} as const;

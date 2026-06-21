@@ -114,3 +114,27 @@ describe('elevation tokens', () => {
     }
   });
 });
+
+import { motion } from '@/theme/tokens';
+
+describe('motion tokens', () => {
+  it('durations are ordered fast < base < slow', () => {
+    expect(motion.duration.fast).toBeLessThan(motion.duration.base);
+    expect(motion.duration.base).toBeLessThan(motion.duration.slow);
+    expect(motion.duration.fast).toBe(120);
+    expect(motion.duration.base).toBe(200);
+    expect(motion.duration.slow).toBe(320);
+  });
+
+  it('easings are 4-number bezier tuples with control points in [0,1] on x', () => {
+    for (const curve of [motion.easing.standard, motion.easing.decelerate, motion.easing.accelerate]) {
+      expect(curve).toHaveLength(4);
+      curve.forEach((n) => expect(typeof n).toBe('number'));
+      // x control points (índices 0 e 2) válidos p/ cubic-bezier
+      expect(curve[0]).toBeGreaterThanOrEqual(0);
+      expect(curve[0]).toBeLessThanOrEqual(1);
+      expect(curve[2]).toBeGreaterThanOrEqual(0);
+      expect(curve[2]).toBeLessThanOrEqual(1);
+    }
+  });
+});
