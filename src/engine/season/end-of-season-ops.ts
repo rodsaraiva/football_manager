@@ -6,6 +6,7 @@ import { getStaffEffects } from '@/engine/staff/staff-effects';
 import { calculateOverall } from '@/utils/overall';
 import { recalculatePotential } from '@/engine/training/potential';
 import { generateYouthPlayers } from '@/engine/youth/youth-academy';
+import { YouthSpecialization } from '@/engine/youth/youth-levers';
 import { detectOrdinaryRetirements, RetirementDecision } from '@/engine/retirement/retirement-engine';
 import { SeededRng } from '@/engine/rng';
 import { saveOffset } from '@/database/constants';
@@ -71,10 +72,20 @@ export async function generateClubYouth(
   const countryCode = (await getClubCountryCode(db, clubId)) ?? 'EN';
   const nationality = COUNTRY_NAME[countryCode] ?? countryCode;
 
+  // C2: youth coach specialization e reputação de academia alimentam o gerador.
+  // Lemos youth_specialization direto (rowToStaff ainda não mapeia a coluna).
+  const youthSpecRow = (await db
+    .prepare("SELECT youth_specialization FROM staff WHERE save_id = ? AND club_id = ? AND role = 'youth_coach' LIMIT 1")
+    .get(saveId, clubId)) as { youth_specialization: string } | undefined;
+  const specialization = (youthSpecRow?.youth_specialization ?? 'balanced') as YouthSpecialization;
+  const academyReputation = club?.academyReputation ?? 50;
+
   const youth = generateYouthPlayers({
     clubId,
     academyLevel: club?.youthAcademy ?? 3,
     youthCoachBonus,
+    academyReputation,
+    specialization,
     countryCode,
     rng,
   });
@@ -84,11 +95,11 @@ export async function generateClubYouth(
 
   for (const y of youth) {
     await db.prepare(
-      'INSERT INTO players (id, save_id, name, nationality, age, position, secondary_position, club_id, wage, contract_end, market_value, base_potential, effective_potential, morale, fitness, injury_weeks_left, is_free_agent) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      'INSERT INTO players (id, save_id, name, nationality, age, position, secondary_position, club_id, wage, contract_end, market_value, base_potential, effective_potential, morale, fitness, injury_weeks_left, is_free_agent, squad_tier) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
     ).run(
       nextId, saveId, y.name, nationality, y.age, y.position, null,
       clubId, 5000, newSeason + 3, 100000,
-      y.basePotential, y.basePotential, 70, 100, 0, 0,
+      y.basePotential, y.basePotential, 70, 100, 0, 0, 'youth',
     );
     const a = y.attributes;
     await db.prepare(

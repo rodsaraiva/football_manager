@@ -5,6 +5,7 @@ import { getAssistantsBySave, getAssistantByRole } from '@/database/queries/assi
 import { maybeGenerateComment } from './assistant/comment-generator';
 import { AssistantComment } from '@/types/assistant';
 import { processPendingOffers } from './transfer/offer-processor';
+import { processYouthLoanWeek } from '@/engine/youth/youth-loans';
 import { generateAiOffersForSquad, generateAiToAiOffers } from './transfer/ai-offer-generator';
 import { expireStaleOffers, prunExpiredBlocks } from './transfer/negotiation';
 import {
@@ -584,6 +585,9 @@ export async function advanceGameWeek(params: AdvanceWeekParams): Promise<Advanc
 
   // 3c. Process pending offers submitted by the player (always, not gated by window)
   await processPendingOffers(db, saveId, season, week, playerClubId);
+
+  // 3c2. C2: acumula minutos/rating dos empréstimos de desenvolvimento desta rodada.
+  await processYouthLoanWeek(db, saveId, season, week);
 
   // 3d. Expire stale offers (no response within 2 weeks) and prune old blocks
   await expireStaleOffers(db, saveId, season, week);

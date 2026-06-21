@@ -5,6 +5,11 @@ import { regenerateAiSquadSeason } from '@/engine/rollover/squad-regeneration';
 import { calculateOverall } from '@/utils/overall';
 import { recalcSquadPotential, generateClubYouth, applyOrdinaryRetirements } from '@/engine/season/end-of-season-ops';
 import { returnExpiredLoans } from '@/engine/transfer/loan-returns';
+import { settleYouthLoanDevelopment } from '@/engine/youth/youth-loans';
+import { evaluateTierTransitions } from '@/engine/youth/youth-progression';
+import { applyAcademyReputation } from '@/engine/youth/academy-reputation';
+import { promotePlayerTier } from '@/database/queries/youth';
+import { SquadTier } from '@/types';
 import { expireContracts, recalculateMarketValues } from '@/engine/finance/rollover-economy';
 import { ensureSeasonFixtures } from '@/engine/competition/calendar';
 import { runInTransaction } from '@/database/transaction';
@@ -48,6 +53,10 @@ export async function rolloverSeason(p: RolloverSeasonParams): Promise<RolloverS
     //    whose contract ended is restored to the parent before expiry releases him.
     await returnExpiredLoans(db, saveId, endedSeason);
 
+    // 2c. C2: liquida o desenvolvimento dos empréstimos de base ANTES de incrementar
+    //     idade/expirar contrato, espelhando a ordem do loan genérico.
+    await settleYouthLoanDevelopment(db, saveId, endedSeason, p.rng);
+
     // 2b. Contract expiry — release players whose contract ended with the full
     //     free-agent state (club_id NULL, wage 0) so they stop being paid.
     await expireContracts(db, saveId, endedSeason);
@@ -61,6 +70,32 @@ export async function rolloverSeason(p: RolloverSeasonParams): Promise<RolloverS
 
     // 4. Youth academy generation — real staff youth bonus + club country nationality.
     youthGeneratedIds.push(...await generateClubYouth(db, saveId, playerClubId, newSeason, p.rng));
+
+    // 4a. C2: transições automáticas de tier (youth→reserve→first) para o clube humano.
+    //     currentOverall usa effective_potential como proxy (overall real exige carregar
+    //     atributos; o motor é testado com overall real isoladamente na Task 4).
+    {
+      const tierRows = (await db
+        .prepare("SELECT id, age, effective_potential, squad_tier FROM players WHERE save_id = ? AND club_id = ? AND is_free_agent = 0")
+        .all(saveId, playerClubId)) as Array<{ id: number; age: number; effective_potential: number; squad_tier: string }>;
+      const candidates = [];
+      for (const r of tierRows) {
+        const st = (await db
+          .prepare('SELECT minutes_played FROM player_stats WHERE save_id = ? AND player_id = ? AND season = ?')
+          .get(saveId, r.id, endedSeason)) as { minutes_played: number } | undefined;
+        candidates.push({
+          playerId: r.id, age: r.age, currentOverall: r.effective_potential,
+          effectivePotential: r.effective_potential, squadTier: r.squad_tier as SquadTier,
+          seasonMinutesPercent: Math.min(100, ((st?.minutes_played ?? 0) / (38 * 90)) * 100),
+        });
+      }
+      const firstCount = candidates.filter((c) => c.squadTier === 'first').length;
+      const benchmark = candidates.length
+        ? Math.round(candidates.reduce((s, c) => s + c.currentOverall, 0) / candidates.length)
+        : 70;
+      const transitions = evaluateTierTransitions(candidates, { firstTeamSize: firstCount, starterAvgOverall: benchmark }, p.rng);
+      for (const t of transitions) await promotePlayerTier(db, saveId, t.playerId, t.to);
+    }
 
     // 4b. AI squad regeneration (ai-world-alive): every non-player club re-evaluates
     // potential with the REAL overall (not the hardcoded 70) + market value, and takes
@@ -103,6 +138,9 @@ export async function rolloverSeason(p: RolloverSeasonParams): Promise<RolloverS
 
     // 4c. Ordinary age-based retirement across every club (progression-wired).
     await applyOrdinaryRetirements(db, saveId, p.rng);
+
+    // 4e. C2: reputação de academia da temporada encerrada (todos os clubes).
+    await applyAcademyReputation(db, saveId, endedSeason);
 
     // 4d. Recompute market values for every attached/free player with fresh
     //     overall/age/potential/contract — values stop being frozen at seed.
