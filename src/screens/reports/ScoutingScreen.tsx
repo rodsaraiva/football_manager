@@ -1,204 +1,268 @@
 import React, { useCallback, useState } from 'react';
-import { View, Text, ScrollView, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, Pressable } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { colors, spacing, fontSize, radius, commonStyles } from '@/theme';
 import { useClubAccent } from '@/theme/useClubAccent';
 import { useTranslation } from '@/i18n';
-import { Card, Button } from '@/components/kit';
+import { Card, Button, Chip, Badge, Sheet, Toast, useConfirm, ToastTone } from '@/components/kit';
 import { Headline, Body, Label, Caption } from '@/components/typography';
 import type { TKey } from '@/i18n/translate';
 import { useGameStore } from '@/store/game-store';
 import { useDatabaseStore } from '@/store/database-store';
 import { getStaffByClub } from '@/database/queries/staff';
 import { searchPlayers } from '@/database/queries/players';
+import { getClubById } from '@/database/queries/clubs';
+import { getNextFixtureForClub } from '@/database/queries/fixtures';
 import {
-  getScoutingRows,
-  assignScout,
-  unassignScout,
-  ScoutingRowDto,
-} from '@/database/queries/scouting';
-import { knowledgeTier, ScoutingTier } from '@/engine/scouting/scouting-engine';
+  getActiveMissions,
+  createMission,
+  cancelMission,
+  ScoutMissionDto,
+} from '@/database/queries/scout-missions';
+import { MISSION_DEFS, MissionType } from '@/engine/scouting/scout-missions';
+import type { ScoutArchetype } from '@/engine/scouting/scout-archetypes';
 import { Staff, Player } from '@/types';
 
-const TARGET_CAP = 50;
+const TARGET_CAP = 40;
 
-const TIER_KEY: Record<ScoutingTier, TKey> = {
-  unknown: 'scouting.tier_unknown',
-  vague: 'scouting.tier_vague',
-  partial: 'scouting.tier_partial',
-  full: 'scouting.tier_full',
+const ARCHETYPE_KEY: Record<ScoutArchetype, TKey> = {
+  generalist: 'scouting.archetype_generalist',
+  youth: 'scouting.archetype_youth',
+  defenders: 'scouting.archetype_defenders',
+  regional: 'scouting.archetype_regional',
 };
 
-const TIER_COLOR: Record<ScoutingTier, string> = {
-  unknown: colors.textMuted,
-  vague: colors.warning,
-  partial: colors.reportScout,
-  full: colors.success,
+const MISSION_KEY: Record<MissionType, TKey> = {
+  short_eval: 'scouting.mission_short_eval',
+  long_project: 'scouting.mission_long_project',
+  opponent_intel: 'scouting.mission_opponent_intel',
+  youth_prospect: 'scouting.mission_youth_prospect',
 };
+
+const PLAYER_TARGET_TYPES: ReadonlySet<MissionType> = new Set(['short_eval', 'long_project']);
+
+interface ToastState { title: string; tone: ToastTone; }
 
 function AbilityStars({ ability, max = 20 }: { ability: number; max?: number }) {
   const stars = Math.round((ability / max) * 5);
   return (
     <View style={styles.starsRow}>
       {Array.from({ length: 5 }).map((_, i) => (
-        <Text key={i} style={[styles.star, i < stars ? styles.starFilled : styles.starEmpty]}>
-          ★
-        </Text>
+        <Text key={i} style={[styles.star, i < stars ? styles.starFilled : styles.starEmpty]}>★</Text>
       ))}
     </View>
   );
 }
 
 export function ScoutingScreen() {
-  const { playerClubId, week, currentSave } = useGameStore();
+  const { playerClubId, season, week, currentSave } = useGameStore();
   const { dbHandle } = useDatabaseStore();
   const { t } = useTranslation();
   const accent = useClubAccent();
+  const confirm = useConfirm();
   const saveId = currentSave?.id;
 
   const [scouts, setScouts] = useState<Staff[]>([]);
   const [targets, setTargets] = useState<Player[]>([]);
-  const [rows, setRows] = useState<ScoutingRowDto[]>([]);
+  const [missions, setMissions] = useState<ScoutMissionDto[]>([]);
+  const [nextOpponent, setNextOpponent] = useState<{ id: number; name: string } | null>(null);
+  const [toast, setToast] = useState<ToastState | null>(null);
+  const [assigning, setAssigning] = useState<Staff | null>(null);
+  const [pickType, setPickType] = useState<MissionType | null>(null);
 
   const load = useCallback(async () => {
     if (!dbHandle || playerClubId == null || saveId == null) return;
-    const [staff, allPlayers, scoutingRows] = await Promise.all([
+    const [staff, allPlayers, active] = await Promise.all([
       getStaffByClub(dbHandle, saveId, playerClubId),
       searchPlayers(dbHandle, saveId, {}),
-      getScoutingRows(dbHandle, saveId),
+      getActiveMissions(dbHandle, saveId),
     ]);
     setScouts(staff.filter((s) => s.role === 'scout'));
-    // Scoutable pool = players from OTHER clubs + free agents, by market value.
-    // Already-scouted players always shown; the rest capped to keep the list tight.
-    const scoutedIds = new Set(scoutingRows.map((r) => r.playerId));
-    const others = allPlayers
+    const pool = allPlayers
       .filter((p) => p.clubId !== playerClubId)
-      .sort((a, b) => b.marketValue - a.marketValue);
-    const pool = [
-      ...others.filter((p) => scoutedIds.has(p.id)),
-      ...others.filter((p) => !scoutedIds.has(p.id)).slice(0, TARGET_CAP),
-    ];
+      .sort((a, b) => b.marketValue - a.marketValue)
+      .slice(0, TARGET_CAP);
     setTargets(pool);
-    setRows(scoutingRows);
-  }, [dbHandle, playerClubId, saveId]);
+    setMissions(active);
 
-  useFocusEffect(
-    useCallback(() => {
-      load();
-    }, [load, week]),
-  );
+    const fixture = await getNextFixtureForClub(dbHandle, saveId, playerClubId, season);
+    if (fixture) {
+      const oppId = fixture.homeClubId === playerClubId ? fixture.awayClubId : fixture.homeClubId;
+      const opp = await getClubById(dbHandle, saveId, oppId);
+      setNextOpponent(opp ? { id: opp.id, name: opp.name } : null);
+    } else {
+      setNextOpponent(null);
+    }
+  }, [dbHandle, playerClubId, saveId, season]);
 
-  const rowByPlayer = new Map(rows.map((r) => [r.playerId, r]));
-  const assignedScoutIds = new Set(rows.filter((r) => r.scoutId != null).map((r) => r.scoutId!));
-  const idleScouts = scouts.filter((s) => !assignedScoutIds.has(s.id));
-  const bestIdleScout = idleScouts.reduce<Staff | null>(
-    (best, s) => (best == null || s.ability > best.ability ? s : best),
-    null,
-  );
+  useFocusEffect(useCallback(() => { load(); }, [load, week]));
 
-  async function handleAssign(playerId: number) {
-    if (!dbHandle || saveId == null || bestIdleScout == null) return;
-    await assignScout(dbHandle, saveId, playerId, bestIdleScout.id);
+  const missionByScout = new Map(missions.map((m) => [m.scoutId, m]));
+  const targetName = (id: number): string => targets.find((p) => p.id === id)?.name ?? `#${id}`;
+
+  function openAssign(scout: Staff) {
+    setAssigning(scout);
+    setPickType(null);
+  }
+
+  async function commitMission(type: MissionType, targetPlayerId: number | null) {
+    if (!dbHandle || saveId == null || assigning == null) return;
+    const targetClubId = type === 'opponent_intel' ? nextOpponent?.id ?? null : null;
+    await createMission(dbHandle, saveId, {
+      scoutId: assigning.id, type, targetPlayerId, targetClubId,
+      regionCode: null, createdSeason: season, createdWeek: week,
+    });
+    setAssigning(null);
+    setPickType(null);
+    setToast({ title: t('scouting.mission_assigned'), tone: 'success' });
     await load();
   }
 
-  async function handleUnassign(playerId: number) {
+  async function handleCancel(m: ScoutMissionDto, scoutName: string) {
     if (!dbHandle || saveId == null) return;
-    await unassignScout(dbHandle, saveId, playerId);
+    const ok = await confirm({
+      title: t('scouting.cancel_mission'),
+      message: t('scouting.confirm_cancel', { name: scoutName }),
+      tone: 'danger',
+    });
+    if (!ok) return;
+    await cancelMission(dbHandle, saveId, m.id);
+    setToast({ title: t('scouting.mission_canceled'), tone: 'info' });
     await load();
   }
-
-  const targetName = (playerId: number): string =>
-    targets.find((p) => p.id === playerId)?.name ?? `#${playerId}`;
 
   return (
     <ScrollView style={commonStyles.screen} contentContainerStyle={styles.container}>
       <View style={styles.header}>
-        <Headline style={styles.headerTitle}>{t('scouting.title')}</Headline>
-        <Caption color={colors.reportScout}>{t('scouting.subtitle')}</Caption>
+        <Headline style={styles.headerTitle}>{t('scouting.commission_title')}</Headline>
+        <Caption color={colors.reportScout}>{t('scouting.commission_sub')}</Caption>
       </View>
 
-      {/* Scouts */}
-      <Label color={colors.textMuted} style={styles.sectionTitle}>{t('scouting.scouts_section')}</Label>
       {scouts.length === 0 && (
         <Card variant="summary" style={styles.emptyCard}>
           <Body color={colors.textMuted}>{t('scouting.no_scouts')}</Body>
         </Card>
       )}
+
       {scouts.map((s) => {
-        const target = rows.find((r) => r.scoutId === s.id);
+        const m = missionByScout.get(s.id);
+        const def = m ? MISSION_DEFS[m.type] : null;
+        const weeksLeft = m && def ? Math.max(0, def.durationWeeks - m.weeksElapsed) : 0;
+        const progressPct = def ? Math.min(100, Math.round((m!.weeksElapsed / def.durationWeeks) * 100)) : 0;
         return (
           <Card key={s.id} variant="detail" style={styles.scoutCard}>
-            <View style={styles.scoutLeft}>
-              <Body style={styles.scoutName}>{s.name}</Body>
-              <AbilityStars ability={s.ability} />
+            <View style={styles.scoutTop}>
+              <View style={styles.scoutInfo}>
+                <Body style={styles.scoutName}>{s.name}</Body>
+                <AbilityStars ability={s.ability} />
+                {s.archetype && (
+                  <Badge tone="accent" accent={accent.accent} value={t(ARCHETYPE_KEY[s.archetype])} size="sm" />
+                )}
+              </View>
+              {m == null ? (
+                <Button
+                  label={t('scouting.assign_mission')}
+                  variant="primary"
+                  accent={accent.accent}
+                  onPress={() => openAssign(s)}
+                  testID={`scout-assign-mission-${s.id}`}
+                  accessibilityLabel={t('scouting.assign_mission')}
+                />
+              ) : (
+                <Button
+                  label={t('scouting.cancel_mission')}
+                  variant="secondary"
+                  onPress={() => handleCancel(m, s.name)}
+                  testID={`scout-cancel-mission-${s.id}`}
+                  accessibilityLabel={t('scouting.cancel_mission')}
+                />
+              )}
             </View>
-            <Caption color={colors.textSecondary} style={styles.scoutStatus}>
-              {target
-                ? t('scouting.watching', { name: targetName(target.playerId) })
-                : t('scouting.idle')}
-            </Caption>
+
+            {m && def && (
+              <View style={styles.missionRow}>
+                <Label color={colors.reportScout}>{t(MISSION_KEY[m.type])}</Label>
+                <View style={styles.barContainer}>
+                  <View style={[styles.barFill, { width: `${progressPct}%` as `${number}%`, backgroundColor: accent.accent }]} />
+                </View>
+                <Caption color={colors.textSecondary}>{t('scouting.weeks_left', { n: weeksLeft })}</Caption>
+              </View>
+            )}
           </Card>
         );
       })}
 
-      {/* Targets */}
-      <Label color={colors.textMuted} style={styles.sectionTitle}>{t('scouting.targets_section')}</Label>
-      {targets.length === 0 && (
-        <Card variant="summary" style={styles.emptyCard}>
-          <Body color={colors.textMuted}>{t('scouting.no_targets')}</Body>
-        </Card>
-      )}
-      {targets.map((p) => {
-        const row = rowByPlayer.get(p.id);
-        const knowledge = row?.knowledge ?? 0;
-        const tier = knowledgeTier(knowledge);
-        const isScouted = row?.scoutId != null;
-        return (
-          <Card key={p.id} variant="detail" style={styles.targetCard}>
-            <View style={styles.targetTop}>
-              <View style={styles.targetInfo}>
-                <Body style={styles.targetName}>{p.name}</Body>
-                <Caption color={colors.textSecondary}>
-                  {t('scouting.target_meta', { position: p.position, age: p.age })}
-                </Caption>
-              </View>
-              {isScouted ? (
-                <Button
-                  label={t('scouting.unassign')}
-                  variant="secondary"
-                  onPress={() => handleUnassign(p.id)}
-                  testID={`scout-unassign-${p.id}`}
-                  accessibilityLabel={t('scouting.unassign')}
+      <Sheet visible={assigning != null} onClose={() => setAssigning(null)} testID="assign-mission-sheet">
+        {assigning && (
+          <View>
+            <Label color={colors.textMuted} style={styles.sheetTitle}>{t('scouting.select_mission_type')}</Label>
+            <View style={styles.chipRow}>
+              {(Object.keys(MISSION_DEFS) as MissionType[]).map((type) => (
+                <Chip
+                  key={type}
+                  label={t(MISSION_KEY[type])}
+                  selected={pickType === type}
+                  onPress={() => setPickType(type)}
+                  accent={accent.accent}
+                  testID={`mission-type-${type}`}
                 />
-              ) : (
+              ))}
+            </View>
+
+            {pickType != null && PLAYER_TARGET_TYPES.has(pickType) && (
+              <>
+                <Label color={colors.textMuted} style={styles.sheetTitle}>{t('scouting.select_target')}</Label>
+                <ScrollView style={styles.targetScroll}>
+                  {targets.map((p) => (
+                    <Pressable
+                      key={p.id}
+                      style={styles.targetPick}
+                      onPress={() => commitMission(pickType, p.id)}
+                      testID={`mission-target-${p.id}`}
+                    >
+                      <Body>{p.name}</Body>
+                      <Caption color={colors.textSecondary}>{p.position} · {p.age}</Caption>
+                    </Pressable>
+                  ))}
+                </ScrollView>
+              </>
+            )}
+
+            {pickType === 'opponent_intel' && (
+              <View style={styles.confirmTarget}>
+                <Caption color={colors.textSecondary}>{t('scouting.next_opponent')}</Caption>
+                <Body style={styles.opponentName}>{nextOpponent?.name ?? t('scouting.no_next_opponent')}</Body>
                 <Button
-                  label={bestIdleScout == null ? t('scouting.no_idle_scout') : t('scouting.assign')}
+                  label={t('scouting.assign_mission')}
                   variant="primary"
                   accent={accent.accent}
-                  disabled={bestIdleScout == null}
-                  onPress={() => handleAssign(p.id)}
-                  testID={`scout-assign-${p.id}`}
-                  accessibilityLabel={t('scouting.assign')}
-                />
-              )}
-            </View>
-            <View style={styles.knowledgeRow}>
-              <View style={styles.barContainer}>
-                <View
-                  style={[
-                    styles.barFill,
-                    { width: `${knowledge}%` as `${number}%`, backgroundColor: TIER_COLOR[tier] },
-                  ]}
+                  disabled={nextOpponent == null}
+                  onPress={() => commitMission('opponent_intel', null)}
+                  testID="mission-confirm-intel"
+                  accessibilityLabel={t('scouting.assign_mission')}
                 />
               </View>
-              <Label color={TIER_COLOR[tier]} style={styles.tierLabel}>
-                {t(TIER_KEY[tier])} · {knowledge}%
-              </Label>
-            </View>
-          </Card>
-        );
-      })}
+            )}
+
+            {pickType === 'youth_prospect' && (
+              <View style={styles.confirmTarget}>
+                <Button
+                  label={t('scouting.assign_mission')}
+                  variant="primary"
+                  accent={accent.accent}
+                  onPress={() => commitMission('youth_prospect', null)}
+                  testID="mission-confirm-youth"
+                  accessibilityLabel={t('scouting.assign_mission')}
+                />
+              </View>
+            )}
+          </View>
+        )}
+      </Sheet>
+
+      {toast && (
+        <Toast title={toast.title} tone={toast.tone} onDismiss={() => setToast(null)} testID="scouting-toast" />
+      )}
     </ScrollView>
   );
 }
@@ -214,44 +278,16 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   headerTitle: { fontWeight: 'bold' },
-  sectionTitle: {
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-    marginHorizontal: spacing.md,
-    marginTop: spacing.md,
-    marginBottom: spacing.sm,
-  },
-  emptyCard: {
-    alignItems: 'center',
-    marginHorizontal: spacing.md,
-  },
-  scoutCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginHorizontal: spacing.md,
-    marginBottom: spacing.xs,
-  },
-  scoutLeft: { flex: 1 },
-  scoutName: { fontWeight: '600', marginBottom: spacing.xxs },
-  scoutStatus: { marginLeft: spacing.sm },
+  emptyCard: { alignItems: 'center', marginHorizontal: spacing.md },
+  scoutCard: { marginHorizontal: spacing.md, marginBottom: spacing.xs },
+  scoutTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  scoutInfo: { flex: 1, marginRight: spacing.sm, gap: spacing.xxs },
+  scoutName: { fontWeight: '600' },
   starsRow: { flexDirection: 'row', gap: spacing.xxs },
   star: { fontSize: fontSize.sm },
   starFilled: { color: colors.gold },
   starEmpty: { color: colors.border },
-  targetCard: {
-    marginHorizontal: spacing.md,
-    marginBottom: spacing.xs,
-  },
-  targetTop: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: spacing.sm,
-  },
-  targetInfo: { flex: 1, marginRight: spacing.sm },
-  targetName: { fontWeight: '600' },
-  knowledgeRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  missionRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.sm },
   barContainer: {
     flex: 1,
     height: 6,
@@ -260,5 +296,22 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   barFill: { height: '100%', borderRadius: radius.sm },
-  tierLabel: { minWidth: 96, textAlign: 'right' },
+  sheetTitle: {
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    marginTop: spacing.sm,
+    marginBottom: spacing.xs,
+  },
+  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs },
+  targetScroll: { maxHeight: 240 },
+  targetPick: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  confirmTarget: { marginTop: spacing.md, gap: spacing.sm },
+  opponentName: { fontWeight: '600' },
 });
