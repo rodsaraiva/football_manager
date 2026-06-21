@@ -1170,4 +1170,22 @@ export const pt = {
   // D3 kit de componentes
   'kit.confirm_default': 'Confirmar',
   'kit.cancel': 'Cancelar',
+
+  // D7 acessibilidade + settings
+  'nav.settings': 'Configurações',
+  'settings.title': 'Configurações',
+  'settings.language': 'Idioma',
+  'settings.reduce_motion': 'Reduzir animações',
+  'settings.reduce_motion_desc': 'Desliga transições e efeitos de movimento.',
+  'settings.haptics': 'Vibração',
+  'settings.haptics_desc': 'Feedback tátil em ações e celebrações.',
+  'settings.font_scale': 'Tamanho da fonte',
+  'settings.font_scale_small': 'Pequeno',
+  'settings.font_scale_medium': 'Médio',
+  'settings.font_scale_large': 'Grande',
+  'settings.difficulty': 'Dificuldade padrão',
+  'settings.difficulty_desc': 'Aplica-se a novos jogos. Não altera saves existentes.',
+  'settings.difficulty_easy': 'Fácil',
+  'settings.difficulty_normal': 'Normal',
+  'settings.difficulty_hard': 'Difícil',
 } as const;

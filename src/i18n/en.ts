@@ -1172,4 +1172,22 @@ export const en: Record<keyof typeof pt, string> = {
   // D3 component kit
   'kit.confirm_default': 'Confirm',
   'kit.cancel': 'Cancel',
+
+  // D7 accessibility + settings
+  'nav.settings': 'Settings',
+  'settings.title': 'Settings',
+  'settings.language': 'Language',
+  'settings.reduce_motion': 'Reduce motion',
+  'settings.reduce_motion_desc': 'Turns off transitions and motion effects.',
+  'settings.haptics': 'Haptics',
+  'settings.haptics_desc': 'Tactile feedback on actions and celebrations.',
+  'settings.font_scale': 'Font size',
+  'settings.font_scale_small': 'Small',
+  'settings.font_scale_medium': 'Medium',
+  'settings.font_scale_large': 'Large',
+  'settings.difficulty': 'Default difficulty',
+  'settings.difficulty_desc': 'Applies to new games. Does not change existing saves.',
+  'settings.difficulty_easy': 'Easy',
+  'settings.difficulty_normal': 'Normal',
+  'settings.difficulty_hard': 'Hard',
 };
