@@ -31,6 +31,7 @@ import { insertAssistant } from '@/database/queries/assistants';
 import { SeededRng } from '@/engine/rng';
 import { AssistantRole } from '@/types/assistant';
 import { generateObjective } from '@/engine/board/objective-generator';
+import { bootstrapRivalries } from '@/engine/legacy/legacy-archiver';
 import { upsertBoardObjective } from '@/database/queries/board';
 import { useBoardStore } from '@/store/board-store';
 import { Card, Chip, Button, useConfirm } from '@/components/kit';
@@ -182,6 +183,9 @@ export function NewGameScreen() {
       // Seed THIS save's own world (clubs/players/staff/tactics with offset ids).
       await db.execAsync(generateWorldSeedSQLForSave(seedData, saveId));
       await db.execAsync('PRAGMA foreign_keys = ON;');
+
+      // C1: seed rivalries once per save (deterministic by saveId), now that clubs exist.
+      await bootstrapRivalries(dbHandle, saveId);
 
       startNewGame(saveId, playerClubId, 1, 1);
 

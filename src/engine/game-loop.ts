@@ -42,6 +42,9 @@ import { calculateWeeklyProgression } from './training/progression';
 import { Fixture, PlayerAttributes } from '@/types';
 import { archiveSeason } from './history/season-archiver';
 import { distributePrizeMoney } from './finance/rollover-economy';
+import { archiveLegacy } from './legacy/legacy-archiver';
+import { getRivalry } from '@/database/queries/legacy';
+import { deriveDerbyBonus } from './legacy/derby-bonus';
 import { retirePlayer } from '@/database/queries/players';
 import {
   detectCompulsoryRetirements,
@@ -303,7 +306,15 @@ export async function advanceGameWeek(params: AdvanceWeekParams): Promise<Advanc
   const simInputs: FixtureSimInput[] = fixtures
     .filter(f => !(useOverride && f.id === playerFixture!.id))
     .map(f => ({ fixtureId: f.id, homeClubId: f.homeClubId, awayClubId: f.awayClubId }));
-  const simulated = simulateWeekFixtures({ fixtures: simInputs, clubData, rng });
+  // C1: derby atmosphere per fixture. getRivalry does not consume the rng and the
+  // fixture order is unchanged, so the match rng stream is identical when no rivalry
+  // exists (deriveDerbyBonus(null) ⇒ neutral).
+  const simInputsWithDerby: FixtureSimInput[] = [];
+  for (const f of simInputs) {
+    const rivalry = await getRivalry(db, saveId, f.homeClubId, f.awayClubId);
+    simInputsWithDerby.push({ ...f, derbyBonus: deriveDerbyBonus(rivalry?.intensity ?? null) });
+  }
+  const simulated = simulateWeekFixtures({ fixtures: simInputsWithDerby, clubData, rng });
   const resultByFixture = new Map(simulated.map(s => [s.fixtureId, s.result]));
   if (useOverride) {
     resultByFixture.set(playerFixture!.id, userMatchResultOverride!);
@@ -810,6 +821,9 @@ export async function advanceGameWeek(params: AdvanceWeekParams): Promise<Advanc
 
     const prizeAwards = await archiveSeason(db, saveId, season);
     await distributePrizeMoney(db, saveId, prizeAwards, season, week);
+    // C1: materialize hall-of-fame/records for the player's club and reinforce
+    // rivalries from this season's head-to-heads.
+    await archiveLegacy(db, saveId, season, playerClubId);
   }
   const newWeek = isSeasonEnd ? 1 : week + 1;
   const newSeason = isSeasonEnd ? season + 1 : season;
