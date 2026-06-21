@@ -1,21 +1,28 @@
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
-import { colors, commonStyles, fontSize, spacing } from '@/theme';
+import { StyleSheet, View } from 'react-native';
+import { colors, spacing, commonStyles } from '@/theme';
+import { useClubAccent } from '@/theme/useClubAccent';
 import { useTranslation } from '@/i18n';
+import { EmptyState } from '@/components/kit';
+import { Title, Body } from '@/components/typography';
 
 export function YouthAcademyScreen() {
   const { t } = useTranslation();
+  const accent = useClubAccent();
   return (
     <View style={commonStyles.screen}>
       <View style={styles.header}>
-        <Text style={styles.title}>{t('youth.title')}</Text>
-        <Text style={styles.subtitle}>{t('youth.subtitle')}</Text>
+        <Title style={styles.title}>{t('youth.title')}</Title>
+        <Body color={colors.textSecondary}>{t('youth.subtitle')}</Body>
       </View>
 
-      <View style={styles.emptyContainer}>
-        <Text style={styles.emptyIcon}>🌱</Text>
-        <Text style={styles.emptyText}>{t('youth.empty')}</Text>
-        <Text style={styles.emptyHint}>{t('youth.empty_hint')}</Text>
+      <View style={styles.body}>
+        <EmptyState
+          art="squad"
+          title={t('youth.empty')}
+          description={t('youth.empty_hint')}
+          accent={accent.accent}
+        />
       </View>
     </View>
   );
@@ -28,35 +35,10 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.border,
   },
   title: {
-    color: colors.text,
-    fontSize: fontSize.xl,
-    fontWeight: 'bold',
     marginBottom: spacing.xs,
   },
-  subtitle: {
-    color: colors.textSecondary,
-    fontSize: fontSize.sm,
-  },
-  emptyContainer: {
+  body: {
     flex: 1,
-    alignItems: 'center',
     justifyContent: 'center',
-    padding: spacing.xl,
-  },
-  emptyIcon: {
-    fontSize: 48,
-    marginBottom: spacing.md,
-  },
-  emptyText: {
-    color: colors.text,
-    fontSize: fontSize.lg,
-    fontWeight: '600',
-    marginBottom: spacing.sm,
-    textAlign: 'center',
-  },
-  emptyHint: {
-    color: colors.textMuted,
-    fontSize: fontSize.sm,
-    textAlign: 'center',
   },
 });
