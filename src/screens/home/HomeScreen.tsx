@@ -15,6 +15,7 @@ import { colors, alpha, spacing, fontSize, radius, commonStyles } from '@/theme'
 import { ClubBanner } from '@/components/ClubBanner';
 import { useTranslation, objectiveDescriptor } from '@/i18n';
 import { useGameStore } from '@/store/game-store';
+import { useCelebrationStore } from '@/store/celebration-store';
 import { useDatabaseStore } from '@/store/database-store';
 import { useBoardStore } from '@/store/board-store';
 import { useAssistantStore } from '@/store/assistant-store';
@@ -23,7 +24,7 @@ import { RootStackParamList } from '@/navigation/types';
 import { SeededRng } from '@/engine/rng';
 import { getFixturesByWeek, getFixturesByClub } from '@/database/queries/fixtures';
 import { getClubById } from '@/database/queries/clubs';
-import { getPlayerById, getPlayersByClub, getPlayersAboutToRetire } from '@/database/queries/players';
+import { getPlayerById, getPlayersByClub, getPlayersWithAttributesByClub, getPlayersAboutToRetire } from '@/database/queries/players';
 import { getActiveTactic } from '@/database/queries/tactics';
 import { getBoardObjective, getSaveBoardTrust, getReputationHistory } from '@/database/queries/board';
 import { advanceGameWeek } from '@/engine/game-loop';
@@ -297,6 +298,13 @@ export function HomeScreen() {
         }
       }
 
+      // D6: snapshot squad overalls pré-avanço p/ detectar evolução (overall↑) sem
+      // tocar a engine — a comparação é puramente de leitura no call-site.
+      const squadBefore = await getPlayersWithAttributesByClub(dbHandle, currentSave.id, playerClubId);
+      const overallBefore = new Map<number, number>(
+        squadBefore.map((p) => [p.id, calculateOverall(p.attributes, p.position)]),
+      );
+
       const rng = new SeededRng(season * 1000 + week);
       const result = await advanceGameWeek({
         dbHandle,
@@ -308,6 +316,25 @@ export function HomeScreen() {
       });
 
       updateWeek(result.newSeason, result.newWeek);
+
+      // D6: maior evolução de overall do elenco vira uma micro-celebração.
+      const squadAfter = await getPlayersWithAttributesByClub(dbHandle, currentSave.id, playerClubId);
+      let topRise: { name: string; delta: number } | null = null;
+      for (const p of squadAfter) {
+        const before = overallBefore.get(p.id);
+        if (before === undefined) continue;
+        const delta = calculateOverall(p.attributes, p.position) - before;
+        if (delta > 0 && (!topRise || delta > topRise.delta)) {
+          topRise = { name: p.name, delta };
+        }
+      }
+      if (topRise) {
+        useCelebrationStore.getState().push({
+          kind: 'overall_up',
+          titleKey: 'celebration.overall_up',
+          detail: `${topRise.name} +${topRise.delta}`,
+        });
+      }
       if (result.playerMatchResult) {
         autoShowResultRef.current = true;
         setLastMatchResult(result.playerMatchResult);

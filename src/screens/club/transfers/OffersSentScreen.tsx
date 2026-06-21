@@ -15,6 +15,7 @@ import { useTranslation } from '@/i18n';
 import type { TKey } from '@/i18n/translate';
 import { useGameStore } from '@/store/game-store';
 import { useDatabaseStore } from '@/store/database-store';
+import { useCelebrationStore } from '@/store/celebration-store';
 import {
   getOffersByOfferingClub,
   updateOfferStatus,
@@ -110,6 +111,11 @@ export function OffersSentScreen() {
               if (!res.success) {
                 Alert.alert(t('offers.unable_accept'), res.reason ?? t('transfer.unknown_error'));
               } else {
+                useCelebrationStore.getState().push({
+                  kind: 'transfer',
+                  titleKey: 'celebration.transfer',
+                  detail: row.playerName,
+                });
                 Alert.alert(t('offers.deal_closed'), t('transfer.signed_msg', { name: row.playerName }));
               }
               await load();

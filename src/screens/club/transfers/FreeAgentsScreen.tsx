@@ -17,6 +17,7 @@ import { useTranslation } from '@/i18n';
 import { getPositionColor, getOverallColor } from '@/utils/player-colors';
 import { useGameStore } from '@/store/game-store';
 import { useDatabaseStore } from '@/store/database-store';
+import { useCelebrationStore } from '@/store/celebration-store';
 import { getFreeAgents, getPlayerById } from '@/database/queries/players';
 import {
   signFreeAgent,
@@ -123,6 +124,11 @@ export function FreeAgentsScreen() {
       week,
     });
     if (res.success) {
+      useCelebrationStore.getState().push({
+        kind: 'transfer',
+        titleKey: 'celebration.transfer',
+        detail: selected.name,
+      });
       Alert.alert(t('transfer.signed_title'), t('transfer.signed_msg', { name: selected.name }));
       handleCloseSign();
       load();
