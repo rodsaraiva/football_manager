@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator, RefreshControl, Pressable } from 'react-native';
+import { View, StyleSheet, ScrollView, ActivityIndicator, RefreshControl, Pressable } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { colors, spacing, fontSize, radius, commonStyles } from '@/theme';
+import { colors, spacing, radius, commonStyles } from '@/theme';
 import { SectionCard } from '@/components/SectionCard';
-import { EmptyState } from '@/components/EmptyState';
-import { ValueBadge } from '@/components/ValueBadge';
+import { EmptyState, Chip, Icon } from '@/components/kit';
+import type { IconName } from '@/components/kit';
+import { Body, Label, Caption, Stat } from '@/components/typography';
 import { useGameStore } from '@/store/game-store';
 import { useDatabaseStore } from '@/store/database-store';
 import { getPlayersWithAttributesByClub } from '@/database/queries/players';
@@ -121,7 +122,7 @@ export function ReportsYouthScreen() {
   if (!report || report.topProspects.length === 0) {
     return (
       <View style={[commonStyles.screen, styles.center]}>
-        <EmptyState icon="🌱" title={t('report.youth_empty_squad', { limit: U21_AGE_LIMIT })} />
+        <EmptyState art="squad" title={t('report.youth_empty_squad', { limit: U21_AGE_LIMIT })} />
       </View>
     );
   }
@@ -145,22 +146,19 @@ export function ReportsYouthScreen() {
       }
     >
       <View style={styles.header}>
-        <Text style={styles.headerIntro}>
+        <Body color={colors.textSecondary} style={styles.headerIntro}>
           {t('report.youth_intro', { limit: U21_AGE_LIMIT })}
-        </Text>
+        </Body>
         <View style={styles.filterRow}>
           {FILTER_ORDER.map((opt) => (
-            <Pressable
+            <Chip
               key={opt}
+              label={filterLabel(opt, t)}
+              selected={filter === opt}
               onPress={() => setFilter(opt)}
-              style={[styles.filterChip, filter === opt && styles.filterChipActive]}
-            >
-              <Text
-                style={[styles.filterChipText, filter === opt && styles.filterChipTextActive]}
-              >
-                {filterLabel(opt, t)}
-              </Text>
-            </Pressable>
+              accent={colors.reportYouth}
+              testID={`youth-filter-${opt}`}
+            />
           ))}
         </View>
       </View>
@@ -172,6 +170,9 @@ export function ReportsYouthScreen() {
               key={it.player.id}
               onPress={() => navigation.navigate('PlayerDetail', { playerId: it.player.id })}
               style={({ pressed }) => pressed && { opacity: 0.6 }}
+              accessibilityRole="button"
+              accessibilityLabel={it.player.name}
+              testID={`youth-prospect-${it.player.id}`}
             >
               <YouthCard item={it} ready={isReady(it)} />
             </Pressable>
@@ -179,7 +180,7 @@ export function ReportsYouthScreen() {
         </Section>
       ) : (
         <SectionCard title={t('report.youth_section_prospects')}>
-          <EmptyState icon="🌱" title={t('report.youth_empty_position')} />
+          <EmptyState art="squad" title={t('report.youth_empty_position')} />
         </SectionCard>
       )}
 
@@ -237,54 +238,50 @@ function YouthCard({ item, ready = false }: { item: YouthListItem; ready?: boole
     <View style={styles.youthCard}>
       <View style={styles.youthHeader}>
         <View style={styles.youthHeaderLeft}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs }}>
-            <Text style={styles.youthName}>{player.name}</Text>
+          <View style={styles.nameRow}>
+            <Body style={styles.youthName}>{player.name}</Body>
             {ready ? (
               <View style={styles.readyBadge}>
-                <Text style={styles.readyBadgeText}>{t('report.youth_badge_ready')}</Text>
+                <Caption style={styles.readyBadgeText}>{t('report.youth_badge_ready')}</Caption>
               </View>
             ) : (
               <View style={styles.promiseBadge}>
-                <Text style={styles.promiseBadgeText}>{t('report.youth_badge_promise')}</Text>
+                <Caption style={styles.promiseBadgeText}>{t('report.youth_badge_promise')}</Caption>
               </View>
             )}
           </View>
-          <Text style={styles.youthMeta}>
+          <Caption color={colors.textSecondary}>
             {t('report.youth_pos_age', { position: player.position, age: player.age })}
-          </Text>
+          </Caption>
         </View>
         <View style={styles.youthBadges}>
-          <Badge label="OVR" value={player.overall} color={colors.primary} />
-          <Badge label="POT" value={player.effectivePotential} color={colors.gold} />
+          <AttrBadge label="OVR" value={player.overall} color={colors.primary} />
+          <AttrBadge label="POT" value={player.effectivePotential} color={colors.gold} />
         </View>
       </View>
 
       <View style={styles.youthStats}>
-        <StatChip icon="⚽" label={`${form.goals}G ${form.assists}A`} />
-        <StatChip icon="🏟️" label={t('report.youth_stat_games', { count: form.appearances })} />
+        <StatChip icon="goal" label={`${form.goals}G ${form.assists}A`} />
+        <StatChip icon="squad" label={t('report.youth_stat_games', { count: form.appearances })} />
         {form.appearances > 0 && (
-          <StatChip icon="📊" label={t('report.youth_stat_rating', { rating: form.avgRating.toFixed(1) })} />
+          <StatChip icon="chart" label={t('report.youth_stat_rating', { rating: form.avgRating.toFixed(1) })} />
         )}
-        <StatChip icon="📈" label={t('report.youth_stat_gap', { gap: potentialGap })} />
+        <StatChip icon="target" label={t('report.youth_stat_gap', { gap: potentialGap })} />
       </View>
 
       {starterComparison && (
-        <Text style={styles.comparisonText}>
+        <Caption color={colors.textSecondary} style={styles.comparisonText}>
           {t('report.youth_starter_label')}{' '}
-          <Text style={styles.comparisonBold}>{starterComparison.starterName}</Text>{' '}
+          <Caption color={colors.text} style={styles.comparisonBold}>{starterComparison.starterName}</Caption>{' '}
           (OVR {starterComparison.starterOverall}){' '}
-          <Text
-            style={{
-              color: starterComparison.overallDelta >= 0 ? colors.success : colors.warning,
-            }}
-          >
+          <Caption color={starterComparison.overallDelta >= 0 ? colors.success : colors.warning}>
             ({starterComparison.overallDelta >= 0 ? '+' : ''}
             {starterComparison.overallDelta})
-          </Text>
-        </Text>
+          </Caption>
+        </Caption>
       )}
 
-      <Text style={styles.insight}>{insight}</Text>
+      <Caption color={colors.textSecondary} style={styles.insight}>{insight}</Caption>
     </View>
   );
 }
@@ -294,40 +291,38 @@ function CompactRow({ item, showGap = false }: { item: YouthListItem; showGap?: 
   return (
     <View style={styles.compactRow}>
       <View style={styles.compactLeft}>
-        <Text style={styles.compactName}>{item.player.name}</Text>
-        <Text style={styles.compactMeta}>
+        <Body style={styles.compactName}>{item.player.name}</Body>
+        <Caption color={colors.textSecondary}>
           {t('report.youth_pos_age_ovr', {
             position: item.player.position,
             age: item.player.age,
             ovr: item.player.overall,
           })}
-        </Text>
+        </Caption>
       </View>
       {showGap && (
         <View style={[styles.gapBadge, { borderColor: colors.success }]}>
-          <Text style={[styles.gapText, { color: colors.success }]}>
-            +{item.potentialGap}
-          </Text>
+          <Label color={colors.success}>+{item.potentialGap}</Label>
         </View>
       )}
     </View>
   );
 }
 
-function Badge({ label, value, color }: { label: string; value: number; color: string }) {
+function AttrBadge({ label, value, color }: { label: string; value: number; color: string }) {
   return (
     <View style={[styles.badge, { borderColor: color }]}>
-      <Text style={styles.badgeLabel}>{label}</Text>
-      <Text style={[styles.badgeValue, { color }]}>{value}</Text>
+      <Caption style={styles.badgeLabel}>{label}</Caption>
+      <Stat color={color} style={styles.badgeValue}>{value}</Stat>
     </View>
   );
 }
 
-function StatChip({ icon, label }: { icon: string; label: string }) {
+function StatChip({ icon, label }: { icon: IconName; label: string }) {
   return (
     <View style={styles.chip}>
-      <Text style={styles.chipIcon}>{icon}</Text>
-      <Text style={styles.chipLabel}>{label}</Text>
+      <Icon name={icon} size={12} color={colors.textSecondary} />
+      <Label color={colors.textSecondary}>{label}</Label>
     </View>
   );
 }
@@ -335,19 +330,14 @@ function StatChip({ icon, label }: { icon: string; label: string }) {
 const styles = StyleSheet.create({
   container: { paddingBottom: spacing.xl, paddingTop: spacing.sm },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing.lg },
-  subtitle: { color: colors.textMuted, fontSize: fontSize.md, textAlign: 'center' },
   header: { paddingHorizontal: spacing.md, paddingBottom: spacing.sm },
   headerIntro: {
-    color: colors.textSecondary,
-    fontSize: fontSize.sm,
     fontStyle: 'italic',
   },
 
-  sectionBody: { gap: spacing.sm },
-
   youthCard: {
     backgroundColor: colors.surfaceLight,
-    borderRadius: 10,
+    borderRadius: radius.md,
     padding: spacing.sm,
     borderWidth: 1,
     borderColor: colors.border,
@@ -358,24 +348,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   youthHeaderLeft: { flex: 1 },
-  youthName: { color: colors.text, fontSize: fontSize.md, fontWeight: '700' },
-  youthMeta: { color: colors.textSecondary, fontSize: fontSize.sm, marginTop: spacing.xxs },
+  nameRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
+  youthName: { fontWeight: '700' },
   youthBadges: { flexDirection: 'row', gap: spacing.xs },
   badge: {
     borderWidth: 2,
-    borderRadius: 6,
+    borderRadius: radius.md,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xxs,
     alignItems: 'center',
     minWidth: 42,
   },
   badgeLabel: {
-    color: colors.textMuted,
-    fontSize: 9,
     letterSpacing: 1,
   },
   badgeValue: {
-    fontSize: fontSize.md,
     fontWeight: '700',
   },
   youthStats: {
@@ -390,29 +377,18 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
-    borderRadius: 14,
+    borderRadius: radius.pill,
     borderWidth: 1,
     borderColor: colors.border,
     gap: spacing.xs,
   },
-  chipIcon: { fontSize: fontSize.sm },
-  chipLabel: {
-    color: colors.textSecondary,
-    fontSize: fontSize.xs,
-    fontWeight: '600',
-  },
   comparisonText: {
-    color: colors.textSecondary,
-    fontSize: fontSize.sm,
     marginTop: spacing.sm,
   },
   comparisonBold: {
-    color: colors.text,
     fontWeight: '600',
   },
   insight: {
-    color: colors.textSecondary,
-    fontSize: fontSize.sm,
     marginTop: spacing.xs,
     fontStyle: 'italic',
   },
@@ -423,17 +399,12 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xs,
   },
   compactLeft: { flex: 1 },
-  compactName: { color: colors.text, fontSize: fontSize.md, fontWeight: '600' },
-  compactMeta: { color: colors.textSecondary, fontSize: fontSize.sm, marginTop: spacing.xxs },
+  compactName: { fontWeight: '600' },
   gapBadge: {
     borderWidth: 2,
-    borderRadius: 6,
+    borderRadius: radius.md,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xxs,
-  },
-  gapText: {
-    fontSize: fontSize.sm,
-    fontWeight: '700',
   },
   filterRow: {
     flexDirection: 'row',
@@ -441,35 +412,14 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
     flexWrap: 'wrap',
   },
-  filterChip: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
-  },
-  filterChipActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  filterChipText: {
-    color: colors.textSecondary,
-    fontSize: fontSize.xs,
-    fontWeight: '600',
-  },
-  filterChipTextActive: {
-    color: colors.text,
-  },
   readyBadge: {
     backgroundColor: colors.success,
-    paddingHorizontal: 6,
+    paddingHorizontal: spacing.xs,
     paddingVertical: 1,
     borderRadius: radius.sm,
   },
   readyBadgeText: {
     color: colors.text,
-    fontSize: 9,
     fontWeight: '700',
     letterSpacing: 0.5,
   },
@@ -477,13 +427,12 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.gold,
-    paddingHorizontal: 6,
+    paddingHorizontal: spacing.xs,
     paddingVertical: 1,
     borderRadius: radius.sm,
   },
   promiseBadgeText: {
     color: colors.gold,
-    fontSize: 9,
     fontWeight: '700',
     letterSpacing: 0.5,
   },
