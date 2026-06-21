@@ -29,6 +29,9 @@ export interface MatchInput {
   attendance?: number; // #9: for home advantage scaling
   homeSetPieceTakers?: SetPieceTakers; // P7
   awaySetPieceTakers?: SetPieceTakers; // P7
+  // C1: derby atmosphere. Absent/neutral (atmosphereMult === 1) ⇒ byte-for-byte
+  // identical to the legacy path, so non-derby fixtures are unaffected.
+  derbyBonus?: { atmosphereMult: number; homeMoraleBonus: number; awayMoraleBonus: number };
   rng: SeededRng;
 }
 
@@ -369,7 +372,9 @@ export function simulateFirstHalf(input: MatchInput): HalftimeState {
   const attendanceForAdv = input.attendance ?? Math.round(
     (input.homeClubReputation + input.awayClubReputation) / 2 * 500 + 10000,
   );
-  const homeAdv = homeAdvantageMultiplier(attendanceForAdv);
+  const baseHomeAdv = homeAdvantageMultiplier(attendanceForAdv);
+  // C1: derby atmosphere amplifies home advantage. Neutral (mult 1) ⇒ unchanged.
+  const homeAdv = baseHomeAdv * (input.derbyBonus?.atmosphereMult ?? 1);
 
   const home = makeTeam(homeSquad, homeBench, homeTactic, true, homeAdv, input.homeSetPieceTakers);
   const away = makeTeam(awaySquad, awayBench, awayTactic, false, homeAdv, input.awaySetPieceTakers);
