@@ -845,6 +845,7 @@ export const pt = {
   'tactics.saving': 'Salvando…',
   'tactics.save_settings': 'Salvar Configurações',
   'playerdetail.back': '← Voltar ao Elenco',
+  'playerdetail.compare_attributes': 'Comparar atributos',
   'playerdetail.not_found': 'Jogador não encontrado',
   'playerdetail.preferred_foot': 'Pé Preferido',
   'playerdetail.foot_left': 'Esquerdo',

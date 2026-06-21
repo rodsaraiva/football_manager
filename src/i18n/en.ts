@@ -847,6 +847,7 @@ export const en: Record<keyof typeof pt, string> = {
   'tactics.saving': 'Saving…',
   'tactics.save_settings': 'Save Settings',
   'playerdetail.back': '← Back to Squad',
+  'playerdetail.compare_attributes': 'Compare attributes',
   'playerdetail.not_found': 'Player not found',
   'playerdetail.preferred_foot': 'Preferred Foot',
   'playerdetail.foot_left': 'Left',
