@@ -15,14 +15,14 @@ import { TabParamList } from './types';
 const Tab = createBottomTabNavigator<TabParamList>();
 
 export function TabNavigator() {
-  const { accent } = useClubAccent();
+  const { accent, accentDim } = useClubAccent();
   const { t } = useTranslation();
   const unreadNews = useGameStore((s) => s.unreadNewsCount);
   return (
     <Tab.Navigator screenOptions={{
       headerStyle: { backgroundColor: colors.surface },
       headerTintColor: colors.text,
-      tabBarStyle: { backgroundColor: colors.surface, borderTopColor: colors.border },
+      tabBarStyle: { backgroundColor: colors.surface, borderTopColor: accentDim, borderTopWidth: 2 },
       tabBarActiveTintColor: accent,
       tabBarInactiveTintColor: colors.textMuted,
     }}>
