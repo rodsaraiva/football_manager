@@ -1,3 +1,5 @@
+import type { ScoutArchetype } from '@/engine/scouting/scout-archetypes';
+
 export type StaffRole = 'scout' | 'physio' | 'assistant' | 'youth_coach' | 'fitness_coach';
 
 export interface Staff {
@@ -8,6 +10,7 @@ export interface Staff {
   ability: number;
   wage: number;
   contractEnd: number;
+  archetype?: ScoutArchetype;
 }
 
 export interface StaffCandidate {
@@ -15,4 +18,5 @@ export interface StaffCandidate {
   role: StaffRole;
   ability: number;
   wage: number;
+  archetype?: ScoutArchetype;
 }
