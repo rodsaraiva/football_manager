@@ -415,7 +415,7 @@ const styles = StyleSheet.create({
   readyBadge: {
     backgroundColor: colors.success,
     paddingHorizontal: spacing.xs,
-    paddingVertical: 1,
+    paddingVertical: spacing.xxs,
     borderRadius: radius.sm,
   },
   readyBadgeText: {
@@ -428,7 +428,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.gold,
     paddingHorizontal: spacing.xs,
-    paddingVertical: 1,
+    paddingVertical: spacing.xxs,
     borderRadius: radius.sm,
   },
   promiseBadgeText: {
