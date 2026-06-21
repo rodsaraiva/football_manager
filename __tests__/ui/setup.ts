@@ -26,9 +26,20 @@ jest.mock('@react-navigation/native', () => {
   };
 });
 
-// Silencia o aviso de act() do RN em testes de smoke.
-jest.spyOn(console, 'error').mockImplementation((msg?: unknown) => {
-  if (typeof msg === 'string' && msg.includes('not wrapped in act')) return;
-  // eslint-disable-next-line no-console
-  (console as unknown as { _error?: (m?: unknown) => void })._error?.(msg);
+// react-test-renderer/act exigem este flag para drenar effects assíncronos sem AggregateError.
+(globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+
+// Silencia ruído esperado em testes de smoke (act warnings + deprecation do test-renderer),
+// preservando erros reais no console.
+const realError = console.error.bind(console);
+jest.spyOn(console, 'error').mockImplementation((msg?: unknown, ...rest: unknown[]) => {
+  if (
+    typeof msg === 'string' &&
+    (msg.includes('not wrapped in act') ||
+      msg.includes('not configured to support act') ||
+      msg.includes('react-test-renderer is deprecated'))
+  ) {
+    return;
+  }
+  realError(msg, ...rest);
 });

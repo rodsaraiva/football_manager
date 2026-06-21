@@ -1,5 +1,5 @@
-import React from 'react';
-import TestRenderer, { ReactTestRenderer } from 'react-test-renderer';
+import React, { act } from 'react';
+import { createRoot, Root } from 'react-dom/client';
 import Database from 'better-sqlite3';
 import { createTestDb, seedTestDb, TEST_SAVE_ID } from '../database/test-helpers';
 import { DbHandle } from '@/database/queries/players';
@@ -32,22 +32,43 @@ export async function seedAndStartGame(): Promise<{ raw: Database.Database; db: 
   return { raw, db };
 }
 
-/** Renderiza um elemento; aguarda microtasks (effects que carregam dados do DB). */
-export async function renderWithRealDb(element: React.ReactElement): Promise<ReactTestRenderer> {
-  let tree!: ReactTestRenderer;
-  await TestRenderer.act(async () => {
-    tree = TestRenderer.create(element);
-  });
-  // drena os useEffect assíncronos (loaders das telas)
-  await TestRenderer.act(async () => { await Promise.resolve(); await Promise.resolve(); });
-  return tree;
+export interface RenderResult {
+  /** Container DOM (jsdom) com a árvore renderizada via react-native-web. */
+  container: HTMLElement;
+  /** Texto visível concatenado, para asserts de i18n. */
+  text: string;
+  /** HTML serializado, estável para snapshot (detector de drift). */
+  html: string;
+  unmount: () => void;
 }
 
-/** Coleta todo o texto renderizado (recursivo) para asserts de i18n. */
-export function collectText(json: unknown): string {
-  if (json == null) return '';
-  if (typeof json === 'string') return json;
-  if (Array.isArray(json)) return json.map(collectText).join(' ');
-  const node = json as { children?: unknown };
-  return collectText(node.children ?? '');
+/**
+ * Renderiza um elemento RN (via react-native-web) em jsdom com react-dom; aguarda os
+ * microtasks dos effects que carregam dados do DB real. NUNCA mocka store/DB.
+ */
+export async function renderWithRealDb(element: React.ReactElement): Promise<RenderResult> {
+  const container = document.createElement('div');
+  document.body.appendChild(container);
+  let root!: Root;
+  await act(async () => {
+    root = createRoot(container);
+    root.render(element);
+  });
+  // drena os useEffect assíncronos (loaders das telas)
+  await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+  return {
+    container,
+    text: container.textContent ?? '',
+    html: container.innerHTML,
+    unmount: () => {
+      act(() => root.unmount());
+      container.remove();
+    },
+  };
+}
+
+/** Coleta todo o texto renderizado para asserts de i18n. Aceita o RenderResult ou um container. */
+export function collectText(source: RenderResult | HTMLElement): string {
+  if (source instanceof HTMLElement) return source.textContent ?? '';
+  return source.text;
 }

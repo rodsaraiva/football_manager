@@ -7,11 +7,14 @@ module.exports = {
   setupFiles: ['<rootDir>/__tests__/ui/setup.ts'],
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
+    // Render RN components in jsdom via react-native-web (já instalado). Evita o runtime
+    // nativo do react-native 0.81, que não inicializa fora do Metro.
+    '^react-native$': 'react-native-web',
   },
   transform: {
     '^.+\\.(t|j)sx?$': ['ts-jest', { tsconfig: { jsx: 'react-jsx' } }],
   },
   transformIgnorePatterns: [
-    'node_modules/(?!(react-native|@react-native|@react-navigation|react-native-.*)/)',
+    'node_modules/(?!(react-native-web|@react-native|@react-navigation|react-native-.*)/)',
   ],
 };
