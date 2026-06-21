@@ -1168,4 +1168,8 @@ export const en: Record<keyof typeof pt, string> = {
   'hints.transfers_body': 'Filter targets, make an offer and negotiate. Keep an eye on the budget and wage bill.',
   'hints.reports_title': 'Reports hub',
   'hints.reports_body': 'Track metrics, league position projections and squad performance.',
+
+  // D3 component kit
+  'kit.confirm_default': 'Confirm',
+  'kit.cancel': 'Cancel',
 };

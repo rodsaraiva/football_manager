@@ -1166,4 +1166,8 @@ export const pt = {
   'hints.transfers_body': 'Filtre alvos, faça uma proposta e negocie. Fique de olho no orçamento e na folha salarial.',
   'hints.reports_title': 'Central de relatórios',
   'hints.reports_body': 'Acompanhe métricas, projeções de classificação e o desempenho do elenco.',
+
+  // D3 kit de componentes
+  'kit.confirm_default': 'Confirmar',
+  'kit.cancel': 'Cancelar',
 } as const;
