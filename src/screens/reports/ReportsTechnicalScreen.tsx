@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator, RefreshControl, Pressable } from 'react-native';
+import { View, StyleSheet, ScrollView, ActivityIndicator, RefreshControl, Pressable } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { colors, spacing, fontSize, radius, commonStyles } from '@/theme';
+import { colors, spacing, radius, commonStyles } from '@/theme';
 import { SectionCard } from '@/components/SectionCard';
 import { ValueBadge } from '@/components/ValueBadge';
+import { Chip } from '@/components/kit';
+import { Body, Label, Caption } from '@/components/typography';
 import { useGameStore } from '@/store/game-store';
 import { useDatabaseStore } from '@/store/database-store';
 import { getPlayersWithAttributesByClub } from '@/database/queries/players';
@@ -136,7 +138,7 @@ export function ReportsTechnicalScreen() {
   if (!report) {
     return (
       <View style={[commonStyles.screen, styles.center]}>
-        <Text style={styles.subtitle}>{t('report.tech_no_data_to_analyze')}</Text>
+        <Body color={colors.textMuted}>{t('report.tech_no_data_to_analyze')}</Body>
       </View>
     );
   }
@@ -150,25 +152,24 @@ export function ReportsTechnicalScreen() {
       }
     >
       <View style={styles.header}>
-        <Text style={styles.headerSummary}>
+        <Body style={styles.headerSummary}>
           {t('report.tech_header_summary', {
             up: report.inForm.length,
             down: report.outOfForm.length,
             deserve: report.replacementSuggestions.length,
           })}
-        </Text>
+        </Body>
         <View style={styles.windowPicker}>
-          <Text style={styles.headerIntro}>{t('report.tech_window')}</Text>
+          <Caption color={colors.textSecondary} style={styles.headerIntro}>{t('report.tech_window')}</Caption>
           {WINDOW_OPTIONS.map((opt) => (
-            <Pressable
+            <Chip
               key={opt}
+              label={String(opt)}
+              selected={windowSize === opt}
               onPress={() => setWindowSize(opt)}
-              style={[styles.windowChip, windowSize === opt && styles.windowChipActive]}
-            >
-              <Text style={[styles.windowChipText, windowSize === opt && styles.windowChipTextActive]}>
-                {opt}
-              </Text>
-            </Pressable>
+              accent={colors.reportTechnical}
+              testID={`tech-window-${opt}`}
+            />
           ))}
         </View>
       </View>
@@ -217,17 +218,20 @@ export function ReportsTechnicalScreen() {
               key={p.id}
               onPress={() => navigation.navigate('PlayerDetail', { playerId: p.id })}
               style={({ pressed }) => [styles.risingRow, pressed && styles.rowPressed]}
+              accessibilityRole="button"
+              accessibilityLabel={p.name}
+              testID={`tech-rising-${p.id}`}
             >
               <View style={styles.risingLeft}>
-                <Text style={styles.playerName}>{p.name}</Text>
-                <Text style={styles.playerMeta}>
+                <Body style={styles.playerName}>{p.name}</Body>
+                <Caption color={colors.textSecondary}>
                   {t('report.tech_rising_meta', {
                     position: p.position,
                     age: p.age,
                     ovr: p.overall,
                     pot: p.effectivePotential,
                   })}
-                </Text>
+                </Caption>
               </View>
               <ValueBadge value={`+${p.effectivePotential - p.overall}`} tone="success" />
             </Pressable>
@@ -244,6 +248,9 @@ export function ReportsTechnicalScreen() {
               key={s.benchPlayer.id}
               onPress={() => navigation.navigate('PlayerDetail', { playerId: s.benchPlayer.id })}
               style={({ pressed }) => [styles.suggestionRow, pressed && styles.rowPressed]}
+              accessibilityRole="button"
+              accessibilityLabel={s.benchPlayer.name}
+              testID={`tech-suggestion-${s.benchPlayer.id}`}
             >
               <SuggestionInner item={s} />
             </Pressable>
@@ -260,16 +267,19 @@ export function ReportsTechnicalScreen() {
               key={p.id}
               onPress={() => navigation.navigate('PlayerDetail', { playerId: p.id })}
               style={({ pressed }) => [styles.benchedRow, pressed && styles.rowPressed]}
+              accessibilityRole="button"
+              accessibilityLabel={p.name}
+              testID={`tech-benched-${p.id}`}
             >
-              <Text style={styles.playerName}>{p.name}</Text>
-              <Text style={styles.playerMeta}>
+              <Body style={styles.playerName}>{p.name}</Body>
+              <Caption color={colors.textSecondary}>
                 {t('report.tech_benched_meta', {
                   position: p.position,
                   age: p.age,
                   ovr: p.overall,
                   window: windowSize,
                 })}
-              </Text>
+              </Caption>
             </Pressable>
           ))
         )}
@@ -290,7 +300,7 @@ function MoraleSection({ report }: { report: MoraleReport }) {
     <SectionCard title={t('report.tech_morale_title')} subtitle={t('report.tech_morale_subtitle')}>
       {alertLevel === 'critical' && (
         <View style={styles.moraleBanner}>
-          <Text style={styles.moraleBannerText}>{t('report.tech_morale_critical_banner')}</Text>
+          <Label color={colors.text} style={styles.moraleBannerText}>{t('report.tech_morale_critical_banner')}</Label>
         </View>
       )}
 
@@ -299,19 +309,19 @@ function MoraleSection({ report }: { report: MoraleReport }) {
         <View style={styles.moraleGaugeBg}>
           <View style={[styles.moraleGaugeFill, { width: `${avgMorale}%`, backgroundColor: gaugeColor }]} />
         </View>
-        <Text style={[styles.moraleAvgText, { color: gaugeColor }]}>{avgMorale}</Text>
+        <Body color={gaugeColor} style={styles.moraleAvgText}>{avgMorale}</Body>
       </View>
 
       {topMorale.length > 0 && (
         <>
-          <Text style={styles.summaryGroupLabel}>{t('report.tech_morale_top_high')}</Text>
+          <Label color={colors.textSecondary} style={styles.summaryGroupLabel}>{t('report.tech_morale_top_high')}</Label>
           <View style={styles.sectionBody}>
             {topMorale.map((e) => (
               <View key={e.playerId} style={styles.moraleRow}>
                 <View style={[styles.moraleDot, { backgroundColor: colors.success }]} />
-                <Text style={styles.playerName}>{e.playerName}</Text>
-                <Text style={styles.playerMeta}> · {e.position}</Text>
-                <Text style={[styles.moraleValue, { color: colors.success }]}>{e.morale}</Text>
+                <Body style={styles.playerName}>{e.playerName}</Body>
+                <Caption color={colors.textSecondary}> · {e.position}</Caption>
+                <Body color={colors.success} style={styles.moraleValue}>{e.morale}</Body>
               </View>
             ))}
           </View>
@@ -320,14 +330,14 @@ function MoraleSection({ report }: { report: MoraleReport }) {
 
       {bottomMorale.length > 0 && (
         <>
-          <Text style={[styles.summaryGroupLabel, { marginTop: spacing.sm }]}>{t('report.tech_morale_top_low')}</Text>
+          <Label color={colors.textSecondary} style={[styles.summaryGroupLabel, { marginTop: spacing.sm }]}>{t('report.tech_morale_top_low')}</Label>
           <View style={styles.sectionBody}>
             {bottomMorale.map((e) => (
               <View key={e.playerId} style={styles.moraleRow}>
                 <View style={[styles.moraleDot, { backgroundColor: colors.danger }]} />
-                <Text style={styles.playerName}>{e.playerName}</Text>
-                <Text style={styles.playerMeta}> · {e.position}</Text>
-                <Text style={[styles.moraleValue, { color: colors.danger }]}>{e.morale}</Text>
+                <Body style={styles.playerName}>{e.playerName}</Body>
+                <Caption color={colors.textSecondary}> · {e.position}</Caption>
+                <Body color={colors.danger} style={styles.moraleValue}>{e.morale}</Body>
               </View>
             ))}
           </View>
@@ -335,7 +345,7 @@ function MoraleSection({ report }: { report: MoraleReport }) {
       )}
 
       {topMorale.length === 0 && bottomMorale.length === 0 && (
-        <Text style={styles.empty}>{t('report.tech_morale_empty')}</Text>
+        <Caption color={colors.textMuted} style={styles.empty}>{t('report.tech_morale_empty')}</Caption>
       )}
     </SectionCard>
   );
@@ -352,18 +362,18 @@ function ContractAlertsSection({ alerts }: { alerts: ContractAlert[] }) {
   return (
     <SectionCard title={t('report.tech_contracts_title')} subtitle={t('report.tech_contracts_subtitle')}>
       {alerts.length === 0 ? (
-        <Text style={styles.empty}>{t('report.tech_contracts_empty')}</Text>
+        <Caption color={colors.textMuted} style={styles.empty}>{t('report.tech_contracts_empty')}</Caption>
       ) : (
         alerts.map((alert) => (
           <View key={alert.player.id} style={styles.contractRow}>
             <View style={styles.contractLeft}>
-              <Text style={styles.playerName}>{alert.player.name}</Text>
-              <Text style={styles.playerMeta}>
+              <Body style={styles.playerName}>{alert.player.name}</Body>
+              <Caption color={colors.textSecondary}>
                 {alert.player.position} · OVR {alert.player.overall}
                 {alert.player.wage != null
                   ? t('report.tech_contracts_wage', { wage: alert.player.wage.toLocaleString('pt-BR') })
                   : ''}
-              </Text>
+              </Caption>
             </View>
             <ValueBadge
               value={t('report.tech_contracts_expires', { season: alert.contractEnd })}
@@ -385,32 +395,28 @@ function SquadSummarySection({ summary }: { summary: SquadSummary }) {
   return (
     <SectionCard title={t('report.tech_summary_title')} subtitle={t('report.tech_summary_subtitle')}>
       {!hasData ? (
-        <Text style={styles.empty}>{t('report.tech_summary_empty')}</Text>
+        <Caption color={colors.textMuted} style={styles.empty}>{t('report.tech_summary_empty')}</Caption>
       ) : (
         <>
-          <Text style={styles.summaryGroupLabel}>{t('report.tech_summary_strengths')}</Text>
+          <Label color={colors.textSecondary} style={styles.summaryGroupLabel}>{t('report.tech_summary_strengths')}</Label>
           <View style={styles.sectionBody}>
             {collectiveStrengths.map((item) => (
               <View key={item.attribute} style={styles.attrRow}>
-                <Text style={styles.attrLabel}>{t(attrI18nKey(item.attribute))}</Text>
+                <Body style={styles.attrLabel}>{t(attrI18nKey(item.attribute))}</Body>
                 <View style={[styles.attrBar, { borderColor: colors.success }]}>
-                  <Text style={[styles.attrValue, { color: colors.success }]}>
-                    {item.avg.toFixed(1)}
-                  </Text>
+                  <Label color={colors.success}>{item.avg.toFixed(1)}</Label>
                 </View>
               </View>
             ))}
           </View>
 
-          <Text style={[styles.summaryGroupLabel, { marginTop: spacing.sm }]}>{t('report.tech_summary_weaknesses')}</Text>
+          <Label color={colors.textSecondary} style={[styles.summaryGroupLabel, { marginTop: spacing.sm }]}>{t('report.tech_summary_weaknesses')}</Label>
           <View style={styles.sectionBody}>
             {collectiveWeaknesses.map((item) => (
               <View key={item.attribute} style={styles.attrRow}>
-                <Text style={styles.attrLabel}>{t(attrI18nKey(item.attribute))}</Text>
+                <Body style={styles.attrLabel}>{t(attrI18nKey(item.attribute))}</Body>
                 <View style={[styles.attrBar, { borderColor: colors.danger }]}>
-                  <Text style={[styles.attrValue, { color: colors.danger }]}>
-                    {item.avg.toFixed(1)}
-                  </Text>
+                  <Label color={colors.danger}>{item.avg.toFixed(1)}</Label>
                 </View>
               </View>
             ))}
@@ -418,20 +424,23 @@ function SquadSummarySection({ summary }: { summary: SquadSummary }) {
 
           {individualHighlights.length > 0 && (
             <>
-              <Text style={[styles.summaryGroupLabel, { marginTop: spacing.sm }]}>{t('report.tech_summary_highlights')}</Text>
+              <Label color={colors.textSecondary} style={[styles.summaryGroupLabel, { marginTop: spacing.sm }]}>{t('report.tech_summary_highlights')}</Label>
               <View style={styles.sectionBody}>
                 {individualHighlights.map((item) => (
                   <Pressable
                     key={`${item.playerId}-${item.attribute}`}
                     onPress={() => {}}
                     style={({ pressed }) => [styles.highlightRow, pressed && styles.rowPressed]}
+                    accessibilityRole="button"
+                    accessibilityLabel={item.playerName}
+                    testID={`tech-highlight-${item.playerId}`}
                   >
                     <View style={styles.highlightLeft}>
-                      <Text style={styles.playerName}>{item.playerName}</Text>
-                      <Text style={styles.playerMeta}>{item.position} · {t(attrI18nKey(item.attribute))}</Text>
+                      <Body style={styles.playerName}>{item.playerName}</Body>
+                      <Caption color={colors.textSecondary}>{item.position} · {t(attrI18nKey(item.attribute))}</Caption>
                     </View>
                     <View style={[styles.attrBar, { borderColor: colors.primary }]}>
-                      <Text style={[styles.attrValue, { color: colors.primary }]}>{item.value}</Text>
+                      <Label color={colors.primary}>{item.value}</Label>
                     </View>
                   </Pressable>
                 ))}
@@ -453,7 +462,7 @@ function LineEfficiencySection({ lines }: { lines: LineEfficiency[] }) {
   return (
     <SectionCard title={t('report.tech_line_title')} subtitle={t('report.tech_line_subtitle')}>
       {!hasAnyData ? (
-        <Text style={styles.empty}>{t('report.tech_line_empty')}</Text>
+        <Caption color={colors.textMuted} style={styles.empty}>{t('report.tech_line_empty')}</Caption>
       ) : (
         lines.map((line) => {
           const barColor = line.isWeakest
@@ -466,11 +475,11 @@ function LineEfficiencySection({ lines }: { lines: LineEfficiency[] }) {
           return (
             <View key={line.group} style={styles.lineRow}>
               <View style={styles.lineLeft}>
-                <Text style={styles.playerName}>{t(lineLabelKey(line.group))}</Text>
+                <Body style={styles.playerName}>{t(lineLabelKey(line.group))}</Body>
                 {line.appearances === 0 ? (
-                  <Text style={[styles.playerMeta, { fontStyle: 'italic' }]}>{t('report.tech_line_no_data')}</Text>
+                  <Caption color={colors.textSecondary} style={styles.lineNoData}>{t('report.tech_line_no_data')}</Caption>
                 ) : (
-                  <Text style={styles.playerMeta}>{t('report.tech_line_appearances', { count: line.appearances })}</Text>
+                  <Caption color={colors.textSecondary}>{t('report.tech_line_appearances', { count: line.appearances })}</Caption>
                 )}
               </View>
               <View style={styles.lineBarContainer}>
@@ -478,14 +487,14 @@ function LineEfficiencySection({ lines }: { lines: LineEfficiency[] }) {
                   <View style={[styles.lineBarFill, { width: barWidth as any, backgroundColor: barColor }]} />
                 </View>
                 {line.appearances > 0 && (
-                  <Text style={[styles.lineRating, { color: barColor }]}>{line.avgRating.toFixed(1)}</Text>
+                  <Label color={barColor} style={styles.lineRating}>{line.avgRating.toFixed(1)}</Label>
                 )}
               </View>
               {(line.isWeakest || line.isStrongest) && (
                 <View style={[styles.lineTag, { borderColor: barColor }]}>
-                  <Text style={[styles.lineTagText, { color: barColor }]}>
+                  <Caption color={barColor}>
                     {line.isWeakest ? t('report.tech_line_weakest') : t('report.tech_line_strongest')}
-                  </Text>
+                  </Caption>
                 </View>
               )}
             </View>
@@ -531,17 +540,20 @@ function FormLine({
         { borderLeftColor: accent },
         pressed && styles.rowPressed,
       ]}
+      accessibilityRole="button"
+      accessibilityLabel={item.player.name}
+      testID={`tech-form-${item.player.id}`}
     >
       <View style={styles.formLeft}>
-        <Text style={styles.playerName}>{item.player.name}</Text>
-        <Text style={styles.playerMeta}>
+        <Body style={styles.playerName}>{item.player.name}</Body>
+        <Caption color={colors.textSecondary}>
           {t('report.tech_form_meta', {
             position: item.player.position,
             games: item.form.appearances,
             goals: item.form.goals,
             assists: item.form.assists,
           })}
-        </Text>
+        </Caption>
       </View>
       <ValueBadge value={item.form.avgRating.toFixed(1)} tone={tone === 'good' ? 'success' : 'danger'} />
     </Pressable>
@@ -552,22 +564,22 @@ function SuggestionInner({ item }: { item: ReplacementSuggestion }) {
   const { t } = useTranslation();
   return (
     <>
-      <Text style={styles.playerName}>{item.benchPlayer.name}</Text>
-      <Text style={styles.playerMeta}>
+      <Body style={styles.playerName}>{item.benchPlayer.name}</Body>
+      <Caption color={colors.textSecondary}>
         {t('report.tech_suggestion_meta', {
           position: item.benchPlayer.position,
           ovr: item.benchPlayer.overall,
           starter: item.starter.name,
           starterOvr: item.starter.overall,
         })}
-      </Text>
+      </Caption>
     </>
   );
 }
 
 function EmptyLine({ label }: { label?: string } = {}) {
   const { t } = useTranslation();
-  return <Text style={styles.empty}>{label ?? t('report.tech_nothing_to_report')}</Text>;
+  return <Caption color={colors.textMuted} style={styles.empty}>{label ?? t('report.tech_nothing_to_report')}</Caption>;
 }
 
 // ─── Styles ─────────────────────────────────────────────────────────────────
@@ -581,13 +593,9 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.sm,
   },
   headerIntro: {
-    color: colors.textSecondary,
-    fontSize: fontSize.sm,
     fontStyle: 'italic',
   },
   headerSummary: {
-    color: colors.text,
-    fontSize: fontSize.sm,
     fontWeight: '600',
     marginBottom: spacing.xs,
   },
@@ -596,32 +604,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.xs,
   },
-  windowChip: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xxs,
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
-  },
-  windowChipActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  windowChipText: {
-    color: colors.textSecondary,
-    fontSize: fontSize.xs,
-    fontWeight: '600',
-  },
-  windowChipTextActive: {
-    color: colors.text,
-  },
   rowPressed: {
     opacity: 0.6,
-  },
-  subtitle: {
-    color: colors.textMuted,
-    fontSize: fontSize.md,
   },
   sectionBody: { gap: spacing.xs },
   formRow: {
@@ -633,14 +617,7 @@ const styles = StyleSheet.create({
   },
   formLeft: { flex: 1 },
   playerName: {
-    color: colors.text,
-    fontSize: fontSize.md,
     fontWeight: '600',
-  },
-  playerMeta: {
-    color: colors.textSecondary,
-    fontSize: fontSize.sm,
-    marginTop: spacing.xxs,
   },
   risingRow: {
     flexDirection: 'row',
@@ -655,14 +632,9 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xs,
   },
   empty: {
-    color: colors.textMuted,
-    fontSize: fontSize.sm,
     fontStyle: 'italic',
   },
   summaryGroupLabel: {
-    color: colors.textSecondary,
-    fontSize: fontSize.xs,
-    fontWeight: '700',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     marginBottom: spacing.xs,
@@ -674,20 +646,14 @@ const styles = StyleSheet.create({
   },
   attrLabel: {
     flex: 1,
-    color: colors.text,
-    fontSize: fontSize.sm,
   },
   attrBar: {
     borderWidth: 1,
     borderRadius: radius.sm,
     paddingHorizontal: spacing.xs,
-    paddingVertical: 1,
+    paddingVertical: spacing.xxs,
     minWidth: 44,
     alignItems: 'center',
-  },
-  attrValue: {
-    fontSize: fontSize.sm,
-    fontWeight: '700',
   },
   highlightRow: {
     flexDirection: 'row',
@@ -706,6 +672,9 @@ const styles = StyleSheet.create({
   lineLeft: {
     width: 80,
   },
+  lineNoData: {
+    fontStyle: 'italic',
+  },
   lineBarContainer: {
     flex: 1,
     flexDirection: 'row',
@@ -716,16 +685,14 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 10,
     backgroundColor: colors.border,
-    borderRadius: 5,
+    borderRadius: radius.sm,
     overflow: 'hidden',
   },
   lineBarFill: {
     height: '100%',
-    borderRadius: 5,
+    borderRadius: radius.sm,
   },
   lineRating: {
-    fontSize: fontSize.sm,
-    fontWeight: '700',
     width: 30,
     textAlign: 'right',
   },
@@ -733,11 +700,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: radius.sm,
     paddingHorizontal: spacing.xs,
-    paddingVertical: 1,
-  },
-  lineTagText: {
-    fontSize: fontSize.xs,
-    fontWeight: '700',
+    paddingVertical: spacing.xxs,
   },
   contractRow: {
     flexDirection: 'row',
@@ -749,14 +712,11 @@ const styles = StyleSheet.create({
   },
   moraleBanner: {
     backgroundColor: colors.danger,
-    borderRadius: 6,
+    borderRadius: radius.sm,
     padding: spacing.sm,
     marginBottom: spacing.sm,
   },
   moraleBannerText: {
-    color: colors.text,
-    fontSize: fontSize.sm,
-    fontWeight: '700',
     textAlign: 'center',
   },
   moraleGaugeContainer: {
@@ -769,15 +729,14 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 14,
     backgroundColor: colors.border,
-    borderRadius: 7,
+    borderRadius: radius.sm,
     overflow: 'hidden',
   },
   moraleGaugeFill: {
     height: '100%',
-    borderRadius: 7,
+    borderRadius: radius.sm,
   },
   moraleAvgText: {
-    fontSize: fontSize.md,
     fontWeight: '700',
     width: 32,
     textAlign: 'right',
@@ -794,7 +753,6 @@ const styles = StyleSheet.create({
     borderRadius: radius.sm,
   },
   moraleValue: {
-    fontSize: fontSize.sm,
     fontWeight: '700',
     marginLeft: 'auto',
   },
