@@ -16,3 +16,9 @@ export function useClubAccentContext(): ClubAccentRamp {
   }
   return ramp;
 }
+
+// Variante que não lança: retorna null fora do provider. Para componentes do kit que
+// herdam o accent quando dentro da árvore, mas têm fallback próprio fora dela.
+export function useClubAccentRampOptional(): ClubAccentRamp | null {
+  return useContext(ClubAccentContext);
+}

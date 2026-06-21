@@ -2,6 +2,7 @@ import React from 'react';
 import { Pressable, Text, ActivityIndicator, StyleSheet } from 'react-native';
 import { colors, spacing, fontSize, radius } from '@/theme';
 import { resolveButtonStyle, ButtonVariant } from './buttonStyle';
+import { useClubAccentRampOptional } from '@/theme/ClubAccentProvider';
 
 interface Props {
   label: string;
@@ -16,10 +17,13 @@ interface Props {
 
 export function Button({
   label, variant = 'primary', loading = false, disabled = false,
-  onPress, accent = colors.primary, testID, accessibilityLabel,
+  onPress, accent, testID, accessibilityLabel,
 }: Props) {
+  const ramp = useClubAccentRampOptional();
+  // Precedência: accent explícito > accent do clube (via provider) > primário neutro.
+  const resolvedAccent = accent ?? ramp?.accent ?? colors.primary;
   const state = disabled ? 'disabled' : loading ? 'loading' : 'default';
-  const r = resolveButtonStyle(variant, state, accent);
+  const r = resolveButtonStyle(variant, state, resolvedAccent);
   const blocked = disabled || loading;
 
   return (
