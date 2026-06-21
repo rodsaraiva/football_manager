@@ -6,10 +6,12 @@ import { RootNavigator } from '@/navigation/RootNavigator';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import LoadingScreen from '@/components/LoadingScreen';
 import { useDatabaseStore } from '@/store/database-store';
+import { useAppFonts } from '@/theme/useAppFonts';
 import { colors, fontSize } from '@/theme';
 
 export default function App() {
   const { isReady, error, initialize, dbHandle } = useDatabaseStore();
+  const fontsReady = useAppFonts();
 
   useEffect(() => {
     initialize();
@@ -31,7 +33,7 @@ export default function App() {
     );
   }
 
-  if (!isReady) {
+  if (!isReady || !fontsReady) {
     return <LoadingScreen message="Initializing..." />;
   }
 
