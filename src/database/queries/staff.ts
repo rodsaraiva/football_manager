@@ -1,4 +1,5 @@
 import { Staff, StaffCandidate, StaffRole } from '@/types';
+import type { ScoutArchetype } from '@/engine/scouting/scout-archetypes';
 import { DbHandle } from './players';
 
 // V1: sem season no escopo desta query. contract_end fica uma temporada à frente do
@@ -13,6 +14,7 @@ interface StaffRow {
   ability: number;
   wage: number;
   contract_end: number;
+  archetype: string | null;
 }
 
 function rowToStaff(row: StaffRow): Staff {
@@ -24,6 +26,7 @@ function rowToStaff(row: StaffRow): Staff {
     ability: row.ability,
     wage: row.wage,
     contractEnd: row.contract_end,
+    archetype: (row.archetype ?? undefined) as ScoutArchetype | undefined,
   };
 }
 
