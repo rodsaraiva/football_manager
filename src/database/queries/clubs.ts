@@ -19,6 +19,7 @@ interface ClubRow {
   primary_color: string;
   secondary_color: string;
   training_focus: string;
+  academy_reputation: number;
 }
 
 function rowToClub(row: ClubRow): Club {
@@ -39,6 +40,7 @@ function rowToClub(row: ClubRow): Club {
     primaryColor: row.primary_color,
     secondaryColor: row.secondary_color,
     trainingFocus: (row.training_focus as TrainingFocus) ?? 'balanced',
+    academyReputation: row.academy_reputation ?? 50,
   };
 }
 

@@ -38,6 +38,8 @@ export const TABLE_NAMES: string[] = [
   'club_records',
   'rivalries',
   'manager_career',
+  'youth_loans',
+  'academy_reputation_history',
 ];
 
 export const SCHEMA_SQL = `
@@ -76,6 +78,7 @@ CREATE TABLE IF NOT EXISTS clubs (
   primary_color       TEXT    NOT NULL,
   secondary_color     TEXT    NOT NULL,
   training_focus      TEXT    NOT NULL DEFAULT 'balanced',
+  academy_reputation  INTEGER NOT NULL DEFAULT 50 CHECK (academy_reputation BETWEEN 1 AND 100),
   debt_weeks          INTEGER NOT NULL DEFAULT 0
 );
 
@@ -108,7 +111,8 @@ CREATE TABLE IF NOT EXISTS players (
   will_retire_at_season_end    INTEGER NOT NULL DEFAULT 0,
   suspension_weeks_left        INTEGER NOT NULL DEFAULT 0,
   last_interaction_season      INTEGER,
-  last_interaction_week        INTEGER
+  last_interaction_week        INTEGER,
+  squad_tier         TEXT    NOT NULL DEFAULT 'first'
 );
 
 CREATE TABLE IF NOT EXISTS player_attributes (
@@ -175,7 +179,8 @@ CREATE TABLE IF NOT EXISTS staff (
   club_id      INTEGER REFERENCES clubs(id),
   ability      INTEGER NOT NULL CHECK (ability BETWEEN 1 AND 20),
   wage         INTEGER NOT NULL,
-  contract_end INTEGER NOT NULL
+  contract_end INTEGER NOT NULL,
+  youth_specialization TEXT NOT NULL DEFAULT 'balanced'
 );
 
 CREATE TABLE IF NOT EXISTS club_finances (
@@ -587,6 +592,33 @@ CREATE INDEX IF NOT EXISTS idx_legends_club   ON club_legends(save_id, club_id);
 CREATE INDEX IF NOT EXISTS idx_records_club   ON club_records(save_id, club_id);
 CREATE INDEX IF NOT EXISTS idx_rivalries_save ON rivalries(save_id, club_a_id, club_b_id);
 CREATE INDEX IF NOT EXISTS idx_mgr_career     ON manager_career(save_id, season);
+
+-- C2 youth academy: development loans (extends generic loan with minutes/rating
+-- accumulators) + per-season academy reputation history (mirrors club_reputation_history).
+CREATE TABLE IF NOT EXISTS youth_loans (
+  id             INTEGER PRIMARY KEY AUTOINCREMENT,
+  save_id        INTEGER NOT NULL REFERENCES save_games(id),
+  player_id      INTEGER NOT NULL REFERENCES players(id),
+  parent_club_id INTEGER NOT NULL REFERENCES clubs(id),
+  loan_club_id   INTEGER NOT NULL REFERENCES clubs(id),
+  start_season   INTEGER NOT NULL,
+  loan_end       INTEGER NOT NULL,
+  minutes_played INTEGER NOT NULL DEFAULT 0,
+  appearances    INTEGER NOT NULL DEFAULT 0,
+  rating_sum     REAL    NOT NULL DEFAULT 0,
+  recalled       INTEGER NOT NULL DEFAULT 0,
+  settled        INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS academy_reputation_history (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  save_id    INTEGER NOT NULL REFERENCES save_games(id),
+  club_id    INTEGER NOT NULL REFERENCES clubs(id),
+  season     INTEGER NOT NULL,
+  reputation INTEGER NOT NULL CHECK (reputation BETWEEN 1 AND 100),
+  delta      INTEGER NOT NULL,
+  UNIQUE(save_id, club_id, season)
+);
 `;
 
 // Composite save_id indexes are created AFTER the save_id migration (database-store),
@@ -599,6 +631,10 @@ CREATE INDEX IF NOT EXISTS idx_finances_save_club        ON club_finances(save_i
 CREATE INDEX IF NOT EXISTS idx_clubs_save_league         ON clubs(save_id, league_id);
 CREATE INDEX IF NOT EXISTS idx_player_stats_save_comp    ON player_stats(save_id, season, competition_id);
 CREATE INDEX IF NOT EXISTS idx_tactics_save_club         ON tactics(save_id, club_id);
+CREATE INDEX IF NOT EXISTS idx_youth_loans_save_parent   ON youth_loans(save_id, parent_club_id);
+CREATE INDEX IF NOT EXISTS idx_youth_loans_active        ON youth_loans(save_id, settled, recalled);
+CREATE INDEX IF NOT EXISTS idx_players_save_tier         ON players(save_id, club_id, squad_tier);
+CREATE INDEX IF NOT EXISTS idx_academy_rep_hist          ON academy_reputation_history(save_id, club_id, season);
 `;
 
 export interface DbExec {

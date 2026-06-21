@@ -159,6 +159,40 @@ export const useDatabaseStore = create<DatabaseStore>((set) => ({
       await addColumnIfMissing(db, 'players', 'last_interaction_season', 'INTEGER');
       await addColumnIfMissing(db, 'players', 'last_interaction_week',   'INTEGER');
 
+      // C2 youth academy: squad tier, academy reputation, youth coach specialization.
+      await addColumnIfMissing(db, 'players', 'squad_tier', "TEXT NOT NULL DEFAULT 'first'");
+      await addColumnIfMissing(db, 'clubs', 'academy_reputation', 'INTEGER NOT NULL DEFAULT 50');
+      await addColumnIfMissing(db, 'staff', 'youth_specialization', "TEXT NOT NULL DEFAULT 'balanced'");
+      await db.execAsync(`
+        CREATE TABLE IF NOT EXISTS youth_loans (
+          id             INTEGER PRIMARY KEY AUTOINCREMENT,
+          save_id        INTEGER NOT NULL,
+          player_id      INTEGER NOT NULL,
+          parent_club_id INTEGER NOT NULL,
+          loan_club_id   INTEGER NOT NULL,
+          start_season   INTEGER NOT NULL,
+          loan_end       INTEGER NOT NULL,
+          minutes_played INTEGER NOT NULL DEFAULT 0,
+          appearances    INTEGER NOT NULL DEFAULT 0,
+          rating_sum     REAL    NOT NULL DEFAULT 0,
+          recalled       INTEGER NOT NULL DEFAULT 0,
+          settled        INTEGER NOT NULL DEFAULT 0
+        );
+        CREATE INDEX IF NOT EXISTS idx_youth_loans_save_parent ON youth_loans(save_id, parent_club_id);
+        CREATE INDEX IF NOT EXISTS idx_youth_loans_active      ON youth_loans(save_id, settled, recalled);
+        CREATE TABLE IF NOT EXISTS academy_reputation_history (
+          id         INTEGER PRIMARY KEY AUTOINCREMENT,
+          save_id    INTEGER NOT NULL,
+          club_id    INTEGER NOT NULL,
+          season     INTEGER NOT NULL,
+          reputation INTEGER NOT NULL,
+          delta      INTEGER NOT NULL,
+          UNIQUE(save_id, club_id, season)
+        );
+        CREATE INDEX IF NOT EXISTS idx_academy_rep_hist ON academy_reputation_history(save_id, club_id, season);
+        CREATE INDEX IF NOT EXISTS idx_players_save_tier ON players(save_id, club_id, squad_tier);
+      `);
+
       // Scouting fog-of-war: knowledge per scouted (non-own) player (added post-initial-schema).
       await db.execAsync(`
         CREATE TABLE IF NOT EXISTS scouting (

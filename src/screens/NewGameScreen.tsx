@@ -119,6 +119,7 @@ export function NewGameScreen() {
       trainingFacilities: c.trainingFacilities, youthAcademy: c.youthAcademy,
       medicalDepartment: c.medicalDepartment, primaryColor: c.primaryColor, secondaryColor: c.secondaryColor,
       trainingFocus: 'balanced',
+      academyReputation: 50,
     };
   }
 

@@ -1,4 +1,4 @@
-import { Player, PlayerAttributes, Position, Foot } from '@/types';
+import { Player, PlayerAttributes, Position, Foot, SquadTier } from '@/types';
 
 export interface DbHandle {
   prepare(sql: string): {
@@ -35,6 +35,7 @@ interface PlayerRow {
   consecutive_low_morale_weeks: number;
   will_retire_at_season_end: number;
   suspension_weeks_left: number;
+  squad_tier: string;
 }
 
 interface PlayerAttributesRow {
@@ -87,6 +88,7 @@ function rowToPlayer(row: PlayerRow): Player {
     loanWage: row.loan_wage ?? null,
     consecutiveLowMoraleWeeks: row.consecutive_low_morale_weeks ?? 0,
     willRetireAtSeasonEnd: (row.will_retire_at_season_end ?? 0) === 1,
+    squadTier: (row.squad_tier as SquadTier) ?? 'first',
   };
 }
 

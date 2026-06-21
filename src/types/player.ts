@@ -26,6 +26,8 @@ export interface PlayerAttributes {
 
 export type Foot = 'right' | 'left';
 
+export type SquadTier = 'youth' | 'reserve' | 'first';
+
 export interface Player {
   id: number;
   name: string;
@@ -53,6 +55,7 @@ export interface Player {
   loanWage: number | null;
   consecutiveLowMoraleWeeks: number;
   willRetireAtSeasonEnd: boolean;
+  squadTier: SquadTier;
 }
 
 export interface PlayerStats {

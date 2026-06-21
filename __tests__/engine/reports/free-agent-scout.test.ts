@@ -27,6 +27,7 @@ function mkPlayer(id: number, o: Partial<Player> = {}): Player {
     loanWageShare: o.loanWageShare ?? null, loanWage: o.loanWage ?? null,
     consecutiveLowMoraleWeeks: o.consecutiveLowMoraleWeeks ?? 0,
     willRetireAtSeasonEnd: o.willRetireAtSeasonEnd ?? false,
+    squadTier: o.squadTier ?? 'first',
   };
 }
 
