@@ -6,6 +6,7 @@ import { colors, spacing, radius, commonStyles } from '@/theme';
 import { SectionCard } from '@/components/SectionCard';
 import { ValueBadge } from '@/components/ValueBadge';
 import { Chip } from '@/components/kit';
+import StatBar from '@/components/StatBar';
 import { Body, Label, Caption } from '@/components/typography';
 import { useGameStore } from '@/store/game-store';
 import { useDatabaseStore } from '@/store/database-store';
@@ -306,8 +307,8 @@ function MoraleSection({ report }: { report: MoraleReport }) {
 
       {/* Gauge bar */}
       <View style={styles.moraleGaugeContainer}>
-        <View style={styles.moraleGaugeBg}>
-          <View style={[styles.moraleGaugeFill, { width: `${avgMorale}%`, backgroundColor: gaugeColor }]} />
+        <View style={styles.moraleGaugeBar}>
+          <StatBar barOnly value={avgMorale} maxValue={100} color={gaugeColor} height={14} />
         </View>
         <Body color={gaugeColor} style={styles.moraleAvgText}>{avgMorale}</Body>
       </View>
@@ -401,24 +402,26 @@ function SquadSummarySection({ summary }: { summary: SquadSummary }) {
           <Label color={colors.textSecondary} style={styles.summaryGroupLabel}>{t('report.tech_summary_strengths')}</Label>
           <View style={styles.sectionBody}>
             {collectiveStrengths.map((item) => (
-              <View key={item.attribute} style={styles.attrRow}>
-                <Body style={styles.attrLabel}>{t(attrI18nKey(item.attribute))}</Body>
-                <View style={[styles.attrBar, { borderColor: colors.success }]}>
-                  <Label color={colors.success}>{item.avg.toFixed(1)}</Label>
-                </View>
-              </View>
+              <StatBar
+                key={item.attribute}
+                label={t(attrI18nKey(item.attribute))}
+                value={item.avg}
+                valueText={item.avg.toFixed(1)}
+                color={colors.success}
+              />
             ))}
           </View>
 
           <Label color={colors.textSecondary} style={[styles.summaryGroupLabel, { marginTop: spacing.sm }]}>{t('report.tech_summary_weaknesses')}</Label>
           <View style={styles.sectionBody}>
             {collectiveWeaknesses.map((item) => (
-              <View key={item.attribute} style={styles.attrRow}>
-                <Body style={styles.attrLabel}>{t(attrI18nKey(item.attribute))}</Body>
-                <View style={[styles.attrBar, { borderColor: colors.danger }]}>
-                  <Label color={colors.danger}>{item.avg.toFixed(1)}</Label>
-                </View>
-              </View>
+              <StatBar
+                key={item.attribute}
+                label={t(attrI18nKey(item.attribute))}
+                value={item.avg}
+                valueText={item.avg.toFixed(1)}
+                color={colors.danger}
+              />
             ))}
           </View>
 
@@ -439,9 +442,10 @@ function SquadSummarySection({ summary }: { summary: SquadSummary }) {
                       <Body style={styles.playerName}>{item.playerName}</Body>
                       <Caption color={colors.textSecondary}>{item.position} · {t(attrI18nKey(item.attribute))}</Caption>
                     </View>
-                    <View style={[styles.attrBar, { borderColor: colors.primary }]}>
-                      <Label color={colors.primary}>{item.value}</Label>
+                    <View style={styles.highlightBar}>
+                      <StatBar barOnly value={item.value} color={colors.primary} />
                     </View>
+                    <Label color={colors.primary} style={styles.highlightValue}>{item.value}</Label>
                   </Pressable>
                 ))}
               </View>
@@ -470,7 +474,6 @@ function LineEfficiencySection({ lines }: { lines: LineEfficiency[] }) {
             : line.isStrongest
             ? colors.success
             : colors.primary;
-          const barWidth = line.appearances > 0 ? `${((line.avgRating - 4) / 6) * 100}%` : '0%';
 
           return (
             <View key={line.group} style={styles.lineRow}>
@@ -483,8 +486,14 @@ function LineEfficiencySection({ lines }: { lines: LineEfficiency[] }) {
                 )}
               </View>
               <View style={styles.lineBarContainer}>
-                <View style={styles.lineBarBg}>
-                  <View style={[styles.lineBarFill, { width: barWidth as any, backgroundColor: barColor }]} />
+                <View style={styles.lineBarBar}>
+                  <StatBar
+                    barOnly
+                    value={line.appearances > 0 ? line.avgRating - 4 : 0}
+                    maxValue={6}
+                    color={barColor}
+                    height={10}
+                  />
                 </View>
                 {line.appearances > 0 && (
                   <Label color={barColor} style={styles.lineRating}>{line.avgRating.toFixed(1)}</Label>
@@ -639,29 +648,22 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
     marginBottom: spacing.xs,
   },
-  attrRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: spacing.xxs,
-  },
-  attrLabel: {
-    flex: 1,
-  },
-  attrBar: {
-    borderWidth: 1,
-    borderRadius: radius.sm,
-    paddingHorizontal: spacing.xs,
-    paddingVertical: spacing.xxs,
-    minWidth: 44,
-    alignItems: 'center',
-  },
   highlightRow: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: spacing.xs,
+    gap: spacing.sm,
   },
   highlightLeft: {
     flex: 1,
+  },
+  highlightBar: {
+    width: 60,
+    justifyContent: 'center',
+  },
+  highlightValue: {
+    width: 26,
+    textAlign: 'right',
   },
   lineRow: {
     flexDirection: 'row',
@@ -681,16 +683,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.xs,
   },
-  lineBarBg: {
+  lineBarBar: {
     flex: 1,
-    height: 10,
-    backgroundColor: colors.border,
-    borderRadius: radius.sm,
-    overflow: 'hidden',
-  },
-  lineBarFill: {
-    height: '100%',
-    borderRadius: radius.sm,
+    justifyContent: 'center',
   },
   lineRating: {
     width: 30,
@@ -725,16 +720,9 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
     gap: spacing.sm,
   },
-  moraleGaugeBg: {
+  moraleGaugeBar: {
     flex: 1,
-    height: 14,
-    backgroundColor: colors.border,
-    borderRadius: radius.sm,
-    overflow: 'hidden',
-  },
-  moraleGaugeFill: {
-    height: '100%',
-    borderRadius: radius.sm,
+    justifyContent: 'center',
   },
   moraleAvgText: {
     fontWeight: '700',

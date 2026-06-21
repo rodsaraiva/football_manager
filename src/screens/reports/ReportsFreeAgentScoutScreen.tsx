@@ -18,6 +18,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { colors, spacing, radius, commonStyles } from '@/theme';
 import { useTranslation } from '@/i18n';
 import { EmptyState, Card, Chip } from '@/components/kit';
+import StatBar from '@/components/StatBar';
 import { Body, Label, Caption } from '@/components/typography';
 import { useGameStore } from '@/store/game-store';
 import { useDatabaseStore } from '@/store/database-store';
@@ -49,14 +50,13 @@ function fitScoreColor(score: number): string {
 // ─── FitBar ──────────────────────────────────────────────────────────────────
 
 function FitBar({ score }: { score: number }) {
-  const clampedWidth = Math.max(2, Math.min(100, score));
   return (
     <View style={styles.fitBarTrack}>
-      <View
-        style={[
-          styles.fitBarFill,
-          { width: `${clampedWidth}%` as `${number}%`, backgroundColor: fitScoreColor(score) },
-        ]}
+      <StatBar
+        barOnly
+        value={Math.max(2, Math.min(100, score))}
+        maxValue={100}
+        color={fitScoreColor(score)}
       />
     </View>
   );
@@ -476,14 +476,7 @@ const styles = StyleSheet.create({
   },
   fitBarTrack: {
     flex: 1,
-    height: 6,
-    backgroundColor: colors.surfaceLight,
-    borderRadius: radius.sm,
-    overflow: 'hidden',
-  },
-  fitBarFill: {
-    height: '100%',
-    borderRadius: radius.sm,
+    justifyContent: 'center',
   },
   gapText: {
     width: 36,
