@@ -2,15 +2,16 @@ import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
-  Pressable,
   StyleSheet,
-  Text,
   TouchableOpacity,
   View,
 } from 'react-native';
-import { colors, spacing, fontSize, radius, commonStyles } from '@/theme';
+import { colors, spacing, commonStyles } from '@/theme';
+import { useClubAccent } from '@/theme/useClubAccent';
 import { useTranslation } from '@/i18n';
 import PlayerCard from '@/components/PlayerCard';
+import { Card, Chip, Badge, Icon, EmptyState } from '@/components/kit';
+import { Body } from '@/components/typography';
 import { useGameStore } from '@/store/game-store';
 import { useDatabaseStore } from '@/store/database-store';
 import { getPlayersByClub, getPlayerById } from '@/database/queries/players';
@@ -54,6 +55,7 @@ export function SquadListScreen() {
   const dbHandle = useDatabaseStore((s) => s.dbHandle);
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { t } = useTranslation();
+  const accent = useClubAccent();
 
   const [players, setPlayers] = useState<PlayerWithAttributes[]>([]);
   const [loading, setLoading] = useState(true);
@@ -102,43 +104,52 @@ export function SquadListScreen() {
     <View style={commonStyles.screen}>
       <View style={styles.topLinks}>
         <TouchableOpacity
-          style={[styles.youthLink, styles.topLinkItem]}
+          style={styles.topLinkItem}
           activeOpacity={0.8}
           onPress={() => navigation.navigate('YouthAcademy')}
+          testID="squad-link-youth"
+          accessibilityRole="button"
+          accessibilityLabel={t('home.youth_academy_link')}
         >
-          <Text style={styles.youthLinkText}>🌱 {t('home.youth_academy_link')}</Text>
+          <Card variant="detail" accent={accent.accent} style={styles.linkCard}>
+            <Icon name="squad" color={accent.accent} size={18} />
+            <Body color={accent.accent}>{t('home.youth_academy_link')}</Body>
+          </Card>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[styles.youthLink, styles.topLinkItem]}
+          style={styles.topLinkItem}
           activeOpacity={0.8}
           onPress={() => navigation.navigate('TeamTalk')}
+          testID="squad-link-teamtalk"
+          accessibilityRole="button"
+          accessibilityLabel={t('interaction.team_talk_link')}
         >
-          <Text style={styles.youthLinkText}>📣 {t('interaction.team_talk_link')}</Text>
+          <Card variant="detail" accent={accent.accent} style={styles.linkCard}>
+            <Icon name="whistle" color={accent.accent} size={18} />
+            <Body color={accent.accent}>{t('interaction.team_talk_link')}</Body>
+          </Card>
         </TouchableOpacity>
       </View>
-      {/* Filter chips */}
+
       <View style={styles.filterRow}>
         {FILTER_TABS.map((tab) => (
-          <Pressable
+          <Chip
             key={tab}
-            style={[styles.filterChip, filter === tab && styles.filterChipActive]}
+            label={tab === 'All' ? t('transfer.filter_all') : tab}
+            selected={filter === tab}
+            accent={accent.accent}
             onPress={() => setFilter(tab)}
-          >
-            <Text style={[styles.filterChipText, filter === tab && styles.filterChipTextActive]}>
-              {tab === 'All' ? t('transfer.filter_all') : tab}
-            </Text>
-          </Pressable>
+            testID={`squad-filter-${tab}`}
+          />
         ))}
       </View>
 
       {loading ? (
         <View style={styles.centered}>
-          <ActivityIndicator color={colors.primary} size="large" />
+          <ActivityIndicator color={accent.accent} size="large" />
         </View>
       ) : filtered.length === 0 ? (
-        <View style={styles.centered}>
-          <Text style={styles.emptyText}>{t('transfer.no_players_found')}</Text>
-        </View>
+        <EmptyState art="search" title={t('transfer.no_players_found')} accent={accent.accent} />
       ) : (
         <FlatList
           data={filtered}
@@ -153,12 +164,13 @@ export function SquadListScreen() {
                 morale={item.morale}
                 fitness={item.fitness}
                 onPress={() => handleSelectPlayer(item.id)}
+                testID={`squad-player-${item.id}`}
               />
               {(item.isTransferListed || item.isLoanListed || item.willRetireAtSeasonEnd) && (
                 <View style={styles.listingBadges}>
-                  {item.isTransferListed && <Text style={styles.listingBadge}>💰</Text>}
-                  {item.isLoanListed && <Text style={styles.listingBadge}>🔁</Text>}
-                  {item.willRetireAtSeasonEnd && <Text style={[styles.listingBadge, styles.retiringBadge]}>🏁 Retiring</Text>}
+                  {item.isTransferListed && <Badge value={t('squad.tag_listed')} tone="warning" size="sm" />}
+                  {item.isLoanListed && <Badge value={t('squad.tag_loan')} tone="accent" accent={accent.accent} size="sm" />}
+                  {item.willRetireAtSeasonEnd && <Badge value={t('squad.tag_retiring')} tone="danger" size="sm" />}
                 </View>
               )}
             </View>
@@ -180,44 +192,18 @@ const styles = StyleSheet.create({
   },
   topLinkItem: {
     flex: 1,
-    marginHorizontal: 0,
-    marginTop: 0,
-    marginBottom: 0,
   },
-  youthLink: {
-    paddingVertical: spacing.sm,
+  linkCard: {
+    flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.surface,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
+    justifyContent: 'center',
+    gap: spacing.xs,
   },
-  youthLinkText: { color: colors.primary, fontSize: fontSize.sm, fontWeight: '600' },
   filterRow: {
     flexDirection: 'row',
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     gap: spacing.sm,
-  },
-  filterChip: {
-    paddingVertical: 6,
-    paddingHorizontal: spacing.md,
-    borderRadius: radius.pill,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
-  },
-  filterChipActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  filterChipText: {
-    color: colors.textSecondary,
-    fontSize: fontSize.sm,
-    fontWeight: '600',
-  },
-  filterChipTextActive: {
-    color: colors.text,
   },
   listContent: {
     paddingBottom: spacing.xl,
@@ -227,23 +213,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  emptyText: {
-    color: colors.textMuted,
-    fontSize: fontSize.md,
-  },
   listingBadges: {
     flexDirection: 'row',
     paddingHorizontal: spacing.md,
     paddingBottom: spacing.xs,
     marginTop: -spacing.sm,
     gap: spacing.xs,
-  },
-  listingBadge: {
-    fontSize: fontSize.xs,
-    marginLeft: spacing.xs,
-  },
-  retiringBadge: {
-    color: colors.warning,
-    fontWeight: '700',
   },
 });
