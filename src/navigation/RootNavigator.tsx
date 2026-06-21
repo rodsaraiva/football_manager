@@ -42,6 +42,10 @@ import { CalendarScreen } from '@/screens/home/CalendarScreen';
 import { PreSeasonScreen } from '@/screens/home/PreSeasonScreen';
 import { JobOffersScreen } from '@/screens/career/JobOffersScreen';
 import { AchievementsScreen } from '@/screens/career/AchievementsScreen';
+import { HallOfFameScreen } from '@/screens/career/HallOfFameScreen';
+import { RecordsScreen } from '@/screens/career/RecordsScreen';
+import { ManagerTimelineScreen } from '@/screens/career/ManagerTimelineScreen';
+import { RivalriesScreen } from '@/screens/career/RivalriesScreen';
 import { YouthAcademyScreen } from '@/screens/squad/YouthAcademyScreen';
 import { TopScorersScreen } from '@/screens/league/TopScorersScreen';
 import { CupBracketScreen } from '@/screens/league/CupBracketScreen';
@@ -112,6 +116,10 @@ export function RootNavigator() {
       <Stack.Screen name="PreSeason" component={PreSeasonScreen} options={{ title: t('nav.preseason') }} />
       <Stack.Screen name="JobOffers" component={JobOffersScreen} options={{ title: t('nav.job_offers') }} />
       <Stack.Screen name="Achievements" component={AchievementsScreen} options={{ title: t('nav.achievements') }} />
+      <Stack.Screen name="HallOfFame" component={HallOfFameScreen} options={{ title: t('nav.hall_of_fame') }} />
+      <Stack.Screen name="Records" component={RecordsScreen} options={{ title: t('nav.records') }} />
+      <Stack.Screen name="ManagerTimeline" component={ManagerTimelineScreen} options={{ title: t('nav.manager_timeline') }} />
+      <Stack.Screen name="Rivalries" component={RivalriesScreen} options={{ title: t('nav.rivalries') }} />
       <Stack.Screen name="YouthAcademy" component={YouthAcademyScreen} options={{ title: t('nav.youth_academy') }} />
       <Stack.Screen name="TopScorers" component={TopScorersScreen} options={{ title: t('nav.top_scorers') }} />
       <Stack.Screen name="CupBracket" component={CupBracketScreen} options={{ title: t('nav.cup_bracket') }} />

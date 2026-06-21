@@ -225,6 +225,38 @@ export function ReportsHubScreen() {
           onPress={() => navigation.navigate('Achievements')}
           testID="hub-achievements"
         />
+        <HubCard
+          icon="goal"
+          title={t('legacy.hall_of_fame_title')}
+          subtitle={t('legacy.legend_score')}
+          accent={colors.gold}
+          onPress={() => navigation.navigate('HallOfFame')}
+          testID="hub-hall-of-fame"
+        />
+        <HubCard
+          icon="chart"
+          title={t('legacy.records_title')}
+          subtitle={t('records.all_time_top_scorer')}
+          accent={colors.reportTechnical}
+          onPress={() => navigation.navigate('Records')}
+          testID="hub-records"
+        />
+        <HubCard
+          icon="news"
+          title={t('legacy.timeline_title')}
+          subtitle={t('manager_career.position')}
+          accent={colors.reportHistory}
+          onPress={() => navigation.navigate('ManagerTimeline')}
+          testID="hub-manager-timeline"
+        />
+        <HubCard
+          icon="shield"
+          title={t('legacy.rivalries_title')}
+          subtitle={t('rivalry.head_to_head')}
+          accent={colors.danger}
+          onPress={() => navigation.navigate('Rivalries')}
+          testID="hub-rivalries"
+        />
       </View>
     </ScrollView>
   );

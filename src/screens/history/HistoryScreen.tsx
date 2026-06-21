@@ -11,6 +11,9 @@ import { useTranslation } from '@/i18n';
 import { useGameStore } from '@/store/game-store';
 import { useDatabaseStore } from '@/store/database-store';
 import { getSeasonSummary, SeasonCompetitionSummary } from '@/database/queries/history';
+import { getClubNameMap, getPlayerNameMap, getManagerCareer } from '@/database/queries/legacy';
+import { classifySeasonSaga } from '@/engine/legacy/saga-engine';
+import type { TKey } from '@/i18n/translate';
 import { Card, Chip, EmptyState } from '@/components/kit';
 import { Title, Body, Label } from '@/components/typography';
 
@@ -22,8 +25,12 @@ export function HistoryScreen() {
   const saveId = currentSave?.id;
 
   const defaultSeason = currentSeason > 1 ? currentSeason - 1 : 1;
+  const { playerClubId } = useGameStore();
   const [selectedSeason, setSelectedSeason] = useState<number>(defaultSeason);
   const [summary, setSummary] = useState<SeasonCompetitionSummary[]>([]);
+  const [clubNames, setClubNames] = useState<Map<number, string>>(new Map());
+  const [playerNames, setPlayerNames] = useState<Map<number, string>>(new Map());
+  const [seasonSaga, setSeasonSaga] = useState<{ titleKey: string; bodyKey: string; vars: Record<string, string | number> } | null>(null);
   const [loading, setLoading] = useState(false);
 
   const seasons: number[] = [];
@@ -35,15 +42,34 @@ export function HistoryScreen() {
     setLoading(true);
     (async () => {
       const data = await getSeasonSummary(dbHandle, saveId, selectedSeason);
+      const clubs = await getClubNameMap(dbHandle, saveId);
+      const playerIds = data.flatMap((e) => [
+        ...e.topScorers.map((s) => s.playerId),
+        ...e.topAssisters.map((s) => s.playerId),
+        e.mvp?.playerId, e.breakthrough?.playerId,
+      ]).filter((id): id is number => id != null);
+      const players = await getPlayerNameMap(dbHandle, saveId, playerIds);
+      const career = await getManagerCareer(dbHandle, saveId);
+      const entry = career.find((c) => c.season === selectedSeason);
+      const saga = entry
+        ? classifySeasonSaga({
+            season: entry.season, leaguePosition: entry.leaguePosition, totalTeams: entry.totalTeams,
+            expectedPosition: null, wonLeague: entry.leaguePosition === 1, wonCup: false,
+            wasPromoted: false, wasRelegated: false, trophies: entry.trophies,
+          })
+        : null;
       if (!cancelled) {
         setSummary(data);
+        setClubNames(clubs);
+        setPlayerNames(players);
+        setSeasonSaga(saga);
         setLoading(false);
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [dbHandle, saveId, selectedSeason]);
+  }, [dbHandle, saveId, selectedSeason, playerClubId]);
 
   if (seasons.length === 0) {
     return (
@@ -82,18 +108,34 @@ export function HistoryScreen() {
           <EmptyState art="search" title={t('history.no_data', { season: selectedSeason })} />
         </View>
       ) : (
-        summary.map((entry) => (
-          <SummaryCard key={entry.competitionId} entry={entry} />
-        ))
+        <>
+          {seasonSaga && (
+            <Card variant="detail" style={styles.card} testID="history-saga">
+              <Label>{t(seasonSaga.titleKey as TKey, seasonSaga.vars)}</Label>
+              <Body color={colors.text}>{t(seasonSaga.bodyKey as TKey, seasonSaga.vars)}</Body>
+            </Card>
+          )}
+          {summary.map((entry) => (
+            <SummaryCard key={entry.competitionId} entry={entry} clubNames={clubNames} playerNames={playerNames} />
+          ))}
+        </>
       )}
     </ScrollView>
   );
 }
 
-function SummaryCard({ entry }: { entry: SeasonCompetitionSummary }) {
+function SummaryCard({
+  entry, clubNames, playerNames,
+}: {
+  entry: SeasonCompetitionSummary;
+  clubNames: Map<number, string>;
+  playerNames: Map<number, string>;
+}) {
   const { t } = useTranslation();
   const topScorer = entry.topScorers[0] ?? null;
   const topAssister = entry.topAssisters[0] ?? null;
+  const club = (id: number) => clubNames.get(id) ?? `#${id}`;
+  const player = (id: number) => playerNames.get(id) ?? `#${id}`;
 
   return (
     <Card variant="detail" style={styles.card}>
@@ -102,9 +144,9 @@ function SummaryCard({ entry }: { entry: SeasonCompetitionSummary }) {
       </View>
 
       <View style={styles.section}>
-        <Row label={t('history.champion')} value={`Club ${entry.championClubId}`} valueColor={colors.gold} />
+        <Row label={t('history.champion')} value={club(entry.championClubId)} valueColor={colors.gold} />
         {entry.runnerUpClubId != null && (
-          <Row label={t('history.runner_up')} value={`Club ${entry.runnerUpClubId}`} valueColor={colors.silver} />
+          <Row label={t('history.runner_up')} value={club(entry.runnerUpClubId)} valueColor={colors.silver} />
         )}
       </View>
 
@@ -114,28 +156,28 @@ function SummaryCard({ entry }: { entry: SeasonCompetitionSummary }) {
           {topScorer && (
             <Row
               label={t('history.top_scorer')}
-              value={`Player ${topScorer.playerId} — ${topScorer.value} goals`}
+              value={`${player(topScorer.playerId)} — ${topScorer.value}`}
               valueColor={colors.text}
             />
           )}
           {topAssister && (
             <Row
               label={t('history.top_assister')}
-              value={`Player ${topAssister.playerId} — ${topAssister.value} assists`}
+              value={`${player(topAssister.playerId)} — ${topAssister.value}`}
               valueColor={colors.text}
             />
           )}
           {entry.mvp && (
             <Row
               label={t('history.mvp')}
-              value={`Player ${entry.mvp.playerId}`}
+              value={player(entry.mvp.playerId)}
               valueColor={colors.primaryLight}
             />
           )}
           {entry.breakthrough && (
             <Row
               label={t('history.breakthrough')}
-              value={`Player ${entry.breakthrough.playerId}`}
+              value={player(entry.breakthrough.playerId)}
               valueColor={colors.success}
             />
           )}
@@ -148,8 +190,8 @@ function SummaryCard({ entry }: { entry: SeasonCompetitionSummary }) {
           {entry.relegated.map((rel) => (
             <Row
               key={rel.clubId}
-              label={`${rel.finalPosition}th`}
-              value={`Club ${rel.clubId}`}
+              label={`${rel.finalPosition}`}
+              value={club(rel.clubId)}
               valueColor={colors.danger}
             />
           ))}

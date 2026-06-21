@@ -54,6 +54,11 @@ export type RootStackParamList = {
   JobOffers: undefined;
   // Career: achievements / milestones
   Achievements: undefined;
+  // C1 dynasty/legacy
+  HallOfFame: undefined;
+  Records: undefined;
+  ManagerTimeline: undefined;
+  Rivalries: undefined;
 };
 
 export type TabParamList = {
