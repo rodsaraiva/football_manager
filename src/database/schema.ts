@@ -30,6 +30,7 @@ export const TABLE_NAMES: string[] = [
   'assistants',
   'app_settings',
   'scouting',
+  'scout_missions',
   'job_offers',
   'set_piece_takers',
   'achievements',
@@ -180,7 +181,8 @@ CREATE TABLE IF NOT EXISTS staff (
   ability      INTEGER NOT NULL CHECK (ability BETWEEN 1 AND 20),
   wage         INTEGER NOT NULL,
   contract_end INTEGER NOT NULL,
-  youth_specialization TEXT NOT NULL DEFAULT 'balanced'
+  youth_specialization TEXT NOT NULL DEFAULT 'balanced',
+  archetype    TEXT
 );
 
 CREATE TABLE IF NOT EXISTS club_finances (
@@ -470,6 +472,21 @@ CREATE TABLE IF NOT EXISTS scouting (
   PRIMARY KEY (save_id, player_id)
 );
 
+-- C3 scout_missions: trabalho de scouting em andamento (1 olheiro = 1 missão ativa).
+CREATE TABLE IF NOT EXISTS scout_missions (
+  id               INTEGER PRIMARY KEY AUTOINCREMENT,
+  save_id          INTEGER NOT NULL REFERENCES save_games(id),
+  scout_id         INTEGER NOT NULL,
+  type             TEXT    NOT NULL,
+  target_player_id INTEGER,
+  target_club_id   INTEGER,
+  region_code      TEXT,
+  weeks_elapsed    INTEGER NOT NULL DEFAULT 0,
+  status           TEXT    NOT NULL DEFAULT 'active',
+  created_season   INTEGER NOT NULL,
+  created_week     INTEGER NOT NULL
+);
+
 CREATE INDEX IF NOT EXISTS idx_awards_player        ON season_awards(player_id);
 CREATE INDEX IF NOT EXISTS idx_awards_season_comp   ON season_awards(season, competition_id);
 CREATE INDEX IF NOT EXISTS idx_results_season       ON season_competition_results(season);
@@ -491,6 +508,8 @@ CREATE INDEX IF NOT EXISTS idx_transfer_offers_status ON transfer_offers(status)
 CREATE INDEX IF NOT EXISTS idx_transfer_offers_club   ON transfer_offers(offering_club_id);
 CREATE INDEX IF NOT EXISTS idx_friendlies_save_season ON friendlies(save_id, season);
 CREATE INDEX IF NOT EXISTS idx_scouting_save ON scouting(save_id);
+CREATE INDEX IF NOT EXISTS idx_scout_missions_save  ON scout_missions(save_id, status);
+CREATE INDEX IF NOT EXISTS idx_scout_missions_scout ON scout_missions(save_id, scout_id);
 CREATE INDEX IF NOT EXISTS idx_job_offers_save_status ON job_offers(save_id, season, status);
 
 -- P7 set-piece takers: per-club designated penalty/free-kick/corner taker. Each

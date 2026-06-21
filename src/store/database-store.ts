@@ -205,6 +205,26 @@ export const useDatabaseStore = create<DatabaseStore>((set) => ({
         CREATE INDEX IF NOT EXISTS idx_scouting_save ON scouting(save_id);
       `);
 
+      // C3 scout_missions + staff.archetype (added post-initial-schema).
+      await db.execAsync(`
+        CREATE TABLE IF NOT EXISTS scout_missions (
+          id               INTEGER PRIMARY KEY AUTOINCREMENT,
+          save_id          INTEGER NOT NULL,
+          scout_id         INTEGER NOT NULL,
+          type             TEXT    NOT NULL,
+          target_player_id INTEGER,
+          target_club_id   INTEGER,
+          region_code      TEXT,
+          weeks_elapsed    INTEGER NOT NULL DEFAULT 0,
+          status           TEXT    NOT NULL DEFAULT 'active',
+          created_season   INTEGER NOT NULL,
+          created_week     INTEGER NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_scout_missions_save  ON scout_missions(save_id, status);
+        CREATE INDEX IF NOT EXISTS idx_scout_missions_scout ON scout_missions(save_id, scout_id);
+      `);
+      await addColumnIfMissing(db, 'staff', 'archetype', 'TEXT');
+
       // P7 set-piece takers: per-club designated penalty/free-kick/corner taker
       // (NULL id = engine auto-picks, the legacy behavior). Only the user's club rows.
       await db.execAsync(`
