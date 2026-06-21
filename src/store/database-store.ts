@@ -274,6 +274,63 @@ export const useDatabaseStore = create<DatabaseStore>((set) => ({
       await db.execAsync(`CREATE INDEX IF NOT EXISTS idx_relegated_season ON season_relegated(season);`);
       await db.execAsync(`CREATE INDEX IF NOT EXISTS idx_player_titles_player ON season_player_titles(player_id);`);
 
+      // C1 dynasty/legacy (added post-initial-schema): mirror of schema.ts tables so
+      // legacy saves gain them on open. IF NOT EXISTS = no historical rebuild.
+      await db.execAsync(`
+        CREATE TABLE IF NOT EXISTS club_legends (
+          id            INTEGER PRIMARY KEY AUTOINCREMENT,
+          save_id       INTEGER NOT NULL REFERENCES save_games(id),
+          club_id       INTEGER NOT NULL REFERENCES clubs(id),
+          player_id     INTEGER NOT NULL REFERENCES players(id),
+          legend_score  INTEGER NOT NULL,
+          appearances   INTEGER NOT NULL,
+          goals         INTEGER NOT NULL,
+          trophies      INTEGER NOT NULL,
+          individual_awards INTEGER NOT NULL,
+          first_season  INTEGER NOT NULL,
+          last_season   INTEGER NOT NULL,
+          UNIQUE(save_id, club_id, player_id)
+        );
+        CREATE TABLE IF NOT EXISTS club_records (
+          id          INTEGER PRIMARY KEY AUTOINCREMENT,
+          save_id     INTEGER NOT NULL REFERENCES save_games(id),
+          club_id     INTEGER NOT NULL REFERENCES clubs(id),
+          record_type TEXT    NOT NULL,
+          value       INTEGER NOT NULL,
+          holder_id   INTEGER,
+          season      INTEGER,
+          fixture_ref INTEGER,
+          detail      TEXT    NOT NULL DEFAULT '',
+          UNIQUE(save_id, club_id, record_type)
+        );
+        CREATE TABLE IF NOT EXISTS rivalries (
+          id          INTEGER PRIMARY KEY AUTOINCREMENT,
+          save_id     INTEGER NOT NULL REFERENCES save_games(id),
+          club_a_id   INTEGER NOT NULL REFERENCES clubs(id),
+          club_b_id   INTEGER NOT NULL REFERENCES clubs(id),
+          intensity   INTEGER NOT NULL CHECK (intensity BETWEEN 1 AND 100),
+          origin      TEXT    NOT NULL,
+          UNIQUE(save_id, club_a_id, club_b_id)
+        );
+        CREATE TABLE IF NOT EXISTS manager_career (
+          id            INTEGER PRIMARY KEY AUTOINCREMENT,
+          save_id       INTEGER NOT NULL REFERENCES save_games(id),
+          season        INTEGER NOT NULL,
+          club_id       INTEGER NOT NULL REFERENCES clubs(id),
+          division_level INTEGER NOT NULL,
+          league_position INTEGER,
+          total_teams   INTEGER NOT NULL,
+          trophies      INTEGER NOT NULL DEFAULT 0,
+          manager_reputation INTEGER NOT NULL,
+          exit_reason   TEXT    NOT NULL DEFAULT 'stayed',
+          UNIQUE(save_id, season)
+        );
+        CREATE INDEX IF NOT EXISTS idx_legends_club   ON club_legends(save_id, club_id);
+        CREATE INDEX IF NOT EXISTS idx_records_club   ON club_records(save_id, club_id);
+        CREATE INDEX IF NOT EXISTS idx_rivalries_save ON rivalries(save_id, club_a_id, club_b_id);
+        CREATE INDEX IF NOT EXISTS idx_mgr_career     ON manager_career(save_id, season);
+      `);
+
       // Board system (added post-initial-schema)
       await addColumnIfMissing(db, 'save_games', 'board_trust', 'INTEGER NOT NULL DEFAULT 50');
 
