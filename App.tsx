@@ -4,6 +4,7 @@ import { NavigationContainer, DarkTheme } from '@react-navigation/native';
 import { StatusBar } from 'expo-status-bar';
 import { RootNavigator } from '@/navigation/RootNavigator';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { ClubAccentProvider } from '@/theme/ClubAccentProvider';
 import LoadingScreen from '@/components/LoadingScreen';
 import { useDatabaseStore } from '@/store/database-store';
 import { useAppFonts } from '@/theme/useAppFonts';
@@ -51,7 +52,9 @@ export default function App() {
       },
     }}>
       <ErrorBoundary>
-        <RootNavigator />
+        <ClubAccentProvider>
+          <RootNavigator />
+        </ClubAccentProvider>
       </ErrorBoundary>
       <StatusBar style="light" />
     </NavigationContainer>
