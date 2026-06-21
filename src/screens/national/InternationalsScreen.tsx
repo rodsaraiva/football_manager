@@ -1,7 +1,7 @@
 import React, { useCallback, useState } from 'react';
-import { View, Text, ScrollView, StyleSheet } from 'react-native';
+import { View, ScrollView, StyleSheet } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import { colors, spacing, fontSize, radius, commonStyles } from '@/theme';
+import { colors, spacing, commonStyles } from '@/theme';
 import { useTranslation } from '@/i18n';
 import { useGameStore } from '@/store/game-store';
 import { useDatabaseStore } from '@/store/database-store';
@@ -14,6 +14,8 @@ import {
   INTERNATIONAL_CALLUP_MIN_OVERALL,
   TRAVEL_FATIGUE_PENALTY,
 } from '@/engine/national/international-duty';
+import { Card, Badge, EmptyState } from '@/components/kit';
+import { Headline, Body, Label, Caption, Stat } from '@/components/typography';
 
 interface InternationalPlayer {
   id: number;
@@ -79,44 +81,46 @@ export function InternationalsScreen() {
   return (
     <ScrollView style={commonStyles.screen} contentContainerStyle={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>{t('internationals.title')}</Text>
-        <Text style={styles.headerSub}>{t('internationals.subtitle')}</Text>
+        <Headline>{t('internationals.title')}</Headline>
+        <Body color={colors.primary}>{t('internationals.subtitle')}</Body>
       </View>
 
       {isBreak && (
-        <View style={styles.breakBanner}>
-          <Text style={styles.breakBannerText}>{t('internationals.break_banner')}</Text>
-          <Text style={styles.fatigueNote}>
+        <Card variant="detail" accent={colors.primary} selected style={styles.breakBanner}>
+          <Body>{t('internationals.break_banner')}</Body>
+          <Caption color={colors.textSecondary}>
             {t('internationals.fatigue_note', { penalty: TRAVEL_FATIGUE_PENALTY })}
-          </Text>
-        </View>
+          </Caption>
+        </Card>
       )}
 
       {groups.length === 0 ? (
-        <View style={styles.emptyCard}>
-          <Text style={styles.emptyText}>{t('internationals.empty')}</Text>
+        <View style={styles.emptyWrap}>
+          <EmptyState art="squad" title={t('internationals.empty')} />
         </View>
       ) : (
         groups.map((group) => (
-          <View key={group.nationality} style={styles.groupCard}>
-            <Text style={styles.groupHeader}>{group.nationality}</Text>
+          <Card key={group.nationality} variant="detail" style={styles.groupCard}>
+            <Label>{group.nationality}</Label>
             {group.players.map((p) => {
               const isCalledUp = isBreak && calledUpIds.has(p.id);
               const ovrColor = p.overall >= 85 ? colors.success : p.overall >= 80 ? colors.warning : colors.text;
               return (
                 <View key={p.id} style={styles.playerRow}>
-                  <Text style={styles.playerPos}>{p.position}</Text>
+                  <Caption color={colors.primary} style={styles.playerPos}>{p.position}</Caption>
                   <View style={styles.playerInfo}>
-                    <Text style={styles.playerName} numberOfLines={1}>{p.name}</Text>
+                    <Body numberOfLines={1}>{p.name}</Body>
                     {isCalledUp && (
-                      <Text style={styles.calledUpTag}>🌍 {t('internationals.called_up_tag')}</Text>
+                      <View style={styles.calledUpTag}>
+                        <Badge value={t('internationals.called_up_tag')} tone="warning" size="sm" />
+                      </View>
                     )}
                   </View>
-                  <Text style={[styles.playerOvr, { color: ovrColor }]}>{p.overall}</Text>
+                  <Stat color={ovrColor} style={styles.playerOvr}>{p.overall}</Stat>
                 </View>
               );
             })}
-          </View>
+          </Card>
         ))
       )}
     </ScrollView>
@@ -126,105 +130,35 @@ export function InternationalsScreen() {
 const styles = StyleSheet.create({
   container: { paddingBottom: spacing.xl },
   header: {
-    backgroundColor: colors.surface,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    gap: spacing.xs,
     marginBottom: spacing.sm,
-  },
-  headerTitle: {
-    color: colors.text,
-    fontSize: fontSize.xxl,
-    fontWeight: 'bold',
-  },
-  headerSub: {
-    color: colors.primary,
-    fontSize: fontSize.sm,
-    marginTop: spacing.xxs,
   },
   breakBanner: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    padding: spacing.md,
     marginHorizontal: spacing.md,
     marginBottom: spacing.sm,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderLeftWidth: 4,
-    borderLeftColor: colors.primary,
+    gap: spacing.xxs,
   },
-  breakBannerText: {
-    color: colors.text,
-    fontSize: fontSize.sm,
-    fontWeight: '700',
-  },
-  fatigueNote: {
-    color: colors.textSecondary,
-    fontSize: fontSize.xs,
-    marginTop: spacing.xxs,
-  },
-  emptyCard: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.md,
-    padding: spacing.lg,
-    marginHorizontal: spacing.md,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  emptyText: {
-    color: colors.textMuted,
-    fontSize: fontSize.md,
-    textAlign: 'center',
-  },
+  emptyWrap: { marginHorizontal: spacing.md },
   groupCard: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
     marginHorizontal: spacing.md,
     marginBottom: spacing.sm,
-    borderWidth: 1,
-    borderColor: colors.border,
-    overflow: 'hidden',
-  },
-  groupHeader: {
-    color: colors.textMuted,
-    fontSize: fontSize.xs,
-    fontWeight: '700',
-    letterSpacing: 1,
-    textTransform: 'uppercase',
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.md,
-    paddingBottom: spacing.sm,
+    gap: spacing.xs,
   },
   playerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
     borderTopWidth: 1,
     borderTopColor: colors.border,
   },
   playerPos: {
-    color: colors.primary,
-    fontSize: fontSize.xs,
-    fontWeight: 'bold',
     width: 44,
   },
-  playerInfo: { flex: 1 },
-  playerName: {
-    color: colors.text,
-    fontSize: fontSize.sm,
-    fontWeight: '600',
-  },
-  calledUpTag: {
-    color: colors.warning,
-    fontSize: fontSize.xs,
-    marginTop: spacing.xxs,
-  },
+  playerInfo: { flex: 1, gap: spacing.xxs },
+  calledUpTag: { alignSelf: 'flex-start' },
   playerOvr: {
-    fontSize: fontSize.md,
-    fontWeight: 'bold',
     width: 32,
     textAlign: 'right',
   },
