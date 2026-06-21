@@ -20,7 +20,8 @@ describe('YouthAcademyScreen smoke', () => {
     const r = await renderWithRealDb(<YouthAcademyScreen />);
     const text = collectText(r);
     expect(text.includes(translate('pt', 'youth.title'))).toBe(true);
-    expect(text.includes(translate('pt', 'youth.empty'))).toBe(true);
+    // Tela reescrita (C2): sem talentos de base ⇒ estado vazio das reservas.
+    expect(text.includes(translate('pt', 'youth.empty_reserves'))).toBe(true);
     r.unmount();
   });
 
