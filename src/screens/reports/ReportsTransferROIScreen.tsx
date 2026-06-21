@@ -6,8 +6,6 @@
 import React, { useCallback, useState } from 'react';
 import {
   View,
-  Text,
-  ScrollView,
   StyleSheet,
   ActivityIndicator,
   Pressable,
@@ -15,8 +13,10 @@ import {
   RefreshControl,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import { colors, spacing, fontSize, radius, commonStyles } from '@/theme';
+import { colors, spacing, radius, commonStyles } from '@/theme';
 import { useTranslation } from '@/i18n';
+import { Card, TabIndicator } from '@/components/kit';
+import { Body, Label, Caption } from '@/components/typography';
 import { useGameStore } from '@/store/game-store';
 import { useDatabaseStore } from '@/store/database-store';
 import { getPlayersWithAttributesByClub } from '@/database/queries/players';
@@ -132,7 +132,7 @@ export function ReportsTransferROIScreen() {
   if (!report) {
     return (
       <View style={[commonStyles.screen, styles.center]}>
-        <Text style={styles.emptyText}>{t('report.roi_no_data')}</Text>
+        <Body color={colors.textMuted}>{t('report.roi_no_data')}</Body>
       </View>
     );
   }
@@ -144,28 +144,38 @@ export function ReportsTransferROIScreen() {
       {/* Tabs */}
       <View style={styles.tabRow}>
         <Pressable
-          style={[styles.tabBtn, tab === 'signings' && styles.tabBtnActive]}
+          style={styles.tabBtn}
           onPress={() => setTab('signings')}
+          accessibilityRole="tab"
+          accessibilityState={{ selected: tab === 'signings' }}
+          accessibilityLabel={t('report.roi_tab_signings', { n: report.signings.length })}
+          testID="roi-tab-signings"
         >
-          <Text style={[styles.tabText, tab === 'signings' && styles.tabTextActive]}>
+          <Label color={tab === 'signings' ? colors.reportROI : colors.textSecondary}>
             {t('report.roi_tab_signings', { n: report.signings.length })}
-          </Text>
+          </Label>
+          <TabIndicator active={tab === 'signings'} accent={colors.reportROI} />
         </Pressable>
         <Pressable
-          style={[styles.tabBtn, tab === 'sales' && styles.tabBtnActive]}
+          style={styles.tabBtn}
           onPress={() => setTab('sales')}
+          accessibilityRole="tab"
+          accessibilityState={{ selected: tab === 'sales' }}
+          accessibilityLabel={t('report.roi_tab_sales', { n: report.sales.length })}
+          testID="roi-tab-sales"
         >
-          <Text style={[styles.tabText, tab === 'sales' && styles.tabTextActive]}>
+          <Label color={tab === 'sales' ? colors.reportROI : colors.textSecondary}>
             {t('report.roi_tab_sales', { n: report.sales.length })}
-          </Text>
+          </Label>
+          <TabIndicator active={tab === 'sales'} accent={colors.reportROI} />
         </Pressable>
       </View>
 
       {list.length === 0 ? (
         <View style={styles.center}>
-          <Text style={styles.emptyText}>
+          <Body color={colors.textMuted}>
             {tab === 'signings' ? t('report.roi_empty_signings') : t('report.roi_empty_sales')}
-          </Text>
+          </Body>
         </View>
       ) : (
         <FlatList
@@ -190,18 +200,18 @@ function ROICard({ entry, tab }: { entry: TransferROIEntry; tab: Tab }) {
     : colors.danger;
 
   return (
-    <View style={styles.card}>
+    <Card variant="summary" style={styles.card}>
       <View style={styles.cardHeader}>
         <View style={styles.cardInfo}>
-          <Text style={styles.playerName}>{entry.playerName}</Text>
-          <Text style={styles.playerMeta}>
+          <Body style={styles.playerName}>{entry.playerName}</Body>
+          <Caption color={colors.textSecondary}>
             {entry.position} · {t('report.roi_season', { season: entry.season })}
             {entry.isLoan ? ` · ${t('report.roi_loan')}` : ''}
             {!entry.stillAtClub && tab === 'signings' ? ` · ${t('report.roi_left_club')}` : ''}
-          </Text>
+          </Caption>
         </View>
         <View style={styles.ovrBadge}>
-          <Text style={styles.ovrText}>OVR {entry.currentOverall}</Text>
+          <Label color={colors.primary}>OVR {entry.currentOverall}</Label>
         </View>
       </View>
 
@@ -255,22 +265,21 @@ function ROICard({ entry, tab }: { entry: TransferROIEntry; tab: Tab }) {
           </>
         )}
       </View>
-    </View>
+    </Card>
   );
 }
 
 function StatCell({ label, value, color }: { label: string; value: string; color: string }) {
   return (
     <View style={styles.statCell}>
-      <Text style={[styles.statValue, { color }]}>{value}</Text>
-      <Text style={styles.statLabel}>{label}</Text>
+      <Label color={color} style={styles.statValue}>{value}</Label>
+      <Caption color={colors.textMuted} style={styles.statLabel}>{label}</Caption>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing.lg },
-  emptyText: { color: colors.textMuted, fontSize: fontSize.md, textAlign: 'center' },
   tabRow: {
     flexDirection: 'row',
     backgroundColor: colors.surface,
@@ -281,28 +290,12 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: spacing.sm,
     alignItems: 'center',
-  },
-  tabBtnActive: {
-    borderBottomWidth: 2,
-    borderBottomColor: colors.primary,
-  },
-  tabText: {
-    color: colors.textSecondary,
-    fontSize: fontSize.sm,
-    fontWeight: '600',
-  },
-  tabTextActive: {
-    color: colors.primary,
+    gap: spacing.xs,
   },
   listContent: { paddingBottom: spacing.xl, paddingTop: spacing.xs },
   card: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    padding: spacing.md,
     marginHorizontal: spacing.md,
     marginVertical: spacing.xs,
-    borderWidth: 1,
-    borderColor: colors.border,
   },
   cardHeader: {
     flexDirection: 'row',
@@ -312,27 +305,15 @@ const styles = StyleSheet.create({
   },
   cardInfo: { flex: 1 },
   playerName: {
-    color: colors.text,
-    fontSize: fontSize.md,
     fontWeight: '700',
-  },
-  playerMeta: {
-    color: colors.textSecondary,
-    fontSize: fontSize.sm,
-    marginTop: spacing.xxs,
   },
   ovrBadge: {
     backgroundColor: colors.surfaceLight,
-    borderRadius: 6,
+    borderRadius: radius.sm,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xxs,
     borderWidth: 1,
     borderColor: colors.border,
-  },
-  ovrText: {
-    color: colors.primary,
-    fontSize: fontSize.xs,
-    fontWeight: '700',
   },
   statsRow: {
     flexDirection: 'row',
@@ -346,12 +327,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   statValue: {
-    fontSize: fontSize.sm,
     fontWeight: '700',
   },
   statLabel: {
-    color: colors.textMuted,
-    fontSize: fontSize.xs,
-    marginTop: 1,
+    marginTop: spacing.xxs,
   },
 });
