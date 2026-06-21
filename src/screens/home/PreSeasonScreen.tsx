@@ -1,15 +1,11 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  ScrollView,
-  StyleSheet,
-  ActivityIndicator,
-} from 'react-native';
+import { View, ScrollView, ActivityIndicator } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { colors, spacing, fontSize, radius, commonStyles } from '@/theme';
+import { spacing, commonStyles } from '@/theme';
+import { useClubAccent } from '@/theme/useClubAccent';
+import { Card, Button, EmptyState } from '@/components/kit';
+import { Display, Title, Body, Label, Caption } from '@/components/typography';
 import { useTranslation } from '@/i18n';
 import { useGameStore } from '@/store/game-store';
 import { useDatabaseStore } from '@/store/database-store';
@@ -40,12 +36,13 @@ interface PlayedRow extends Friendly {
 export function PreSeasonScreen() {
   const navigation = useNavigation<NavProp>();
   const { t } = useTranslation();
+  const accent = useClubAccent();
   const { playerClub, playerClubId, season, currentSave, setPreseasonPending: setStorePending } = useGameStore();
   const { dbHandle } = useDatabaseStore();
 
   const [opponents, setOpponents] = useState<FriendlyOpponentCandidate[]>([]);
   const [played, setPlayed] = useState<PlayedRow[]>([]);
-  const [clubNames, setClubNames] = useState<Record<number, string>>({});
+  const [, setClubNames] = useState<Record<number, string>>({});
   const [count, setCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [playingId, setPlayingId] = useState<number | null>(null);
@@ -134,123 +131,100 @@ export function PreSeasonScreen() {
   if (loading) {
     return (
       <View style={[commonStyles.screen, styles.centered]}>
-        <ActivityIndicator color={colors.primary} size="large" />
+        <ActivityIndicator color={accent.accent} size="large" />
       </View>
     );
   }
 
   return (
     <ScrollView style={commonStyles.screen} contentContainerStyle={styles.container}>
-      <View style={styles.headerCard}>
-        <Text style={styles.title}>{t('preseason.title')}</Text>
-        <Text style={styles.subtitle}>{t('preseason.subtitle', { max: PRESEASON_MAX_FRIENDLIES })}</Text>
-        <Text style={styles.intro}>{t('preseason.intro')}</Text>
-        <Text style={styles.counter}>{t('preseason.friendly_count', { count, max: PRESEASON_MAX_FRIENDLIES })}</Text>
-      </View>
+      <Card variant="hero" accent={accent.accent} style={styles.headerCard}>
+        <Display>{t('preseason.title')}</Display>
+        <Label color={accent.accent} style={styles.subtitle}>{t('preseason.subtitle', { max: PRESEASON_MAX_FRIENDLIES })}</Label>
+        <Body style={styles.intro}>{t('preseason.intro')}</Body>
+        <Label style={styles.counter}>{t('preseason.friendly_count', { count, max: PRESEASON_MAX_FRIENDLIES })}</Label>
+      </Card>
 
       {/* Suggested opponents */}
       <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>{t('preseason.suggested_label')}</Text>
+        <Title>{t('preseason.suggested_label')}</Title>
       </View>
       {opponents.length === 0 ? (
-        <View style={styles.emptyCard}>
-          <Text style={styles.emptyText}>{t('preseason.no_opponents')}</Text>
-        </View>
+        <EmptyState art="squad" title={t('preseason.no_opponents')} />
       ) : (
         opponents.map((opp) => (
-          <View key={opp.id} style={styles.opponentCard}>
+          <Card key={opp.id} variant="detail" accent={accent.accent} style={styles.opponentCard}>
             <View style={styles.opponentInfo}>
-              <Text style={styles.opponentName} numberOfLines={1}>{opp.name}</Text>
-              <Text style={styles.opponentRep}>{t('preseason.opponent_rep', { rep: opp.reputation })}</Text>
+              <Body numberOfLines={1}>{opp.name}</Body>
+              <Caption>{t('preseason.opponent_rep', { rep: opp.reputation })}</Caption>
             </View>
-            <TouchableOpacity
-              style={[styles.playButton, (atCap || playingId !== null) && styles.playButtonDisabled]}
-              onPress={() => handlePlay(opp)}
+            <Button
+              label={t('preseason.play_button')}
+              variant="primary"
+              loading={playingId === opp.id}
               disabled={atCap || playingId !== null}
-              activeOpacity={0.8}
-            >
-              {playingId === opp.id ? (
-                <ActivityIndicator color={colors.text} size="small" />
-              ) : (
-                <Text style={styles.playButtonText}>{t('preseason.play_button')}</Text>
-              )}
-            </TouchableOpacity>
-          </View>
+              onPress={() => handlePlay(opp)}
+              testID={`preseason-play-${opp.id}`}
+              accessibilityLabel={t('preseason.play_button')}
+            />
+          </Card>
         ))
       )}
 
       {/* Played friendlies */}
       <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>{t('preseason.played_label')}</Text>
+        <Title>{t('preseason.played_label')}</Title>
       </View>
       {played.length === 0 ? (
-        <View style={styles.emptyCard}>
-          <Text style={styles.emptyText}>{t('preseason.empty_played')}</Text>
-        </View>
+        <EmptyState art="generic" title={t('preseason.empty_played')} />
       ) : (
         played.map((f) => (
-          <View key={f.id} style={styles.resultCard}>
-            <Text style={styles.resultText} numberOfLines={1}>
+          <Card key={f.id} variant="detail" accent={accent.accent} style={styles.resultCard}>
+            <Body numberOfLines={1} style={styles.resultText}>
               {t('preseason.result_score', {
                 home: f.homeName,
                 homeGoals: f.homeGoals ?? 0,
                 awayGoals: f.awayGoals ?? 0,
                 away: f.awayName,
               })}
-            </Text>
-          </View>
+            </Body>
+          </Card>
         ))
       )}
 
       {/* Start season */}
-      <TouchableOpacity
-        style={styles.startButton}
-        onPress={handleStartSeason}
-        activeOpacity={0.8}
-      >
-        <Text style={styles.startButtonText}>{t('preseason.start_season')}</Text>
-      </TouchableOpacity>
+      <View style={styles.startWrap}>
+        <Button
+          label={t('preseason.start_season')}
+          variant="primary"
+          onPress={handleStartSeason}
+          testID="preseason-start"
+          accessibilityLabel={t('preseason.start_season')}
+        />
+      </View>
     </ScrollView>
   );
 }
 
-const styles = StyleSheet.create({
+const styles = {
   container: {
     paddingBottom: spacing.xl,
   },
   centered: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
   },
   headerCard: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    padding: spacing.lg,
     margin: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.primary,
-  },
-  title: {
-    color: colors.text,
-    fontSize: fontSize.xxl,
-    fontWeight: 'bold',
   },
   subtitle: {
-    color: colors.primary,
-    fontSize: fontSize.md,
     marginTop: spacing.xs,
   },
   intro: {
-    color: colors.textSecondary,
-    fontSize: fontSize.sm,
     marginTop: spacing.sm,
-    lineHeight: 18,
   },
   counter: {
-    color: colors.textMuted,
-    fontSize: fontSize.sm,
-    fontWeight: '700',
     marginTop: spacing.sm,
   },
   sectionHeader: {
@@ -258,92 +232,25 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
     marginBottom: spacing.sm,
   },
-  sectionTitle: {
-    color: colors.text,
-    fontSize: fontSize.lg,
-    fontWeight: '600',
-  },
   opponentCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.surface,
-    borderRadius: radius.md,
-    padding: spacing.md,
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: spacing.sm,
     marginHorizontal: spacing.md,
     marginBottom: spacing.sm,
-    borderWidth: 1,
-    borderColor: colors.border,
   },
   opponentInfo: {
     flex: 1,
   },
-  opponentName: {
-    color: colors.text,
-    fontSize: fontSize.md,
-    fontWeight: '600',
-  },
-  opponentRep: {
-    color: colors.textMuted,
-    fontSize: fontSize.xs,
-    marginTop: spacing.xxs,
-  },
-  playButton: {
-    backgroundColor: colors.primary,
-    borderRadius: radius.md,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    minWidth: 96,
-    alignItems: 'center',
-  },
-  playButtonDisabled: {
-    opacity: 0.4,
-  },
-  playButtonText: {
-    color: colors.text,
-    fontSize: fontSize.sm,
-    fontWeight: '700',
-  },
   resultCard: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.md,
-    padding: spacing.md,
     marginHorizontal: spacing.md,
     marginBottom: spacing.sm,
-    borderWidth: 1,
-    borderColor: colors.border,
   },
   resultText: {
-    color: colors.text,
-    fontSize: fontSize.md,
-    fontWeight: '600',
-    textAlign: 'center',
+    textAlign: 'center' as const,
   },
-  emptyCard: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.md,
-    padding: spacing.lg,
-    marginHorizontal: spacing.md,
-    marginBottom: spacing.sm,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  emptyText: {
-    color: colors.textMuted,
-    fontSize: fontSize.md,
-  },
-  startButton: {
-    backgroundColor: colors.primary,
-    borderRadius: 10,
-    paddingVertical: 18,
+  startWrap: {
     marginHorizontal: spacing.md,
     marginTop: spacing.lg,
-    alignItems: 'center',
   },
-  startButtonText: {
-    color: colors.text,
-    fontSize: fontSize.xl,
-    fontWeight: 'bold',
-    letterSpacing: 1,
-  },
-});
+};
