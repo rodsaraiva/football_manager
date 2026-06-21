@@ -1,6 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, FlatList, StyleSheet, ActivityIndicator } from 'react-native';
-import { colors, spacing, fontSize, radius, commonStyles } from '@/theme';
+import { View, FlatList, ActivityIndicator } from 'react-native';
+import { spacing, commonStyles } from '@/theme';
+import { useClubAccent } from '@/theme/useClubAccent';
+import { Card, EmptyState } from '@/components/kit';
+import { Body, Label, Stat } from '@/components/typography';
 import { useGameStore } from '@/store/game-store';
 import { useDatabaseStore } from '@/store/database-store';
 import { useTranslation } from '@/i18n';
@@ -11,6 +14,7 @@ export function TopScorersScreen() {
   const { playerClub, season, currentSave } = useGameStore();
   const { dbHandle } = useDatabaseStore();
   const { t } = useTranslation();
+  const accent = useClubAccent();
   const [rows, setRows] = useState<TopScorerRow[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -35,15 +39,15 @@ export function TopScorersScreen() {
   if (loading) {
     return (
       <View style={[commonStyles.screen, styles.center]}>
-        <ActivityIndicator color={colors.primary} size="large" />
+        <ActivityIndicator color={accent.accent} size="large" />
       </View>
     );
   }
 
   if (rows.length === 0) {
     return (
-      <View style={[commonStyles.screen, styles.center]}>
-        <Text style={styles.empty}>{t('topscorers.empty')}</Text>
+      <View style={commonStyles.screen}>
+        <EmptyState art="search" title={t('topscorers.empty')} />
       </View>
     );
   }
@@ -55,25 +59,31 @@ export function TopScorersScreen() {
         keyExtractor={(item) => String(item.playerId)}
         contentContainerStyle={styles.list}
         renderItem={({ item, index }) => (
-          <View style={styles.row}>
-            <Text style={styles.rank}>{index + 1}</Text>
-            <Text style={styles.name}>{item.name}</Text>
-            <Text style={styles.goals}>{item.goals} {t('topscorers.goals')}</Text>
-            <Text style={styles.assists}>{item.assists} {t('topscorers.assists')}</Text>
-          </View>
+          <Card variant="detail" accent={accent.accent} style={styles.row}>
+            <Stat style={styles.rank}>{index + 1}</Stat>
+            <Body numberOfLines={1} style={styles.name}>{item.name}</Body>
+            <Stat color={accent.accent} style={styles.goals}>{item.goals}</Stat>
+            <Label style={styles.goalsLabel}>{t('topscorers.goals')}</Label>
+            <Label style={styles.assists}>{item.assists} {t('topscorers.assists')}</Label>
+          </Card>
         )}
       />
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing.lg },
-  empty: { color: colors.textMuted, fontSize: fontSize.md, textAlign: 'center' },
+const styles = {
+  center: { flex: 1, alignItems: 'center' as const, justifyContent: 'center' as const, padding: spacing.lg },
   list: { padding: spacing.md },
-  row: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surface, borderRadius: radius.md, padding: spacing.md, marginBottom: spacing.sm, borderWidth: 1, borderColor: colors.border },
-  rank: { color: colors.textMuted, fontSize: fontSize.md, fontWeight: 'bold', width: 28 },
-  name: { color: colors.text, fontSize: fontSize.md, fontWeight: '600', flex: 1 },
-  goals: { color: colors.primary, fontSize: fontSize.sm, fontWeight: '700', marginRight: spacing.sm },
-  assists: { color: colors.textSecondary, fontSize: fontSize.xs },
-});
+  row: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: spacing.sm,
+    marginBottom: spacing.sm,
+  },
+  rank: { width: spacing.xl },
+  name: { flex: 1 },
+  goals: {},
+  goalsLabel: {},
+  assists: {},
+};
