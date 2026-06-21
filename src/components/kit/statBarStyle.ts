@@ -8,9 +8,11 @@ export interface StatBarResolved {
   valueColor: string;
 }
 
-export function resolveStatBar(value: number, maxValue: number): StatBarResolved {
+// accent (opcional) sobrescreve a cor de rating — usado por StatBar tone='accent'
+// para tingir a barra pela cor do clube em vez do gradiente de overall.
+export function resolveStatBar(value: number, maxValue: number, accent?: string): StatBarResolved {
   const clamped = Math.max(0, Math.min(value, maxValue));
   const fillPercent = (clamped / maxValue) * 100;
-  const end = getBarColor(value);
+  const end = accent ?? getBarColor(value);
   return { fillPercent, colorStart: mixWithWhite(end, 0.35), colorEnd: end, valueColor: end };
 }

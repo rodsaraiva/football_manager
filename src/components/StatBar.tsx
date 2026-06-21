@@ -3,14 +3,17 @@ import { StyleSheet, Text, View } from 'react-native';
 import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 import { colors, fontSize, radius, spacing } from '@/theme';
 import { resolveStatBar } from './kit/statBarStyle';
+import { useClubAccentRampOptional } from '@/theme/ClubAccentProvider';
 
-interface StatBarProps { label: string; value: number; maxValue?: number; }
+interface StatBarProps { label: string; value: number; maxValue?: number; tone?: 'rating' | 'accent'; }
 
 const BAR_HEIGHT = 6;
 
-export default function StatBar({ label, value, maxValue = 99 }: StatBarProps) {
+export default function StatBar({ label, value, maxValue = 99, tone = 'rating' }: StatBarProps) {
   const [trackWidth, setTrackWidth] = useState(0);
-  const { fillPercent, colorStart, colorEnd, valueColor } = resolveStatBar(value, maxValue);
+  const ramp = useClubAccentRampOptional();
+  const accentOverride = tone === 'accent' ? ramp?.accent : undefined;
+  const { fillPercent, colorStart, colorEnd, valueColor } = resolveStatBar(value, maxValue, accentOverride);
   const gradId = `sb-${Math.round(value)}-${Math.round(maxValue)}`;
   const fillWidth = (trackWidth * fillPercent) / 100;
 
