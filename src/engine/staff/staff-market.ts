@@ -6,6 +6,7 @@ import {
   STAFF_WAGE_PER_ABILITY,
 } from '@/engine/balance';
 import { StaffCandidate, StaffRole } from '@/types/staff';
+import { SCOUT_ARCHETYPES } from '@/engine/scouting/scout-archetypes';
 
 const STAFF_NAMES = [
   'Adriano Costa', 'Bernard Lowe', 'Cesar Aguilar', 'Dieter Hahn', 'Elias Roth',
@@ -31,7 +32,8 @@ export function generateStaffCandidates(
   return names.map((name) => {
     const base = rng.nextInt(STAFF_ABILITY_MIN, STAFF_ABILITY_MAX);
     const ability = clamp(base + reputationBonus, 1, 20);
-    return { name, role, ability, wage: ability * STAFF_WAGE_PER_ABILITY };
+    const archetype = role === 'scout' ? rng.pick(SCOUT_ARCHETYPES) : undefined;
+    return { name, role, ability, wage: ability * STAFF_WAGE_PER_ABILITY, archetype };
   });
 }
 

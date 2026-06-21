@@ -1,6 +1,7 @@
 import { generateStaffCandidates, canHireStaff } from '@/engine/staff/staff-market';
 import { SeededRng } from '@/engine/rng';
 import { STAFF_CANDIDATE_POOL_SIZE, STAFF_WAGE_PER_ABILITY } from '@/engine/balance';
+import { SCOUT_ARCHETYPES } from '@/engine/scouting/scout-archetypes';
 
 describe('generateStaffCandidates', () => {
   it('gera N candidatos da função com ability/wage plausíveis e determinístico', () => {
@@ -61,5 +62,22 @@ describe('canHireStaff', () => {
     expect(
       canHireStaff({ budget: 100, wageBudget: 100000, candidateWage: 200, currentCountForRole: 0, maxSlots: 2 }),
     ).toMatchObject({ ok: false, reason: 'budget' });
+  });
+});
+
+describe('staff-market archetype (C3)', () => {
+  it('atribui archetype válido só a scouts e é determinístico', () => {
+    const a = generateStaffCandidates('scout', 70, new SeededRng(11));
+    const b = generateStaffCandidates('scout', 70, new SeededRng(11));
+    expect(a).toEqual(b);
+    for (const c of a) {
+      expect(c.archetype).toBeDefined();
+      expect(SCOUT_ARCHETYPES).toContain(c.archetype!);
+    }
+  });
+
+  it('não atribui archetype a não-scouts', () => {
+    const physios = generateStaffCandidates('physio', 70, new SeededRng(11));
+    for (const c of physios) expect(c.archetype).toBeUndefined();
   });
 });
