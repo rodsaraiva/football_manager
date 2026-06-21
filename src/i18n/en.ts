@@ -1190,4 +1190,10 @@ export const en: Record<keyof typeof pt, string> = {
   'settings.difficulty_easy': 'Easy',
   'settings.difficulty_normal': 'Normal',
   'settings.difficulty_hard': 'Hard',
+
+  // D6 micro-celebrations
+  'celebration.overall_up': 'Level up!',
+  'celebration.trophy': 'Trophy won!',
+  'celebration.transfer': 'Transfer done!',
+  'celebration.dismiss': 'Tap to dismiss',
 };

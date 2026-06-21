@@ -6,6 +6,7 @@ import { RootNavigator } from '@/navigation/RootNavigator';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { ClubAccentProvider } from '@/theme/ClubAccentProvider';
 import LoadingScreen from '@/components/LoadingScreen';
+import { CelebrationOverlay } from '@/components/CelebrationOverlay';
 import { useDatabaseStore } from '@/store/database-store';
 import { useAppFonts } from '@/theme/useAppFonts';
 import { colors, fontSize } from '@/theme';
@@ -55,6 +56,7 @@ export default function App() {
       <ErrorBoundary>
         <ClubAccentProvider>
           <RootNavigator />
+          <CelebrationOverlay />
         </ClubAccentProvider>
       </ErrorBoundary>
       <StatusBar style="light" />

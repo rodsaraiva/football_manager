@@ -1188,4 +1188,10 @@ export const pt = {
   'settings.difficulty_easy': 'Fácil',
   'settings.difficulty_normal': 'Normal',
   'settings.difficulty_hard': 'Difícil',
+
+  // D6 micro-celebrações
+  'celebration.overall_up': 'Evolução!',
+  'celebration.trophy': 'Troféu conquistado!',
+  'celebration.transfer': 'Transferência fechada!',
+  'celebration.dismiss': 'Toque para fechar',
 } as const;
