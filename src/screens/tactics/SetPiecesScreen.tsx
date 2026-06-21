@@ -4,10 +4,10 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  Text,
   View,
 } from 'react-native';
-import { colors, spacing, fontSize, radius, commonStyles } from '@/theme';
+import { colors, spacing, radius, commonStyles } from '@/theme';
+import { useClubAccent } from '@/theme/useClubAccent';
 import { getPositionColor } from '@/utils/player-colors';
 import { useGameStore } from '@/store/game-store';
 import { useDatabaseStore } from '@/store/database-store';
@@ -17,6 +17,8 @@ import { SetPieceTakers } from '@/engine/simulation/match-engine';
 import { calculateOverall } from '@/utils/overall';
 import { Player, PlayerAttributes } from '@/types';
 import { useTranslation } from '@/i18n';
+import { Card, Badge, EmptyState } from '@/components/kit';
+import { Body, Label, Caption, Stat } from '@/components/typography';
 
 type PlayerWithOvr = Player & { attributes: PlayerAttributes; overall: number };
 
@@ -30,6 +32,7 @@ const SLOT_KEY: Record<TakerSlot, keyof SetPieceTakers> = {
 
 export function SetPiecesScreen() {
   const { t } = useTranslation();
+  const accent = useClubAccent();
   const playerClubId = useGameStore((s) => s.playerClubId);
   const currentSave = useGameStore((s) => s.currentSave);
   const dbHandle = useDatabaseStore((s) => s.dbHandle);
@@ -93,65 +96,70 @@ export function SetPiecesScreen() {
   if (loading) {
     return (
       <View style={[commonStyles.screen, styles.centered]}>
-        <ActivityIndicator color={colors.primary} size="large" />
+        <ActivityIndicator color={accent.accent} size="large" />
       </View>
     );
   }
 
   return (
     <ScrollView style={commonStyles.screen} contentContainerStyle={styles.scrollContent}>
-      <Text style={styles.intro}>{t('setpieces.intro')}</Text>
+      <Body color={colors.textSecondary} style={styles.intro}>{t('setpieces.intro')}</Body>
 
       {squad.length === 0 ? (
-        <Text style={styles.empty}>{t('setpieces.empty')}</Text>
+        <EmptyState art="squad" title={t('setpieces.empty')} accent={accent.accent} />
       ) : (
         slots.map(({ slot, label }) => {
           const selectedId = takers[SLOT_KEY[slot]] ?? null;
           const isOpen = openSlot === slot;
           return (
-            <View key={slot} style={styles.section}>
-              <Text style={styles.sectionLabel}>{label}</Text>
+            <Card key={slot} variant="detail" accent={accent.accent} style={styles.section}>
+              <Label color={colors.textMuted} style={styles.sectionLabel}>{label}</Label>
               <Pressable
                 style={styles.selectorBtn}
                 onPress={() => setOpenSlot(isOpen ? null : slot)}
+                testID={`setpieces-selector-${slot}`}
+                accessibilityRole="button"
+                accessibilityLabel={label}
               >
-                <Text style={styles.selectorText} numberOfLines={1}>{currentName(slot)} ▾</Text>
+                <Body numberOfLines={1}>{currentName(slot)}</Body>
               </Pressable>
 
               {isOpen && (
                 <View style={styles.optionList}>
                   <Pressable
-                    style={[styles.optionRow, selectedId === null && styles.optionRowActive]}
+                    style={[styles.optionRow, selectedId === null && { backgroundColor: accent.accent }]}
                     onPress={() => handlePick(slot, null)}
+                    testID={`setpieces-${slot}-auto`}
                   >
-                    <Text style={[styles.optionName, selectedId === null && styles.optionNameActive]}>
+                    <Body color={selectedId === null ? colors.text : colors.textSecondary}>
                       {t('setpieces.automatic')}
-                    </Text>
+                    </Body>
                   </Pressable>
                   {squad.map((p) => {
                     const active = selectedId === p.id;
                     return (
                       <Pressable
                         key={p.id}
-                        style={[styles.optionRow, active && styles.optionRowActive]}
+                        style={[styles.optionRow, active && { backgroundColor: accent.accent }]}
                         onPress={() => handlePick(slot, p.id)}
+                        testID={`setpieces-${slot}-player-${p.id}`}
                       >
-                        <Text style={[styles.optionPos, { color: getPositionColor(p.position) }]}>{p.position}</Text>
-                        <Text style={[styles.optionName, active && styles.optionNameActive]} numberOfLines={1}>
+                        <Badge value={p.position} tone="neutral" accent={getPositionColor(p.position)} size="sm" />
+                        <Body color={active ? colors.text : colors.textSecondary} numberOfLines={1} style={styles.optionName}>
                           {p.name}
-                        </Text>
-                        <Text style={styles.optionOvr}>{p.overall}</Text>
+                        </Body>
+                        <Stat>{p.overall}</Stat>
                       </Pressable>
                     );
                   })}
                 </View>
               )}
-            </View>
+            </Card>
           );
         })
       )}
 
-      <Text style={styles.hint}>{t('setpieces.hint')}</Text>
+      <Caption color={colors.textMuted} style={styles.hint}>{t('setpieces.hint')}</Caption>
     </ScrollView>
   );
 }
@@ -160,27 +168,13 @@ const styles = StyleSheet.create({
   scrollContent: { paddingBottom: spacing.xl, paddingHorizontal: spacing.md, paddingTop: spacing.md },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   intro: {
-    color: colors.textSecondary,
-    fontSize: fontSize.sm,
     marginBottom: spacing.md,
     lineHeight: 20,
   },
-  empty: {
-    color: colors.textMuted,
-    fontSize: fontSize.sm,
-    textAlign: 'center',
-    marginTop: spacing.lg,
-  },
   section: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    padding: spacing.md,
     marginBottom: spacing.sm,
   },
   sectionLabel: {
-    color: colors.textMuted,
-    fontSize: fontSize.xs,
-    fontWeight: '700',
     letterSpacing: 1,
     textTransform: 'uppercase',
     marginBottom: spacing.sm,
@@ -193,7 +187,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
   },
-  selectorText: { color: colors.text, fontSize: fontSize.md, fontWeight: '600' },
   optionList: {
     marginTop: spacing.sm,
     backgroundColor: colors.background,
@@ -211,14 +204,8 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.surface,
   },
-  optionRowActive: { backgroundColor: colors.primary },
-  optionPos: { fontSize: fontSize.xs, fontWeight: 'bold', width: 36 },
-  optionName: { color: colors.textSecondary, fontSize: fontSize.sm, flex: 1 },
-  optionNameActive: { color: colors.text, fontWeight: '700' },
-  optionOvr: { color: colors.textMuted, fontSize: fontSize.sm, fontWeight: 'bold', width: 30, textAlign: 'right' },
+  optionName: { flex: 1 },
   hint: {
-    color: colors.textMuted,
-    fontSize: fontSize.xs,
     fontStyle: 'italic',
     marginTop: spacing.md,
     lineHeight: 18,
