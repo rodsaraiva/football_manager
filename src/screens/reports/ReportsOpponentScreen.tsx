@@ -16,26 +16,33 @@ import { useFocusEffect } from '@react-navigation/native';
 import { colors, alpha, spacing, radius, commonStyles } from '@/theme';
 import { useTranslation } from '@/i18n';
 import { SectionCard } from '@/components/SectionCard';
-import { EmptyState, Card } from '@/components/kit';
+import { EmptyState, Card, Button, Toast, ToastTone } from '@/components/kit';
 import { Headline, Body, Label, Caption, Stat } from '@/components/typography';
+import { useClubAccent } from '@/theme/useClubAccent';
 import { useGameStore } from '@/store/game-store';
 import { useDatabaseStore } from '@/store/database-store';
 import { getPlayersWithAttributesByClub } from '@/database/queries/players';
+import { getStaffByClub } from '@/database/queries/staff';
 import { getClubById } from '@/database/queries/clubs';
 import { getNextFixtureForClub, getRecentFixturesForClub, getMatchEvents } from '@/database/queries/fixtures';
+import { getCompletedIntelForClub, getActiveMissions, createMission } from '@/database/queries/scout-missions';
 import { calculateOverall } from '@/utils/overall';
 import { buildOpponentReport, OpponentReport } from '@/engine/reports/opponent-report';
 import { MatchEvent } from '@/types';
 
 export function ReportsOpponentScreen() {
   const { t } = useTranslation();
-  const { playerClubId, playerClub, season, currentSave } = useGameStore();
+  const { playerClubId, playerClub, season, week, currentSave } = useGameStore();
   const { dbHandle } = useDatabaseStore();
+  const accent = useClubAccent();
   const saveId = currentSave?.id;
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [report, setReport] = useState<OpponentReport | null>(null);
   const [noFixture, setNoFixture] = useState(false);
+  const [needsIntel, setNeedsIntel] = useState<{ opponentId: number; opponentName: string } | null>(null);
+  const [intelPending, setIntelPending] = useState(false);
+  const [toast, setToast] = useState<{ title: string; tone: ToastTone } | null>(null);
 
   const load = useCallback(async () => {
     if (!dbHandle || !playerClubId || !playerClub || saveId == null) {
@@ -44,6 +51,7 @@ export function ReportsOpponentScreen() {
     }
     setLoading(true);
     setNoFixture(false);
+    setNeedsIntel(null);
     try {
       const nextFixture = await getNextFixtureForClub(dbHandle, saveId, playerClubId, season);
       if (!nextFixture) {
@@ -54,6 +62,17 @@ export function ReportsOpponentScreen() {
 
       const opponentId =
         nextFixture.homeClubId === playerClubId ? nextFixture.awayClubId : nextFixture.homeClubId;
+
+      // C3 gate: the full report is locked until a completed opponent_intel mission.
+      const hasIntel = await getCompletedIntelForClub(dbHandle, saveId, opponentId);
+      if (!hasIntel) {
+        const opp = await getClubById(dbHandle, saveId, opponentId);
+        const active = await getActiveMissions(dbHandle, saveId);
+        setIntelPending(active.some((m) => m.type === 'opponent_intel' && m.targetClubId === opponentId));
+        setNeedsIntel({ opponentId, opponentName: opp?.name ?? '' });
+        setReport(null);
+        return;
+      }
 
       const [opponentClub, opponentPlayers, recentFixtures] = await Promise.all([
         getClubById(dbHandle, saveId, opponentId),
@@ -98,6 +117,25 @@ export function ReportsOpponentScreen() {
     }
   }, [dbHandle, playerClubId, playerClub, season, saveId]);
 
+  const dispatchScout = useCallback(async () => {
+    if (!dbHandle || saveId == null || playerClubId == null || needsIntel == null) return;
+    const scouts = (await getStaffByClub(dbHandle, saveId, playerClubId)).filter((s) => s.role === 'scout');
+    const active = await getActiveMissions(dbHandle, saveId);
+    const busy = new Set(active.map((m) => m.scoutId));
+    const idle = scouts.filter((s) => !busy.has(s.id)).sort((a, b) => b.ability - a.ability)[0];
+    if (!idle) {
+      setToast({ title: t('opponent.no_scout_available'), tone: 'danger' });
+      return;
+    }
+    await createMission(dbHandle, saveId, {
+      scoutId: idle.id, type: 'opponent_intel',
+      targetPlayerId: null, targetClubId: needsIntel.opponentId, regionCode: null,
+      createdSeason: season, createdWeek: week,
+    });
+    setToast({ title: t('opponent.scout_dispatched', { club: needsIntel.opponentName }), tone: 'success' });
+    await load();
+  }, [dbHandle, saveId, playerClubId, needsIntel, season, week, t, load]);
+
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     try { await load(); } finally { setRefreshing(false); }
@@ -109,6 +147,33 @@ export function ReportsOpponentScreen() {
     return (
       <View style={[commonStyles.screen, styles.center]}>
         <ActivityIndicator color={colors.reportOpponent} size="large" />
+      </View>
+    );
+  }
+
+  if (needsIntel) {
+    return (
+      <View style={[commonStyles.screen, styles.center]}>
+        <EmptyState
+          art="search"
+          title={t('opponent.no_intel_title')}
+          description={t('opponent.no_intel_body', { club: needsIntel.opponentName })}
+        />
+        {intelPending ? (
+          <Caption color={colors.textSecondary} style={styles.intelPending}>{t('opponent.intel_pending')}</Caption>
+        ) : (
+          <Button
+            label={t('opponent.send_scout')}
+            variant="primary"
+            accent={accent.accent}
+            onPress={dispatchScout}
+            testID="opponent-send-scout"
+            accessibilityLabel={t('opponent.send_scout')}
+          />
+        )}
+        {toast && (
+          <Toast title={toast.title} tone={toast.tone} onDismiss={() => setToast(null)} testID="opponent-toast" />
+        )}
       </View>
     );
   }
@@ -214,6 +279,7 @@ function resultBg(result: 'W' | 'D' | 'L'): string {
 const styles = StyleSheet.create({
   container: { paddingBottom: spacing.xl, paddingTop: spacing.sm },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing.lg },
+  intelPending: { marginTop: spacing.md, textAlign: 'center' },
   headerCard: {
     marginHorizontal: spacing.md,
     marginBottom: spacing.sm,
