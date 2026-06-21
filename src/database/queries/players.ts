@@ -115,12 +115,18 @@ function rowToAttributes(row: PlayerAttributesRow): PlayerAttributes {
   };
 }
 
-export async function getPlayersByClub(db: DbHandle, saveId: number, clubId: number): Promise<Player[]> {
+export async function getPlayersByClub(
+  db: DbHandle, saveId: number, clubId: number, tier?: SquadTier,
+): Promise<Player[]> {
   // Defensive guard: a freed player (is_free_agent=1) must never count as squad,
   // even if a buggy path left club_id intact (economy-depth wage-bleed fix).
-  const rows = await db
-    .prepare('SELECT * FROM players WHERE save_id = ? AND club_id = ? AND is_free_agent = 0')
-    .all(saveId, clubId) as PlayerRow[];
+  const rows = tier
+    ? await db
+        .prepare('SELECT * FROM players WHERE save_id = ? AND club_id = ? AND is_free_agent = 0 AND squad_tier = ?')
+        .all(saveId, clubId, tier) as PlayerRow[]
+    : await db
+        .prepare('SELECT * FROM players WHERE save_id = ? AND club_id = ? AND is_free_agent = 0')
+        .all(saveId, clubId) as PlayerRow[];
   return rows.map(rowToPlayer);
 }
 
