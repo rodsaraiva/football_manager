@@ -1,12 +1,10 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   FlatList,
   ActivityIndicator,
   Pressable,
-  Modal,
   ScrollView,
   Switch,
   TextInput,
@@ -14,6 +12,9 @@ import {
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { colors, spacing, fontSize, radius, commonStyles } from '@/theme';
+import { useClubAccent } from '@/theme/useClubAccent';
+import { Card, Badge, Button, Chip, Sheet, Icon } from '@/components/kit';
+import { Title, Body, Label, Caption, Stat } from '@/components/typography';
 import { useTranslation } from '@/i18n';
 import type { TKey } from '@/i18n/translate';
 import { useGameStore } from '@/store/game-store';
@@ -43,6 +44,7 @@ function formatMoney(n: number): string {
 
 export function MyListingsScreen() {
   const { t } = useTranslation();
+  const accent = useClubAccent();
   const playerClubId = useGameStore((s) => s.playerClubId);
   const currentSave = useGameStore((s) => s.currentSave);
   const dbHandle = useDatabaseStore((s) => s.dbHandle);
@@ -138,7 +140,7 @@ export function MyListingsScreen() {
   if (loading) {
     return (
       <View style={[commonStyles.screen, styles.centered]}>
-        <ActivityIndicator color={colors.primary} />
+        <ActivityIndicator color={accent.accent} />
       </View>
     );
   }
@@ -146,28 +148,37 @@ export function MyListingsScreen() {
   function renderItem({ item: p }: { item: PlayerWithOvr }) {
     const ovrColor = p.overall >= 75 ? colors.success : p.overall >= 60 ? colors.warning : colors.danger;
     return (
-      <Pressable style={styles.row} onPress={() => setEditPlayer(p)}>
-        <View style={styles.rowLeft}>
-          <Text style={styles.rowName}>{p.name}</Text>
-          <Text style={styles.rowMeta}>{p.position} · {t('transfer.age_years', { age: p.age })} · <Text style={{ color: ovrColor, fontWeight: '700' }}>{p.overall}</Text></Text>
-          <View style={styles.badges}>
-            {p.isTransferListed && (
-              <View style={styles.badgeSale}>
-                <Text style={styles.badgeText}>
-                  {p.askingPrice ? t('transfer.badge_sale_price', { price: formatMoney(p.askingPrice) }) : t('transfer.badge_sale')}
-                </Text>
-              </View>
-            )}
-            {p.isLoanListed && (
-              <View style={styles.badgeLoan}>
-                <Text style={styles.badgeText}>
-                  {p.loanWageShare != null ? t('transfer.badge_loan_pct', { pct: Math.round(p.loanWageShare * 100) }) : t('transfer.badge_loan')}
-                </Text>
-              </View>
-            )}
+      <Pressable
+        onPress={() => setEditPlayer(p)}
+        testID={`listing-${p.id}`}
+        accessibilityRole="button"
+        accessibilityLabel={p.name}
+      >
+        <Card variant="detail" accent={accent.accent} style={styles.row}>
+          <View style={styles.rowLeft}>
+            <Body style={styles.rowName}>{p.name}</Body>
+            <Label style={styles.rowMeta}>
+              {p.position} · {t('transfer.age_years', { age: p.age })} · <Stat color={ovrColor} style={styles.inlineOvr}>{p.overall}</Stat>
+            </Label>
+            <View style={styles.badges}>
+              {p.isTransferListed && (
+                <Badge
+                  value={p.askingPrice ? t('transfer.badge_sale_price', { price: formatMoney(p.askingPrice) }) : t('transfer.badge_sale')}
+                  tone="warning"
+                  size="sm"
+                />
+              )}
+              {p.isLoanListed && (
+                <Badge
+                  value={p.loanWageShare != null ? t('transfer.badge_loan_pct', { pct: Math.round(p.loanWageShare * 100) }) : t('transfer.badge_loan')}
+                  tone="primary"
+                  size="sm"
+                />
+              )}
+            </View>
           </View>
-        </View>
-        <Text style={styles.chevron}>›</Text>
+          <Icon name="arrowRight" color={colors.textMuted} size={20} />
+        </Card>
       </Pressable>
     );
   }
@@ -177,13 +188,14 @@ export function MyListingsScreen() {
       {/* Filter pills */}
       <View style={styles.filterRow}>
         {FILTERS.map((f) => (
-          <Pressable
+          <Chip
             key={f}
-            style={[styles.filterPill, filter === f && styles.filterPillActive]}
+            label={t(FILTER_LABEL[f])}
+            selected={filter === f}
+            accent={accent.accent}
             onPress={() => setFilter(f)}
-          >
-            <Text style={[styles.filterPillText, filter === f && styles.filterPillTextActive]}>{t(FILTER_LABEL[f])}</Text>
-          </Pressable>
+            testID={`chip-filter-${f}`}
+          />
         ))}
       </View>
 
@@ -192,77 +204,80 @@ export function MyListingsScreen() {
         keyExtractor={(p) => String(p.id)}
         renderItem={renderItem}
         contentContainerStyle={styles.list}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={accent.accent} />}
         ListEmptyComponent={
           <View style={styles.centered}>
-            <Text style={styles.emptyText}>{t('transfer.no_players_found')}</Text>
+            <Label style={styles.emptyText}>{t('transfer.no_players_found')}</Label>
           </View>
         }
       />
 
-      {/* Edit modal */}
-      <Modal visible={editPlayer !== null} transparent animationType="slide" onRequestClose={() => setEditPlayer(null)}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            {editPlayer && (
-              <ScrollView nestedScrollEnabled>
-                <Text style={styles.modalTitle}>{editPlayer.name}</Text>
-                <Text style={styles.modalMeta}>{editPlayer.position} · {t('transfer.age_years', { age: editPlayer.age })} · OVR {editPlayer.overall}</Text>
+      {/* Edit sheet */}
+      <Sheet visible={editPlayer !== null} onClose={() => setEditPlayer(null)} testID="listing-edit-sheet">
+        {editPlayer && (
+          <ScrollView nestedScrollEnabled>
+            <Title style={styles.modalTitle}>{editPlayer.name}</Title>
+            <Label style={styles.modalMeta}>{editPlayer.position} · {t('transfer.age_years', { age: editPlayer.age })} · OVR {editPlayer.overall}</Label>
 
-                <Text style={styles.sectionTitle}>{t('tactics.transfer_status_title')}</Text>
+            <Caption style={styles.sectionTitle}>{t('tactics.transfer_status_title')}</Caption>
 
-                <View style={styles.listingRow}>
-                  <Text style={styles.listingLabel}>{t('tactics.list_for_sale')}</Text>
-                  <Switch value={isTransferListed} onValueChange={handleToggleTransfer} />
-                </View>
-                {isTransferListed && (
-                  <View style={styles.listingRow}>
-                    <Text style={styles.listingLabel}>{t('tactics.asking_price')}</Text>
-                    <TextInput
-                      style={styles.listingInput}
-                      value={askingPriceText}
-                      onChangeText={setAskingPriceText}
-                      onBlur={handleBlurAskingPrice}
-                      keyboardType="numeric"
-                      placeholder={t('tactics.asking_price_placeholder')}
-                      placeholderTextColor={colors.textMuted}
-                    />
-                  </View>
-                )}
-
-                <View style={styles.listingRow}>
-                  <Text style={styles.listingLabel}>{t('tactics.list_for_loan')}</Text>
-                  <Switch value={isLoanListed} onValueChange={handleToggleLoan} />
-                </View>
-                {isLoanListed && (
-                  <View style={styles.listingRow}>
-                    <Text style={styles.listingLabel}>{t('tactics.loan_wage_share')}</Text>
-                    <TextInput
-                      style={styles.listingInput}
-                      value={loanShareText}
-                      onChangeText={setLoanShareText}
-                      onBlur={handleBlurLoanShare}
-                      keyboardType="numeric"
-                      placeholder="50"
-                      placeholderTextColor={colors.textMuted}
-                    />
-                  </View>
-                )}
-              </ScrollView>
+            <View style={styles.listingRow}>
+              <Body style={styles.listingLabel}>{t('tactics.list_for_sale')}</Body>
+              <Switch value={isTransferListed} onValueChange={handleToggleTransfer} />
+            </View>
+            {isTransferListed && (
+              <View style={styles.listingRow}>
+                <Body style={styles.listingLabel}>{t('tactics.asking_price')}</Body>
+                <TextInput
+                  style={styles.listingInput}
+                  value={askingPriceText}
+                  onChangeText={setAskingPriceText}
+                  onBlur={handleBlurAskingPrice}
+                  keyboardType="numeric"
+                  placeholder={t('tactics.asking_price_placeholder')}
+                  placeholderTextColor={colors.textMuted}
+                />
+              </View>
             )}
-            <Pressable style={styles.closeBtn} onPress={() => setEditPlayer(null)}>
-              <Text style={styles.closeBtnText}>{t('tactics.close')}</Text>
-            </Pressable>
-          </View>
-        </View>
-      </Modal>
+
+            <View style={styles.listingRow}>
+              <Body style={styles.listingLabel}>{t('tactics.list_for_loan')}</Body>
+              <Switch value={isLoanListed} onValueChange={handleToggleLoan} />
+            </View>
+            {isLoanListed && (
+              <View style={styles.listingRow}>
+                <Body style={styles.listingLabel}>{t('tactics.loan_wage_share')}</Body>
+                <TextInput
+                  style={styles.listingInput}
+                  value={loanShareText}
+                  onChangeText={setLoanShareText}
+                  onBlur={handleBlurLoanShare}
+                  keyboardType="numeric"
+                  placeholder="50"
+                  placeholderTextColor={colors.textMuted}
+                />
+              </View>
+            )}
+
+            <View style={styles.closeBtn}>
+              <Button
+                label={t('tactics.close')}
+                variant="primary"
+                onPress={() => setEditPlayer(null)}
+                testID="listing-edit-close"
+                accessibilityLabel={t('tactics.close')}
+              />
+            </View>
+          </ScrollView>
+        )}
+      </Sheet>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  emptyText: { color: colors.textMuted, fontSize: fontSize.md, textAlign: 'center', marginTop: spacing.xl },
+  emptyText: { color: colors.textMuted, textAlign: 'center', marginTop: spacing.xl },
 
   filterRow: {
     flexDirection: 'row',
@@ -270,59 +285,24 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
   },
-  filterPill: {
-    paddingVertical: 6,
-    paddingHorizontal: spacing.md,
-    borderRadius: radius.pill,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  filterPillActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  filterPillText: { color: colors.textMuted, fontSize: fontSize.sm, fontWeight: '600' },
-  filterPillTextActive: { color: colors.text },
 
   list: { paddingHorizontal: spacing.md, paddingBottom: spacing.xl },
 
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.surface,
-    borderRadius: 10,
-    padding: spacing.md,
     marginBottom: spacing.sm,
   },
   rowLeft: { flex: 1 },
-  rowName: { color: colors.text, fontSize: fontSize.md, fontWeight: '600', marginBottom: spacing.xxs },
-  rowMeta: { color: colors.textMuted, fontSize: fontSize.sm, marginBottom: spacing.xs },
+  rowName: { fontWeight: '600', marginBottom: spacing.xxs },
+  rowMeta: { marginBottom: spacing.xs },
+  inlineOvr: { fontWeight: '700' },
   badges: { flexDirection: 'row', gap: spacing.xs, flexWrap: 'wrap' },
-  badgeSale: {
-    backgroundColor: colors.warning,
-    borderRadius: radius.sm,
-    paddingHorizontal: 6,
-    paddingVertical: spacing.xxs,
-  },
-  badgeLoan: {
-    backgroundColor: colors.primary,
-    borderRadius: radius.sm,
-    paddingHorizontal: 6,
-    paddingVertical: spacing.xxs,
-  },
-  badgeText: { color: colors.text, fontSize: fontSize.xs, fontWeight: '700' },
-  chevron: { color: colors.textMuted, fontSize: fontSize.xl, marginLeft: spacing.sm },
 
-  // Modal
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', paddingHorizontal: spacing.md },
-  modalContent: { backgroundColor: colors.surface, borderRadius: 16, padding: spacing.lg, maxHeight: '80%' },
-  modalTitle: { color: colors.text, fontSize: fontSize.xl, fontWeight: 'bold', marginBottom: spacing.xs },
-  modalMeta: { color: colors.textMuted, fontSize: fontSize.sm, marginBottom: spacing.md },
+  // Sheet
+  modalTitle: { marginBottom: spacing.xs },
+  modalMeta: { marginBottom: spacing.md },
   sectionTitle: {
-    color: colors.textMuted,
-    fontSize: fontSize.xs,
-    fontWeight: '700',
     textTransform: 'uppercase',
     letterSpacing: 1,
     marginBottom: spacing.sm,
@@ -334,19 +314,18 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: spacing.xs,
   },
-  listingLabel: { color: colors.text, fontSize: fontSize.sm, flex: 1 },
+  listingLabel: { flex: 1 },
   listingInput: {
     color: colors.text,
     fontSize: fontSize.sm,
     backgroundColor: colors.background,
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: 6,
+    borderRadius: radius.sm,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
     minWidth: 120,
     textAlign: 'right',
   },
-  closeBtn: { backgroundColor: colors.primary, borderRadius: radius.md, paddingVertical: 12, alignItems: 'center', marginTop: spacing.md },
-  closeBtnText: { color: colors.text, fontSize: fontSize.md, fontWeight: '600' },
+  closeBtn: { marginTop: spacing.md },
 });
