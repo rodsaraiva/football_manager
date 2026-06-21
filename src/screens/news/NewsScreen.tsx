@@ -466,12 +466,18 @@ export function NewsScreen() {
 
 // Vars whose numeric value is a table position → rendered as a locale-aware ordinal.
 const ORDINAL_VARS = new Set(['pos', 'from']);
+// Vars whose value is itself a translation key (e.g. C3 scouting verdict) → translated.
+const KEY_VARS = new Set(['verdict']);
 
 function resolveDescriptor(t: TFn, lang: Language, d: TextDescriptor): string {
   if (!d.vars) return t(d.key);
   const out: Record<string, string | number> = {};
   for (const [k, v] of Object.entries(d.vars)) {
-    out[k] = ORDINAL_VARS.has(k) && typeof v === 'number' ? ordinal(lang, v) : v;
+    if (KEY_VARS.has(k) && typeof v === 'string' && v.length > 0) {
+      out[k] = t(v as TKey);
+    } else {
+      out[k] = ORDINAL_VARS.has(k) && typeof v === 'number' ? ordinal(lang, v) : v;
+    }
   }
   return t(d.key, out);
 }
