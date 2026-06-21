@@ -39,10 +39,14 @@ const TIER_MARGIN: Record<ScoutingTier, number> = {
 export function maskedRange(
   value: number,
   tier: ScoutingTier,
+  accuracy?: number,
 ): { lo: number; hi: number } | null {
   if (tier === 'unknown') return null;
   if (tier === 'full') return { lo: value, hi: value };
-  const margin = TIER_MARGIN[tier];
+  const baseMargin = TIER_MARGIN[tier];
+  // accuracy 0–1 aperta a margem em até 50%. undefined = sem ajuste (retrocompat).
+  const acc = accuracy === undefined ? 0 : clamp(accuracy, 0, 1);
+  const margin = Math.round(baseMargin * (1 - acc * 0.5));
   return {
     lo: clamp(value - margin, 1, 99),
     hi: clamp(value + margin, 1, 99),

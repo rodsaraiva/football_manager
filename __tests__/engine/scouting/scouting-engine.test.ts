@@ -98,6 +98,29 @@ describe('advanceScouting', () => {
   });
 });
 
+describe('maskedRange accuracy (C3)', () => {
+  it('accuracy undefined = comportamento atual (margem cheia)', () => {
+    expect(maskedRange(50, 'vague')).toEqual({ lo: 40, hi: 60 });
+    expect(maskedRange(50, 'partial')).toEqual({ lo: 46, hi: 54 });
+  });
+
+  it('accuracy alta aperta a margem', () => {
+    const full = maskedRange(50, 'vague', 0)!;
+    const tight = maskedRange(50, 'vague', 0.9)!;
+    expect(tight.hi - tight.lo).toBeLessThan(full.hi - full.lo);
+  });
+
+  it('accuracy clampa fora de [0,1]', () => {
+    expect(maskedRange(50, 'vague', 5)).toEqual(maskedRange(50, 'vague', 1));
+    expect(maskedRange(50, 'vague', -3)).toEqual(maskedRange(50, 'vague', 0));
+  });
+
+  it('full e unknown ignoram accuracy', () => {
+    expect(maskedRange(50, 'full', 0.5)).toEqual({ lo: 50, hi: 50 });
+    expect(maskedRange(50, 'unknown', 0.9)).toBeNull();
+  });
+});
+
 // type smoke — ensures the exported union is usable
 const _tier: ScoutingTier = 'full';
 void _tier;
