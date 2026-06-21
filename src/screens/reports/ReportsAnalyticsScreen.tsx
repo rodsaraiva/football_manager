@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator, RefreshControl } from 'react-native';
+import { View, StyleSheet, ScrollView, ActivityIndicator, RefreshControl } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import { colors, spacing, fontSize, radius, commonStyles } from '@/theme';
+import { colors, spacing, radius, commonStyles } from '@/theme';
 import { useTranslation } from '@/i18n';
-import { EmptyState } from '@/components/EmptyState';
+import { EmptyState, Card } from '@/components/kit';
+import { Body, Label, Caption, Stat } from '@/components/typography';
 import { useGameStore } from '@/store/game-store';
 import { useDatabaseStore } from '@/store/database-store';
 import { getClubsByLeague } from '@/database/queries/clubs';
@@ -132,7 +133,7 @@ export function ReportsAnalyticsScreen() {
   if (!report || report.lines.length === 0) {
     return (
       <View style={[commonStyles.screen, styles.center]}>
-        <EmptyState icon="📊" title={t('report.analytics_empty')} />
+        <EmptyState art="generic" title={t('report.analytics_empty')} />
       </View>
     );
   }
@@ -146,9 +147,9 @@ export function ReportsAnalyticsScreen() {
       }
     >
       <View style={styles.header}>
-        <Text style={styles.headerIntro}>
+        <Body color={colors.textSecondary} style={styles.headerIntro}>
           {t('report.analytics_intro', { count: report.lines[0].total - 1 })}
-        </Text>
+        </Body>
       </View>
 
       {report.lines.map((line) => (
@@ -171,14 +172,12 @@ function RankCard({ line }: { line: RankLine }) {
   const positionPct = line.total > 1 ? ((line.total - line.rank) / (line.total - 1)) * 100 : 100;
 
   return (
-    <View style={styles.card}>
+    <Card variant="summary" style={styles.card}>
       <View style={styles.cardHeader}>
-        <Text style={styles.metricLabel}>{line.metric.toUpperCase()}</Text>
+        <Label color={colors.textMuted} style={styles.metricLabel}>{line.metric.toUpperCase()}</Label>
         <View style={[styles.rankBadge, { borderColor: rankColor }]}>
-          <Text style={[styles.rankText, { color: rankColor }]}>
-            {line.rank}º
-          </Text>
-          <Text style={styles.rankTotal}>/{line.total}</Text>
+          <Stat color={rankColor} style={styles.rankText}>{line.rank}º</Stat>
+          <Caption color={colors.textMuted} style={styles.rankTotal}>/{line.total}</Caption>
         </View>
       </View>
       <View style={styles.barTrack}>
@@ -190,35 +189,29 @@ function RankCard({ line }: { line: RankLine }) {
         />
       </View>
       <View style={styles.barLegend}>
-        <Text style={styles.barLegendText}>{t('report.worst')}</Text>
-        <Text style={styles.barLegendText}>{t('report.best')}</Text>
+        <Caption color={colors.textMuted}>{t('report.worst')}</Caption>
+        <Caption color={colors.textMuted}>{t('report.best')}</Caption>
       </View>
-      <Text style={styles.description}>{line.description}</Text>
-    </View>
+      <Body style={styles.description}>{line.description}</Body>
+    </Card>
   );
 }
+
+const MARKER = 12;
 
 const styles = StyleSheet.create({
   container: { paddingBottom: spacing.xl, paddingTop: spacing.sm },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing.lg },
-  subtitle: { color: colors.textMuted, fontSize: fontSize.md, textAlign: 'center' },
   header: {
     paddingHorizontal: spacing.md,
     paddingBottom: spacing.sm,
   },
   headerIntro: {
-    color: colors.textSecondary,
-    fontSize: fontSize.sm,
     fontStyle: 'italic',
   },
   card: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    padding: spacing.md,
     marginHorizontal: spacing.md,
     marginBottom: spacing.sm,
-    borderWidth: 1,
-    borderColor: colors.border,
   },
   cardHeader: {
     flexDirection: 'row',
@@ -227,9 +220,6 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   metricLabel: {
-    color: colors.textMuted,
-    fontSize: fontSize.xs,
-    fontWeight: '600',
     letterSpacing: 1,
   },
   rankBadge: {
@@ -241,42 +231,32 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xs,
   },
   rankText: {
-    fontSize: fontSize.lg,
     fontWeight: '700',
   },
   rankTotal: {
-    color: colors.textMuted,
-    fontSize: fontSize.sm,
     marginLeft: spacing.xxs,
   },
   description: {
-    color: colors.text,
-    fontSize: fontSize.sm,
-    lineHeight: 20,
     marginTop: spacing.sm,
   },
   barTrack: {
-    height: 6,
+    height: spacing.xs + spacing.xxs,
     backgroundColor: colors.surfaceLight,
-    borderRadius: 3,
+    borderRadius: radius.sm,
     position: 'relative',
     marginTop: spacing.xs,
   },
   barMarker: {
     position: 'absolute',
-    top: -3,
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    marginLeft: -6,
+    top: -spacing.xxs - 1,
+    width: MARKER,
+    height: MARKER,
+    borderRadius: radius.round,
+    marginLeft: -MARKER / 2,
   },
   barLegend: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginTop: spacing.xxs,
-  },
-  barLegendText: {
-    color: colors.textMuted,
-    fontSize: fontSize.xs,
   },
 });
