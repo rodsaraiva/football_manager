@@ -679,6 +679,7 @@ export const pt = {
   'transfer.cannot_sign': 'Não foi possível contratar',
   'transfer.unknown_error': 'Erro desconhecido',
   'transfer.no_free_agents': 'Nenhum agente livre disponível',
+  'transfer.refresh_list': 'Atualizar lista',
   'transfer.sign_btn': 'Contratar',
   'transfer.fa_meta': 'Idade {age} · espera {wage}/sem',
   'transfer.expected_wage': 'Salário Esperado',
@@ -1170,6 +1171,7 @@ export const pt = {
   // D3 kit de componentes
   'kit.confirm_default': 'Confirmar',
   'kit.cancel': 'Cancelar',
+  'kit.ok': 'OK',
 
   // D7 acessibilidade + settings
   'nav.settings': 'Configurações',

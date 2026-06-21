@@ -681,6 +681,7 @@ export const en: Record<keyof typeof pt, string> = {
   'transfer.cannot_sign': 'Could not sign',
   'transfer.unknown_error': 'Unknown error',
   'transfer.no_free_agents': 'No free agents available',
+  'transfer.refresh_list': 'Refresh list',
   'transfer.sign_btn': 'Sign',
   'transfer.fa_meta': 'Age {age} · expects {wage}/wk',
   'transfer.expected_wage': 'Expected Wage',
@@ -1172,6 +1173,7 @@ export const en: Record<keyof typeof pt, string> = {
   // D3 component kit
   'kit.confirm_default': 'Confirm',
   'kit.cancel': 'Cancel',
+  'kit.ok': 'OK',
 
   // D7 accessibility + settings
   'nav.settings': 'Settings',

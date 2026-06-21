@@ -5,6 +5,7 @@ import { StatusBar } from 'expo-status-bar';
 import { RootNavigator } from '@/navigation/RootNavigator';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { ClubAccentProvider } from '@/theme/ClubAccentProvider';
+import { ConfirmProvider } from '@/components/kit';
 import LoadingScreen from '@/components/LoadingScreen';
 import { CelebrationOverlay } from '@/components/CelebrationOverlay';
 import { useDatabaseStore } from '@/store/database-store';
@@ -55,8 +56,10 @@ export default function App() {
     }}>
       <ErrorBoundary>
         <ClubAccentProvider>
-          <RootNavigator />
-          <CelebrationOverlay />
+          <ConfirmProvider>
+            <RootNavigator />
+            <CelebrationOverlay />
+          </ConfirmProvider>
         </ClubAccentProvider>
       </ErrorBoundary>
       <StatusBar style="light" />

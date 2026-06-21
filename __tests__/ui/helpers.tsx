@@ -6,6 +6,7 @@ import { DbHandle } from '@/database/queries/players';
 import { useDatabaseStore } from '@/store/database-store';
 import { useGameStore } from '@/store/game-store';
 import { getSaveById } from '@/database/queries/saves';
+import { ConfirmProvider } from '@/components/kit';
 
 /** Mesma forma de createTestDbHandle: better-sqlite3 -> DbHandle assíncrono. */
 export function wrapBetterSqlite(db: Database.Database): DbHandle {
@@ -52,7 +53,7 @@ export async function renderWithRealDb(element: React.ReactElement): Promise<Ren
   let root!: Root;
   await act(async () => {
     root = createRoot(container);
-    root.render(element);
+    root.render(<ConfirmProvider>{element}</ConfirmProvider>);
   });
   // drena os useEffect assíncronos (loaders das telas)
   await act(async () => { await Promise.resolve(); await Promise.resolve(); });
