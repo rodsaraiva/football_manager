@@ -1,3 +1,5 @@
+import * as fs from 'fs';
+import * as path from 'path';
 import { generateCrest, Crest } from '@/engine/identity/crest-generator';
 import { SeededRng } from '@/engine/rng';
 
@@ -51,5 +53,28 @@ describe('generateCrest — variedade', () => {
       counts.add(generateCrest(new SeededRng(seed)).paths.length);
     }
     expect(counts.size).toBeGreaterThanOrEqual(2);
+  });
+});
+
+describe('generateCrest — pureza determinística', () => {
+  it('não usa Math.random nem Date.now no fonte', () => {
+    const src = fs.readFileSync(
+      path.join(__dirname, '../../../src/engine/identity/crest-generator.ts'),
+      'utf8',
+    );
+    expect(src).not.toMatch(/Math\.random/);
+    expect(src).not.toMatch(/Date\.now/);
+  });
+
+  it('é estável mesmo se Math.random for monkeypatched (não depende dele)', () => {
+    const orig = Math.random;
+    Math.random = () => 0.123456;
+    try {
+      const a = generateCrest(new SeededRng(7));
+      const b = generateCrest(new SeededRng(7));
+      expect(a).toEqual(b);
+    } finally {
+      Math.random = orig;
+    }
   });
 });
