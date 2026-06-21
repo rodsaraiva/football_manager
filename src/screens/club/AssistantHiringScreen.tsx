@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, ScrollView, StyleSheet, Pressable, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, ActivityIndicator } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { colors, spacing, fontSize, radius, commonStyles } from '@/theme';
+import { colors, spacing, fontSize, commonStyles } from '@/theme';
 import { useTranslation } from '@/i18n';
 import type { TKey } from '@/i18n/translate';
 import { useGameStore } from '@/store/game-store';
@@ -14,6 +14,8 @@ import { SeededRng } from '@/engine/rng';
 import { ASSISTANT_RETIREMENT_MIN_AGE, ASSISTANT_RETIREMENT_MAX_AGE } from '@/engine/balance';
 import { AssistantCandidate } from '@/types/assistant';
 import { RootStackParamList } from '@/navigation/types';
+import { Card, Button, useConfirm } from '@/components/kit';
+import { Body, Label, Caption, Stat } from '@/components/typography';
 
 type NavProp = NativeStackNavigationProp<RootStackParamList>;
 type RouteT = RouteProp<RootStackParamList, 'ClubAssistantHiring'>;
@@ -40,35 +42,38 @@ function CandidateCard({
   const canAccept = candidateWillAccept({ candidate, clubReputation, offeredWage: candidate.wagePerMonth });
 
   return (
-    <View style={[styles.card, !canAccept && styles.cardDisabled]}>
+    <Card variant="detail" style={[styles.card, !canAccept && styles.cardDisabled]}>
       <View style={styles.cardHeader}>
-        <Text style={styles.cardName}>{candidate.name}</Text>
+        <Body>{candidate.name}</Body>
         <Text style={styles.stars}>{'★'.repeat(candidate.qualityStars)}{'☆'.repeat(5 - candidate.qualityStars)}</Text>
       </View>
       <View style={styles.cardMeta}>
-        <Text style={styles.metaItem}>{t('assistants.age_n', { age: candidate.age })}</Text>
-        <Text style={styles.metaDot}>·</Text>
-        <Text style={styles.metaItem}>{t(ARCHETYPE_LABELS[candidate.archetype])}</Text>
+        <Caption color={colors.textSecondary}>{t('assistants.age_n', { age: candidate.age })}</Caption>
+        <Caption color={colors.textMuted}> · </Caption>
+        <Caption color={colors.textSecondary}>{t(ARCHETYPE_LABELS[candidate.archetype])}</Caption>
       </View>
       <View style={styles.cardStats}>
         <View style={styles.stat}>
-          <Text style={styles.statLabel}>{t('assistants.monthly_wage')}</Text>
-          <Text style={styles.statValue}>${(candidate.wagePerMonth / 1000).toFixed(1)}K</Text>
+          <Label>{t('assistants.monthly_wage')}</Label>
+          <Stat>${(candidate.wagePerMonth / 1000).toFixed(1)}K</Stat>
         </View>
         <View style={styles.stat}>
-          <Text style={styles.statLabel}>{t('assistants.min_rep')}</Text>
-          <Text style={[styles.statValue, !canAccept && { color: colors.danger }]}>
-            {candidate.reputationRequired}
-          </Text>
+          <Label>{t('assistants.min_rep')}</Label>
+          <Stat color={!canAccept ? colors.danger : undefined}>{candidate.reputationRequired}</Stat>
         </View>
       </View>
       {!canAccept && (
-        <Text style={styles.refuseNote}>{t('assistants.not_attractive', { rep: clubReputation, req: candidate.reputationRequired })}</Text>
+        <Caption color={colors.danger}>{t('assistants.not_attractive', { rep: clubReputation, req: candidate.reputationRequired })}</Caption>
       )}
-      <Pressable style={[styles.hireBtn, !canAccept && styles.hireBtnDisabled]} onPress={onHire} disabled={!canAccept}>
-        <Text style={[styles.hireBtnText, !canAccept && styles.hireBtnTextDisabled]}>{t('assistants.hire_btn')}</Text>
-      </Pressable>
-    </View>
+      <Button
+        label={t('assistants.hire_btn')}
+        variant="primary"
+        disabled={!canAccept}
+        onPress={onHire}
+        testID={`hire-candidate-${candidate.name}`}
+        accessibilityLabel={t('assistants.hire_btn')}
+      />
+    </Card>
   );
 }
 
@@ -79,6 +84,7 @@ export function AssistantHiringScreen() {
   const { role } = route.params;
   const { currentSave, season, playerClub, playerClubId } = useGameStore();
   const { dbHandle } = useDatabaseStore();
+  const confirm = useConfirm();
   const [candidates, setCandidates] = useState<AssistantCandidate[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -90,42 +96,36 @@ export function AssistantHiringScreen() {
     setLoading(false);
   }, [role, currentSave, season]);
 
-  const handleHire = (candidate: AssistantCandidate) => {
-    Alert.alert(
-      t('assistants.hire_title'),
-      t('assistants.hire_msg', { name: candidate.name, wage: (candidate.wagePerMonth / 1000).toFixed(1) }),
-      [
-        { text: t('common.cancel'), style: 'cancel' },
-        {
-          text: t('assistants.hire_btn'),
-          onPress: async () => {
-            if (!dbHandle || !currentSave || !playerClubId) return;
-            const retireRng = new SeededRng(currentSave.id * 131 + playerClubId * 7 + season + candidate.age);
-            await insertAssistant(dbHandle, {
-              role: candidate.role,
-              clubId: playerClubId,
-              saveId: currentSave.id,
-              name: candidate.name,
-              age: candidate.age,
-              archetype: candidate.archetype,
-              seasonsAtClub: 0,
-              retirementAge: retireRng.nextInt(ASSISTANT_RETIREMENT_MIN_AGE, ASSISTANT_RETIREMENT_MAX_AGE),
-              wagePerMonth: candidate.wagePerMonth,
-              willRetireNextSeason: false,
-            });
-            await addFinanceEntry(dbHandle, currentSave.id, {
-              clubId: playerClubId,
-              season,
-              week: 1,
-              type: 'assistant_wage',
-              amount: -candidate.wagePerMonth,
-              description: `Signing bonus — ${candidate.name}`,
-            });
-            navigation.goBack();
-          },
-        },
-      ],
-    );
+  const handleHire = async (candidate: AssistantCandidate) => {
+    const ok = await confirm({
+      title: t('assistants.hire_title'),
+      message: t('assistants.hire_msg', { name: candidate.name, wage: (candidate.wagePerMonth / 1000).toFixed(1) }),
+      confirmLabel: t('assistants.hire_btn'),
+      cancelLabel: t('common.cancel'),
+    });
+    if (!ok || !dbHandle || !currentSave || !playerClubId) return;
+    const retireRng = new SeededRng(currentSave.id * 131 + playerClubId * 7 + season + candidate.age);
+    await insertAssistant(dbHandle, {
+      role: candidate.role,
+      clubId: playerClubId,
+      saveId: currentSave.id,
+      name: candidate.name,
+      age: candidate.age,
+      archetype: candidate.archetype,
+      seasonsAtClub: 0,
+      retirementAge: retireRng.nextInt(ASSISTANT_RETIREMENT_MIN_AGE, ASSISTANT_RETIREMENT_MAX_AGE),
+      wagePerMonth: candidate.wagePerMonth,
+      willRetireNextSeason: false,
+    });
+    await addFinanceEntry(dbHandle, currentSave.id, {
+      clubId: playerClubId,
+      season,
+      week: 1,
+      type: 'assistant_wage',
+      amount: -candidate.wagePerMonth,
+      description: `Signing bonus — ${candidate.name}`,
+    });
+    navigation.goBack();
   };
 
   if (loading) {
@@ -138,7 +138,9 @@ export function AssistantHiringScreen() {
 
   return (
     <ScrollView style={commonStyles.screen} contentContainerStyle={styles.container}>
-      <Text style={styles.subtitle}>{t('assistants.your_rep', { rep: playerClub?.reputation ?? '—' })}</Text>
+      <Caption color={colors.textMuted} style={styles.subtitle}>
+        {t('assistants.your_rep', { rep: playerClub?.reputation ?? '—' })}
+      </Caption>
       {candidates.map((c, i) => (
         <CandidateCard
           key={i}
@@ -154,56 +156,21 @@ export function AssistantHiringScreen() {
 const styles = StyleSheet.create({
   container: { paddingBottom: spacing.xl, paddingTop: spacing.sm },
   center: { alignItems: 'center', justifyContent: 'center' },
-  subtitle: {
-    color: colors.textMuted,
-    fontSize: fontSize.sm,
-    marginHorizontal: spacing.md,
-    marginBottom: spacing.md,
-  },
-  card: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    padding: spacing.md,
-    marginHorizontal: spacing.md,
-    marginBottom: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
+  subtitle: { marginHorizontal: spacing.md, marginBottom: spacing.md },
+  card: { marginHorizontal: spacing.md, marginBottom: spacing.md, gap: spacing.sm },
   cardDisabled: { opacity: 0.6 },
   cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: spacing.xs,
   },
-  cardName: { color: colors.text, fontSize: fontSize.md, fontWeight: '700' },
   stars: { color: colors.gold, fontSize: fontSize.md },
-  cardMeta: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.sm },
-  metaItem: { color: colors.textSecondary, fontSize: fontSize.sm },
-  metaDot: { color: colors.textMuted, marginHorizontal: spacing.xs },
+  cardMeta: { flexDirection: 'row', alignItems: 'center' },
   cardStats: {
     flexDirection: 'row',
     borderTopWidth: 1,
     borderTopColor: colors.border,
     paddingTop: spacing.sm,
-    marginBottom: spacing.sm,
   },
   stat: { flex: 1 },
-  statLabel: {
-    color: colors.textMuted,
-    fontSize: fontSize.xs,
-    letterSpacing: 0.5,
-    textTransform: 'uppercase',
-  },
-  statValue: { color: colors.text, fontSize: fontSize.md, fontWeight: '600', marginTop: spacing.xxs },
-  refuseNote: { color: colors.danger, fontSize: fontSize.xs, marginBottom: spacing.sm },
-  hireBtn: {
-    backgroundColor: colors.primary,
-    borderRadius: radius.md,
-    paddingVertical: spacing.sm,
-    alignItems: 'center',
-  },
-  hireBtnDisabled: { backgroundColor: colors.border },
-  hireBtnText: { color: colors.text, fontSize: fontSize.md, fontWeight: '700' },
-  hireBtnTextDisabled: { color: colors.textMuted },
 });
