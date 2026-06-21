@@ -41,3 +41,34 @@ describe('deriveClubAccent', () => {
     expect(luminance(r.accent)).toBeGreaterThanOrEqual(60);
   });
 });
+
+import { mixWithBlack, deriveAccentRamp } from '@/theme/club-accent';
+
+describe('mixWithBlack', () => {
+  it('blends white toward black by t (mirror of mixWithWhite)', () => {
+    expect(mixWithBlack('#ffffff', 0.65)).toBe('#595959'); // round(255*(1-0.65))=89=0x59
+  });
+  it('black stays black', () => {
+    expect(mixWithBlack('#000000', 0.5)).toBe('#000000');
+  });
+});
+
+describe('deriveAccentRamp', () => {
+  it('keeps base accent unchanged and derives dim/bright + readable onAccent', () => {
+    const r = deriveAccentRamp('#4361ee');
+    expect(r.accent).toBe('#4361ee');
+    expect(r.onAccent).toBe('#ffffff'); // dark accent → white text
+  });
+
+  it('orders the ramp by luminance: dim < base < bright', () => {
+    const r = deriveAccentRamp('#4361ee');
+    expect(luminance(r.accentDim)).toBeLessThan(luminance(r.accent));
+    expect(luminance(r.accent)).toBeLessThan(luminance(r.accentBright));
+  });
+
+  it('flips onAccent to black for a very light accent', () => {
+    const r = deriveAccentRamp('#FFE500'); // bright yellow
+    expect(r.onAccent).toBe('#000000');
+    expect(luminance(r.accentDim)).toBeLessThan(luminance(r.accentBright));
+  });
+});
