@@ -27,6 +27,14 @@ describe('TransferMarketScreen smoke', () => {
     r.unmount();
   });
 
+  it('expõe testID/accessibilityLabel estáveis no filtro (queries de acessibilidade)', async () => {
+    const r = await renderWithRealDb(<TransferMarketScreen />);
+    const filter = r.container.querySelector('[data-testid="transfer-position-filter"]');
+    expect(filter).toBeTruthy();
+    expect(filter?.getAttribute('aria-label')).toBe(translate('pt', 'transfer.position_label'));
+    r.unmount();
+  });
+
   it('snapshot estável (detector de drift)', async () => {
     const r = await renderWithRealDb(<TransferMarketScreen />);
     expect(r.html).toMatchSnapshot();

@@ -28,6 +28,14 @@ describe('FreeAgentsScreen smoke', () => {
     r.unmount();
   });
 
+  it('expõe testID/accessibilityLabel estáveis no filtro (queries de acessibilidade)', async () => {
+    const r = await renderWithRealDb(<FreeAgentsScreen />);
+    const filter = r.container.querySelector('[data-testid="free-agents-position-filter"]');
+    expect(filter).toBeTruthy();
+    expect(filter?.getAttribute('aria-label')).toBe(translate('pt', 'transfer.position_label'));
+    r.unmount();
+  });
+
   it('snapshot estável', async () => {
     const r = await renderWithRealDb(<FreeAgentsScreen />);
     expect(r.html).toMatchSnapshot();

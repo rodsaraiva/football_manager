@@ -144,6 +144,9 @@ export function TransferMarketScreen() {
       <View style={styles.filterRow}>
         <Text style={styles.filterLabel}>{t('transfer.position_label')}</Text>
         <Pressable
+          testID="transfer-position-filter"
+          accessibilityRole="button"
+          accessibilityLabel={t('transfer.position_label')}
           style={styles.dropdownButton}
           onPress={() => setShowDropdown((v) => !v)}
         >
@@ -206,6 +209,9 @@ export function TransferMarketScreen() {
                   <Text style={[styles.overallText, { color: ovrColor }]}>{item.overall}</Text>
                 </View>
                 <Pressable
+                  testID={`transfer-make-offer-${item.id}`}
+                  accessibilityRole="button"
+                  accessibilityLabel={t('transfer.offer_btn')}
                   style={styles.offerButton}
                   onPress={() => handleOpenOffer(item)}
                 >

@@ -145,6 +145,9 @@ export function FreeAgentsScreen() {
       <View style={styles.filterRow}>
         <Text style={styles.filterLabel}>{t('transfer.position_label')}</Text>
         <Pressable
+          testID="free-agents-position-filter"
+          accessibilityRole="button"
+          accessibilityLabel={t('transfer.position_label')}
           style={styles.dropdownButton}
           onPress={() => setShowDropdown((v) => !v)}
         >
@@ -202,7 +205,13 @@ export function FreeAgentsScreen() {
                 <View style={[styles.overallBadge, { borderColor: oColor }]}>
                   <Text style={[styles.overallText, { color: oColor }]}>{item.overall}</Text>
                 </View>
-                <Pressable style={styles.signButton} onPress={() => handleOpenSign(item)}>
+                <Pressable
+                  testID={`free-agent-sign-${item.id}`}
+                  accessibilityRole="button"
+                  accessibilityLabel={t('transfer.sign_btn')}
+                  style={styles.signButton}
+                  onPress={() => handleOpenSign(item)}
+                >
                   <Text style={styles.signButtonText}>{t('transfer.sign_btn')}</Text>
                 </Pressable>
               </View>
@@ -280,12 +289,18 @@ export function FreeAgentsScreen() {
 
                   <View style={styles.actions}>
                     <Pressable
+                      testID="free-agent-sign-cancel"
+                      accessibilityRole="button"
+                      accessibilityLabel={t('common.cancel')}
                       style={[styles.btn, styles.btnSecondary]}
                       onPress={handleCloseSign}
                     >
                       <Text style={styles.btnSecondaryText}>{t('common.cancel')}</Text>
                     </Pressable>
                     <Pressable
+                      testID="free-agent-sign-confirm"
+                      accessibilityRole="button"
+                      accessibilityLabel={t('transfer.sign_player')}
                       style={[styles.btn, styles.btnPrimary]}
                       onPress={handleSubmitSigning}
                     >
