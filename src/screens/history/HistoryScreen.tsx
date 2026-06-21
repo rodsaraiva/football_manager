@@ -1,20 +1,22 @@
 import React, { useEffect, useState } from 'react';
 import {
   View,
-  Text,
   ScrollView,
   StyleSheet,
-  TouchableOpacity,
   ActivityIndicator,
 } from 'react-native';
-import { colors, spacing, fontSize, radius, commonStyles } from '@/theme';
+import { colors, spacing, commonStyles } from '@/theme';
+import { useClubAccent } from '@/theme/useClubAccent';
 import { useTranslation } from '@/i18n';
 import { useGameStore } from '@/store/game-store';
 import { useDatabaseStore } from '@/store/database-store';
 import { getSeasonSummary, SeasonCompetitionSummary } from '@/database/queries/history';
+import { Card, Chip, EmptyState } from '@/components/kit';
+import { Title, Body, Label } from '@/components/typography';
 
 export function HistoryScreen() {
   const { t } = useTranslation();
+  const { accent } = useClubAccent();
   const { season: currentSeason, currentSave } = useGameStore();
   const { dbHandle } = useDatabaseStore();
   const saveId = currentSave?.id;
@@ -46,14 +48,13 @@ export function HistoryScreen() {
   if (seasons.length === 0) {
     return (
       <View style={[commonStyles.screen, styles.center]}>
-        <Text style={styles.emptyText}>{t('history.no_seasons')}</Text>
+        <EmptyState art="generic" title={t('history.no_seasons')} />
       </View>
     );
   }
 
   return (
     <ScrollView style={commonStyles.screen} contentContainerStyle={styles.container}>
-      {/* Season chip row */}
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -61,26 +62,24 @@ export function HistoryScreen() {
         contentContainerStyle={styles.chipRowContent}
       >
         {seasons.map((s) => (
-          <TouchableOpacity
+          <Chip
             key={s}
-            style={[styles.chip, selectedSeason === s && styles.chipSelected]}
+            label={t('standings.season', { season: s })}
+            selected={selectedSeason === s}
+            accent={accent}
             onPress={() => setSelectedSeason(s)}
-          >
-            <Text style={[styles.chipText, selectedSeason === s && styles.chipTextSelected]}>
-              {t('standings.season', { season: s })}
-            </Text>
-          </TouchableOpacity>
+            testID={`history-season-${s}`}
+          />
         ))}
       </ScrollView>
 
-      {/* Content */}
       {loading ? (
         <View style={styles.center}>
           <ActivityIndicator color={colors.primary} size="large" />
         </View>
       ) : summary.length === 0 ? (
         <View style={styles.center}>
-          <Text style={styles.emptyText}>{t('history.no_data', { season: selectedSeason })}</Text>
+          <EmptyState art="search" title={t('history.no_data', { season: selectedSeason })} />
         </View>
       ) : (
         summary.map((entry) => (
@@ -97,13 +96,11 @@ function SummaryCard({ entry }: { entry: SeasonCompetitionSummary }) {
   const topAssister = entry.topAssisters[0] ?? null;
 
   return (
-    <View style={styles.card}>
-      {/* Card header */}
-      <View style={[styles.cardHeader, { borderBottomColor: colors.border }]}>
-        <Text style={styles.competitionName}>{entry.competitionName || `Competition ${entry.competitionId}`}</Text>
+    <Card variant="detail" style={styles.card}>
+      <View style={styles.cardHeader}>
+        <Title>{entry.competitionName || `Competition ${entry.competitionId}`}</Title>
       </View>
 
-      {/* Champion / Runner-up */}
       <View style={styles.section}>
         <Row label={t('history.champion')} value={`Club ${entry.championClubId}`} valueColor={colors.gold} />
         {entry.runnerUpClubId != null && (
@@ -111,10 +108,9 @@ function SummaryCard({ entry }: { entry: SeasonCompetitionSummary }) {
         )}
       </View>
 
-      {/* Awards */}
       {(topScorer || topAssister || entry.mvp || entry.breakthrough) && (
         <View style={[styles.section, styles.sectionBorder]}>
-          <Text style={styles.sectionLabel}>{t('history.awards')}</Text>
+          <Label>{t('history.awards')}</Label>
           {topScorer && (
             <Row
               label={t('history.top_scorer')}
@@ -146,10 +142,9 @@ function SummaryCard({ entry }: { entry: SeasonCompetitionSummary }) {
         </View>
       )}
 
-      {/* Relegated clubs */}
       {entry.relegated.length > 0 && (
         <View style={[styles.section, styles.sectionBorder]}>
-          <Text style={styles.sectionLabel}>{t('history.relegated')}</Text>
+          <Label>{t('history.relegated')}</Label>
           {entry.relegated.map((rel) => (
             <Row
               key={rel.clubId}
@@ -160,7 +155,7 @@ function SummaryCard({ entry }: { entry: SeasonCompetitionSummary }) {
           ))}
         </View>
       )}
-    </View>
+    </Card>
   );
 }
 
@@ -175,8 +170,8 @@ function Row({
 }) {
   return (
     <View style={styles.row}>
-      <Text style={styles.rowLabel}>{label}</Text>
-      <Text style={[styles.rowValue, { color: valueColor }]}>{value}</Text>
+      <Body color={colors.textSecondary}>{label}</Body>
+      <Body color={valueColor}>{value}</Body>
     </View>
   );
 }
@@ -184,13 +179,7 @@ function Row({
 const styles = StyleSheet.create({
   container: { paddingBottom: spacing.xl },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing.lg },
-  emptyText: {
-    color: colors.textMuted,
-    fontSize: fontSize.md,
-    textAlign: 'center',
-  },
 
-  // Chip row
   chipRow: {
     flexGrow: 0,
     borderBottomWidth: 1,
@@ -202,76 +191,30 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     gap: spacing.sm,
   },
-  chip: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-    borderRadius: radius.pill,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.background,
-  },
-  chipSelected: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  chipText: {
-    color: colors.textSecondary,
-    fontSize: fontSize.sm,
-    fontWeight: '600',
-  },
-  chipTextSelected: {
-    color: colors.text,
-  },
 
-  // Card
   card: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
     marginHorizontal: spacing.md,
     marginTop: spacing.sm,
-    borderWidth: 1,
-    borderColor: colors.border,
     overflow: 'hidden',
+    gap: spacing.sm,
   },
   cardHeader: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
+    paddingBottom: spacing.sm,
     borderBottomWidth: 1,
-  },
-  competitionName: {
-    color: colors.text,
-    fontSize: fontSize.md,
-    fontWeight: '700',
+    borderBottomColor: colors.border,
   },
   section: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
+    gap: spacing.xxs,
   },
   sectionBorder: {
     borderTopWidth: 1,
     borderTopColor: colors.border,
+    paddingTop: spacing.sm,
   },
-  sectionLabel: {
-    color: colors.textMuted,
-    fontSize: fontSize.xs,
-    fontWeight: '600',
-    letterSpacing: 1,
-    marginBottom: spacing.xs,
-  },
-
-  // Row
   row: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 3,
-  },
-  rowLabel: {
-    color: colors.textSecondary,
-    fontSize: fontSize.sm,
-  },
-  rowValue: {
-    fontSize: fontSize.sm,
-    fontWeight: '600',
+    paddingVertical: spacing.xxs,
   },
 });
