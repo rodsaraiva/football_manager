@@ -1,13 +1,12 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   View,
-  Text,
   FlatList,
   StyleSheet,
   ListRenderItemInfo,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import { colors, spacing, fontSize, radius, commonStyles } from '@/theme';
+import { colors, spacing, commonStyles } from '@/theme';
 import { useTranslation } from '@/i18n';
 import type { TKey } from '@/i18n/translate';
 import { useGameStore } from '@/store/game-store';
@@ -15,6 +14,9 @@ import { useDatabaseStore } from '@/store/database-store';
 import { getFinancesBySeason } from '@/database/queries/finances';
 import { getClubById } from '@/database/queries/clubs';
 import { ClubFinance, FinanceType } from '@/types';
+import { Card, Icon, EmptyState } from '@/components/kit';
+import type { IconName } from '@/components/kit';
+import { Title, Body, Label, Caption, Stat } from '@/components/typography';
 
 function formatCurrency(amount: number): string {
   const abs = Math.abs(amount);
@@ -49,19 +51,17 @@ const FINANCE_TYPE_LABELS: Record<FinanceType, TKey> = {
   prize: 'finances.type_prize',
 };
 
-function typeIcon(type: FinanceType): string {
+// Mapeia o tipo de lançamento para um ícone SVG do kit (substitui os emoji).
+function typeIcon(type: FinanceType): IconName {
   switch (type) {
-    case 'ticket': return '🎟';
-    case 'tv': return '📺';
-    case 'sponsor': return '🤝';
-    case 'transfer_in': return '📥';
-    case 'transfer_out': return '📤';
-    case 'wages': return '💼';
-    case 'maintenance': return '🔧';
-    case 'bonus': return '⭐';
-    case 'upgrade': return '🏗';
-    case 'assistant_wage': return '🧠';
-    default: return '💰';
+    case 'transfer_in':
+    case 'transfer_out':
+      return 'squad';
+    case 'wages':
+    case 'assistant_wage':
+      return 'chart';
+    default:
+      return 'money';
   }
 }
 
@@ -72,19 +72,17 @@ function TransactionItem({ item }: { item: ClubFinance }) {
   const sign = isPositive ? '+' : '-';
 
   return (
-    <View style={styles.transactionRow}>
-      <Text style={styles.txIcon}>{typeIcon(item.type)}</Text>
+    <Card variant="detail" style={styles.transactionRow}>
+      <Icon name={typeIcon(item.type)} color={amountColor} size={20} />
       <View style={styles.txInfo}>
-        <Text style={styles.txLabel}>{t(FINANCE_TYPE_LABELS[item.type])}</Text>
+        <Body>{t(FINANCE_TYPE_LABELS[item.type])}</Body>
         {item.description ? (
-          <Text style={styles.txDesc} numberOfLines={1}>{item.description}</Text>
+          <Caption color={colors.textSecondary} numberOfLines={1}>{item.description}</Caption>
         ) : null}
-        <Text style={styles.txWeek}>{t('calendar.week', { n: item.week })}</Text>
+        <Caption color={colors.textMuted}>{t('calendar.week', { n: item.week })}</Caption>
       </View>
-      <Text style={[styles.txAmount, { color: amountColor }]}>
-        {sign}{formatCurrency(item.amount)}
-      </Text>
-    </View>
+      <Stat color={amountColor}>{sign}{formatCurrency(item.amount)}</Stat>
+    </Card>
   );
 }
 
@@ -137,37 +135,30 @@ export function FinancesScreen() {
 
   return (
     <View style={commonStyles.screen}>
-      {/* Balance Header */}
-      <View style={styles.balanceHeader}>
-        <Text style={styles.balanceLabel}>{t('finances.current_budget')}</Text>
-        <Text style={[styles.balanceAmount, { color: budget >= 0 ? colors.success : colors.danger }]}>
+      <Card variant="summary" style={styles.balanceHeader}>
+        <Label>{t('finances.current_budget')}</Label>
+        <Stat color={budget >= 0 ? colors.success : colors.danger} style={styles.balanceAmount}>
           {budget < 0 ? '-' : ''}{formatBudget(budget)}
-        </Text>
-        <Text style={styles.balanceSeason}>{t('standings.season', { season })}</Text>
-      </View>
+        </Stat>
+        <Caption color={colors.textSecondary}>{t('standings.season', { season })}</Caption>
+      </Card>
 
-      {/* Season Summary */}
       <View style={styles.summaryRow}>
-        <View style={[styles.summaryCard, styles.summaryLeft]}>
-          <Text style={styles.summaryLabel}>{t('finances.income')}</Text>
-          <Text style={[styles.summaryAmount, { color: colors.success }]}>
-            +{formatCurrency(totalIncome)}
-          </Text>
-        </View>
-        <View style={[styles.summaryCard, styles.summaryRight]}>
-          <Text style={styles.summaryLabel}>{t('finances.expenses')}</Text>
-          <Text style={[styles.summaryAmount, { color: colors.danger }]}>
-            -{formatCurrency(Math.abs(totalExpenses))}
-          </Text>
-        </View>
+        <Card variant="summary" style={styles.summaryCard}>
+          <Label>{t('finances.income')}</Label>
+          <Stat color={colors.success}>+{formatCurrency(totalIncome)}</Stat>
+        </Card>
+        <Card variant="summary" style={styles.summaryCard}>
+          <Label>{t('finances.expenses')}</Label>
+          <Stat color={colors.danger}>-{formatCurrency(Math.abs(totalExpenses))}</Stat>
+        </Card>
       </View>
 
-      {/* Transaction List */}
-      <Text style={styles.sectionTitle}>{t('finances.transactions')}</Text>
+      <Title style={styles.sectionTitle}>{t('finances.transactions')}</Title>
 
       {finances.length === 0 ? (
-        <View style={styles.emptyCard}>
-          <Text style={styles.emptyText}>{t('finances.no_transactions')}</Text>
+        <View style={styles.emptyWrap}>
+          <EmptyState art="inbox" title={t('finances.no_transactions')} />
         </View>
       ) : (
         <FlatList
@@ -184,33 +175,13 @@ export function FinancesScreen() {
 
 const styles = StyleSheet.create({
   balanceHeader: {
-    backgroundColor: colors.surface,
-    padding: spacing.lg,
     marginHorizontal: spacing.md,
     marginTop: spacing.md,
     marginBottom: spacing.sm,
-    borderRadius: radius.lg,
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.border,
+    gap: spacing.xs,
   },
-  balanceLabel: {
-    color: colors.textMuted,
-    fontSize: fontSize.xs,
-    fontWeight: '600',
-    letterSpacing: 1,
-    textTransform: 'uppercase',
-  },
-  balanceAmount: {
-    fontSize: 36,
-    fontWeight: 'bold',
-    marginTop: spacing.xs,
-  },
-  balanceSeason: {
-    color: colors.textSecondary,
-    fontSize: fontSize.sm,
-    marginTop: spacing.xs,
-  },
+  balanceAmount: { textAlign: 'center' },
   summaryRow: {
     flexDirection: 'row',
     marginHorizontal: spacing.md,
@@ -219,31 +190,10 @@ const styles = StyleSheet.create({
   },
   summaryCard: {
     flex: 1,
-    backgroundColor: colors.surface,
-    borderRadius: 10,
-    padding: spacing.md,
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  summaryLeft: {},
-  summaryRight: {},
-  summaryLabel: {
-    color: colors.textMuted,
-    fontSize: fontSize.xs,
-    fontWeight: '600',
-    letterSpacing: 1,
-    textTransform: 'uppercase',
-  },
-  summaryAmount: {
-    fontSize: fontSize.lg,
-    fontWeight: 'bold',
-    marginTop: spacing.xs,
+    gap: spacing.xs,
   },
   sectionTitle: {
-    color: colors.text,
-    fontSize: fontSize.lg,
-    fontWeight: '600',
     marginHorizontal: spacing.md,
     marginBottom: spacing.sm,
   },
@@ -252,53 +202,13 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.xl,
   },
   transactionRow: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.md,
-    padding: spacing.md,
     marginBottom: spacing.sm,
     flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  txIcon: {
-    fontSize: fontSize.xl,
-    marginRight: spacing.sm,
+    gap: spacing.sm,
   },
   txInfo: {
     flex: 1,
   },
-  txLabel: {
-    color: colors.text,
-    fontSize: fontSize.md,
-    fontWeight: '600',
-  },
-  txDesc: {
-    color: colors.textSecondary,
-    fontSize: fontSize.sm,
-    marginTop: 1,
-  },
-  txWeek: {
-    color: colors.textMuted,
-    fontSize: fontSize.xs,
-    marginTop: spacing.xxs,
-  },
-  txAmount: {
-    fontSize: fontSize.md,
-    fontWeight: 'bold',
-    marginLeft: spacing.sm,
-  },
-  emptyCard: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.md,
-    padding: spacing.lg,
-    marginHorizontal: spacing.md,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  emptyText: {
-    color: colors.textMuted,
-    fontSize: fontSize.md,
-  },
+  emptyWrap: { marginHorizontal: spacing.md },
 });
