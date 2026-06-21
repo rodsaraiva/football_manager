@@ -1,19 +1,19 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
-  Pressable,
   ScrollView,
   StyleSheet,
-  Text,
   View,
 } from 'react-native';
-import { colors, spacing, fontSize, radius, commonStyles } from '@/theme';
+import { colors, spacing, commonStyles } from '@/theme';
+import { useClubAccent } from '@/theme/useClubAccent';
 import { useTranslation } from '@/i18n';
 import type { TKey } from '@/i18n/translate';
 import { useGameStore } from '@/store/game-store';
 import { useDatabaseStore } from '@/store/database-store';
 import { getActiveTactic, updateTactic } from '@/database/queries/tactics';
+import { Card, Chip, Button, useConfirm } from '@/components/kit';
+import { Label } from '@/components/typography';
 import {
   Mentality,
   Pressing,
@@ -31,6 +31,8 @@ interface SettingRowProps<T extends string> {
   value: T;
   onSelect: (value: T) => void;
   labelFor?: (v: T) => string;
+  accent: string;
+  rowKey: string;
 }
 
 function SettingRow<T extends string>({
@@ -39,26 +41,22 @@ function SettingRow<T extends string>({
   value,
   onSelect,
   labelFor,
+  accent,
+  rowKey,
 }: SettingRowProps<T>) {
   return (
     <View style={styles.settingRow}>
-      <Text style={styles.settingLabel}>{label}</Text>
+      <Label color={colors.textMuted} style={styles.settingLabel}>{label}</Label>
       <View style={styles.optionGroup}>
         {options.map((opt) => (
-          <Pressable
+          <Chip
             key={opt}
-            style={[styles.optionButton, value === opt && styles.optionButtonActive]}
+            label={labelFor ? labelFor(opt) : opt.charAt(0).toUpperCase() + opt.slice(1)}
+            selected={value === opt}
+            accent={accent}
             onPress={() => onSelect(opt)}
-          >
-            <Text
-              style={[
-                styles.optionButtonText,
-                value === opt && styles.optionButtonTextActive,
-              ]}
-            >
-              {labelFor ? labelFor(opt) : opt.charAt(0).toUpperCase() + opt.slice(1)}
-            </Text>
-          </Pressable>
+            testID={`tactics-${rowKey}-${opt}`}
+          />
         ))}
       </View>
     </View>
@@ -87,6 +85,8 @@ const SUB_STRATEGY_OPTIONS: SubstitutionStrategy[] = [
 
 export function TacticsSettingsScreen() {
   const { t } = useTranslation();
+  const accent = useClubAccent();
+  const confirm = useConfirm();
   const playerClubId = useGameStore((s) => s.playerClubId);
   const currentSave = useGameStore((s) => s.currentSave);
   const dbHandle = useDatabaseStore((s) => s.dbHandle);
@@ -130,7 +130,7 @@ export function TacticsSettingsScreen() {
 
   const handleSave = useCallback(async () => {
     if (!dbHandle || !tactic || saveId == null) {
-      Alert.alert(t('transfer.error'), t('tactics.no_active'));
+      await confirm({ title: t('transfer.error'), message: t('tactics.no_active'), confirmLabel: t('kit.ok'), tone: 'danger' });
       return;
     }
     setSaving(true);
@@ -144,89 +144,107 @@ export function TacticsSettingsScreen() {
         attackFocus,
         subStrategy,
       });
-      Alert.alert(t('tactics.saved'), t('tactics.saved_msg'));
+      await confirm({ title: t('tactics.saved'), message: t('tactics.saved_msg'), confirmLabel: t('kit.ok') });
     } catch {
-      Alert.alert(t('transfer.error'), t('tactics.save_failed'));
+      await confirm({ title: t('transfer.error'), message: t('tactics.save_failed'), confirmLabel: t('kit.ok'), tone: 'danger' });
     } finally {
       setSaving(false);
     }
-  }, [dbHandle, saveId, tactic, mentality, pressing, passingStyle, tempo, width, attackFocus, subStrategy]);
+  }, [dbHandle, saveId, tactic, mentality, pressing, passingStyle, tempo, width, attackFocus, subStrategy, confirm, t]);
 
   if (loading) {
     return (
       <View style={[commonStyles.screen, styles.centered]}>
-        <ActivityIndicator color={colors.primary} size="large" />
+        <ActivityIndicator color={accent.accent} size="large" />
       </View>
     );
   }
 
   return (
     <ScrollView style={commonStyles.screen} contentContainerStyle={styles.scrollContent}>
-      <View style={styles.card}>
+      <Card variant="detail" accent={accent.accent} style={styles.card}>
         <SettingRow
+          rowKey="mentality"
           label={t('tactics.label_mentality')}
           labelFor={(o) => t(`tactics.opt_${o}` as TKey)}
           options={MENTALITY_OPTIONS}
           value={mentality}
           onSelect={setMentality}
+          accent={accent.accent}
         />
         <View style={styles.divider} />
         <SettingRow
+          rowKey="pressing"
           label={t('tactics.label_pressing')}
           labelFor={(o) => t(`tactics.opt_${o}` as TKey)}
           options={PRESSING_OPTIONS}
           value={pressing}
           onSelect={setPressing}
+          accent={accent.accent}
         />
         <View style={styles.divider} />
         <SettingRow
+          rowKey="passing"
           label={t('tactics.label_passing')}
           labelFor={(o) => t(`tactics.opt_${o}` as TKey)}
           options={PASSING_OPTIONS}
           value={passingStyle}
           onSelect={setPassingStyle}
+          accent={accent.accent}
         />
         <View style={styles.divider} />
         <SettingRow
+          rowKey="tempo"
           label={t('tactics.label_tempo')}
           labelFor={(o) => t(`tactics.opt_${o}` as TKey)}
           options={TEMPO_OPTIONS}
           value={tempo}
           onSelect={setTempo}
+          accent={accent.accent}
         />
         <View style={styles.divider} />
         <SettingRow
+          rowKey="width"
           label={t('tactics.label_width')}
           labelFor={(o) => t(`tactics.opt_${o}` as TKey)}
           options={WIDTH_OPTIONS}
           value={width}
           onSelect={setWidth}
+          accent={accent.accent}
         />
         <View style={styles.divider} />
         <SettingRow
+          rowKey="attackfocus"
           label={t('tactics.attack_focus_label')}
           options={ATTACK_FOCUS_OPTIONS}
           value={attackFocus}
           onSelect={setAttackFocus}
           labelFor={(o) => t(`tactics.attack_focus_${o}` as TKey)}
+          accent={accent.accent}
         />
         <View style={styles.divider} />
         <SettingRow
+          rowKey="substrategy"
           label={t('tactics.substitutions_label')}
           options={SUB_STRATEGY_OPTIONS}
           value={subStrategy}
           onSelect={setSubStrategy}
           labelFor={(o) => t(`tactics.sub_strategy_${o}` as TKey)}
+          accent={accent.accent}
+        />
+      </Card>
+
+      <View style={styles.saveButton}>
+        <Button
+          label={saving ? t('tactics.saving') : t('tactics.save_settings')}
+          variant="primary"
+          loading={saving}
+          disabled={saving}
+          onPress={handleSave}
+          testID="tactics-settings-save"
+          accessibilityLabel={t('tactics.save_settings')}
         />
       </View>
-
-      <Pressable
-        style={[styles.saveButton, saving && styles.saveButtonDisabled]}
-        onPress={handleSave}
-        disabled={saving}
-      >
-        <Text style={styles.saveButtonText}>{saving ? t('tactics.saving') : t('tactics.save_settings')}</Text>
-      </Pressable>
     </ScrollView>
   );
 }
@@ -241,45 +259,20 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   card: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
     marginHorizontal: spacing.md,
-    padding: spacing.md,
   },
   settingRow: {
     paddingVertical: spacing.sm,
   },
   settingLabel: {
-    color: colors.textMuted,
-    fontSize: fontSize.xs,
-    fontWeight: 'bold',
     textTransform: 'uppercase',
     letterSpacing: 1,
     marginBottom: spacing.sm,
   },
   optionGroup: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: spacing.sm,
-  },
-  optionButton: {
-    flex: 1,
-    paddingVertical: spacing.sm,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    alignItems: 'center',
-  },
-  optionButtonActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  optionButtonText: {
-    color: colors.textSecondary,
-    fontSize: fontSize.sm,
-    fontWeight: '600',
-  },
-  optionButtonTextActive: {
-    color: colors.text,
   },
   divider: {
     height: 1,
@@ -287,19 +280,7 @@ const styles = StyleSheet.create({
     marginVertical: spacing.xxs,
   },
   saveButton: {
-    backgroundColor: colors.primary,
-    borderRadius: radius.md,
     marginHorizontal: spacing.md,
     marginTop: spacing.md,
-    paddingVertical: 14,
-    alignItems: 'center',
-  },
-  saveButtonDisabled: {
-    opacity: 0.6,
-  },
-  saveButtonText: {
-    color: colors.text,
-    fontSize: fontSize.lg,
-    fontWeight: '600',
   },
 });
