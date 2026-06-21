@@ -12,6 +12,10 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { colors, alpha, spacing, fontSize, radius, commonStyles } from '@/theme';
+import { useClubAccent } from '@/theme/useClubAccent';
+import { Card, Button, Badge, Icon } from '@/components/kit';
+import type { IconName } from '@/components/kit';
+import { Display, Title, Body, Label, Caption, Stat } from '@/components/typography';
 import { ClubBanner } from '@/components/ClubBanner';
 import { useTranslation, objectiveDescriptor } from '@/i18n';
 import { useGameStore } from '@/store/game-store';
@@ -43,9 +47,40 @@ import { Player, PlayerAttributes, Position } from '@/types';
 
 type NavProp = NativeStackNavigationProp<RootStackParamList>;
 
+interface ShortcutProps {
+  icon: IconName;
+  title: string;
+  sub: string;
+  onPress: () => void;
+  testID: string;
+}
+
+function Shortcut({ icon, title, sub, onPress, testID }: ShortcutProps) {
+  return (
+    <TouchableOpacity
+      style={[styles.leagueTableBtn, { borderLeftColor: colors.gold }]}
+      activeOpacity={0.8}
+      onPress={onPress}
+      testID={testID}
+      accessibilityRole="button"
+      accessibilityLabel={title}
+    >
+      <View style={styles.leagueTableIcon}>
+        <Icon name={icon} color={colors.gold} size={fontSize.xl} />
+      </View>
+      <View style={styles.leagueTableContent}>
+        <Body style={styles.leagueTableTitle}>{title}</Body>
+        <Caption>{sub}</Caption>
+      </View>
+      <Icon name="arrowRight" color={colors.textMuted} size={fontSize.lg} />
+    </TouchableOpacity>
+  );
+}
+
 export function HomeScreen() {
   const navigation = useNavigation<NavProp>();
   const { t } = useTranslation();
+  const accent = useClubAccent();
 
   const {
     playerClub,
@@ -468,29 +503,25 @@ export function HomeScreen() {
       const oppGoals = isHome ? item.awayGoals : item.homeGoals;
       const ha = isHome ? 'H' : 'A';
 
-      let resultColor = colors.warning;
+      let tone: 'warning' | 'success' | 'danger' = 'warning';
       if (myGoals != null && oppGoals != null) {
-        if (myGoals > oppGoals) resultColor = colors.success;
-        else if (myGoals < oppGoals) resultColor = colors.danger;
+        if (myGoals > oppGoals) tone = 'success';
+        else if (myGoals < oppGoals) tone = 'danger';
       }
 
       return (
-        <View style={styles.resultCard}>
-          <View style={[styles.resultBadge, { backgroundColor: resultColor }]}>
-            <Text style={styles.resultBadgeText}>{ha}</Text>
-          </View>
+        <Card variant="detail" accent={accent.accent} style={styles.resultCard}>
+          <Badge value={ha} tone={tone} size="sm" />
           <View style={styles.resultInfo}>
-            <Text style={styles.resultScore}>
-              {myGoals ?? '-'} - {oppGoals ?? '-'}
-            </Text>
-            <Text style={styles.resultWeek}>
+            <Stat>{myGoals ?? '-'} - {oppGoals ?? '-'}</Stat>
+            <Caption>
               {t('home.result_week', { week: item.week, season: item.season })}
-            </Text>
+            </Caption>
           </View>
-        </View>
+        </Card>
       );
     },
-    [playerClub?.id, t],
+    [playerClub?.id, t, accent.accent],
   );
 
   return (
@@ -500,43 +531,43 @@ export function HomeScreen() {
       {/* Assistant comment card */}
       {pendingComment && (
         <TouchableOpacity
-          style={styles.commentCard}
+          style={[styles.commentCard, { borderLeftColor: accent.accent }]}
           activeOpacity={0.8}
           onPress={() => setPendingComment(null)}
         >
-          <Text style={styles.commentAuthor}>{pendingComment.assistantName}</Text>
-          <Text style={styles.commentText}>{t(pendingComment.comment.key, pendingComment.comment.vars)}</Text>
-          <Text style={styles.commentDismiss}>{t('home.tap_dismiss')}</Text>
+          <Label color={accent.accent} style={styles.commentAuthor}>{pendingComment.assistantName}</Label>
+          <Body>{t(pendingComment.comment.key, pendingComment.comment.vars)}</Body>
+          <Caption style={styles.commentDismiss}>{t('home.tap_dismiss')}</Caption>
         </TouchableOpacity>
       )}
 
       {/* Retirement announcement alert */}
       {announcedRetirees.length > 0 && (
-        <View style={styles.retirementAlert}>
-          <Text style={styles.retirementAlertTitle}>{t('home.retirement_title')}</Text>
+        <Card variant="summary" accent={colors.warning} style={styles.retirementAlert}>
+          <Label color={colors.warning} style={styles.retirementAlertTitle}>{t('home.retirement_title')}</Label>
           {announcedRetirees.map(p => (
-            <Text key={p.id} style={styles.retirementAlertItem}>
+            <Body key={p.id} style={styles.retirementAlertItem}>
               {t('home.retirement_item', { name: p.name, age: p.age })}
-            </Text>
+            </Body>
           ))}
-        </View>
+        </Card>
       )}
 
       {/* Board objective widget */}
       {currentObjective && (
         <TouchableOpacity
-          style={styles.boardWidget}
+          style={[styles.boardWidget, { borderLeftColor: accent.accent }]}
           activeOpacity={0.8}
           onPress={() => navigation.navigate('ClubBoard')}
         >
           <View style={styles.boardWidgetLeft}>
-            <Text style={styles.boardWidgetLabel}>{t('home.objective_label')}</Text>
-            <Text style={styles.boardWidgetText} numberOfLines={1}>
+            <Label style={styles.boardWidgetLabel}>{t('home.objective_label')}</Label>
+            <Body numberOfLines={1}>
               {(() => { const d = objectiveDescriptor(currentObjective.type, currentObjective.target); return t(d.key, d.vars); })()}
-            </Text>
+            </Body>
           </View>
           <View style={styles.boardWidgetRight}>
-            <Text style={styles.boardWidgetLabel}>{t('home.trust_label')}</Text>
+            <Label style={styles.boardWidgetLabel}>{t('home.trust_label')}</Label>
             <View style={styles.boardMiniBar}>
               {Array.from({ length: 5 }).map((_, i) => (
                 <View
@@ -555,95 +586,57 @@ export function HomeScreen() {
       )}
 
       {/* Manager (career) reputation — distinct from the club's reputation. */}
-      <View style={styles.managerRepWidget}>
-        <Text style={styles.boardWidgetLabel}>{t('home.manager_reputation')}</Text>
+      <View style={[styles.managerRepWidget, { borderLeftColor: colors.gold }]}>
+        <Label style={styles.boardWidgetLabel}>{t('home.manager_reputation')}</Label>
         <View style={styles.managerRepRow}>
           <View style={styles.managerRepBarContainer}>
             <View style={[styles.managerRepBarFill, { width: `${managerReputation}%` as `${number}%` }]} />
           </View>
-          <Text style={styles.managerRepValue}>{managerReputation}</Text>
+          <Stat color={colors.gold} style={styles.managerRepValue}>{managerReputation}</Stat>
         </View>
       </View>
 
       {/* League Table shortcut */}
-      <TouchableOpacity
-        style={styles.leagueTableBtn}
-        activeOpacity={0.8}
-        onPress={() => navigation.navigate('LeagueStandings')}
-      >
-        <Text style={styles.leagueTableIcon}>🏆</Text>
-        <View style={styles.leagueTableContent}>
-          <Text style={styles.leagueTableTitle}>{t('home.league_table_title')}</Text>
-          <Text style={styles.leagueTableSub}>{t('home.league_table_sub')}</Text>
-        </View>
-        <Text style={styles.leagueTableChevron}>›</Text>
-      </TouchableOpacity>
+      <Shortcut icon="shield" title={t('home.league_table_title')} sub={t('home.league_table_sub')} onPress={() => navigation.navigate('LeagueStandings')} testID="home-shortcut-standings" />
 
       {/* Calendar shortcut */}
-      <TouchableOpacity
-        style={styles.leagueTableBtn}
-        activeOpacity={0.8}
-        onPress={() => navigation.navigate('Calendar')}
-      >
-        <Text style={styles.leagueTableIcon}>📅</Text>
-        <View style={styles.leagueTableContent}>
-          <Text style={styles.leagueTableTitle}>{t('home.calendar_title')}</Text>
-          <Text style={styles.leagueTableSub}>{t('home.calendar_sub')}</Text>
-        </View>
-        <Text style={styles.leagueTableChevron}>›</Text>
-      </TouchableOpacity>
+      <Shortcut icon="tactics" title={t('home.calendar_title')} sub={t('home.calendar_sub')} onPress={() => navigation.navigate('Calendar')} testID="home-shortcut-calendar" />
 
       {/* Top scorers shortcut */}
-      <TouchableOpacity
-        style={styles.leagueTableBtn}
-        activeOpacity={0.8}
-        onPress={() => navigation.navigate('TopScorers')}
-      >
-        <Text style={styles.leagueTableIcon}>⚽</Text>
-        <View style={styles.leagueTableContent}>
-          <Text style={styles.leagueTableTitle}>{t('home.top_scorers_title')}</Text>
-          <Text style={styles.leagueTableSub}>{t('home.top_scorers_sub')}</Text>
-        </View>
-        <Text style={styles.leagueTableChevron}>›</Text>
-      </TouchableOpacity>
+      <Shortcut icon="goal" title={t('home.top_scorers_title')} sub={t('home.top_scorers_sub')} onPress={() => navigation.navigate('TopScorers')} testID="home-shortcut-topscorers" />
 
       {/* Cup bracket shortcut */}
-      <TouchableOpacity
-        style={styles.leagueTableBtn}
-        activeOpacity={0.8}
-        onPress={() => navigation.navigate('CupBracket')}
-      >
-        <Text style={styles.leagueTableIcon}>🏆</Text>
-        <View style={styles.leagueTableContent}>
-          <Text style={styles.leagueTableTitle}>{t('home.cup_bracket_title')}</Text>
-          <Text style={styles.leagueTableSub}>{t('home.cup_bracket_sub')}</Text>
-        </View>
-        <Text style={styles.leagueTableChevron}>›</Text>
-      </TouchableOpacity>
+      <Shortcut icon="shield" title={t('home.cup_bracket_title')} sub={t('home.cup_bracket_sub')} onPress={() => navigation.navigate('CupBracket')} testID="home-shortcut-cup" />
 
       {/* Last Match Result Banner */}
       {lastMatchResult !== null && (
         <TouchableOpacity
-          style={styles.matchResultBanner}
+          style={[styles.matchResultBanner, { borderColor: accent.accent }]}
           onPress={() => setShowMatchModal(true)}
           activeOpacity={0.8}
+          testID="home-last-result"
+          accessibilityRole="button"
+          accessibilityLabel={t('home.last_result_label')}
         >
-          <Text style={styles.matchResultLabel}>{t('home.last_result_label')}</Text>
-          <Text style={styles.matchResultScore}>
+          <Label style={styles.matchResultLabel}>{t('home.last_result_label')}</Label>
+          <Display>
             {lastMatchResult.homeGoals} - {lastMatchResult.awayGoals}
-          </Text>
-          <Text style={styles.matchResultTap}>{t('home.tap_details')}</Text>
+          </Display>
+          <Caption color={accent.accent}>{t('home.tap_details')}</Caption>
         </TouchableOpacity>
       )}
 
       {/* Next Match Card */}
       {nextOpponent ? (
-        <View style={styles.nextMatchCard}>
+        <Card variant="summary" accent={accent.accent} style={styles.nextMatchCard}>
           <View style={styles.nextMatchHeader}>
-            <Text style={styles.cardLabel}>{t('home.next_match_label')}</Text>
-            <View style={[styles.nextMatchBadge, { backgroundColor: nextOpponent.isHome ? colors.success : colors.accent }]}>
-              <Text style={styles.nextMatchBadgeText}>{nextOpponent.isHome ? t('home.badge_home') : t('home.badge_away')}</Text>
-            </View>
+            <Label style={styles.cardLabel}>{t('home.next_match_label')}</Label>
+            <Badge
+              value={nextOpponent.isHome ? t('home.badge_home') : t('home.badge_away')}
+              tone={nextOpponent.isHome ? 'success' : 'accent'}
+              accent={colors.accent}
+              size="sm"
+            />
           </View>
           <View style={styles.nextMatchTeams}>
             {(() => {
@@ -656,24 +649,27 @@ export function HomeScreen() {
               return (
                 <>
                   <View style={styles.nextMatchTeamBlock}>
-                    <Text style={styles.nextMatchTeamName} numberOfLines={1}>{homeTeam.name}</Text>
-                    <Text style={styles.nextMatchTeamRep}>{homeTeam.reputation}</Text>
+                    <Body numberOfLines={1} style={styles.nextMatchTeamName}>{homeTeam.name}</Body>
+                    <Caption>{homeTeam.reputation}</Caption>
                   </View>
-                  <Text style={styles.nextMatchVs}>VS</Text>
+                  <Title style={styles.nextMatchVs}>VS</Title>
                   <View style={styles.nextMatchTeamBlock}>
-                    <Text style={styles.nextMatchTeamName} numberOfLines={1}>{awayTeam.name}</Text>
-                    <Text style={styles.nextMatchTeamRep}>{awayTeam.reputation}</Text>
+                    <Body numberOfLines={1} style={styles.nextMatchTeamName}>{awayTeam.name}</Body>
+                    <Caption>{awayTeam.reputation}</Caption>
                   </View>
                 </>
               );
             })()}
           </View>
-          <Text style={styles.nextMatchVenue}>
+          <Caption style={styles.nextMatchVenue}>
             {nextOpponent.isHome ? (playerClub?.stadiumName ?? t('home.home_stadium')) : nextOpponent.club.stadiumName}
-          </Text>
+          </Caption>
           <TouchableOpacity
             style={styles.scoutButton}
             activeOpacity={0.7}
+            testID="home-scout"
+            accessibilityRole="button"
+            accessibilityLabel={t('home.scout_button')}
             onPress={async () => {
               if (!dbHandle || !nextOpponent || !currentSave) return;
               const saveId = currentSave.id;
@@ -695,56 +691,52 @@ export function HomeScreen() {
               setLoadingOpponent(false);
             }}
           >
-            <Text style={styles.scoutButtonText}>{t('home.scout_button')}</Text>
+            <Label color={accent.accent}>{t('home.scout_button')}</Label>
           </TouchableOpacity>
-        </View>
+        </Card>
       ) : (
-        <View style={styles.card}>
-          <Text style={styles.cardLabel}>{t('home.next_match_label')}</Text>
-          <Text style={styles.nextMatchText}>{t('home.no_upcoming')}</Text>
-        </View>
+        <Card variant="summary" accent={accent.accent} style={styles.card}>
+          <Label style={styles.cardLabel}>{t('home.next_match_label')}</Label>
+          <Body>{t('home.no_upcoming')}</Body>
+        </Card>
       )}
 
       {/* Watch Live Button — only when the user has a fixture this week */}
       {nextOpponent && (
-        <TouchableOpacity
-          style={[styles.watchLiveButton, isAdvancing && styles.advanceButtonDisabled]}
-          onPress={handleWatchLive}
-          disabled={isAdvancing}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.watchLiveButtonText}>{t('home.watch_live')}</Text>
-        </TouchableOpacity>
+        <View style={styles.actionButton}>
+          <Button
+            label={t('home.watch_live')}
+            variant="secondary"
+            disabled={isAdvancing}
+            onPress={handleWatchLive}
+            testID="home-watch-live"
+            accessibilityLabel={t('home.watch_live')}
+          />
+        </View>
       )}
 
       {/* Advance Week Button */}
-      <TouchableOpacity
-        style={[styles.advanceButton, isAdvancing && styles.advanceButtonDisabled]}
-        onPress={handleAdvanceWeek}
-        disabled={isAdvancing}
-        activeOpacity={0.8}
-      >
-        {isAdvancing ? (
-          <View style={styles.advancingRow}>
-            <ActivityIndicator color={colors.text} size="small" />
-            <Text style={[styles.advanceButtonText, { marginLeft: spacing.sm }]}>
-              {t('home.simulating')}
-            </Text>
-          </View>
-        ) : (
-          <Text style={styles.advanceButtonText}>{t('home.advance_week')}</Text>
-        )}
-      </TouchableOpacity>
+      <View style={styles.advanceButton}>
+        <Button
+          label={isAdvancing ? t('home.simulating') : t('home.advance_week')}
+          variant="primary"
+          loading={isAdvancing}
+          disabled={isAdvancing}
+          onPress={handleAdvanceWeek}
+          testID="home-advance-week"
+          accessibilityLabel={t('home.advance_week')}
+        />
+      </View>
 
       {/* Recent Results */}
       <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>{t('home.recent_results')}</Text>
+        <Title>{t('home.recent_results')}</Title>
       </View>
 
       {recentResults.length === 0 ? (
-        <View style={styles.emptyCard}>
-          <Text style={styles.emptyText}>{t('home.no_results')}</Text>
-        </View>
+        <Card variant="detail" accent={accent.accent} style={styles.emptyCard}>
+          <Body color={colors.textMuted}>{t('home.no_results')}</Body>
+        </Card>
       ) : (
         <FlatList
           data={recentResults}
@@ -764,28 +756,28 @@ export function HomeScreen() {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>{t('home.modal_match_title')}</Text>
+            <Label style={styles.modalTitle}>{t('home.modal_match_title')}</Label>
 
             {lastMatchResult && (
               <>
                 <View style={styles.modalScoreRow}>
-                  <Text style={styles.modalTeamName}>
+                  <Body style={styles.modalTeamName}>
                     {lastMatchIsHome === false ? (lastMatchOpponentName ?? t('matchresult.opponent')) : (playerClub?.name ?? 'Home')}
-                  </Text>
+                  </Body>
                   <View style={styles.modalScoreBox}>
-                    <Text style={styles.modalScore}>
+                    <Display>
                       {lastMatchResult.homeGoals} - {lastMatchResult.awayGoals}
-                    </Text>
+                    </Display>
                   </View>
-                  <Text style={[styles.modalTeamName, { textAlign: 'right' }]}>
+                  <Body style={[styles.modalTeamName, styles.modalTeamNameRight]}>
                     {lastMatchIsHome === false ? (playerClub?.name ?? 'Home') : (lastMatchOpponentName ?? t('matchresult.opponent'))}
-                  </Text>
+                  </Body>
                 </View>
 
                 {lastMatchResult.stats && (
                   <View style={styles.modalStatsRow}>
-                    <Text style={styles.modalStat}>Poss: {lastMatchResult.stats.homePossession}%-{lastMatchResult.stats.awayPossession}%</Text>
-                    <Text style={styles.modalStat}>Shots: {lastMatchResult.stats.homeShots}({lastMatchResult.stats.homeShotsOnTarget ?? 0})-{lastMatchResult.stats.awayShots}({lastMatchResult.stats.awayShotsOnTarget ?? 0})</Text>
+                    <Caption>Poss: {lastMatchResult.stats.homePossession}%-{lastMatchResult.stats.awayPossession}%</Caption>
+                    <Caption>Shots: {lastMatchResult.stats.homeShots}({lastMatchResult.stats.homeShotsOnTarget ?? 0})-{lastMatchResult.stats.awayShots}({lastMatchResult.stats.awayShotsOnTarget ?? 0})</Caption>
                   </View>
                 )}
 
@@ -797,20 +789,27 @@ export function HomeScreen() {
                     const parts = full.split(' ');
                     return parts[parts.length - 1];
                   };
-                  const getIcon = (type: MatchEvent['type']) => {
-                    if (type === 'goal') return '⚽';
-                    if (type === 'penalty_scored') return '⚽(P)';
-                    if (type === 'penalty_missed') return '❌(P)';
-                    if (type === 'free_kick_scored') return '⚽(FK)';
-                    if (type === 'free_kick_missed') return '❌(FK)';
-                    if (type === 'yellow') return '🟨';
-                    if (type === 'red') return '🟥';
-                    if (type === 'injury') return '🏥';
-                    if (type === 'substitution') return '🔄';
-                    if (type === 'assist') return '🅰️';
-                    if (type === 'shot_on_target') return '🎯';
-                    return '';
+                  const getIcon = (type: MatchEvent['type']): { name: IconName; color: string; suffix?: string } | null => {
+                    if (type === 'goal') return { name: 'goal', color: colors.text };
+                    if (type === 'penalty_scored') return { name: 'goal', color: colors.text, suffix: '(P)' };
+                    if (type === 'penalty_missed') return { name: 'close', color: colors.danger, suffix: '(P)' };
+                    if (type === 'free_kick_scored') return { name: 'goal', color: colors.text, suffix: '(FK)' };
+                    if (type === 'free_kick_missed') return { name: 'close', color: colors.danger, suffix: '(FK)' };
+                    if (type === 'yellow') return { name: 'yellow', color: colors.warning };
+                    if (type === 'red') return { name: 'red', color: colors.danger };
+                    if (type === 'injury') return { name: 'injury', color: colors.danger };
+                    if (type === 'substitution') return { name: 'sub', color: colors.textSecondary };
+                    if (type === 'assist') return { name: 'assist', color: colors.textSecondary };
+                    if (type === 'shot_on_target') return { name: 'target', color: colors.textSecondary };
+                    return null;
                   };
+                  const EventIcon = ({ g }: { g: { name: IconName; color: string; suffix?: string } | null }) =>
+                    g == null ? null : (
+                      <View style={styles.modalEventGlyph}>
+                        <Icon name={g.name} color={g.color} size={fontSize.sm} />
+                        {g.suffix != null && <Caption color={g.color}>{g.suffix}</Caption>}
+                      </View>
+                    );
                   // Filter out assists (shown inline with goals)
                   const visible = lastMatchResult.events.filter(
                     e => e.type !== 'assist' && e.type !== 'shot_off_target' && e.type !== 'save',
@@ -825,11 +824,11 @@ export function HomeScreen() {
 
                   return (
                     <View style={styles.modalEvents}>
-                      <Text style={styles.modalEventsTitle}>{t('home.modal_match_events')}</Text>
+                      <Label style={styles.modalEventsTitle}>{t('home.modal_match_events')}</Label>
                       <ScrollView style={styles.modalEventsList} nestedScrollEnabled>
                         {visible.map((evt, idx) => {
                           const isHome = homeIds.has(evt.playerId);
-                          const icon = getIcon(evt.type);
+                          const glyph = getIcon(evt.type);
                           const name = getName(evt.playerId);
                           const assist = (evt.type === 'goal' || evt.type === 'penalty_scored' || evt.type === 'free_kick_scored')
                             ? assistMap.get(evt.playerId) : null;
@@ -842,17 +841,15 @@ export function HomeScreen() {
                                 <View style={styles.modalSubRow}>
                                   {side === 'home' ? (
                                     <>
-                                      {subIn && <Text style={styles.modalEventSubIn}>{subIn}</Text>}
-                                      {subIn && <Text style={styles.modalSubArrowUp}> ▲ </Text>}
-                                      <Text style={styles.modalSubArrowDown}> ▼ </Text>
-                                      <Text style={styles.modalEventSubOut}>{name}</Text>
+                                      {subIn && <Caption color={colors.success}>{subIn}</Caption>}
+                                      <Icon name="sub" color={colors.textSecondary} size={fontSize.sm} />
+                                      <Caption color={colors.danger}>{name}</Caption>
                                     </>
                                   ) : (
                                     <>
-                                      <Text style={styles.modalEventSubOut}>{name}</Text>
-                                      <Text style={styles.modalSubArrowDown}> ▼ </Text>
-                                      {subIn && <Text style={styles.modalSubArrowUp}> ▲ </Text>}
-                                      {subIn && <Text style={styles.modalEventSubIn}>{subIn}</Text>}
+                                      <Caption color={colors.danger}>{name}</Caption>
+                                      <Icon name="sub" color={colors.textSecondary} size={fontSize.sm} />
+                                      {subIn && <Caption color={colors.success}>{subIn}</Caption>}
                                     </>
                                   )}
                                 </View>
@@ -860,13 +857,17 @@ export function HomeScreen() {
                             }
                             return (
                               <>
-                                <Text style={styles.modalEventName} numberOfLines={1}>
-                                  {side === 'home' ? `${name} ${icon}` : `${icon} ${name}`}
-                                </Text>
+                                <View style={[styles.modalEventLine, side === 'away' && styles.modalEventLineAway]}>
+                                  {side === 'away' && <EventIcon g={glyph} />}
+                                  <Caption numberOfLines={1}>{name}</Caption>
+                                  {side === 'home' && <EventIcon g={glyph} />}
+                                </View>
                                 {assist && (
-                                  <Text style={styles.modalEventAssist}>
-                                    {side === 'home' ? `${assist} 🅰️` : `🅰️ ${assist}`}
-                                  </Text>
+                                  <View style={[styles.modalEventLine, side === 'away' && styles.modalEventLineAway]}>
+                                    {side === 'away' && <Icon name="assist" color={colors.textMuted} size={fontSize.xs} />}
+                                    <Caption color={colors.textMuted}>{assist}</Caption>
+                                    {side === 'home' && <Icon name="assist" color={colors.textMuted} size={fontSize.xs} />}
+                                  </View>
                                 )}
                               </>
                             );
@@ -883,7 +884,7 @@ export function HomeScreen() {
                                 )}
                               </View>
                               {/* Minute (center) */}
-                              <Text style={styles.modalEventMinute}>{evt.minute}'</Text>
+                              <Label color={accent.accent} style={styles.modalEventMinute}>{evt.minute}'</Label>
                               {/* Away side (right, aligned left → toward minute) */}
                               <View style={[styles.modalEventSide, styles.modalEventSideAway]}>
                                 {!isHome && (
@@ -901,15 +902,18 @@ export function HomeScreen() {
                 })()}
 
                 {lastMatchResult.attendance > 0 && (
-                  <Text style={styles.modalAttendance}>
+                  <Caption style={styles.modalAttendance}>
                     Attendance: {lastMatchResult.attendance.toLocaleString()}
-                  </Text>
+                  </Caption>
                 )}
               </>
             )}
 
-            <TouchableOpacity
-              style={styles.modalCloseButton}
+            <Button
+              label={t('home.modal_close')}
+              variant="primary"
+              testID="home-match-modal-close"
+              accessibilityLabel={t('home.modal_close')}
               onPress={() => {
                 setShowMatchModal(false);
                 // Acknowledging the result leads straight into the press conference
@@ -918,10 +922,7 @@ export function HomeScreen() {
                   navigation.navigate('PressConference');
                 }
               }}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.modalCloseText}>{t('home.modal_close')}</Text>
-            </TouchableOpacity>
+            />
           </View>
         </View>
       </Modal>
@@ -935,14 +936,14 @@ export function HomeScreen() {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>{nextOpponent?.club.name ?? t('home.opponent_default')}</Text>
+            <Label style={styles.modalTitle}>{nextOpponent?.club.name ?? t('home.opponent_default')}</Label>
             <View style={styles.oppInfoRow}>
-              <Text style={styles.oppInfoLabel}>{t('home.opponent_formation', { formation: opponentFormation })}</Text>
-              <Text style={styles.oppInfoLabel}>{t('home.opponent_rep', { rep: nextOpponent?.club.reputation ?? 0 })}</Text>
+              <Body style={styles.oppInfoLabel}>{t('home.opponent_formation', { formation: opponentFormation })}</Body>
+              <Body style={styles.oppInfoLabel}>{t('home.opponent_rep', { rep: nextOpponent?.club.reputation ?? 0 })}</Body>
             </View>
 
             {loadingOpponent ? (
-              <ActivityIndicator color={colors.primary} style={{ marginVertical: spacing.lg }} />
+              <ActivityIndicator color={accent.accent} style={styles.oppLoading} />
             ) : (() => {
               // Build starting XI using formation layout (shared module)
               const POS_GROUP: Record<string, string> = {
@@ -993,7 +994,7 @@ export function HomeScreen() {
 
               return (
                 <ScrollView style={styles.oppSquadList} nestedScrollEnabled>
-                  <Text style={styles.oppSectionLabel}>{t('home.starting_xi')}</Text>
+                  <Label style={styles.oppSectionLabel}>{t('home.starting_xi')}</Label>
                   <View style={styles.oppPitchView}>
                     {startingXI.map((row, ri) => (
                       <View key={ri} style={styles.oppPitchRow}>
@@ -1001,12 +1002,12 @@ export function HomeScreen() {
                           const ovrColor = slot.overall >= 75 ? colors.success : slot.overall >= 60 ? colors.warning : colors.danger;
                           return (
                             <View key={si} style={styles.oppPitchSlot}>
-                              <Text style={styles.oppPitchRole}>{slot.role}</Text>
-                              <Text style={styles.oppPitchName} numberOfLines={1}>
+                              <Caption color={colors.textMuted}>{slot.role}</Caption>
+                              <Caption numberOfLines={1} style={styles.oppPitchName}>
                                 {slot.name.split(' ').pop()}
-                              </Text>
+                              </Caption>
                               {slot.overall > 0 && (
-                                <Text style={[styles.oppPitchOvr, { color: ovrColor }]}>{slot.overall}</Text>
+                                <Stat color={ovrColor} style={styles.oppPitchOvr}>{slot.overall}</Stat>
                               )}
                             </View>
                           );
@@ -1017,14 +1018,14 @@ export function HomeScreen() {
 
                   {subs.length > 0 && (
                     <>
-                      <Text style={styles.oppSectionLabel}>{t('home.substitutes')}</Text>
+                      <Label style={styles.oppSectionLabel}>{t('home.substitutes')}</Label>
                       {subs.map((p, idx) => {
                         const ovrColor = p.overall >= 75 ? colors.success : p.overall >= 60 ? colors.warning : colors.danger;
                         return (
                           <View key={idx} style={styles.oppPlayerRow}>
-                            <Text style={styles.oppPlayerPos}>{p.position}</Text>
-                            <Text style={styles.oppPlayerName} numberOfLines={1}>{p.name}</Text>
-                            <Text style={[styles.oppPlayerOvr, { color: ovrColor }]}>{p.overall}</Text>
+                            <Label color={accent.accent} style={styles.oppPlayerPos}>{p.position}</Label>
+                            <Body numberOfLines={1} style={styles.oppPlayerName}>{p.name}</Body>
+                            <Stat color={ovrColor} style={styles.oppPlayerOvr}>{p.overall}</Stat>
                           </View>
                         );
                       })}
@@ -1034,13 +1035,13 @@ export function HomeScreen() {
               );
             })()}
 
-            <TouchableOpacity
-              style={styles.modalCloseButton}
+            <Button
+              label={t('home.modal_close')}
+              variant="primary"
               onPress={() => setShowOpponentModal(false)}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.modalCloseText}>{t('home.modal_close')}</Text>
-            </TouchableOpacity>
+              testID="home-scout-modal-close"
+              accessibilityLabel={t('home.modal_close')}
+            />
           </View>
         </View>
       </Modal>
@@ -1052,14 +1053,17 @@ export function HomeScreen() {
           achievement toast so the two never overlap when both fire the same week. */}
       {pendingInternationalCallUpCount > 0 && (
         <TouchableOpacity
-          style={styles.callUpToast}
+          style={[styles.callUpToast, { borderLeftColor: accent.accent }]}
           activeOpacity={0.9}
           onPress={() => setPendingInternationalCallUpCount(0)}
+          testID="home-callup-toast"
+          accessibilityRole="button"
+          accessibilityLabel={t('internationals.callup_notice', { count: pendingInternationalCallUpCount })}
         >
-          <Text style={styles.callUpToastText}>
+          <Body>
             {t('internationals.callup_notice', { count: pendingInternationalCallUpCount })}
-          </Text>
-          <Text style={styles.callUpToastDismiss}>{t('internationals.callup_notice_dismiss')}</Text>
+          </Body>
+          <Caption style={styles.callUpToastDismiss}>{t('internationals.callup_notice_dismiss')}</Caption>
         </TouchableOpacity>
       )}
 
@@ -1077,6 +1081,28 @@ export function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     paddingBottom: spacing.xl,
+  },
+  actionButton: {
+    marginHorizontal: spacing.md,
+    marginBottom: spacing.sm,
+  },
+  modalTeamNameRight: {
+    textAlign: 'right',
+  },
+  modalEventGlyph: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  modalEventLine: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xxs,
+  },
+  modalEventLineAway: {
+    justifyContent: 'flex-start',
+  },
+  oppLoading: {
+    marginVertical: spacing.lg,
   },
   headerCard: {
     backgroundColor: colors.surface,
@@ -1288,15 +1314,8 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
   },
   advanceButton: {
-    backgroundColor: colors.primary,
-    borderRadius: 10,
-    paddingVertical: 18,
     marginHorizontal: spacing.md,
-    alignItems: 'center',
     marginBottom: spacing.lg,
-  },
-  advanceButtonDisabled: {
-    opacity: 0.6,
   },
   advanceButtonText: {
     color: colors.text,
