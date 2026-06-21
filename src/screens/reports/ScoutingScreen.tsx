@@ -1,8 +1,11 @@
 import React, { useCallback, useState } from 'react';
-import { View, Text, ScrollView, StyleSheet, Pressable } from 'react-native';
+import { View, Text, ScrollView, StyleSheet } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { colors, spacing, fontSize, radius, commonStyles } from '@/theme';
+import { useClubAccent } from '@/theme/useClubAccent';
 import { useTranslation } from '@/i18n';
+import { Card, Button } from '@/components/kit';
+import { Headline, Body, Label, Caption } from '@/components/typography';
 import type { TKey } from '@/i18n/translate';
 import { useGameStore } from '@/store/game-store';
 import { useDatabaseStore } from '@/store/database-store';
@@ -50,6 +53,7 @@ export function ScoutingScreen() {
   const { playerClubId, week, currentSave } = useGameStore();
   const { dbHandle } = useDatabaseStore();
   const { t } = useTranslation();
+  const accent = useClubAccent();
   const saveId = currentSave?.id;
 
   const [scouts, setScouts] = useState<Staff[]>([]);
@@ -110,40 +114,40 @@ export function ScoutingScreen() {
   return (
     <ScrollView style={commonStyles.screen} contentContainerStyle={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>{t('scouting.title')}</Text>
-        <Text style={styles.headerSub}>{t('scouting.subtitle')}</Text>
+        <Headline style={styles.headerTitle}>{t('scouting.title')}</Headline>
+        <Caption color={colors.reportScout}>{t('scouting.subtitle')}</Caption>
       </View>
 
       {/* Scouts */}
-      <Text style={styles.sectionTitle}>{t('scouting.scouts_section')}</Text>
+      <Label color={colors.textMuted} style={styles.sectionTitle}>{t('scouting.scouts_section')}</Label>
       {scouts.length === 0 && (
-        <View style={styles.emptyCard}>
-          <Text style={styles.emptyText}>{t('scouting.no_scouts')}</Text>
-        </View>
+        <Card variant="summary" style={styles.emptyCard}>
+          <Body color={colors.textMuted}>{t('scouting.no_scouts')}</Body>
+        </Card>
       )}
       {scouts.map((s) => {
         const target = rows.find((r) => r.scoutId === s.id);
         return (
-          <View key={s.id} style={styles.scoutCard}>
+          <Card key={s.id} variant="detail" style={styles.scoutCard}>
             <View style={styles.scoutLeft}>
-              <Text style={styles.scoutName}>{s.name}</Text>
+              <Body style={styles.scoutName}>{s.name}</Body>
               <AbilityStars ability={s.ability} />
             </View>
-            <Text style={styles.scoutStatus}>
+            <Caption color={colors.textSecondary} style={styles.scoutStatus}>
               {target
                 ? t('scouting.watching', { name: targetName(target.playerId) })
                 : t('scouting.idle')}
-            </Text>
-          </View>
+            </Caption>
+          </Card>
         );
       })}
 
       {/* Targets */}
-      <Text style={styles.sectionTitle}>{t('scouting.targets_section')}</Text>
+      <Label color={colors.textMuted} style={styles.sectionTitle}>{t('scouting.targets_section')}</Label>
       {targets.length === 0 && (
-        <View style={styles.emptyCard}>
-          <Text style={styles.emptyText}>{t('scouting.no_targets')}</Text>
-        </View>
+        <Card variant="summary" style={styles.emptyCard}>
+          <Body color={colors.textMuted}>{t('scouting.no_targets')}</Body>
+        </Card>
       )}
       {targets.map((p) => {
         const row = rowByPlayer.get(p.id);
@@ -151,36 +155,32 @@ export function ScoutingScreen() {
         const tier = knowledgeTier(knowledge);
         const isScouted = row?.scoutId != null;
         return (
-          <View key={p.id} style={styles.targetCard}>
+          <Card key={p.id} variant="detail" style={styles.targetCard}>
             <View style={styles.targetTop}>
               <View style={styles.targetInfo}>
-                <Text style={styles.targetName}>{p.name}</Text>
-                <Text style={styles.targetMeta}>
+                <Body style={styles.targetName}>{p.name}</Body>
+                <Caption color={colors.textSecondary}>
                   {t('scouting.target_meta', { position: p.position, age: p.age })}
-                </Text>
+                </Caption>
               </View>
               {isScouted ? (
-                <Pressable
-                  style={({ pressed }) => [styles.actionBtn, styles.unassignBtn, pressed && styles.btnPressed]}
+                <Button
+                  label={t('scouting.unassign')}
+                  variant="secondary"
                   onPress={() => handleUnassign(p.id)}
-                >
-                  <Text style={styles.unassignText}>{t('scouting.unassign')}</Text>
-                </Pressable>
+                  testID={`scout-unassign-${p.id}`}
+                  accessibilityLabel={t('scouting.unassign')}
+                />
               ) : (
-                <Pressable
-                  style={({ pressed }) => [
-                    styles.actionBtn,
-                    styles.assignBtn,
-                    bestIdleScout == null && styles.btnDisabled,
-                    pressed && styles.btnPressed,
-                  ]}
+                <Button
+                  label={bestIdleScout == null ? t('scouting.no_idle_scout') : t('scouting.assign')}
+                  variant="primary"
+                  accent={accent.accent}
                   disabled={bestIdleScout == null}
                   onPress={() => handleAssign(p.id)}
-                >
-                  <Text style={styles.assignText}>
-                    {bestIdleScout == null ? t('scouting.no_idle_scout') : t('scouting.assign')}
-                  </Text>
-                </Pressable>
+                  testID={`scout-assign-${p.id}`}
+                  accessibilityLabel={t('scouting.assign')}
+                />
               )}
             </View>
             <View style={styles.knowledgeRow}>
@@ -192,11 +192,11 @@ export function ScoutingScreen() {
                   ]}
                 />
               </View>
-              <Text style={[styles.tierLabel, { color: TIER_COLOR[tier] }]}>
+              <Label color={TIER_COLOR[tier]} style={styles.tierLabel}>
                 {t(TIER_KEY[tier])} · {knowledge}%
-              </Text>
+              </Label>
             </View>
-          </View>
+          </Card>
         );
       })}
     </ScrollView>
@@ -213,12 +213,8 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.border,
     marginBottom: spacing.sm,
   },
-  headerTitle: { color: colors.text, fontSize: fontSize.xxl, fontWeight: 'bold' },
-  headerSub: { color: colors.reportScout, fontSize: fontSize.sm, marginTop: spacing.xxs },
+  headerTitle: { fontWeight: 'bold' },
   sectionTitle: {
-    color: colors.textMuted,
-    fontSize: fontSize.xs,
-    fontWeight: 'bold',
     textTransform: 'uppercase',
     letterSpacing: 1,
     marginHorizontal: spacing.md,
@@ -226,42 +222,26 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   emptyCard: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.md,
-    padding: spacing.lg,
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.border,
     marginHorizontal: spacing.md,
   },
-  emptyText: { color: colors.textMuted, fontSize: fontSize.md },
   scoutCard: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    padding: spacing.md,
     marginHorizontal: spacing.md,
     marginBottom: spacing.xs,
-    borderWidth: 1,
-    borderColor: colors.border,
   },
   scoutLeft: { flex: 1 },
-  scoutName: { color: colors.text, fontSize: fontSize.md, fontWeight: '600', marginBottom: spacing.xxs },
-  scoutStatus: { color: colors.textSecondary, fontSize: fontSize.sm, marginLeft: spacing.sm },
+  scoutName: { fontWeight: '600', marginBottom: spacing.xxs },
+  scoutStatus: { marginLeft: spacing.sm },
   starsRow: { flexDirection: 'row', gap: spacing.xxs },
   star: { fontSize: fontSize.sm },
   starFilled: { color: colors.gold },
   starEmpty: { color: colors.border },
   targetCard: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    padding: spacing.md,
     marginHorizontal: spacing.md,
     marginBottom: spacing.xs,
-    borderWidth: 1,
-    borderColor: colors.border,
   },
   targetTop: {
     flexDirection: 'row',
@@ -270,15 +250,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   targetInfo: { flex: 1, marginRight: spacing.sm },
-  targetName: { color: colors.text, fontSize: fontSize.md, fontWeight: '600' },
-  targetMeta: { color: colors.textSecondary, fontSize: fontSize.sm, marginTop: spacing.xxs },
-  actionBtn: { borderRadius: radius.md, paddingVertical: spacing.xs, paddingHorizontal: spacing.sm },
-  assignBtn: { backgroundColor: colors.primary },
-  assignText: { color: colors.text, fontSize: fontSize.xs, fontWeight: '700' },
-  unassignBtn: { backgroundColor: colors.surfaceLight, borderWidth: 1, borderColor: colors.border },
-  unassignText: { color: colors.textSecondary, fontSize: fontSize.xs, fontWeight: '700' },
-  btnDisabled: { opacity: 0.4 },
-  btnPressed: { opacity: 0.7 },
+  targetName: { fontWeight: '600' },
   knowledgeRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   barContainer: {
     flex: 1,
@@ -288,5 +260,5 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   barFill: { height: '100%', borderRadius: radius.sm },
-  tierLabel: { fontSize: fontSize.xs, fontWeight: '600', minWidth: 96, textAlign: 'right' },
+  tierLabel: { minWidth: 96, textAlign: 'right' },
 });
