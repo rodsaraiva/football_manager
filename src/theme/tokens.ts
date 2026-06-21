@@ -61,6 +61,16 @@ export const colors = {
   ratingBad: '#ef476f',    // <40  — = danger
 };
 
-export const spacing = { xxs: 2, xs: 4, sm: 8, md: 16, lg: 24, xl: 32 };
+// base-4/8 rhythm: xxs..xl em passos de 2/4/8/16/24/32; xxl=48 fecha a escala p/ heros/seções.
+export const spacing = { xxs: 2, xs: 4, sm: 8, md: 16, lg: 24, xl: 32, xxl: 48 };
 export const fontSize = { micro: 8, xs: 10, sm: 12, md: 14, lg: 16, xl: 20, xxl: 28, title: 34, display: 56 };
 export const radius = { sm: 4, md: 8, lg: 12, pill: 20, round: 999 };
+
+// Elevação: e0 flat → e3 hero. shadowColor escuro p/ tema dark; iOS/web usam shadow*,
+// Android usa `elevation`. Pareados p/ leitura consistente entre plataformas.
+export const elevation = {
+  e0: { shadowColor: '#000000', shadowOpacity: 0,    shadowRadius: 0,  shadowOffset: { width: 0, height: 0 }, elevation: 0 },
+  e1: { shadowColor: '#000000', shadowOpacity: 0.18, shadowRadius: 4,  shadowOffset: { width: 0, height: 1 }, elevation: 2 },
+  e2: { shadowColor: '#000000', shadowOpacity: 0.24, shadowRadius: 10, shadowOffset: { width: 0, height: 3 }, elevation: 6 },
+  e3: { shadowColor: '#000000', shadowOpacity: 0.32, shadowRadius: 20, shadowOffset: { width: 0, height: 6 }, elevation: 12 },
+} as const;

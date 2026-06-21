@@ -72,3 +72,45 @@ describe('neutral ramp', () => {
     expect(colors.surfaceLight).toBe(neutral[700]);
   });
 });
+
+import { elevation } from '@/theme/tokens';
+
+describe('spacing.xxl', () => {
+  it('adds the 48 step on the base-4/8 rhythm, keeping existing keys', () => {
+    expect(spacing.xxl).toBe(48);
+    expect(spacing.xl).toBe(32); // unchanged
+    expect(spacing.md).toBe(16); // unchanged
+  });
+});
+
+describe('elevation tokens', () => {
+  const tiers = ['e0', 'e1', 'e2', 'e3'] as const;
+
+  it('exposes e0..e3 with the full shadow shape', () => {
+    for (const t of tiers) {
+      const e = elevation[t];
+      expect(typeof e.shadowColor).toBe('string');
+      expect(typeof e.shadowOpacity).toBe('number');
+      expect(typeof e.shadowRadius).toBe('number');
+      expect(typeof e.shadowOffset.width).toBe('number');
+      expect(typeof e.shadowOffset.height).toBe('number');
+      expect(typeof e.elevation).toBe('number');
+    }
+  });
+
+  it('e0 is flat (no shadow)', () => {
+    expect(elevation.e0.shadowOpacity).toBe(0);
+    expect(elevation.e0.shadowRadius).toBe(0);
+    expect(elevation.e0.elevation).toBe(0);
+  });
+
+  it('is strictly increasing across tiers (radius, android elevation, offset)', () => {
+    for (let i = 1; i < tiers.length; i++) {
+      const prev = elevation[tiers[i - 1]];
+      const cur = elevation[tiers[i]];
+      expect(cur.shadowRadius).toBeGreaterThan(prev.shadowRadius);
+      expect(cur.elevation).toBeGreaterThan(prev.elevation);
+      expect(cur.shadowOffset.height).toBeGreaterThanOrEqual(prev.shadowOffset.height);
+    }
+  });
+});
