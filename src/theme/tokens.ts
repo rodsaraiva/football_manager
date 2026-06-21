@@ -2,10 +2,26 @@
 // them without pulling the RN runtime. `commonStyles` (which needs StyleSheet)
 // lives in ./index.ts, which re-exports everything here.
 
+// Neutral ramp (dark theme): index baixo = mais claro, index alto = mais escuro.
+// 700/800/900 são as 3 âncoras atuais (#252540/#1a1a2e/#0f0f1a) — preservadas como
+// aliases em `colors`. 50→600 estendem para cima (surfaces/borders/divisores mais claros).
+export const neutral = {
+  50: '#f4f4f8',
+  100: '#d9d9e4',
+  200: '#b5b5c8',
+  300: '#8e8ea6',
+  400: '#5e5e78',
+  500: '#41415c',
+  600: '#33334e',
+  700: '#252540', // = surfaceLight (alias)
+  800: '#1a1a2e', // = surface (alias)
+  900: '#0f0f1a', // = background (alias)
+} as const;
+
 export const colors = {
-  background: '#0f0f1a',
-  surface: '#1a1a2e',
-  surfaceLight: '#252540',
+  background: neutral[900],
+  surface: neutral[800],
+  surfaceLight: neutral[700],
   primary: '#4361ee',
   primaryLight: '#6b8cff',
   accent: '#f72585',

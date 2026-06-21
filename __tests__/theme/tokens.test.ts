@@ -43,3 +43,32 @@ describe('fontSize scale', () => {
     expect(fontSize.xs).toBe(10); // unchanged
   });
 });
+
+import { neutral } from '@/theme/tokens';
+import { luminance } from '@/theme/club-accent';
+
+describe('neutral ramp', () => {
+  it('exposes 10 steps 50→900', () => {
+    const keys = [50, 100, 200, 300, 400, 500, 600, 700, 800, 900] as const;
+    for (const k of keys) {
+      expect(typeof neutral[k]).toBe('string');
+      expect(neutral[k]).toMatch(/^#[0-9a-fA-F]{6}$/);
+    }
+  });
+
+  it('is monotonically decreasing in luminance (50 lightest → 900 darkest)', () => {
+    const keys = [50, 100, 200, 300, 400, 500, 600, 700, 800, 900] as const;
+    for (let i = 1; i < keys.length; i++) {
+      expect(luminance(neutral[keys[i]])).toBeLessThan(luminance(neutral[keys[i - 1]]));
+    }
+  });
+
+  it('keeps background/surface/surfaceLight as backward-compatible aliases', () => {
+    expect(colors.background).toBe('#0f0f1a');   // = neutral[900], unchanged value
+    expect(colors.surface).toBe('#1a1a2e');      // = neutral[800], unchanged value
+    expect(colors.surfaceLight).toBe('#252540'); // = neutral[700], unchanged value
+    expect(colors.background).toBe(neutral[900]);
+    expect(colors.surface).toBe(neutral[800]);
+    expect(colors.surfaceLight).toBe(neutral[700]);
+  });
+});
