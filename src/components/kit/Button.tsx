@@ -1,8 +1,12 @@
 import React from 'react';
 import { Pressable, Text, ActivityIndicator, StyleSheet } from 'react-native';
+import Animated from 'react-native-reanimated';
 import { colors, spacing, fontSize, radius } from '@/theme';
 import { resolveButtonStyle, ButtonVariant } from './buttonStyle';
 import { useClubAccentRampOptional } from '@/theme/ClubAccentProvider';
+import { usePressScale } from '@/motion/usePressScale';
+import { triggerHaptic } from '@/motion/haptics';
+import { useSettingsStore } from '@/store/settings-store';
 
 interface Props {
   label: string;
@@ -25,29 +29,35 @@ export function Button({
   const state = disabled ? 'disabled' : loading ? 'loading' : 'default';
   const r = resolveButtonStyle(variant, state, resolvedAccent);
   const blocked = disabled || loading;
+  const { animatedStyle, onPressIn, onPressOut } = usePressScale();
+  const haptics = useSettingsStore((s) => s.haptics);
 
   return (
-    <Pressable
-      testID={testID}
-      accessibilityRole="button"
-      accessibilityLabel={accessibilityLabel ?? label}
-      accessibilityState={{ disabled: blocked, busy: loading }}
-      disabled={blocked}
-      onPress={blocked ? undefined : onPress}
-      style={({ pressed }) => [
-        styles.base,
-        {
-          backgroundColor: r.backgroundColor,
-          borderColor: r.borderColor,
-          borderWidth: r.borderWidth,
-          opacity: pressed && !blocked ? 0.85 : r.opacity,
-        },
-      ]}
-    >
-      {r.showSpinner
-        ? <ActivityIndicator color={r.textColor} />
-        : <Text style={[styles.label, { color: r.textColor }]}>{label}</Text>}
-    </Pressable>
+    <Animated.View style={animatedStyle}>
+      <Pressable
+        testID={testID}
+        accessibilityRole="button"
+        accessibilityLabel={accessibilityLabel ?? label}
+        accessibilityState={{ disabled: blocked, busy: loading }}
+        disabled={blocked}
+        onPressIn={onPressIn}
+        onPressOut={onPressOut}
+        onPress={blocked ? undefined : () => { triggerHaptic('light', haptics); onPress(); }}
+        style={({ pressed }) => [
+          styles.base,
+          {
+            backgroundColor: r.backgroundColor,
+            borderColor: r.borderColor,
+            borderWidth: r.borderWidth,
+            opacity: pressed && !blocked ? 0.85 : r.opacity,
+          },
+        ]}
+      >
+        {r.showSpinner
+          ? <ActivityIndicator color={r.textColor} />
+          : <Text style={[styles.label, { color: r.textColor }]}>{label}</Text>}
+      </Pressable>
+    </Animated.View>
   );
 }
 

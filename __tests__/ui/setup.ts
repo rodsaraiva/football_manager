@@ -11,8 +11,8 @@ jest.mock('react-native-svg', () => {
   return new Proxy({ default: Stub }, { get: () => Stub });
 });
 
-// reanimated: usa o mock oficial.
-jest.mock('react-native-reanimated', () => require('react-native-reanimated/mock'));
+// reanimated: stub local via moduleNameMapper (jest.ui.config.js) — o mock oficial puxa
+// a source TS, que o ts-jest não compila fora do Metro.
 
 // @react-navigation/native: as telas usam useFocusEffect; stub para chamar o effect uma vez.
 jest.mock('@react-navigation/native', () => {
