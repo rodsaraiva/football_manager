@@ -7,17 +7,17 @@
 import React, { useState, useCallback } from 'react';
 import {
   View,
-  Text,
   ScrollView,
   StyleSheet,
   ActivityIndicator,
   Pressable,
-  FlatList,
 } from 'react-native';
 import { useFocusEffect, useRoute, RouteProp } from '@react-navigation/native';
-import { colors, alpha, spacing, fontSize, radius, commonStyles } from '@/theme';
+import { colors, alpha, spacing, radius, commonStyles } from '@/theme';
 import { SectionCard } from '@/components/SectionCard';
 import { ValueBadge } from '@/components/ValueBadge';
+import { Chip, Icon } from '@/components/kit';
+import { Body } from '@/components/typography';
 import { useGameStore } from '@/store/game-store';
 import { useDatabaseStore } from '@/store/database-store';
 import { getPlayersWithAttributesByClub } from '@/database/queries/players';
@@ -174,11 +174,19 @@ export function ReportsRadarScreen() {
     <ScrollView style={commonStyles.screen} contentContainerStyle={styles.container}>
       {/* Player A Picker */}
       <SectionCard title={t('report.radar_player_a')}>
-        <Pressable style={styles.pickerBtn} onPress={() => setShowPickerA(!showPickerA)}>
-          <Text style={styles.pickerBtnText}>
+        <Pressable
+          style={styles.pickerBtn}
+          onPress={() => setShowPickerA(!showPickerA)}
+          accessibilityRole="button"
+          accessibilityLabel={t('report.radar_player_a')}
+          testID="radar-picker-a"
+        >
+          <Body style={styles.pickerBtnText}>
             {playerA ? `${playerA.name} · ${playerA.position} · OVR ${playerA.overall}` : t('report.radar_select')}
-          </Text>
-          <Text style={styles.chevron}>{showPickerA ? '▲' : '▼'}</Text>
+          </Body>
+          <View style={showPickerA ? styles.chevronOpen : undefined}>
+            <Icon name="arrowRight" size={16} color={colors.textMuted} />
+          </View>
         </Pressable>
         {showPickerA && (
           <View style={styles.pickerList}>
@@ -190,10 +198,13 @@ export function ReportsRadarScreen() {
                   setPlayerAId(p.id);
                   setShowPickerA(false);
                 }}
+                accessibilityRole="button"
+                accessibilityLabel={p.name}
+                testID={`radar-a-${p.id}`}
               >
-                <Text style={[styles.pickerItemText, p.id === playerAId && styles.pickerItemTextSelected]}>
+                <Body color={p.id === playerAId ? colors.text : colors.textSecondary} style={p.id === playerAId ? styles.pickerItemTextSelected : undefined}>
                   {p.name} · {p.position} · OVR {p.overall}
-                </Text>
+                </Body>
               </Pressable>
             ))}
           </View>
@@ -203,33 +214,39 @@ export function ReportsRadarScreen() {
       {/* Compare mode toggle */}
       <SectionCard title={t('report.radar_compare_with')}>
         <View style={styles.modeRow}>
-          <Pressable
-            style={[styles.modeChip, compareMode === 'position_avg' && styles.modeChipActive]}
+          <Chip
+            label={t('report.radar_league_avg')}
+            selected={compareMode === 'position_avg'}
             onPress={() => setCompareMode('position_avg')}
-          >
-            <Text style={[styles.modeChipText, compareMode === 'position_avg' && styles.modeChipTextActive]}>
-              {t('report.radar_league_avg')}
-            </Text>
-          </Pressable>
-          <Pressable
-            style={[styles.modeChip, compareMode === 'player' && styles.modeChipActive]}
+            accent={colors.reportRadar}
+            testID="radar-mode-avg"
+          />
+          <Chip
+            label={t('report.radar_other_player')}
+            selected={compareMode === 'player'}
             onPress={() => setCompareMode('player')}
-          >
-            <Text style={[styles.modeChipText, compareMode === 'player' && styles.modeChipTextActive]}>
-              {t('report.radar_other_player')}
-            </Text>
-          </Pressable>
+            accent={colors.reportRadar}
+            testID="radar-mode-player"
+          />
         </View>
       </SectionCard>
 
       {/* Player B Picker (only if mode = player) */}
       {compareMode === 'player' && (
         <SectionCard title={t('report.radar_player_b')}>
-          <Pressable style={styles.pickerBtn} onPress={() => setShowPickerB(!showPickerB)}>
-            <Text style={styles.pickerBtnText}>
+          <Pressable
+            style={styles.pickerBtn}
+            onPress={() => setShowPickerB(!showPickerB)}
+            accessibilityRole="button"
+            accessibilityLabel={t('report.radar_player_b')}
+            testID="radar-picker-b"
+          >
+            <Body style={styles.pickerBtnText}>
               {playerB ? `${playerB.name} · ${playerB.position} · OVR ${playerB.overall}` : t('report.radar_select')}
-            </Text>
-            <Text style={styles.chevron}>{showPickerB ? '▲' : '▼'}</Text>
+            </Body>
+            <View style={showPickerB ? styles.chevronOpen : undefined}>
+              <Icon name="arrowRight" size={16} color={colors.textMuted} />
+            </View>
           </Pressable>
           {showPickerB && (
             <View style={styles.pickerList}>
@@ -243,10 +260,13 @@ export function ReportsRadarScreen() {
                       setPlayerBId(p.id);
                       setShowPickerB(false);
                     }}
+                    accessibilityRole="button"
+                    accessibilityLabel={p.name}
+                    testID={`radar-b-${p.id}`}
                   >
-                    <Text style={[styles.pickerItemText, p.id === playerBId && styles.pickerItemTextSelected]}>
+                    <Body color={p.id === playerBId ? colors.text : colors.textSecondary} style={p.id === playerBId ? styles.pickerItemTextSelected : undefined}>
                       {p.name} · {p.position} · OVR {p.overall}
-                    </Text>
+                    </Body>
                   </Pressable>
                 ))}
             </View>
@@ -266,7 +286,7 @@ export function ReportsRadarScreen() {
         <SectionCard title={t('report.radar_diff_title')} subtitle={t('report.radar_diff_sub')}>
           {deltaRows.map(({ attrKey, delta }) => (
             <View key={attrKey} style={styles.deltaRow}>
-              <Text style={styles.deltaLabel}>{t(attrI18nKey(attrKey))}</Text>
+              <Body style={styles.deltaLabel}>{t(attrI18nKey(attrKey))}</Body>
               <ValueBadge
                 value={`${delta >= 0 ? '+' : ''}${delta}`}
                 tone={delta >= 0 ? 'success' : 'danger'}
@@ -294,12 +314,9 @@ const styles = StyleSheet.create({
   },
   pickerBtnText: {
     flex: 1,
-    color: colors.text,
-    fontSize: fontSize.sm,
   },
-  chevron: {
-    color: colors.textMuted,
-    fontSize: fontSize.xs,
+  chevronOpen: {
+    transform: [{ rotate: '90deg' }],
   },
   pickerList: {
     marginTop: spacing.xs,
@@ -318,37 +335,12 @@ const styles = StyleSheet.create({
   pickerItemSelected: {
     backgroundColor: alpha(colors.primary, 0.2),
   },
-  pickerItemText: {
-    color: colors.textSecondary,
-    fontSize: fontSize.sm,
-  },
   pickerItemTextSelected: {
-    color: colors.text,
     fontWeight: '600',
   },
   modeRow: {
     flexDirection: 'row',
     gap: spacing.sm,
-  },
-  modeChip: {
-    flex: 1,
-    paddingVertical: spacing.xs,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    alignItems: 'center',
-  },
-  modeChipActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  modeChipText: {
-    color: colors.textSecondary,
-    fontSize: fontSize.sm,
-    fontWeight: '600',
-  },
-  modeChipTextActive: {
-    color: colors.text,
   },
   chartContainer: {
     alignItems: 'center',
@@ -356,11 +348,9 @@ const styles = StyleSheet.create({
   deltaRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 3,
+    paddingVertical: spacing.xxs,
   },
   deltaLabel: {
     flex: 1,
-    color: colors.text,
-    fontSize: fontSize.sm,
   },
 });
