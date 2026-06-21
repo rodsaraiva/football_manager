@@ -1,6 +1,7 @@
 import React from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Switch, StyleSheet } from 'react-native';
-import { colors, spacing, fontSize, radius, commonStyles } from '@/theme';
+import { View, ScrollView, Switch, StyleSheet } from 'react-native';
+import { colors, spacing, commonStyles } from '@/theme';
+import { useClubAccent } from '@/theme/useClubAccent';
 import { useTranslation } from '@/i18n';
 import { useI18nStore } from '@/store/i18n-store';
 import { changeLanguage } from '@/i18n/persistence';
@@ -13,6 +14,8 @@ import {
   setDifficultyDefault,
 } from '@/store/settings-store';
 import { Difficulty } from '@/types/save';
+import { Chip } from '@/components/kit';
+import { Label, Body, Caption } from '@/components/typography';
 
 const FONT_SCALES: { value: number; key: 'small' | 'medium' | 'large' }[] = [
   { value: 0.9, key: 'small' },
@@ -24,6 +27,7 @@ const DIFFICULTIES: Difficulty[] = ['easy', 'normal', 'hard'];
 export function SettingsScreen() {
   const { t } = useTranslation();
   const { dbHandle } = useDatabaseStore();
+  const { accent } = useClubAccent();
   const language = useI18nStore((s) => s.language);
   const reduceMotion = useSettingsStore((s) => s.reduceMotion);
   const haptics = useSettingsStore((s) => s.haptics);
@@ -32,31 +36,25 @@ export function SettingsScreen() {
 
   return (
     <ScrollView style={commonStyles.screen} contentContainerStyle={styles.content} testID="settings-screen">
-      {/* Idioma */}
-      <Text style={styles.sectionLabel}>{t('settings.language')}</Text>
+      <Label>{t('settings.language')}</Label>
       <View style={styles.segment}>
         {(['pt', 'en'] as const).map((lng) => (
-          <TouchableOpacity
+          <Chip
             key={lng}
-            testID={`settings-language-${lng}`}
-            accessibilityRole="button"
-            accessibilityLabel={t('settings.language')}
-            accessibilityState={{ selected: language === lng }}
-            style={[styles.segmentItem, language === lng && styles.segmentItemActive]}
+            label={lng.toUpperCase()}
+            selected={language === lng}
+            accent={accent}
             onPress={() => dbHandle && changeLanguage(dbHandle, lng)}
-          >
-            <Text style={[styles.segmentText, language === lng && styles.segmentTextActive]}>
-              {lng.toUpperCase()}
-            </Text>
-          </TouchableOpacity>
+            testID={`settings-language-${lng}`}
+            accessibilityLabel={t('settings.language')}
+          />
         ))}
       </View>
 
-      {/* Reduce motion */}
       <View style={styles.toggleRow}>
         <View style={styles.toggleLabelWrap}>
-          <Text style={styles.rowLabel}>{t('settings.reduce_motion')}</Text>
-          <Text style={styles.rowDesc}>{t('settings.reduce_motion_desc')}</Text>
+          <Body>{t('settings.reduce_motion')}</Body>
+          <Caption color={colors.textSecondary}>{t('settings.reduce_motion_desc')}</Caption>
         </View>
         <Switch
           testID="settings-reduce-motion"
@@ -68,11 +66,10 @@ export function SettingsScreen() {
         />
       </View>
 
-      {/* Haptics */}
       <View style={styles.toggleRow}>
         <View style={styles.toggleLabelWrap}>
-          <Text style={styles.rowLabel}>{t('settings.haptics')}</Text>
-          <Text style={styles.rowDesc}>{t('settings.haptics_desc')}</Text>
+          <Body>{t('settings.haptics')}</Body>
+          <Caption color={colors.textSecondary}>{t('settings.haptics_desc')}</Caption>
         </View>
         <Switch
           testID="settings-haptics"
@@ -84,44 +81,34 @@ export function SettingsScreen() {
         />
       </View>
 
-      {/* Font scale */}
-      <Text style={styles.sectionLabel}>{t('settings.font_scale')}</Text>
+      <Label>{t('settings.font_scale')}</Label>
       <View style={styles.segment}>
         {FONT_SCALES.map(({ value, key }) => (
-          <TouchableOpacity
+          <Chip
             key={key}
-            testID={`settings-font-scale-${key}`}
-            accessibilityRole="button"
-            accessibilityLabel={t(`settings.font_scale_${key}`)}
-            accessibilityState={{ selected: fontScale === value }}
-            style={[styles.segmentItem, fontScale === value && styles.segmentItemActive]}
+            label={t(`settings.font_scale_${key}`)}
+            selected={fontScale === value}
+            accent={accent}
             onPress={() => dbHandle && setFontScale(dbHandle, value)}
-          >
-            <Text style={[styles.segmentText, fontScale === value && styles.segmentTextActive]}>
-              {t(`settings.font_scale_${key}`)}
-            </Text>
-          </TouchableOpacity>
+            testID={`settings-font-scale-${key}`}
+            accessibilityLabel={t(`settings.font_scale_${key}`)}
+          />
         ))}
       </View>
 
-      {/* Difficulty default */}
-      <Text style={styles.sectionLabel}>{t('settings.difficulty')}</Text>
-      <Text style={styles.rowDesc}>{t('settings.difficulty_desc')}</Text>
+      <Label>{t('settings.difficulty')}</Label>
+      <Caption color={colors.textSecondary}>{t('settings.difficulty_desc')}</Caption>
       <View style={styles.segment}>
         {DIFFICULTIES.map((d) => (
-          <TouchableOpacity
+          <Chip
             key={d}
-            testID={`settings-difficulty-${d}`}
-            accessibilityRole="button"
-            accessibilityLabel={t(`settings.difficulty_${d}`)}
-            accessibilityState={{ selected: difficultyDefault === d }}
-            style={[styles.segmentItem, difficultyDefault === d && styles.segmentItemActive]}
+            label={t(`settings.difficulty_${d}`)}
+            selected={difficultyDefault === d}
+            accent={accent}
             onPress={() => dbHandle && setDifficultyDefault(dbHandle, d)}
-          >
-            <Text style={[styles.segmentText, difficultyDefault === d && styles.segmentTextActive]}>
-              {t(`settings.difficulty_${d}`)}
-            </Text>
-          </TouchableOpacity>
+            testID={`settings-difficulty-${d}`}
+            accessibilityLabel={t(`settings.difficulty_${d}`)}
+          />
         ))}
       </View>
     </ScrollView>
@@ -130,25 +117,7 @@ export function SettingsScreen() {
 
 const styles = StyleSheet.create({
   content: { padding: spacing.md, gap: spacing.lg },
-  sectionLabel: {
-    color: colors.textSecondary,
-    fontSize: fontSize.sm,
-    fontWeight: '600',
-    marginBottom: spacing.xs,
-  },
   segment: { flexDirection: 'row', gap: spacing.sm },
-  segmentItem: {
-    flex: 1,
-    paddingVertical: spacing.sm,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    alignItems: 'center',
-    backgroundColor: colors.surface,
-  },
-  segmentItemActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-  segmentText: { color: colors.text, fontSize: fontSize.md, fontWeight: '600' },
-  segmentTextActive: { color: colors.text },
   toggleRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -156,6 +125,4 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   toggleLabelWrap: { flex: 1 },
-  rowLabel: { color: colors.text, fontSize: fontSize.md, fontWeight: '600' },
-  rowDesc: { color: colors.textSecondary, fontSize: fontSize.sm, marginTop: 2 },
 });
