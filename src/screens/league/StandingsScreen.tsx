@@ -1,6 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
-import { colors, spacing, fontSize, radius, commonStyles } from '@/theme';
+import { View, ActivityIndicator } from 'react-native';
+import { colors, spacing, commonStyles } from '@/theme';
+import { useClubAccent } from '@/theme/useClubAccent';
+import { Card, EmptyState } from '@/components/kit';
+import { Title, Label } from '@/components/typography';
 import { useTranslation } from '@/i18n';
 import { useGameStore } from '@/store/game-store';
 import { useDatabaseStore } from '@/store/database-store';
@@ -13,6 +16,7 @@ import StandingsTable from '@/components/StandingsTable';
 
 export function StandingsScreen() {
   const { t } = useTranslation();
+  const accent = useClubAccent();
   const { playerClub, playerClubId, season, week, currentSave } = useGameStore();
   const saveId = currentSave?.id;
   const { dbHandle } = useDatabaseStore();
@@ -69,34 +73,34 @@ export function StandingsScreen() {
   if (loading) {
     return (
       <View style={[commonStyles.screen, styles.center]}>
-        <ActivityIndicator color={colors.primary} size="large" />
+        <ActivityIndicator color={accent.accent} size="large" />
       </View>
     );
   }
 
+  const header = (
+    <Card variant="summary" accent={accent.accent} style={styles.header}>
+      <Title>{leagueName}</Title>
+      <Label color={accent.accent}>{t('standings.season', { season })}</Label>
+    </Card>
+  );
+
   if (entries.length === 0) {
     return (
       <View style={commonStyles.screen}>
-        <View style={styles.header}>
-          <Text style={styles.leagueName}>{leagueName}</Text>
-          <Text style={styles.seasonText}>{t('standings.season', { season })}</Text>
-        </View>
-        <View style={styles.emptyCard}>
-          <Text style={styles.emptyTitle}>{t('standings.empty_title')}</Text>
-          <Text style={styles.emptySubtext}>
-            {t('standings.empty_sub')}
-          </Text>
-        </View>
+        {header}
+        <EmptyState
+          art="generic"
+          title={t('standings.empty_title')}
+          description={t('standings.empty_sub')}
+        />
       </View>
     );
   }
 
   return (
     <View style={commonStyles.screen}>
-      <View style={styles.header}>
-        <Text style={styles.leagueName}>{leagueName}</Text>
-        <Text style={styles.seasonText}>{t('standings.season', { season })}</Text>
-      </View>
+      {header}
       <StandingsTable
         entries={entries}
         highlightClubId={playerClubId ?? undefined}
@@ -106,46 +110,11 @@ export function StandingsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  center: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+const styles = {
+  center: { alignItems: 'center' as const, justifyContent: 'center' as const },
   header: {
-    backgroundColor: colors.surface,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  leagueName: {
-    color: colors.text,
-    fontSize: fontSize.xl,
-    fontWeight: 'bold',
-  },
-  seasonText: {
-    color: colors.primary,
-    fontSize: fontSize.sm,
-    marginTop: spacing.xxs,
-  },
-  emptyCard: {
-    margin: spacing.md,
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    padding: spacing.xl,
-    alignItems: 'center',
-    borderWidth: 1,
     borderColor: colors.border,
+    marginHorizontal: spacing.md,
+    marginVertical: spacing.sm,
   },
-  emptyTitle: {
-    color: colors.text,
-    fontSize: fontSize.lg,
-    fontWeight: '600',
-  },
-  emptySubtext: {
-    color: colors.textMuted,
-    fontSize: fontSize.md,
-    marginTop: spacing.xs,
-    textAlign: 'center',
-  },
-});
+};
