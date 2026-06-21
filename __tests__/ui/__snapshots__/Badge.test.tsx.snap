@@ -1,0 +1,9 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`Badge renderiza valor e snapshot por tone: accent 1`] = `"<div class="css-view-g5y9jx r-alignItems-1awozwy r-borderRadius-z2wwpe r-justifyContent-1777fci r-minWidth-1ps3wis r-paddingBlock-xjggfu r-paddingInline-is05cd" style="background-color: rgb(34, 170, 85);"><div dir="auto" class="css-text-146c3p1 r-fontWeight-b88u0q" style="color: rgb(255, 255, 255); font-size: 12px;">42</div></div>"`;
+
+exports[`Badge renderiza valor e snapshot por tone: danger 1`] = `"<div class="css-view-g5y9jx r-alignItems-1awozwy r-borderRadius-z2wwpe r-justifyContent-1777fci r-minWidth-1ps3wis r-paddingBlock-xjggfu r-paddingInline-is05cd" style="background-color: rgb(239, 71, 111);"><div dir="auto" class="css-text-146c3p1 r-fontWeight-b88u0q" style="color: rgb(255, 255, 255); font-size: 12px;">42</div></div>"`;
+
+exports[`Badge renderiza valor e snapshot por tone: neutral 1`] = `"<div class="css-view-g5y9jx r-alignItems-1awozwy r-borderRadius-z2wwpe r-justifyContent-1777fci r-minWidth-1ps3wis r-paddingBlock-xjggfu r-paddingInline-is05cd" style="background-color: rgb(37, 37, 64);"><div dir="auto" class="css-text-146c3p1 r-fontWeight-b88u0q" style="color: rgb(255, 255, 255); font-size: 12px;">42</div></div>"`;
+
+exports[`Badge renderiza valor e snapshot por tone: success 1`] = `"<div class="css-view-g5y9jx r-alignItems-1awozwy r-borderRadius-z2wwpe r-justifyContent-1777fci r-minWidth-1ps3wis r-paddingBlock-xjggfu r-paddingInline-is05cd" style="background-color: rgb(6, 214, 160);"><div dir="auto" class="css-text-146c3p1 r-fontWeight-b88u0q" style="color: rgb(0, 0, 0); font-size: 12px;">42</div></div>"`;
