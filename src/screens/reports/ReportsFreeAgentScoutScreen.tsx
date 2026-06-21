@@ -7,7 +7,6 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   ActivityIndicator,
   FlatList,
@@ -16,10 +15,10 @@ import {
 } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { colors, spacing, fontSize, radius, commonStyles } from '@/theme';
+import { colors, spacing, radius, commonStyles } from '@/theme';
 import { useTranslation } from '@/i18n';
-import type { TKey } from '@/i18n/translate';
-import { EmptyState } from '@/components/EmptyState';
+import { EmptyState, Card, Chip } from '@/components/kit';
+import { Body, Label, Caption } from '@/components/typography';
 import { useGameStore } from '@/store/game-store';
 import { useDatabaseStore } from '@/store/database-store';
 import { getFreeAgentsWithAttributes, getPlayersWithAttributesByClub } from '@/database/queries/players';
@@ -71,38 +70,42 @@ function AgentCard({ item, onPress }: { item: FreeAgentFit; onPress: () => void 
 
   return (
     <Pressable
-      style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
       onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={item.player.name}
+      testID={`fa-scout-${item.player.id}`}
     >
+      <Card variant="detail" style={styles.card}>
       <View style={styles.cardHeader}>
         <View style={styles.cardInfo}>
           <View style={styles.nameRow}>
-            <Text style={styles.playerName}>{item.player.name}</Text>
+            <Body style={styles.playerName}>{item.player.name}</Body>
             {isInjured && (
               <View style={styles.injuredBadge}>
-                <Text style={styles.injuredText}>{t('report.scout_injured')}</Text>
+                <Caption color={colors.text} style={styles.injuredText}>{t('report.scout_injured')}</Caption>
               </View>
             )}
           </View>
-          <Text style={styles.playerMeta}>
+          <Caption color={colors.textSecondary}>
             {item.coversPosition} · {t('report.scout_years', { age: item.player.age })} · OVR {item.overall}
-          </Text>
+          </Caption>
         </View>
         <View style={styles.wageBox}>
-          <Text style={styles.wageValue}>{formatWage(item.player.wage)}</Text>
-          <Text style={styles.wageLabel}>{t('report.scout_per_week')}</Text>
+          <Label color={colors.text}>{formatWage(item.player.wage)}</Label>
+          <Caption color={colors.textMuted}>{t('report.scout_per_week')}</Caption>
         </View>
       </View>
 
       <View style={styles.fitRow}>
-        <Text style={[styles.fitLabel, { color: fitScoreColor(item.fitScore) }]}>
+        <Label color={fitScoreColor(item.fitScore)} style={styles.fitLabel}>
           {t('report.scout_fit', { score: item.fitScore.toFixed(0) })}
-        </Text>
+        </Label>
         <FitBar score={item.fitScore} />
-        <Text style={styles.gapText}>
+        <Caption color={colors.textMuted} style={styles.gapText}>
           {item.gapCovered >= 0 ? `+${item.gapCovered.toFixed(0)}` : item.gapCovered.toFixed(0)}
-        </Text>
+        </Caption>
       </View>
+      </Card>
     </Pressable>
   );
 }
@@ -120,17 +123,17 @@ function SquadGapsSection({ gaps }: { gaps: SquadGap[] }) {
   if (gaps.length === 0) return null;
   const top5 = gaps.slice(0, 5);
   return (
-    <View style={styles.gapsSection}>
-      <Text style={styles.sectionTitle}>{t('report.scout_squad_gaps')}</Text>
+    <Card variant="summary" style={styles.gapsSection}>
+      <Label color={colors.textSecondary} style={styles.sectionTitle}>{t('report.scout_squad_gaps')}</Label>
       <View style={styles.gapsRow}>
         {top5.map((g) => (
           <View key={g.position} style={styles.gapChip}>
-            <Text style={styles.gapChipPos}>{g.position}</Text>
-            <Text style={styles.gapChipOvr}>OVR {g.avgOverall}</Text>
+            <Caption color={colors.danger} style={styles.gapChipPos}>{g.position}</Caption>
+            <Caption color={colors.textMuted}>OVR {g.avgOverall}</Caption>
           </View>
         ))}
       </View>
-    </View>
+    </Card>
   );
 }
 
@@ -162,7 +165,7 @@ function FiltersBar({ filters, onChange, maxBudget }: FiltersBarProps) {
   return (
     <View style={styles.filtersContainer}>
       {/* Position filter */}
-      <Text style={styles.filterLabel}>{t('report.scout_filter_position')}</Text>
+      <Label color={colors.textMuted} style={styles.filterLabel}>{t('report.scout_filter_position')}</Label>
       <FlatList
         horizontal
         data={POSITIONS}
@@ -170,43 +173,33 @@ function FiltersBar({ filters, onChange, maxBudget }: FiltersBarProps) {
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.filterRow}
         renderItem={({ item: pos }) => (
-          <Pressable
-            style={[
-              styles.filterChip,
-              filters.position === pos && styles.filterChipActive,
-            ]}
+          <Chip
+            label={pos === ALL_POSITIONS ? t('report.scout_filter_all') : pos}
+            selected={filters.position === pos}
             onPress={() => onChange({ ...filters, position: pos })}
-          >
-            <Text
-              style={[
-                styles.filterChipText,
-                filters.position === pos && styles.filterChipTextActive,
-              ]}
-            >
-              {pos === ALL_POSITIONS ? t('report.scout_filter_all') : pos}
-            </Text>
-          </Pressable>
+            accent={colors.reportScout}
+            testID={`fa-filter-pos-${pos}`}
+          />
         )}
       />
 
       {/* Min overall filter */}
-      <Text style={styles.filterLabel}>{t('report.scout_filter_min_ovr')}</Text>
+      <Label color={colors.textMuted} style={styles.filterLabel}>{t('report.scout_filter_min_ovr')}</Label>
       <View style={styles.filterRow}>
         {steps.map((s) => (
-          <Pressable
+          <Chip
             key={s}
-            style={[styles.filterChip, filters.minOverall === s && styles.filterChipActive]}
+            label={s === 0 ? t('report.scout_filter_all') : `${s}+`}
+            selected={filters.minOverall === s}
             onPress={() => onChange({ ...filters, minOverall: s })}
-          >
-            <Text style={[styles.filterChipText, filters.minOverall === s && styles.filterChipTextActive]}>
-              {s === 0 ? t('report.scout_filter_all') : `${s}+`}
-            </Text>
-          </Pressable>
+            accent={colors.reportScout}
+            testID={`fa-filter-ovr-${s}`}
+          />
         ))}
       </View>
 
       {/* Max wage filter */}
-      <Text style={styles.filterLabel}>{t('report.scout_filter_max_wage')}</Text>
+      <Label color={colors.textMuted} style={styles.filterLabel}>{t('report.scout_filter_max_wage')}</Label>
       <FlatList
         horizontal
         data={wageLimits}
@@ -217,14 +210,13 @@ function FiltersBar({ filters, onChange, maxBudget }: FiltersBarProps) {
           const label = w === 0 ? t('report.scout_filter_all') : formatWage(w);
           const active = filters.maxWage === (w === 0 ? Infinity : w);
           return (
-            <Pressable
-              style={[styles.filterChip, active && styles.filterChipActive]}
+            <Chip
+              label={label}
+              selected={active}
               onPress={() => onChange({ ...filters, maxWage: w === 0 ? Infinity : w })}
-            >
-              <Text style={[styles.filterChipText, active && styles.filterChipTextActive]}>
-                {label}
-              </Text>
-            </Pressable>
+              accent={colors.reportScout}
+              testID={`fa-filter-wage-${w}`}
+            />
           );
         }}
       />
@@ -319,7 +311,7 @@ export function ReportsFreeAgentScoutScreen() {
   if (!scoutData) {
     return (
       <View style={[commonStyles.screen, styles.center]}>
-        <Text style={styles.emptyText}>{t('report.scout_no_data')}</Text>
+        <Body color={colors.textMuted}>{t('report.scout_no_data')}</Body>
       </View>
     );
   }
@@ -328,12 +320,12 @@ export function ReportsFreeAgentScoutScreen() {
     <>
       <SquadGapsSection gaps={scoutData.squadGaps} />
       <View style={styles.budgetBar}>
-        <Text style={styles.budgetText}>
+        <Label color={colors.success}>
           {t('report.scout_wage_space', { value: formatWage(scoutData.wageBudgetRemaining) })}
-        </Text>
-        <Text style={styles.budgetSub}>
+        </Label>
+        <Caption color={colors.textMuted}>
           {t('report.scout_agents_evaluated', { count: scoutData.fits.length })}
-        </Text>
+        </Caption>
       </View>
       <FiltersBar
         filters={filters}
@@ -342,7 +334,7 @@ export function ReportsFreeAgentScoutScreen() {
       />
       {filteredFits.length === 0 && (
         <EmptyState
-          icon="👍"
+          art="search"
           title={t('report.scout_empty_title')}
           description={t('report.scout_empty_description')}
         />
@@ -377,19 +369,11 @@ const styles = StyleSheet.create({
 
   // Squad gaps section
   gapsSection: {
-    backgroundColor: colors.surface,
     marginHorizontal: spacing.md,
     marginTop: spacing.md,
     marginBottom: spacing.xs,
-    borderRadius: radius.lg,
-    padding: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.border,
   },
   sectionTitle: {
-    color: colors.textSecondary,
-    fontSize: fontSize.xs,
-    fontWeight: '700',
     textTransform: 'uppercase',
     letterSpacing: 1,
     marginBottom: spacing.sm,
@@ -409,13 +393,7 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
   },
   gapChipPos: {
-    color: colors.danger,
-    fontSize: fontSize.xs,
     fontWeight: '700',
-  },
-  gapChipOvr: {
-    color: colors.textMuted,
-    fontSize: fontSize.xs,
   },
 
   // Budget bar
@@ -425,15 +403,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
-  },
-  budgetText: {
-    color: colors.success,
-    fontSize: fontSize.sm,
-    fontWeight: '700',
-  },
-  budgetSub: {
-    color: colors.textMuted,
-    fontSize: fontSize.xs,
   },
 
   // Filters
@@ -446,9 +415,6 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   filterLabel: {
-    color: colors.textMuted,
-    fontSize: fontSize.xs,
-    fontWeight: '600',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     marginBottom: spacing.xs,
@@ -460,38 +426,12 @@ const styles = StyleSheet.create({
     paddingRight: spacing.md,
     marginBottom: spacing.xs,
   },
-  filterChip: {
-    borderRadius: 6,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    backgroundColor: colors.surfaceLight,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  filterChipActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  filterChipText: {
-    color: colors.textSecondary,
-    fontSize: fontSize.xs,
-    fontWeight: '600',
-  },
-  filterChipTextActive: {
-    color: colors.text,
-  },
 
   // Agent card
   card: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    padding: spacing.md,
     marginHorizontal: spacing.md,
     marginVertical: spacing.xs,
-    borderWidth: 1,
-    borderColor: colors.border,
   },
-  cardPressed: { backgroundColor: colors.surfaceLight },
   cardHeader: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -506,37 +446,19 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
   },
   playerName: {
-    color: colors.text,
-    fontSize: fontSize.md,
     fontWeight: '700',
   },
   injuredBadge: {
     backgroundColor: colors.danger,
     borderRadius: radius.sm,
-    paddingHorizontal: 6,
-    paddingVertical: 1,
+    paddingHorizontal: spacing.xs,
+    paddingVertical: spacing.xxs,
   },
   injuredText: {
-    color: colors.text,
-    fontSize: fontSize.xs,
     fontWeight: '700',
-  },
-  playerMeta: {
-    color: colors.textSecondary,
-    fontSize: fontSize.sm,
-    marginTop: spacing.xxs,
   },
   wageBox: {
     alignItems: 'flex-end',
-  },
-  wageValue: {
-    color: colors.text,
-    fontSize: fontSize.sm,
-    fontWeight: '700',
-  },
-  wageLabel: {
-    color: colors.textMuted,
-    fontSize: fontSize.xs,
   },
 
   // Fit bar
@@ -549,7 +471,6 @@ const styles = StyleSheet.create({
     paddingTop: spacing.sm,
   },
   fitLabel: {
-    fontSize: fontSize.xs,
     fontWeight: '700',
     width: 48,
   },
@@ -557,23 +478,15 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 6,
     backgroundColor: colors.surfaceLight,
-    borderRadius: 3,
+    borderRadius: radius.sm,
     overflow: 'hidden',
   },
   fitBarFill: {
     height: '100%',
-    borderRadius: 3,
+    borderRadius: radius.sm,
   },
   gapText: {
-    color: colors.textMuted,
-    fontSize: fontSize.xs,
     width: 36,
     textAlign: 'right',
-  },
-
-  emptyText: {
-    color: colors.textMuted,
-    fontSize: fontSize.md,
-    textAlign: 'center',
   },
 });
