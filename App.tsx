@@ -21,6 +21,7 @@ export default function App() {
   useEffect(() => {
     if (isReady && dbHandle) {
       import('@/i18n/persistence').then((m) => m.loadPersistedLanguage(dbHandle));
+      import('@/store/settings-store').then((m) => m.hydrateSettings(dbHandle));
     }
   }, [isReady, dbHandle]);
 
