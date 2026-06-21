@@ -16,6 +16,8 @@ import { generateJobOffers, generateRescueOffers, JobOfferCandidateClub } from '
 import { getManagerReputation, setManagerReputation, setJobOffersPending } from '@/database/queries/save';
 import { insertJobOffer } from '@/database/queries/job-offers';
 import { insertNewsItem } from '@/database/queries/news';
+import { upsertManagerCareerEntry } from '@/database/queries/legacy';
+import type { ManagerExitReason } from '@/types/legacy';
 import type { TKey } from '@/i18n/translate';
 
 export interface SeasonEndEval {
@@ -208,6 +210,21 @@ export async function evaluateSeasonEndBoard(
   });
   await setManagerReputation(db, saveId, managerRepDelta.next);
   const managerRep = { before, after: managerRepDelta.next, delta: managerRepDelta.delta };
+
+  // ── C1: manager career timeline entry for the season that just ended ──
+  {
+    const allLeagues = await getAllLeagues(db);
+    const divisionLevel = allLeagues.find((l) => l.id === playerLeagueId)?.divisionLevel ?? 1;
+    const trophiesRow = (await db
+      .prepare('SELECT COUNT(*) AS n FROM season_competition_results WHERE save_id = ? AND season = ? AND champion_club_id = ?')
+      .get(saveId, endedSeason, playerClubId)) as { n: number };
+    const exitReason: ManagerExitReason = isManagerDismissed(board.consequence) ? 'fired' : 'stayed';
+    await upsertManagerCareerEntry(db, saveId, {
+      season: endedSeason, clubId: playerClubId, divisionLevel,
+      leaguePosition, totalTeams, trophies: trophiesRow.n,
+      managerReputation: managerRepDelta.next, exitReason,
+    });
+  }
 
   // ── Job offers — up-band when retained, rescue (down-band) when dismissed ──
   // A fired manager doesn't get poached UP; smaller clubs offer a fresh start instead.

@@ -8,6 +8,7 @@ import { generateObjective } from '@/engine/board/objective-generator';
 import { upsertBoardObjective, getBoardObjective } from '@/database/queries/board';
 import { setJobOfferStatus, expirePendingJobOffers } from '@/database/queries/job-offers';
 import { setJobOffersPending, setPreseasonPending } from '@/database/queries/save';
+import { setManagerExitReason } from '@/database/queries/legacy';
 
 export interface AcceptJobOfferParams {
   db: DbHandle;
@@ -39,7 +40,11 @@ export async function acceptJobOffer(p: AcceptJobOfferParams): Promise<{ newClub
     .prepare('SELECT num_teams AS numTeams, division_level AS divisionLevel FROM leagues WHERE id = ?')
     .get(newClub.leagueId)) as { numTeams: number; divisionLevel: number } | undefined;
 
-  // 2. Switch club + reset board trust to the initial value (new relationship).
+  // 2. Close the career entry for the season that ended as a resignation (season-end-eval
+  // wrote it as 'stayed'/'fired'; leaving for a rival overrides that to 'resigned').
+  await setManagerExitReason(db, saveId, offerSeason, 'resigned');
+
+  // 3. Switch club + reset board trust to the initial value (new relationship).
   await db
     .prepare('UPDATE save_games SET player_club_id = ?, board_trust = ? WHERE id = ?')
     .run(offeringClubId, BOARD_TRUST_INITIAL, saveId);
