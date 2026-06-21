@@ -18,6 +18,21 @@
         "backgroundColor": "#1a1a2e"
       },
       "package": "com.footballmanager.app"
-    }
+    },
+    "plugins": [
+      [
+        "expo-font",
+        {
+          "fonts": [
+            "./assets/fonts/Manrope-Regular.otf",
+            "./assets/fonts/Manrope-SemiBold.otf",
+            "./assets/fonts/Manrope-Bold.otf",
+            "./assets/fonts/Manrope-ExtraBold.otf",
+            "./assets/fonts/SairaCondensed-SemiBold.ttf",
+            "./assets/fonts/SairaCondensed-Bold.ttf"
+          ]
+        }
+      ]
+    ]
   }
 }
