@@ -97,3 +97,6 @@ export const MORALE_DRIFT_RATE = 0.1;            // fraction of the gap closed p
 // ─── Ordinary (age-based) retirement (progression-wired) ─────────────────────
 export const ORDINARY_RETIREMENT_BASE_PROB = 0.05;   // at RETIREMENT_MIN_AGE
 export const ORDINARY_RETIREMENT_AGE_SLOPE = 0.07;   // added per year above the min age
+
+// ─── C1 dynasty/legacy ───────────────────────────────────────────────────────
+export const LEGENDS_LIMIT = 12;                      // top-N legends materialized per club
