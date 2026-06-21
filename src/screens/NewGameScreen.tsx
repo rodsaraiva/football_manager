@@ -2,17 +2,17 @@ import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
-  TouchableOpacity,
+  Pressable,
   FlatList,
   ScrollView,
   StyleSheet,
   ActivityIndicator,
-  Alert,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useTranslation } from '@/i18n';
-import { colors, spacing, fontSize, radius, commonStyles } from '@/theme';
+import { colors, spacing, fontSize, commonStyles } from '@/theme';
+import { useClubAccent } from '@/theme/useClubAccent';
 import { useDatabaseStore } from '@/store/database-store';
 import { useGameStore } from '@/store/game-store';
 import { getAllLeagues, getAllCountries } from '@/database/queries/leagues';
@@ -33,6 +33,9 @@ import { AssistantRole } from '@/types/assistant';
 import { generateObjective } from '@/engine/board/objective-generator';
 import { upsertBoardObjective } from '@/database/queries/board';
 import { useBoardStore } from '@/store/board-store';
+import { Card, Chip, Button, useConfirm } from '@/components/kit';
+import StatBar from '@/components/StatBar';
+import { Display, Title, Body, Label, Caption, Stat } from '@/components/typography';
 
 type NavProp = NativeStackNavigationProp<RootStackParamList, 'NewGame'>;
 
@@ -49,9 +52,11 @@ const COUNTRY_FLAGS: Record<string, string> = {
 export function NewGameScreen() {
   const navigation = useNavigation<NavProp>();
   const { t } = useTranslation();
+  const { accent } = useClubAccent();
   const { db, dbHandle, isReady } = useDatabaseStore();
   const { startNewGame, setPlayerClub, setPreseasonPending: setStorePreseasonPending } = useGameStore();
   const { setCurrentObjective } = useBoardStore();
+  const confirm = useConfirm();
 
   // Clubs/players live per-save now (no global club seed), so the picker reads the
   // canonical seed in memory. handleStartGame reuses this same data to seed the new save.
@@ -81,7 +86,6 @@ export function NewGameScreen() {
           getAllLeagues(dbHandle),
           getAllCountries(dbHandle),
         ]);
-        console.log('[NewGame] leagues loaded:', leagueRows.map(l => ({ id: l.id, name: l.name })));
         setLeagues(leagueRows);
         setCountries(countryRows);
       } catch (err) {
@@ -228,24 +232,42 @@ export function NewGameScreen() {
 
       navigation.navigate('Game');
     } catch (err) {
-      Alert.alert(t('newgame.error'), (err as Error).message);
+      await confirm({ title: t('newgame.error'), message: (err as Error).message, confirmLabel: t('kit.ok'), tone: 'danger' });
     } finally {
       setStarting(false);
     }
   }
 
+  function BackLink({ onPress }: { onPress: () => void }) {
+    return (
+      <Pressable
+        style={styles.backButton}
+        onPress={onPress}
+        accessibilityRole="button"
+        accessibilityLabel={t('common.back')}
+        testID="newgame-back"
+      >
+        <Body color={colors.primary}>{'← ' + t('common.back')}</Body>
+      </Pressable>
+    );
+  }
+
   function renderClubCard(item: Club, onPress: () => void) {
     return (
-      <TouchableOpacity style={styles.clubCard} onPress={onPress} activeOpacity={0.8}>
-        <View style={styles.clubCardHeader}>
-          <Text style={styles.clubName}>{item.name}</Text>
-          <Text style={styles.clubRep}>{item.reputation}</Text>
-        </View>
-        <View style={styles.reputationBarContainer}>
-          <View style={[styles.reputationBarFill, { width: `${item.reputation}%` as `${number}%` }]} />
-        </View>
-        <Text style={styles.clubStadium}>{item.stadiumName}</Text>
-      </TouchableOpacity>
+      <Card variant="detail" style={styles.clubCard} testID={`newgame-club-${item.id}`}>
+        <Pressable
+          onPress={onPress}
+          accessibilityRole="button"
+          accessibilityLabel={item.name}
+        >
+          <View style={styles.clubCardHeader}>
+            <Title style={styles.clubName}>{item.name}</Title>
+            <Stat color={colors.primary}>{item.reputation}</Stat>
+          </View>
+          <StatBar value={item.reputation} maxValue={100} color={colors.primary} barOnly height={4} />
+          <Caption color={colors.textMuted}>{item.stadiumName}</Caption>
+        </Pressable>
+      </Card>
     );
   }
 
@@ -253,7 +275,7 @@ export function NewGameScreen() {
     return (
       <View style={[commonStyles.screen, styles.centered]}>
         <ActivityIndicator color={colors.primary} size="large" />
-        <Text style={styles.loadingText}>{t('newgame.loading')}</Text>
+        <Body color={colors.textSecondary}>{t('newgame.loading')}</Body>
       </View>
     );
   }
@@ -261,23 +283,30 @@ export function NewGameScreen() {
   if (step === 'ambition') {
     return (
       <View style={commonStyles.screen}>
-        <Text style={styles.stepTitle}>{t('newgame.ambition_title')}</Text>
-        <Text style={styles.stepSubtitle}>{t('newgame.ambition_subtitle')}</Text>
+        <Display style={styles.stepTitle}>{t('newgame.ambition_title')}</Display>
+        <Caption color={colors.textSecondary} style={styles.stepSubtitle}>{t('newgame.ambition_subtitle')}</Caption>
         <ScrollView contentContainerStyle={styles.listContent}>
           {AMBITION_PROFILES.map((p) => (
-            <TouchableOpacity
-              key={p.id}
-              style={styles.leagueCard}
-              onPress={() => handleSelectProfile(p.id)}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.leagueName}>{t(`newgame.ambition_${p.id}_label`)}</Text>
-              <Text style={styles.profileDesc}>{t(`newgame.ambition_${p.id}_desc`)}</Text>
-            </TouchableOpacity>
+            <Card key={p.id} variant="detail" style={styles.profileCard} testID={`newgame-profile-${p.id}`}>
+              <Pressable
+                onPress={() => handleSelectProfile(p.id)}
+                accessibilityRole="button"
+                accessibilityLabel={t(`newgame.ambition_${p.id}_label`)}
+              >
+                <Title>{t(`newgame.ambition_${p.id}_label`)}</Title>
+                <Caption color={colors.textSecondary}>{t(`newgame.ambition_${p.id}_desc`)}</Caption>
+              </Pressable>
+            </Card>
           ))}
-          <TouchableOpacity style={styles.exploreLink} onPress={handleExploreManually} activeOpacity={0.7}>
-            <Text style={styles.exploreLinkText}>{t('newgame.explore_leagues')}</Text>
-          </TouchableOpacity>
+          <Pressable
+            style={styles.exploreLink}
+            onPress={handleExploreManually}
+            accessibilityRole="button"
+            accessibilityLabel={t('newgame.explore_leagues')}
+            testID="newgame-explore"
+          >
+            <Body color={colors.primary}>{t('newgame.explore_leagues')}</Body>
+          </Pressable>
         </ScrollView>
       </View>
     );
@@ -287,22 +316,19 @@ export function NewGameScreen() {
     const countriesWithLeagues = countries.filter((c) => leagues.some((l) => l.countryId === c.id));
     return (
       <View style={commonStyles.screen}>
-        <TouchableOpacity style={styles.backButton} onPress={() => setStep('ambition')}>
-          <Text style={styles.backButtonText}>{'← ' + t('common.back')}</Text>
-        </TouchableOpacity>
-        <Text style={styles.stepTitle}>{t('newgame.country_title')}</Text>
+        <BackLink onPress={() => setStep('ambition')} />
+        <Display style={styles.stepTitle}>{t('newgame.country_title')}</Display>
         <ScrollView contentContainerStyle={styles.listContent}>
           {countriesWithLeagues.map((country) => (
-            <TouchableOpacity
-              key={country.id}
-              style={styles.leagueCard}
-              onPress={() => handleSelectCountry(country)}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.leagueName}>
-                {(COUNTRY_FLAGS[country.code] ?? '🌍') + '  ' + country.name}
-              </Text>
-            </TouchableOpacity>
+            <Card key={country.id} variant="detail" style={styles.profileCard} testID={`newgame-country-${country.id}`}>
+              <Pressable
+                onPress={() => handleSelectCountry(country)}
+                accessibilityRole="button"
+                accessibilityLabel={country.name}
+              >
+                <Title>{(COUNTRY_FLAGS[country.code] ?? '🌍') + '  ' + country.name}</Title>
+              </Pressable>
+            </Card>
           ))}
         </ScrollView>
       </View>
@@ -313,16 +339,14 @@ export function NewGameScreen() {
     const profileLabel = selectedProfile ? t(`newgame.ambition_${selectedProfile}_label`) : '';
     return (
       <View style={commonStyles.screen}>
-        <TouchableOpacity style={styles.backButton} onPress={() => setStep('country')}>
-          <Text style={styles.backButtonText}>{'← ' + t('common.back')}</Text>
-        </TouchableOpacity>
-        <Text style={styles.stepTitle}>{t('newgame.suggestions_title')}</Text>
-        <Text style={styles.stepSubtitle}>{profileLabel}</Text>
+        <BackLink onPress={() => setStep('country')} />
+        <Display style={styles.stepTitle}>{t('newgame.suggestions_title')}</Display>
+        <Caption color={colors.textSecondary} style={styles.stepSubtitle}>{profileLabel}</Caption>
         <FlatList
           data={suggestions}
           keyExtractor={(item) => String(item.id)}
           contentContainerStyle={styles.listContent}
-          ListEmptyComponent={<Text style={styles.emptyText}>{t('newgame.suggestions_empty')}</Text>}
+          ListEmptyComponent={<Body color={colors.textMuted} style={styles.emptyText}>{t('newgame.suggestions_empty')}</Body>}
           renderItem={({ item }) => renderClubCard(item, () => handleSelectSuggestedClub(item))}
         />
       </View>
@@ -330,7 +354,6 @@ export function NewGameScreen() {
   }
 
   if (step === 'league') {
-    // Build a map of countryId -> leagues sorted by divisionLevel
     const leaguesByCountry: Record<number, League[]> = {};
     for (const league of leagues) {
       if (!leaguesByCountry[league.countryId]) {
@@ -342,16 +365,15 @@ export function NewGameScreen() {
       leaguesByCountry[Number(key)].sort((a, b) => a.divisionLevel - b.divisionLevel);
     }
 
-    // Only show countries that have leagues
     const countriesWithLeagues = countries.filter(c => leaguesByCountry[c.id]?.length > 0);
 
     return (
       <View style={commonStyles.screen}>
-        <Text style={styles.stepTitle}>{t('newgame.league_title')}</Text>
-        <Text style={styles.stepSubtitle}>{t('newgame.league_subtitle')}</Text>
+        <Display style={styles.stepTitle}>{t('newgame.league_title')}</Display>
+        <Caption color={colors.textSecondary} style={styles.stepSubtitle}>{t('newgame.league_subtitle')}</Caption>
         {countriesWithLeagues.length === 0 ? (
           <View style={styles.centered}>
-            <Text style={styles.emptyText}>{t('newgame.league_empty')}</Text>
+            <Body color={colors.textMuted} style={styles.emptyText}>{t('newgame.league_empty')}</Body>
           </View>
         ) : (
           <ScrollView contentContainerStyle={styles.listContent}>
@@ -361,26 +383,32 @@ export function NewGameScreen() {
               const flag = COUNTRY_FLAGS[country.code] ?? '🌍';
               return (
                 <View key={country.id} style={styles.accordionGroup}>
-                  <TouchableOpacity
-                    style={styles.accordionHeader}
-                    onPress={() => toggleCountry(country.id)}
-                    activeOpacity={0.8}
-                  >
-                    <Text style={styles.accordionFlag}>{flag}</Text>
-                    <Text style={styles.accordionCountryName}>{country.name}</Text>
-                    <Text style={styles.accordionMeta}>{t('newgame.league_count', { count: countryLeagues.length })}</Text>
-                    <Text style={styles.accordionChevron}>{isExpanded ? '▲' : '▼'}</Text>
-                  </TouchableOpacity>
-                  {isExpanded && countryLeagues.map((league) => (
-                    <TouchableOpacity
-                      key={league.id}
-                      style={styles.leagueCard}
-                      onPress={() => handleSelectLeague(league)}
-                      activeOpacity={0.8}
+                  <Card variant="detail" style={styles.accordionHeader}>
+                    <Pressable
+                      style={styles.accordionHeaderRow}
+                      onPress={() => toggleCountry(country.id)}
+                      accessibilityRole="button"
+                      accessibilityLabel={country.name}
+                      accessibilityState={{ expanded: isExpanded }}
+                      testID={`newgame-country-toggle-${country.id}`}
                     >
-                      <Text style={styles.leagueName}>{league.name}</Text>
-                      <Text style={styles.leagueMeta}>{t('newgame.division_teams', { division: league.divisionLevel, teams: league.numTeams })}</Text>
-                    </TouchableOpacity>
+                      <Text style={styles.accordionFlag}>{flag}</Text>
+                      <Body style={styles.accordionCountryName}>{country.name}</Body>
+                      <Caption color={colors.textSecondary}>{t('newgame.league_count', { count: countryLeagues.length })}</Caption>
+                      <Caption color={colors.textSecondary} style={styles.accordionChevron}>{isExpanded ? '▲' : '▼'}</Caption>
+                    </Pressable>
+                  </Card>
+                  {isExpanded && countryLeagues.map((league) => (
+                    <Card key={league.id} variant="detail" style={styles.leagueCard} testID={`newgame-league-${league.id}`}>
+                      <Pressable
+                        onPress={() => handleSelectLeague(league)}
+                        accessibilityRole="button"
+                        accessibilityLabel={league.name}
+                      >
+                        <Title>{league.name}</Title>
+                        <Caption color={colors.textSecondary}>{t('newgame.division_teams', { division: league.divisionLevel, teams: league.numTeams })}</Caption>
+                      </Pressable>
+                    </Card>
                   ))}
                 </View>
               );
@@ -394,18 +422,14 @@ export function NewGameScreen() {
   if (step === 'team') {
     return (
       <View style={commonStyles.screen}>
-        <TouchableOpacity style={styles.backButton} onPress={() => setStep('league')}>
-          <Text style={styles.backButtonText}>{'← ' + t('common.back')}</Text>
-        </TouchableOpacity>
-        <Text style={styles.stepTitle}>{selectedLeague?.name}</Text>
-        <Text style={styles.stepSubtitle}>{t('newgame.team_subtitle')}</Text>
+        <BackLink onPress={() => setStep('league')} />
+        <Display style={styles.stepTitle}>{selectedLeague?.name}</Display>
+        <Caption color={colors.textSecondary} style={styles.stepSubtitle}>{t('newgame.team_subtitle')}</Caption>
         <FlatList
           data={clubs}
           keyExtractor={(item) => String(item.id)}
           contentContainerStyle={styles.listContent}
-          ListEmptyComponent={
-            <Text style={styles.emptyText}>{t('newgame.team_empty')}</Text>
-          }
+          ListEmptyComponent={<Body color={colors.textMuted} style={styles.emptyText}>{t('newgame.team_empty')}</Body>}
           renderItem={({ item }) => renderClubCard(item, () => handleSelectClub(item))}
         />
       </View>
@@ -415,55 +439,43 @@ export function NewGameScreen() {
   // Step: confirm
   return (
     <View style={commonStyles.screen}>
-      <TouchableOpacity
-        style={styles.backButton}
-        onPress={() => setStep(selectedProfile ? 'suggestions' : 'team')}
-      >
-        <Text style={styles.backButtonText}>{'← ' + t('common.back')}</Text>
-      </TouchableOpacity>
-      <Text style={styles.stepTitle}>{t('newgame.confirm_title')}</Text>
+      <BackLink onPress={() => setStep(selectedProfile ? 'suggestions' : 'team')} />
+      <Display style={styles.stepTitle}>{t('newgame.confirm_title')}</Display>
 
-      <View style={styles.confirmCard}>
-        <Text style={styles.confirmLabel}>{t('newgame.confirm_club_label')}</Text>
-        <Text style={styles.confirmValue}>{selectedClub?.name}</Text>
-        <Text style={styles.confirmMeta}>{selectedLeague?.name}</Text>
-      </View>
+      <Card variant="summary" style={styles.confirmCard}>
+        <Label>{t('newgame.confirm_club_label')}</Label>
+        <Title>{selectedClub?.name}</Title>
+        <Caption color={colors.textSecondary}>{selectedLeague?.name}</Caption>
+      </Card>
 
-      <View style={styles.confirmCard}>
-        <Text style={styles.confirmLabel}>{t('newgame.confirm_difficulty_label')}</Text>
+      <Card variant="summary" style={styles.confirmCard}>
+        <Label>{t('newgame.confirm_difficulty_label')}</Label>
         <View style={styles.difficultyRow}>
           {(['easy', 'normal', 'hard'] as Difficulty[]).map((d) => (
-            <TouchableOpacity
+            <Chip
               key={d}
-              style={[styles.difficultyButton, difficulty === d && styles.difficultyButtonActive]}
+              label={t(`newgame.difficulty_${d}`)}
+              selected={difficulty === d}
+              accent={accent}
               onPress={() => setDifficulty(d)}
-              activeOpacity={0.8}
-            >
-              <Text
-                style={[
-                  styles.difficultyButtonText,
-                  difficulty === d && styles.difficultyButtonTextActive,
-                ]}
-              >
-                {t(`newgame.difficulty_${d}`)}
-              </Text>
-            </TouchableOpacity>
+              testID={`newgame-difficulty-${d}`}
+              accessibilityLabel={t(`newgame.difficulty_${d}`)}
+            />
           ))}
         </View>
-      </View>
+      </Card>
 
-      <TouchableOpacity
-        style={[styles.startButton, starting && styles.startButtonDisabled]}
-        onPress={handleStartGame}
-        disabled={starting}
-        activeOpacity={0.8}
-      >
-        {starting ? (
-          <ActivityIndicator color={colors.text} />
-        ) : (
-          <Text style={styles.startButtonText}>{t('newgame.start_game')}</Text>
-        )}
-      </TouchableOpacity>
+      <View style={styles.startWrap}>
+        <Button
+          label={t('newgame.start_game')}
+          variant="primary"
+          loading={starting}
+          disabled={starting}
+          onPress={handleStartGame}
+          testID="newgame-start"
+          accessibilityLabel={t('newgame.start_game')}
+        />
+      </View>
     </View>
   );
 }
@@ -473,23 +485,14 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  loadingText: {
-    color: colors.textSecondary,
-    fontSize: fontSize.md,
-    marginTop: spacing.md,
+    gap: spacing.md,
   },
   stepTitle: {
-    color: colors.text,
-    fontSize: fontSize.xxl,
-    fontWeight: 'bold',
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.lg,
     paddingBottom: spacing.xs,
   },
   stepSubtitle: {
-    color: colors.textSecondary,
-    fontSize: fontSize.sm,
     paddingHorizontal: spacing.lg,
     marginBottom: spacing.md,
   },
@@ -498,8 +501,6 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.xl,
   },
   emptyText: {
-    color: colors.textMuted,
-    fontSize: fontSize.md,
     textAlign: 'center',
     marginTop: spacing.xl,
     paddingHorizontal: spacing.lg,
@@ -508,57 +509,27 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   accordionHeader: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.md,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  accordionHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.border,
+    gap: spacing.sm,
   },
   accordionFlag: {
     fontSize: fontSize.lg,
-    marginRight: spacing.sm,
   },
   accordionCountryName: {
-    color: colors.text,
-    fontSize: fontSize.md,
-    fontWeight: '700',
     flex: 1,
   },
-  accordionMeta: {
-    color: colors.textSecondary,
-    fontSize: fontSize.xs,
-    marginRight: spacing.sm,
-  },
-  accordionChevron: {
-    color: colors.textSecondary,
-    fontSize: fontSize.xs,
-  },
+  accordionChevron: {},
   leagueCard: {
-    backgroundColor: colors.surfaceLight,
-    borderRadius: 6,
-    padding: spacing.md,
     marginTop: spacing.xxs,
     marginLeft: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.border,
   },
-  leagueName: {
-    color: colors.text,
-    fontSize: fontSize.lg,
-    fontWeight: '600',
-  },
-  leagueMeta: {
-    color: colors.textSecondary,
-    fontSize: fontSize.sm,
-    marginTop: spacing.xxs,
-  },
-  profileDesc: {
-    color: colors.textSecondary,
-    fontSize: fontSize.sm,
-    marginTop: spacing.xs,
+  profileCard: {
+    marginBottom: spacing.sm,
+    gap: spacing.xs,
   },
   exploreLink: {
     paddingVertical: spacing.md,
@@ -566,27 +537,14 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
     alignItems: 'center',
   },
-  exploreLinkText: {
-    color: colors.primary,
-    fontSize: fontSize.md,
-    fontWeight: '600',
-  },
   backButton: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.md,
     paddingBottom: spacing.xs,
   },
-  backButtonText: {
-    color: colors.primary,
-    fontSize: fontSize.md,
-  },
   clubCard: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.md,
-    padding: spacing.md,
     marginBottom: spacing.sm,
-    borderWidth: 1,
-    borderColor: colors.border,
+    gap: spacing.xs,
   },
   clubCardHeader: {
     flexDirection: 'row',
@@ -594,101 +552,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   clubName: {
-    color: colors.text,
-    fontSize: fontSize.md,
-    fontWeight: '600',
     flex: 1,
   },
-  clubRep: {
-    color: colors.primary,
-    fontSize: fontSize.sm,
-    fontWeight: '600',
-  },
-  reputationBarContainer: {
-    height: 4,
-    backgroundColor: colors.border,
-    borderRadius: 2,
-    overflow: 'hidden',
-    marginTop: spacing.xs,
-    marginBottom: spacing.xs,
-  },
-  reputationBarFill: {
-    height: '100%',
-    backgroundColor: colors.primary,
-    borderRadius: 2,
-  },
-  clubStadium: {
-    color: colors.textMuted,
-    fontSize: fontSize.xs,
-  },
   confirmCard: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.md,
-    padding: spacing.md,
     marginHorizontal: spacing.md,
     marginBottom: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  confirmLabel: {
-    color: colors.textMuted,
-    fontSize: fontSize.xs,
-    fontWeight: '600',
-    letterSpacing: 1,
-    textTransform: 'uppercase',
-    marginBottom: spacing.xs,
-  },
-  confirmValue: {
-    color: colors.text,
-    fontSize: fontSize.xl,
-    fontWeight: 'bold',
-  },
-  confirmMeta: {
-    color: colors.textSecondary,
-    fontSize: fontSize.sm,
-    marginTop: spacing.xxs,
+    gap: spacing.xs,
   },
   difficultyRow: {
     flexDirection: 'row',
     gap: spacing.sm,
     marginTop: spacing.xs,
   },
-  difficultyButton: {
-    flex: 1,
-    paddingVertical: spacing.sm,
-    borderRadius: 6,
-    alignItems: 'center',
-    backgroundColor: colors.surfaceLight,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  difficultyButtonActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  difficultyButtonText: {
-    color: colors.textSecondary,
-    fontSize: fontSize.sm,
-    fontWeight: '600',
-  },
-  difficultyButtonTextActive: {
-    color: colors.text,
-  },
-  startButton: {
-    backgroundColor: colors.primary,
-    borderRadius: radius.md,
-    paddingVertical: spacing.md,
+  startWrap: {
     marginHorizontal: spacing.md,
-    alignItems: 'center',
     marginTop: spacing.sm,
-  },
-  startButtonDisabled: {
-    opacity: 0.6,
-  },
-  startButtonText: {
-    color: colors.text,
-    fontSize: fontSize.lg,
-    fontWeight: 'bold',
-    letterSpacing: 1,
   },
 });
