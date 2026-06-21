@@ -2,7 +2,9 @@ import { StyleSheet } from 'react-native';
 import { colors, spacing, fontSize } from './tokens';
 
 // Re-export pure tokens + helpers so `@/theme` stays the single import surface.
-export { colors, spacing, fontSize, radius, neutral, elevation, motion } from './tokens';
+export { colors, spacing, fontSize, radius, neutral, elevation, motion, typography, FONT_FAMILY } from './tokens';
+export type { TypographyToken } from './tokens';
+export { textStyle, type TypographyVariant } from './typography';
 export { alpha } from './alpha';
 export { deriveClubAccent, deriveAccentRamp, mixWithWhite, mixWithBlack, luminance } from './club-accent';
 export type { ClubAccent, ClubAccentRamp } from './club-accent';

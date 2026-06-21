@@ -1,4 +1,5 @@
 import { typography, FONT_FAMILY, fontSize } from '@/theme/tokens';
+import { textStyle } from '@/theme/typography';
 
 const VARIANTS = ['display','headline','title','subheading','body','label','caption','stat'] as const;
 
@@ -40,5 +41,32 @@ describe('typography token', () => {
   it('fontSize legado segue exportado (retrocompat)', () => {
     expect(fontSize.md).toBe(14);
     expect(fontSize.display).toBe(56);
+  });
+});
+
+describe('textStyle helper', () => {
+  it('resolve fontSize/lineHeight/fontWeight/fontFamily do token', () => {
+    const s = textStyle('title');
+    expect(s.fontSize).toBe(typography.title.size);
+    expect(s.lineHeight).toBe(typography.title.lineHeight);
+    expect(s.fontWeight).toBe(typography.title.weight);
+    expect(s.fontFamily).toBe(typography.title.family);
+  });
+
+  it('aplica letterSpacing quando o token tem', () => {
+    expect(textStyle('label').letterSpacing).toBe(typography.label.letterSpacing);
+    expect(textStyle('body').letterSpacing).toBeUndefined();
+  });
+
+  it('stat recebe fontVariant tabular-nums', () => {
+    expect(textStyle('stat').fontVariant).toEqual(['tabular-nums']);
+    expect(textStyle('body').fontVariant).toBeUndefined();
+  });
+
+  it('overrides têm precedência sobre o token', () => {
+    const s = textStyle('body', { fontSize: 99, color: '#abcdef' });
+    expect(s.fontSize).toBe(99);
+    expect(s.color).toBe('#abcdef');
+    expect(s.fontFamily).toBe(typography.body.family); // não sobrescrito permanece
   });
 });
