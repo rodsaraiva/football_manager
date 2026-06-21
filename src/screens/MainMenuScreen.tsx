@@ -78,19 +78,31 @@ export function MainMenuScreen() {
 
   return (
     <View style={commonStyles.screen}>
-      <View style={styles.langToggle}>
-        {(['pt', 'en'] as const).map((lng) => (
-          <TouchableOpacity
-            key={lng}
-            style={[styles.langButton, language === lng && styles.langButtonActive]}
-            onPress={() => handleSetLanguage(lng)}
-            activeOpacity={0.7}
-          >
-            <Text style={[styles.langButtonText, language === lng && styles.langButtonTextActive]}>
-              {lng.toUpperCase()}
-            </Text>
-          </TouchableOpacity>
-        ))}
+      <View style={styles.topBar}>
+        <View style={styles.langToggle}>
+          {(['pt', 'en'] as const).map((lng) => (
+            <TouchableOpacity
+              key={lng}
+              style={[styles.langButton, language === lng && styles.langButtonActive]}
+              onPress={() => handleSetLanguage(lng)}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.langButtonText, language === lng && styles.langButtonTextActive]}>
+                {lng.toUpperCase()}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+        <TouchableOpacity
+          testID="mainmenu-settings"
+          accessibilityRole="button"
+          accessibilityLabel={t('nav.settings')}
+          style={styles.settingsButton}
+          onPress={() => navigation.navigate('Settings')}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.settingsButtonText}>{t('nav.settings')}</Text>
+        </TouchableOpacity>
       </View>
       <View style={styles.titleSection}>
         <Text style={styles.title}>FOOTBALL MANAGER</Text>
@@ -253,12 +265,28 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     fontSize: fontSize.md,
   },
-  langToggle: {
+  topBar: {
     flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: spacing.xs,
+    alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.md,
+  },
+  langToggle: {
+    flexDirection: 'row',
+    gap: spacing.xs,
+  },
+  settingsButton: {
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  settingsButtonText: {
+    color: colors.textSecondary,
+    fontSize: fontSize.xs,
+    fontWeight: '600',
   },
   langButton: {
     paddingVertical: spacing.xs,
