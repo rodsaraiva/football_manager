@@ -138,3 +138,15 @@ describe('motion tokens', () => {
     }
   });
 });
+
+import * as theme from '@/theme';
+
+describe('@/theme public surface (v2 tokens re-exported)', () => {
+  it('re-exports neutral, elevation, motion and deriveAccentRamp', () => {
+    expect(theme.neutral[900]).toBe('#0f0f1a');
+    expect(theme.elevation.e3.elevation).toBe(12);
+    expect(theme.motion.duration.base).toBe(200);
+    expect(typeof theme.deriveAccentRamp).toBe('function');
+    expect(theme.deriveAccentRamp('#4361ee').accent).toBe('#4361ee');
+  });
+});

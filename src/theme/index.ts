@@ -2,8 +2,10 @@ import { StyleSheet } from 'react-native';
 import { colors, spacing, fontSize } from './tokens';
 
 // Re-export pure tokens + helpers so `@/theme` stays the single import surface.
-export { colors, spacing, fontSize, radius } from './tokens';
+export { colors, spacing, fontSize, radius, neutral, elevation, motion } from './tokens';
 export { alpha } from './alpha';
+export { deriveClubAccent, deriveAccentRamp, mixWithWhite, mixWithBlack, luminance } from './club-accent';
+export type { ClubAccent, ClubAccentRamp } from './club-accent';
 
 export const commonStyles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
