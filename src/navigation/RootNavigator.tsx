@@ -9,6 +9,7 @@ import { GameOverScreen } from '@/screens/GameOverScreen';
 import { FinancesScreen } from '@/screens/club/FinancesScreen';
 import { StaffScreen } from '@/screens/club/StaffScreen';
 import { UpgradesScreen } from '@/screens/club/UpgradesScreen';
+import { SettingsScreen } from '@/screens/SettingsScreen';
 import { TrainingScreen } from '@/screens/tactics/TrainingScreen';
 import { BoardScreen } from '@/screens/club/BoardScreen';
 import { AssistantsScreen } from '@/screens/club/AssistantsScreen';
@@ -82,6 +83,8 @@ export function RootNavigator() {
       <Stack.Screen name="ClubBoard" component={BoardScreen} options={{ title: t('nav.board') }} />
       <Stack.Screen name="ClubAssistants" component={AssistantsScreen} options={{ title: t('nav.assistants') }} />
       <Stack.Screen name="ClubAssistantHiring" component={AssistantHiringScreen} options={{ title: t('nav.hire_assistant') }} />
+      {/* Global settings */}
+      <Stack.Screen name="Settings" component={SettingsScreen} options={{ title: t('nav.settings') }} />
       {/* Transfer sub-screens */}
       <Stack.Screen name="TransferMarket" component={TransferMarketScreen} options={{ title: t('nav.transfer_market') }} />
       <Stack.Screen name="OffersSent" component={OffersSentScreen} options={{ title: t('nav.offers_sent') }} />

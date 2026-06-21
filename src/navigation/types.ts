@@ -2,6 +2,7 @@ export type RootStackParamList = {
   MainMenu: undefined;
   NewGame: undefined;
   Game: undefined;
+  Settings: undefined;
   MatchResult: { fixtureId: number };
   MatchHalftime: undefined;
   PressConference: undefined;
