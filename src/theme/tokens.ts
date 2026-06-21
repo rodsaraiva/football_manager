@@ -66,6 +66,40 @@ export const spacing = { xxs: 2, xs: 4, sm: 8, md: 16, lg: 24, xl: 32, xxl: 48 }
 export const fontSize = { micro: 8, xs: 10, sm: 12, md: 14, lg: 16, xl: 20, xxl: 28, title: 34, display: 56 };
 export const radius = { sm: 4, md: 8, lg: 12, pill: 20, round: 999 };
 
+export const FONT_FAMILY = {
+  ui: 'Manrope',
+  uiSemibold: 'Manrope-SemiBold',
+  uiBold: 'Manrope-Bold',
+  uiExtra: 'Manrope-ExtraBold',
+  stat: 'SairaCondensed-SemiBold',
+  statBold: 'SairaCondensed-Bold',
+} as const;
+
+export interface TypographyToken {
+  size: number;
+  lineHeight: number;
+  weight: '400' | '600' | '700' | '800';
+  family: string;
+  letterSpacing?: number;
+  tabular?: boolean;
+}
+
+// Escala semântica. Sizes ancorados em `fontSize` (legado) p/ continuidade visual.
+// line-height ≈ 1.2–1.4× size; weights mapeiam às variantes de FONT_FAMILY.
+export const typography: Record<
+  'display' | 'headline' | 'title' | 'subheading' | 'body' | 'label' | 'caption' | 'stat',
+  TypographyToken
+> = {
+  display:    { size: 40, lineHeight: 46, weight: '800', family: FONT_FAMILY.uiExtra,    letterSpacing: -0.5 },
+  headline:   { size: 28, lineHeight: 34, weight: '700', family: FONT_FAMILY.uiBold,     letterSpacing: -0.3 },
+  title:      { size: 20, lineHeight: 26, weight: '700', family: FONT_FAMILY.uiBold },
+  subheading: { size: 16, lineHeight: 22, weight: '600', family: FONT_FAMILY.uiSemibold },
+  body:       { size: 14, lineHeight: 20, weight: '400', family: FONT_FAMILY.ui },
+  label:      { size: 11, lineHeight: 14, weight: '600', family: FONT_FAMILY.uiSemibold, letterSpacing: 1 },
+  caption:    { size: 10, lineHeight: 13, weight: '400', family: FONT_FAMILY.ui },
+  stat:       { size: 22, lineHeight: 24, weight: '600', family: FONT_FAMILY.stat, tabular: true },
+};
+
 // Elevação: e0 flat → e3 hero. shadowColor escuro p/ tema dark; iOS/web usam shadow*,
 // Android usa `elevation`. Pareados p/ leitura consistente entre plataformas.
 export const elevation = {
