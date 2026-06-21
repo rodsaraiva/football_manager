@@ -69,6 +69,24 @@ export async function getHeadToHead(db: DbHandle, saveId: number, clubAId: numbe
   return { clubAId: a, clubBId: b, meetings: meet.c, finals: deciders.c, titleDeciders: deciders.c };
 }
 
+// Bulk name lookups for the legacy screens (avoids N+1 getPlayerById calls).
+export async function getPlayerNameMap(db: DbHandle, saveId: number, ids: number[]): Promise<Map<number, string>> {
+  const unique = [...new Set(ids)].filter((id) => id != null);
+  if (unique.length === 0) return new Map();
+  const placeholders = unique.map(() => '?').join(',');
+  const rows = (await db.prepare(
+    `SELECT id, name FROM players WHERE save_id = ? AND id IN (${placeholders})`,
+  ).all(saveId, ...unique)) as Array<{ id: number; name: string }>;
+  return new Map(rows.map((r) => [r.id, r.name]));
+}
+
+export async function getClubNameMap(db: DbHandle, saveId: number): Promise<Map<number, string>> {
+  const rows = (await db.prepare(
+    'SELECT id, name FROM clubs WHERE save_id = ?',
+  ).all(saveId)) as Array<{ id: number; name: string }>;
+  return new Map(rows.map((r) => [r.id, r.name]));
+}
+
 export async function replaceClubLegends(db: DbHandle, saveId: number, clubId: number, legends: Legend[]): Promise<void> {
   await db.prepare('DELETE FROM club_legends WHERE save_id = ? AND club_id = ?').run(saveId, clubId);
   for (const l of legends) {
