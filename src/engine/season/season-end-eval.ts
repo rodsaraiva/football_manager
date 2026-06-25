@@ -12,7 +12,8 @@ import { calculateOverall } from '@/utils/overall';
 import { processSeasonEndBoard, SeasonEndBoardResult } from '@/engine/board/season-end-board';
 import { isManagerDismissed } from '@/engine/board/season-outcome';
 import { computeManagerReputationDelta } from '@/engine/board/manager-reputation-engine';
-import { generateJobOffers, generateRescueOffers, JobOfferCandidateClub } from '@/engine/board/job-offers-engine';
+import { generateManagerOffers, ManagerOfferCandidate, OfferBand } from '@/engine/board/job-offers-engine';
+import { computeClubAmbition } from '@/engine/board/club-ambition';
 import { getManagerReputation, setManagerReputation, setJobOffersPending } from '@/database/queries/save';
 import { insertJobOffer } from '@/database/queries/job-offers';
 import { insertNewsItem } from '@/database/queries/news';
@@ -232,25 +233,26 @@ export async function evaluateSeasonEndBoard(
   {
     const leaguesForDiv = await getAllLeagues(db);
     const divByLeague = new Map(leaguesForDiv.map((l) => [l.id, l.divisionLevel]));
-    const candidates: JobOfferCandidateClub[] = allClubs.map((c) => ({
-      id: c.id,
-      reputation: c.reputation,
-      divisionLevel: divByLeague.get(c.leagueId) ?? 1,
-    }));
-    const offers = isManagerDismissed(board.consequence)
-      ? generateRescueOffers({
-          managerReputation: managerRepDelta.next,
-          currentClubId: playerClubId,
-          currentClubReputation: clubReputation,
-          candidates,
-        })
-      : generateJobOffers({
-          managerReputation: managerRepDelta.next,
-          currentClubId: playerClubId,
-          currentClubReputation: clubReputation,
-          candidates,
-          rng: p.offerRng,
-        });
+    const candidates: ManagerOfferCandidate[] = allClubs.map((c) => {
+      const divisionLevel = divByLeague.get(c.leagueId) ?? 1;
+      return {
+        id: c.id,
+        reputation: c.reputation,
+        divisionLevel,
+        ambition: computeClubAmbition({ reputation: c.reputation, divisionLevel }),
+      };
+    });
+    const bands: OfferBand[] = isManagerDismissed(board.consequence)
+      ? ['rescue']
+      : ['step_up', 'lateral'];
+    const offers = generateManagerOffers({
+      managerReputation: managerRepDelta.next,
+      currentClubId: playerClubId,
+      currentClubReputation: clubReputation,
+      candidates,
+      bands,
+      rng: p.offerRng,
+    });
     if (offers.length > 0) {
       for (const o of offers) {
         await insertJobOffer(db, saveId, endedSeason, o.offeringClubId);
