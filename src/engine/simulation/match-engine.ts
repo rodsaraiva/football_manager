@@ -32,6 +32,9 @@ export interface MatchInput {
   // C1: derby atmosphere. Absent/neutral (atmosphereMult === 1) ⇒ byte-for-byte
   // identical to the legacy path, so non-derby fixtures are unaffected.
   derbyBonus?: { atmosphereMult: number; homeMoraleBonus: number; awayMoraleBonus: number };
+  // C8-e: recent-form modifier por jogador (id → -1..+1). Ausente ⇒ legado.
+  homeFormModifiers?: Map<number, number>;
+  awayFormModifiers?: Map<number, number>;
   rng: SeededRng;
 }
 
@@ -505,12 +508,14 @@ export function finalizeMatchResult(state: LiveMatchState): MatchResult {
     overall: calculateOverall(p.attributes, p.position),
     position: p.position,
     isLateSub: lateSubIds.has(p.id),
+    formModifier: input.homeFormModifiers?.get(p.id),
   }));
   const awI: PlayerMatchInput[] = awaySquad.map(p => ({
     id: p.id,
     overall: calculateOverall(p.attributes, p.position),
     position: p.position,
     isLateSub: lateSubIds.has(p.id),
+    formModifier: input.awayFormModifiers?.get(p.id),
   }));
   const homeRatings = calculatePlayerRatings(hmI, events, home.goals > away.goals, away.goals, rng);
   const awayRatings = calculatePlayerRatings(awI, events, away.goals > home.goals, home.goals, rng);

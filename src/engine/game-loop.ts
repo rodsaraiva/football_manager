@@ -32,7 +32,8 @@ import { advanceScouting, knowledgeTier, maskedRange } from '@/engine/scouting/s
 import { getActiveMissions, completeMission, setMissionWeeks } from '@/database/queries/scout-missions';
 import { advanceMission, missionVerdict } from '@/engine/scouting/scout-missions';
 import { archetypeMultiplier } from '@/engine/scouting/scout-archetypes';
-import { getRecentForm } from '@/database/queries/player-stats';
+import { getRecentForm, getLastNMatchForm } from '@/database/queries/player-stats';
+import { computeFormModifier } from './simulation/form';
 import { getStaffEffects, assistantAbilityFromStars } from '@/engine/staff/staff-effects';
 import { getActiveTactic, getTacticLineup } from '@/database/queries/tactics';
 import { getSetPieceTakers } from '@/database/queries/set-piece-takers';
@@ -300,6 +301,20 @@ export async function advanceGameWeek(params: AdvanceWeekParams): Promise<Advanc
   // 1. Fixtures + batch-load every club playing this week (one query set per club).
   const fixtures = await getFixturesByWeek(db, saveId, season, week);
   const clubData = await loadWeekClubData(db, saveId, fixtures);
+
+  // C8-e: recent-form modifier por jogador — só p/ o clube do usuário (custo
+  // baixo). AI clubs ficam sem formModifiers ⇒ rating legado byte-for-byte. Não
+  // consome RNG (formModifier é somado ao rating sem rolagem).
+  const userClubData = clubData.get(playerClubId);
+  if (userClubData) {
+    const formMods = new Map<number, number>();
+    for (const p of userClubData.squad) {
+      const recent = await getLastNMatchForm(db, saveId, p.id, season, 5);
+      const mod = computeFormModifier(recent);
+      if (mod !== 0) formMods.set(p.id, mod);
+    }
+    if (formMods.size > 0) userClubData.formModifiers = formMods;
+  }
 
   const playerFixture = fixtures.find(
     f => f.homeClubId === playerClubId || f.awayClubId === playerClubId,

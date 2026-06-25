@@ -11,6 +11,7 @@ export interface ClubMatchData {
   bench: PlayerForStrength[];
   tactic: Tactic;
   setPieceTakers?: SetPieceTakers; // P7: undefined = auto-pick (AI clubs)
+  formModifiers?: Map<number, number>; // C8-e: só p/ o clube do usuário (AI = undefined)
 }
 
 export interface FixtureSimInput {
@@ -74,6 +75,8 @@ export function simulateWeekFixtures(args: {
       awayClubReputation: away?.reputation ?? 50,
       homeSetPieceTakers: home?.setPieceTakers,
       awaySetPieceTakers: away?.setPieceTakers,
+      homeFormModifiers: home?.formModifiers,
+      awayFormModifiers: away?.formModifiers,
       derbyBonus: fx.derbyBonus,
       rng,
     });
