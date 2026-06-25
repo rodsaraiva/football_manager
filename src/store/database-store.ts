@@ -169,6 +169,10 @@ export const useDatabaseStore = create<DatabaseStore>((set) => ({
       await addColumnIfMissing(db, 'players', 'asking_price',       'INTEGER');
       await addColumnIfMissing(db, 'players', 'loan_wage_share',    'REAL');
 
+      // C8-c injury severity tiers + return-fitness cap
+      await addColumnIfMissing(db, 'players', 'injury_severity', 'TEXT');
+      await addColumnIfMissing(db, 'players', 'injury_return_fitness', 'INTEGER');
+
       // Retirement tracking (streak + announced flag)
       await addColumnIfMissing(db, 'players', 'consecutive_low_morale_weeks', 'INTEGER NOT NULL DEFAULT 0');
       await addColumnIfMissing(db, 'players', 'will_retire_at_season_end',    'INTEGER NOT NULL DEFAULT 0');

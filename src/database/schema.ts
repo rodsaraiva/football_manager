@@ -105,6 +105,8 @@ CREATE TABLE IF NOT EXISTS players (
   morale             INTEGER NOT NULL CHECK (morale BETWEEN 1 AND 100),
   fitness            INTEGER NOT NULL CHECK (fitness BETWEEN 1 AND 100),
   injury_weeks_left  INTEGER NOT NULL DEFAULT 0,
+  injury_severity    TEXT,
+  injury_return_fitness INTEGER,
   is_free_agent      INTEGER NOT NULL DEFAULT 0,
   preferred_foot     TEXT    NOT NULL DEFAULT 'right',
   weak_foot_ability  INTEGER NOT NULL DEFAULT 3 CHECK (weak_foot_ability BETWEEN 1 AND 5),
