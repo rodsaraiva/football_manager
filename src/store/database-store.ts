@@ -289,6 +289,40 @@ export const useDatabaseStore = create<DatabaseStore>((set) => ({
         CREATE INDEX IF NOT EXISTS idx_news_save_read   ON news_items(save_id, read);
       `);
 
+      // C6 inbox: caixa de tarefas/decisões. Espelha exatamente a DDL de schema.ts.
+      await db.execAsync(`
+        CREATE TABLE IF NOT EXISTS inbox_threads (
+          id              INTEGER PRIMARY KEY AUTOINCREMENT,
+          save_id         INTEGER NOT NULL REFERENCES save_games(id),
+          category        TEXT    NOT NULL,
+          ref_kind        TEXT    NOT NULL DEFAULT 'none',
+          ref_id          INTEGER,
+          action_kind     TEXT    NOT NULL DEFAULT 'none',
+          status          TEXT    NOT NULL DEFAULT 'open',
+          deadline_season INTEGER,
+          deadline_week   INTEGER,
+          read            INTEGER NOT NULL DEFAULT 0,
+          last_season     INTEGER NOT NULL,
+          last_week       INTEGER NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS inbox_messages (
+          id          INTEGER PRIMARY KEY AUTOINCREMENT,
+          save_id     INTEGER NOT NULL REFERENCES save_games(id),
+          thread_id   INTEGER NOT NULL REFERENCES inbox_threads(id),
+          season      INTEGER NOT NULL,
+          week        INTEGER NOT NULL,
+          title_key   TEXT    NOT NULL,
+          title_vars  TEXT    NOT NULL DEFAULT '{}',
+          body_key    TEXT    NOT NULL,
+          body_vars   TEXT    NOT NULL DEFAULT '{}',
+          icon        TEXT    NOT NULL DEFAULT '📨',
+          from_self   INTEGER NOT NULL DEFAULT 0
+        );
+        CREATE INDEX IF NOT EXISTS idx_inbox_threads_save_status ON inbox_threads(save_id, status, deadline_season, deadline_week);
+        CREATE INDEX IF NOT EXISTS idx_inbox_threads_save_read   ON inbox_threads(save_id, read);
+        CREATE INDEX IF NOT EXISTS idx_inbox_msgs_save_thread    ON inbox_messages(save_id, thread_id);
+      `);
+
       // C5 squad psychology: per-player archetype + fallout state, morale-driver ledger,
       // chemistry clique graph. Legacy saves get defaults 'balanced'/'none'.
       await addColumnIfMissing(db, 'players', 'personality',   "TEXT NOT NULL DEFAULT 'balanced'");
