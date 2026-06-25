@@ -70,6 +70,19 @@ export const ASSISTANT_COMMENT_CHANCE_PER_WEEK = 0.15;
 // seasonsAtClub thresholds to reach each star level (index = star - 1)
 export const ASSISTANT_QUALITY_THRESHOLDS = [0, 2, 4, 7, 10] as const;
 
+// ── C7: gestão in-match (janelas ao vivo + conselho) ─────────────────────────
+// Pontos de pausa FIXOS no 2º tempo (em blocos de 3 min; TOTAL_BLOCKS=30, HALF_BLOCK=15).
+// 15 = intervalo (já existente). 22 ≈ minuto 66 (o "horário clássico de mexer").
+export const LIVE_WINDOW_BLOCKS = [15, 22] as const;
+// Janela opt-in da reta final (~minuto 75). Só abre se o trigger 'final_stretch' estiver ligado.
+export const LIVE_FINAL_STRETCH_BLOCK = 25;
+// Teto de janelas por jogo (intervalo + até 2 no 2º tempo). Evita virar 30 pausas.
+export const MAX_LIVE_WINDOWS = 3;
+// Conselho: diferença de gols a partir da qual "está confortável" → recuar/segurar.
+export const ADVICE_LEAD_COMFORTABLE = 2;
+// Conselho: fadiga (escala interna do motor) a partir da qual sugerir tirar o jogador.
+export const ADVICE_FATIGUE_HIGH = 22;
+
 // Staff hiring (scout/physio/assistant/youth_coach/fitness_coach)
 export const STAFF_ROLE_LIMITS: Record<string, number> = {
   scout: 2,
