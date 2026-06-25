@@ -41,6 +41,7 @@ import { setPressPending } from '@/database/queries/save';
 import { SeededRng } from './rng';
 import { simulateMatch, MatchResult } from './simulation/match-engine';
 import { assignMatchInjuries, injuryRecoveryStep } from './simulation/injury';
+import { computeCongestion } from './simulation/congestion';
 import { resolveMatchSuspensions } from './simulation/match-consequences';
 import { maybeGenerateNextKnockoutRound } from './competition/round-progression';
 import { PlayerForStrength } from './simulation/team-strength';
@@ -437,12 +438,22 @@ export async function advanceGameWeek(params: AdvanceWeekParams): Promise<Advanc
     }
 
     // 6. Update fitness for player's club squad (played → drop, rested → recover).
+    //    Fixture congestion (jogos recentes na janela [week-3, week-1] + esta
+    //    partida) escala o drop e o risco de lesão. gamesInWindow<=1 → legado.
+    const windowStart = Math.max(1, week - 3);
+    const congestionRow = (await db.prepare(
+      `SELECT COUNT(*) AS n FROM fixtures
+       WHERE save_id = ? AND (home_club_id = ? OR away_club_id = ?)
+         AND season = ? AND week BETWEEN ? AND ? AND home_goals IS NOT NULL`,
+    ).get(saveId, playerClubId, playerClubId, season, windowStart, week - 1)) as { n: number };
+    const gamesInWindow = congestionRow.n + 1; // +1 = a partida desta semana
     for (const p of playerSquadRaw) {
       const played = startingIds.has(p.id);
       let newFitness: number;
       if (played) {
-        const drop = rng.nextInt(5, 15);
-        newFitness = Math.max(30, p.fitness - drop);
+        const baseDrop = rng.nextInt(5, 15);
+        const { fitnessDrop } = computeCongestion({ gamesInWindow, baseFitnessDrop: baseDrop });
+        newFitness = Math.max(30, p.fitness - fitnessDrop);
       } else {
         const gain = rng.nextInt(5, 15);
         newFitness = Math.min(100, p.fitness + gain);
@@ -473,7 +484,8 @@ export async function advanceGameWeek(params: AdvanceWeekParams): Promise<Advanc
     }
 
     const playerClubIds = new Set((await getPlayersByClub(db, saveId, playerClubId)).map(p => p.id));
-    for (const inj of assignMatchInjuries(matchResult.events, playerClubIds, rng)) {
+    const { injuryRiskMult } = computeCongestion({ gamesInWindow, baseFitnessDrop: 0 });
+    for (const inj of assignMatchInjuries(matchResult.events, playerClubIds, rng, injuryRiskMult)) {
       await db.prepare('UPDATE players SET injury_weeks_left = ?, injury_severity = ?, injury_return_fitness = ? WHERE save_id = ? AND id = ?')
         .run(inj.weeksLeft, inj.severity, inj.returnFitnessCap, saveId, inj.playerId);
     }
