@@ -169,6 +169,9 @@ export const useDatabaseStore = create<DatabaseStore>((set) => ({
       await addColumnIfMissing(db, 'players', 'asking_price',       'INTEGER');
       await addColumnIfMissing(db, 'players', 'loan_wage_share',    'REAL');
 
+      // C8-a pré-temporada: afiação (match sharpness)
+      await addColumnIfMissing(db, 'players', 'match_sharpness', 'INTEGER NOT NULL DEFAULT 100');
+
       // C8-c injury severity tiers + return-fitness cap
       await addColumnIfMissing(db, 'players', 'injury_severity', 'TEXT');
       await addColumnIfMissing(db, 'players', 'injury_return_fitness', 'INTEGER');

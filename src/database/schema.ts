@@ -104,6 +104,7 @@ CREATE TABLE IF NOT EXISTS players (
   effective_potential INTEGER NOT NULL CHECK (effective_potential BETWEEN 1 AND 100),
   morale             INTEGER NOT NULL CHECK (morale BETWEEN 1 AND 100),
   fitness            INTEGER NOT NULL CHECK (fitness BETWEEN 1 AND 100),
+  match_sharpness    INTEGER NOT NULL DEFAULT 100 CHECK (match_sharpness BETWEEN 1 AND 100),
   injury_weeks_left  INTEGER NOT NULL DEFAULT 0,
   injury_severity    TEXT,
   injury_return_fitness INTEGER,
