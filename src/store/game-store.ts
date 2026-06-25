@@ -3,6 +3,7 @@ import { SaveGame, Club, Player, Fixture, Competition } from '@/types';
 import { MatchResult, HalftimeState } from '@/engine/simulation/match-engine';
 import { PlayerForStrength } from '@/engine/simulation/team-strength';
 import { Tactic } from '@/types/tactic';
+import { LiveWindowKind, MatchAdvice } from '@/types/match-advice';
 import { StandingsEntry } from '@/engine/competition/standings';
 import { useBoardStore } from '@/store/board-store';
 import { useAssistantStore } from '@/store/assistant-store';
@@ -36,6 +37,11 @@ interface GameState {
   halftimeBench: PlayerForStrength[];
   halftimeTactic: Tactic | null;
   halftimeFixtureId: number | null;
+  // C7 (live windows): kind da janela atual (intervalo / 2º tempo / reta final) e
+  // o conselho do assistente recomputado para o snapshot vivo. Transientes como o
+  // halftime — descartados num reload mid-match.
+  liveWindowKind: LiveWindowKind | null;
+  liveAdvice: MatchAdvice[];
   // UI flags
   isAdvancing: boolean;
   isNewSeason: boolean;
@@ -85,6 +91,16 @@ interface GameActions {
     tactic: Tactic;
     fixtureId: number;
   } | null) => void;
+  setLive: (ctx: {
+    halftime: HalftimeState;
+    isHome: boolean;
+    opponentName: string;
+    bench: PlayerForStrength[];
+    tactic: Tactic;
+    fixtureId: number;
+    windowKind: LiveWindowKind;
+    advice: MatchAdvice[];
+  } | null) => void;
   setNewSeason: (isNew: boolean) => void;
   setPreseasonPending: (pending: boolean) => void;
   setPressPending: (pending: boolean) => void;
@@ -129,6 +145,8 @@ const initialState: GameState = {
   halftimeBench: [],
   halftimeTactic: null,
   halftimeFixtureId: null,
+  liveWindowKind: null,
+  liveAdvice: [],
   isAdvancing: false,
   isNewSeason: false,
   preseasonPending: false,
@@ -192,6 +210,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
       halftimeBench: [],
       halftimeTactic: null,
       halftimeFixtureId: null,
+      liveWindowKind: null,
+      liveAdvice: [],
       playerClub: null,
       isNewSeason: false,
       preseasonPending: save.preseasonPending,
@@ -222,6 +242,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
           halftimeBench: ctx.bench,
           halftimeTactic: ctx.tactic,
           halftimeFixtureId: ctx.fixtureId,
+          liveWindowKind: 'halftime',
+          liveAdvice: [],
         }
       : {
           halftime: null,
@@ -230,6 +252,30 @@ export const useGameStore = create<GameStore>((set, get) => ({
           halftimeBench: [],
           halftimeTactic: null,
           halftimeFixtureId: null,
+          liveWindowKind: null,
+          liveAdvice: [],
+        }),
+  setLive: (ctx) =>
+    set(ctx
+      ? {
+          halftime: ctx.halftime,
+          halftimeIsHome: ctx.isHome,
+          halftimeOpponentName: ctx.opponentName,
+          halftimeBench: ctx.bench,
+          halftimeTactic: ctx.tactic,
+          halftimeFixtureId: ctx.fixtureId,
+          liveWindowKind: ctx.windowKind,
+          liveAdvice: ctx.advice,
+        }
+      : {
+          halftime: null,
+          halftimeIsHome: null,
+          halftimeOpponentName: null,
+          halftimeBench: [],
+          halftimeTactic: null,
+          halftimeFixtureId: null,
+          liveWindowKind: null,
+          liveAdvice: [],
         }),
   setNewSeason: (isNew) => set({ isNewSeason: isNew }),
   setPreseasonPending: (pending) => set({ preseasonPending: pending }),
