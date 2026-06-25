@@ -75,7 +75,7 @@ describe('E2E · career loop (multi-season)', () => {
   }, 120_000);
 
   it('demitido com ofertas-resgate: aceita → continua em clube menor com elenco rolado', async () => {
-    await playUntilSeasonEnd(ctx, 555);
+    await playUntilSeasonEnd(ctx, 4040);
     ctx.rawDb.prepare('UPDATE save_games SET board_trust = 0 WHERE id = ?').run(ctx.saveId); // força demissão
     const ageBefore = age(ctx, 1);
     const r = await endSeasonHeadless(ctx, { accept: true });
@@ -87,7 +87,7 @@ describe('E2E · career loop (multi-season)', () => {
     expect(fixturesCountForClub(ctx, r.newClubId!, 2)).toBeGreaterThan(0);
     expect(age(ctx, 1)).toBe(ageBefore + 1);
     // segue jogando uma temporada inteira no novo clube sem crash
-    const r2 = await playUntilSeasonEnd(ctx, 556);
+    const r2 = await playUntilSeasonEnd(ctx, 4041);
     expect(r2.isSeasonEnd).toBe(true);
   }, 120_000);
 
