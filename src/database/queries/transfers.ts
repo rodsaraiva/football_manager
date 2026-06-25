@@ -1,5 +1,6 @@
 import { Transfer, TransferOffer, TransferType, OfferStatus } from '@/types';
 import { DbHandle } from './players';
+import { LoanedPlayerRow } from '@/engine/transfer/loan-portfolio';
 
 interface TransferRow {
   id: number;
@@ -194,4 +195,54 @@ export async function updateOfferFee(
 
 export async function deleteOffer(db: DbHandle, saveId: number, offerId: number): Promise<void> {
   await db.prepare('DELETE FROM transfer_offers WHERE save_id = ? AND id = ?').run(saveId, offerId);
+}
+
+// ─── C8-d: loan portfolio (active loans out + early recall) ──────────────────
+
+/**
+ * Empréstimos ativos cujo clube-pai é `parentClubId` e que ainda NÃO voltaram
+ * (jogador atualmente em outro clube). Agrega stats de player_stats como proxy
+ * de desempenho. Save-isolado.
+ */
+export async function getActiveLoansByParent(
+  db: DbHandle, saveId: number, parentClubId: number,
+): Promise<LoanedPlayerRow[]> {
+  const rows = (await db.prepare(
+    `SELECT t.player_id AS playerId, p.name AS name, p.club_id AS loanClubId,
+            c.name AS loanClubName, t.loan_end AS loanEnd
+     FROM transfers t
+     JOIN players p ON p.save_id = t.save_id AND p.id = t.player_id
+     LEFT JOIN clubs c ON c.save_id = t.save_id AND c.id = p.club_id
+     WHERE t.save_id = ? AND t.type = 'loan' AND t.loan_end IS NOT NULL
+       AND t.from_club_id = ? AND p.club_id != ?`,
+  ).all(saveId, parentClubId, parentClubId)) as Array<{
+    playerId: number; name: string; loanClubId: number; loanClubName: string | null; loanEnd: number;
+  }>;
+
+  const out: LoanedPlayerRow[] = [];
+  for (const r of rows) {
+    const stat = (await db.prepare(
+      `SELECT COALESCE(SUM(appearances),0) AS appearances,
+              COALESCE(SUM(minutes_played),0) AS minutesPlayed,
+              CASE WHEN SUM(minutes_played) > 0
+                   THEN SUM(avg_rating * minutes_played) / SUM(minutes_played) ELSE 0 END AS avgRating
+       FROM player_stats WHERE save_id = ? AND player_id = ?`,
+    ).get(saveId, r.playerId)) as { appearances: number; minutesPlayed: number; avgRating: number };
+    out.push({
+      playerId: r.playerId, name: r.name, loanClubId: r.loanClubId,
+      loanClubName: r.loanClubName ?? '', loanEnd: r.loanEnd,
+      appearances: stat.appearances, avgRating: Math.round(stat.avgRating * 10) / 10, minutesPlayed: stat.minutesPlayed,
+    });
+  }
+  return out;
+}
+
+/** Encerra um empréstimo antes do prazo — devolve o jogador ao clube-pai. */
+export async function recallLoan(
+  db: DbHandle, saveId: number, playerId: number, parentClubId: number,
+): Promise<void> {
+  await db.prepare('UPDATE players SET club_id = ?, loan_wage = NULL WHERE save_id = ? AND id = ?')
+    .run(parentClubId, saveId, playerId);
+  await db.prepare("UPDATE transfers SET loan_end = NULL WHERE save_id = ? AND player_id = ? AND type = 'loan' AND loan_end IS NOT NULL")
+    .run(saveId, playerId);
 }
