@@ -267,6 +267,8 @@ export const useDatabaseStore = create<DatabaseStore>((set) => ({
 
       // P8 achievements: per-save unlocked milestones + one-time onboarding gate.
       await addColumnIfMissing(db, 'save_games', 'onboarding_seen', 'INTEGER NOT NULL DEFAULT 0');
+      // C8-g sentimento de mídia acumulado por save
+      await addColumnIfMissing(db, 'save_games', 'media_sentiment', 'INTEGER NOT NULL DEFAULT 0');
       await db.execAsync(`
         CREATE TABLE IF NOT EXISTS achievements (
           save_id        INTEGER NOT NULL,

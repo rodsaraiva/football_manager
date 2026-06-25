@@ -339,6 +339,7 @@ CREATE TABLE IF NOT EXISTS save_games (
   unemployed_since_season INTEGER,
   manager_savings         INTEGER NOT NULL DEFAULT 0,
   onboarding_seen INTEGER NOT NULL DEFAULT 0,
+  media_sentiment INTEGER NOT NULL DEFAULT 0,
   created_at      TEXT    NOT NULL,
   updated_at      TEXT    NOT NULL
 );

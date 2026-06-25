@@ -46,6 +46,18 @@ export async function setManagerReputation(db: DbHandle, saveId: number, rep: nu
   await db.prepare('UPDATE save_games SET manager_reputation = ? WHERE id = ?').run(rep, saveId);
 }
 
+export async function getMediaSentiment(db: DbHandle, saveId: number): Promise<number> {
+  const row = (await db
+    .prepare('SELECT media_sentiment FROM save_games WHERE id = ?')
+    .get(saveId)) as { media_sentiment: number } | undefined;
+  return row?.media_sentiment ?? 0;
+}
+
+export async function setMediaSentiment(db: DbHandle, saveId: number, value: number): Promise<void> {
+  const clamped = Math.max(-100, Math.min(100, value));
+  await db.prepare('UPDATE save_games SET media_sentiment = ? WHERE id = ?').run(clamped, saveId);
+}
+
 export async function setJobOffersPending(db: DbHandle, saveId: number, pending: boolean): Promise<void> {
   await db.prepare('UPDATE save_games SET job_offers_pending = ? WHERE id = ?').run(pending ? 1 : 0, saveId);
 }
