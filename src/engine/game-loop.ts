@@ -40,7 +40,7 @@ import { updateSaveWeek } from '@/database/queries/saves';
 import { setPressPending } from '@/database/queries/save';
 import { SeededRng } from './rng';
 import { simulateMatch, MatchResult } from './simulation/match-engine';
-import { assignMatchInjuries } from './simulation/injury';
+import { assignMatchInjuries, injuryRecoveryStep } from './simulation/injury';
 import { resolveMatchSuspensions } from './simulation/match-consequences';
 import { maybeGenerateNextKnockoutRound } from './competition/round-progression';
 import { PlayerForStrength } from './simulation/team-strength';
@@ -450,16 +450,32 @@ export async function advanceGameWeek(params: AdvanceWeekParams): Promise<Advanc
       await db.prepare('UPDATE players SET fitness = ? WHERE save_id = ? AND id = ?').run(newFitness, saveId, p.id);
     }
 
-    // 7. Recover existing injuries first (decrement), THEN apply this match's new
-    // injuries — otherwise the freshly-set duration would be decremented in the
-    // same week (gap-audit:163: injuries were cosmetic, never sidelining a player).
-    await db.prepare(
-      'UPDATE players SET injury_weeks_left = MAX(0, injury_weeks_left - 1) WHERE save_id = ? AND injury_weeks_left > 0 AND club_id = ?',
-    ).run(saveId, playerClubId);
+    // 7. Recover existing injuries first (physio-modulated), THEN apply this
+    // match's new injuries — otherwise the freshly-set duration would be
+    // decremented in the same week (gap-audit:163: injuries were cosmetic).
+    // Physio (0..20) accelerates recovery; on full recovery, fitness is capped
+    // at injury_return_fitness (worse injuries return less sharp).
+    const physioAbility = abilityByRole('physio');
+    const injured = (await db.prepare(
+      'SELECT id, injury_weeks_left, injury_return_fitness, fitness FROM players WHERE save_id = ? AND club_id = ? AND injury_weeks_left > 0',
+    ).all(saveId, playerClubId)) as Array<{ id: number; injury_weeks_left: number; injury_return_fitness: number | null; fitness: number }>;
+    for (const row of injured) {
+      const nextWeeks = injuryRecoveryStep(row.injury_weeks_left, physioAbility);
+      if (nextWeeks === 0) {
+        const cap = row.injury_return_fitness ?? row.fitness;
+        const cappedFitness = Math.min(row.fitness, cap);
+        await db.prepare(
+          'UPDATE players SET injury_weeks_left = 0, injury_severity = NULL, injury_return_fitness = NULL, fitness = ? WHERE save_id = ? AND id = ?',
+        ).run(cappedFitness, saveId, row.id);
+      } else {
+        await db.prepare('UPDATE players SET injury_weeks_left = ? WHERE save_id = ? AND id = ?').run(nextWeeks, saveId, row.id);
+      }
+    }
 
     const playerClubIds = new Set((await getPlayersByClub(db, saveId, playerClubId)).map(p => p.id));
     for (const inj of assignMatchInjuries(matchResult.events, playerClubIds, rng)) {
-      await db.prepare('UPDATE players SET injury_weeks_left = ? WHERE save_id = ? AND id = ?').run(inj.weeksLeft, saveId, inj.playerId);
+      await db.prepare('UPDATE players SET injury_weeks_left = ?, injury_severity = ?, injury_return_fitness = ? WHERE save_id = ? AND id = ?')
+        .run(inj.weeksLeft, inj.severity, inj.returnFitnessCap, saveId, inj.playerId);
     }
 
     // 8. Suspensions: tick down current bans first, THEN apply this match's cards
