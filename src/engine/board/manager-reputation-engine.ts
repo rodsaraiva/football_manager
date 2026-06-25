@@ -5,6 +5,8 @@ import {
   MANAGER_REP_TOP_THIRD_BONUS,
   MANAGER_REP_RELEGATION_PENALTY,
   MANAGER_REP_OBJECTIVE_FAILED_PENALTY,
+  MANAGER_REP_UNEMPLOYED_DECAY,
+  MANAGER_REP_FLOOR,
 } from '@/engine/balance';
 
 export interface ManagerRepInput {
@@ -41,5 +43,14 @@ export function computeManagerReputationDelta(input: ManagerRepInput): { next: n
   const total = titleBonus + cupBonus + promotionBonus + topThirdBonus + relegationPenalty + objectivePenalty;
 
   const next = Math.min(100, Math.max(1, current + total));
+  return { next, delta: next - current };
+}
+
+/**
+ * Decaimento de reputação por temporada de desemprego (técnico esquecido pelo mercado).
+ * Clampa no piso MANAGER_REP_FLOOR. Puro.
+ */
+export function applyUnemploymentDecay(current: number): { next: number; delta: number } {
+  const next = Math.max(MANAGER_REP_FLOOR, current + MANAGER_REP_UNEMPLOYED_DECAY);
   return { next, delta: next - current };
 }
