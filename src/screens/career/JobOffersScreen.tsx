@@ -10,6 +10,9 @@ import { useDatabaseStore } from '@/store/database-store';
 import { useBoardStore } from '@/store/board-store';
 import { RootStackParamList } from '@/navigation/types';
 import { SeededRng } from '@/engine/rng';
+import { OfferBand } from '@/engine/board/job-offers-engine';
+import { buildManagerContract } from '@/engine/board/manager-contract-engine';
+import { getManagerSavings, getUnemployedSince } from '@/database/queries/save';
 import {
   getPendingJobOffers,
   expirePendingJobOffers,
@@ -32,6 +35,8 @@ export function JobOffersScreen() {
     season,
     currentSave,
     unemployed,
+    playerClub,
+    managerReputation,
     setPlayerClub,
     setPreseasonPending,
     setJobOffersPending,
@@ -49,20 +54,39 @@ export function JobOffersScreen() {
   const [offers, setOffers] = useState<PendingJobOffer[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [savings, setSavings] = useState<number | null>(null);
+  const [seasonsIdle, setSeasonsIdle] = useState<number | null>(null);
 
   const load = useCallback(async () => {
     if (!dbHandle || saveId == null) return;
     setLoading(true);
     const pending = await getPendingJobOffers(dbHandle, saveId, offerSeason);
     setOffers(pending);
+    if (unemployed) {
+      setSavings(await getManagerSavings(dbHandle, saveId));
+      const since = await getUnemployedSince(dbHandle, saveId);
+      setSeasonsIdle(since == null ? null : Math.max(0, season - since));
+    } else {
+      setSavings(null);
+      setSeasonsIdle(null);
+    }
     setLoading(false);
-  }, [dbHandle, saveId, offerSeason]);
+  }, [dbHandle, saveId, offerSeason, unemployed, season]);
 
   useFocusEffect(
     useCallback(() => {
       load();
     }, [load]),
   );
+
+  // Banda da oferta: desempregado → recomeço; senão compara reputação do clube ofertante
+  // com a do clube atual (acima → promoção, igual → lateral, abaixo → recomeço).
+  function bandForOffer(offer: PendingJobOffer): OfferBand {
+    if (unemployed || !playerClub) return 'rescue';
+    if (offer.clubReputation > playerClub.reputation) return 'step_up';
+    if (offer.clubReputation < playerClub.reputation) return 'rescue';
+    return 'lateral';
+  }
 
   async function handleAccept(offer: PendingJobOffer) {
     if (!dbHandle || saveId == null || busy) return;
@@ -74,6 +98,7 @@ export function JobOffersScreen() {
         offeringClubId: offer.offeringClubId,
         offerSeason,
         newSeason: season,
+        band: bandForOffer(offer),
         rng: new SeededRng(season * 4099 + offer.offeringClubId),
       });
       // Mirror the persisted switch into the stores. Manager reputation is intentionally
@@ -163,6 +188,12 @@ export function JobOffersScreen() {
       <View style={styles.header}>
         <Headline>{unemployed ? t('joboffers.unemployed_header') : t('joboffers.title')}</Headline>
         <Body color={colors.primary}>{unemployed ? t('joboffers.unemployed_sub') : t('joboffers.subtitle')}</Body>
+        {unemployed && savings != null && (
+          <Caption color={colors.textSecondary}>{t('unemployed.savings', { savings })}</Caption>
+        )}
+        {unemployed && seasonsIdle != null && (
+          <Caption color={colors.textSecondary}>{t('unemployed.seasons_idle', { seasons: seasonsIdle })}</Caption>
+        )}
       </View>
 
       {offers.length === 0 ? (
@@ -170,32 +201,54 @@ export function JobOffersScreen() {
           <EmptyState art="generic" title={t('joboffers.empty')} />
         </View>
       ) : (
-        offers.map((offer) => (
-          <Card key={offer.id} variant="detail" accent={colors.primary} selected style={styles.offerCard}>
-            <View style={styles.offerTop}>
-              <View style={styles.offerInfo}>
-                <Title>{offer.clubName}</Title>
+        offers.map((offer) => {
+          const band = bandForOffer(offer);
+          const terms = buildManagerContract({
+            clubReputation: offer.clubReputation,
+            managerReputation,
+            band,
+            startSeason: season,
+            rng: new SeededRng(season * 31337 + offer.offeringClubId),
+          });
+          return (
+            <Card key={offer.id} variant="detail" accent={colors.primary} selected style={styles.offerCard}>
+              <View style={styles.offerTop}>
+                <View style={styles.offerInfo}>
+                  <Title>{offer.clubName}</Title>
+                  <Caption color={colors.textSecondary}>
+                    {t('joboffers.club_meta', { league: offer.leagueName, division: offer.divisionLevel })}
+                  </Caption>
+                  <Caption color={colors.primary}>{t(`joboffers.band_${band}`)}</Caption>
+                </View>
+                <Button
+                  label={t('joboffers.accept')}
+                  variant="primary"
+                  disabled={busy}
+                  onPress={() => confirmAccept(offer)}
+                  testID={`accept-offer-${offer.id}`}
+                  accessibilityLabel={t('joboffers.accept')}
+                />
+              </View>
+              <StatBar
+                value={offer.clubReputation}
+                maxValue={100}
+                color={colors.primary}
+                valueText={t('joboffers.club_reputation', { rep: offer.clubReputation })}
+              />
+              <View style={styles.contractBox}>
                 <Caption color={colors.textSecondary}>
-                  {t('joboffers.club_meta', { league: offer.leagueName, division: offer.divisionLevel })}
+                  {t('joboffers.contract_duration', { seasons: terms.endSeason - terms.startSeason })}
+                </Caption>
+                <Caption color={colors.textSecondary}>
+                  {t('joboffers.contract_wage', { wage: terms.wagePerSeason })}
+                </Caption>
+                <Caption color={colors.textSecondary}>
+                  {t('joboffers.contract_clause', { clause: terms.releaseClause })}
                 </Caption>
               </View>
-              <Button
-                label={t('joboffers.accept')}
-                variant="primary"
-                disabled={busy}
-                onPress={() => confirmAccept(offer)}
-                testID={`accept-offer-${offer.id}`}
-                accessibilityLabel={t('joboffers.accept')}
-              />
-            </View>
-            <StatBar
-              value={offer.clubReputation}
-              maxValue={100}
-              color={colors.primary}
-              valueText={t('joboffers.club_reputation', { rep: offer.clubReputation })}
-            />
-          </Card>
-        ))
+            </Card>
+          );
+        })
       )}
 
       <View style={styles.stayWrap}>
@@ -228,6 +281,7 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   offerTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm },
-  offerInfo: { flex: 1 },
+  offerInfo: { flex: 1, gap: spacing.xs },
+  contractBox: { gap: spacing.xs },
   stayWrap: { marginHorizontal: spacing.md, marginTop: spacing.md },
 });
