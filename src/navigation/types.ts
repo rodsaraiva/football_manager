@@ -26,6 +26,7 @@ export type RootStackParamList = {
   OffersSent: undefined;
   OffersReceived: undefined;
   FreeAgents: undefined;
+  LoanPortfolio: undefined;
   // League standings (reachable from Matches and Reports hub)
   LeagueStandings: undefined;
   // Reports sub-screens

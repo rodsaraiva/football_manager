@@ -16,6 +16,7 @@ import { AssistantsScreen } from '@/screens/club/AssistantsScreen';
 import { AssistantHiringScreen } from '@/screens/club/AssistantHiringScreen';
 import { TransferMarketScreen } from '@/screens/club/transfers/TransferMarketScreen';
 import { OffersSentScreen } from '@/screens/club/transfers/OffersSentScreen';
+import { LoanPortfolioScreen } from '@/screens/club/transfers/LoanPortfolioScreen';
 import { OffersReceivedScreen } from '@/screens/club/transfers/OffersReceivedScreen';
 import { FreeAgentsScreen } from '@/screens/club/transfers/FreeAgentsScreen';
 import { MyListingsScreen } from '@/screens/club/transfers/MyListingsScreen';
@@ -99,6 +100,7 @@ export function RootNavigator() {
       <Stack.Screen name="OffersSent" component={OffersSentScreen} options={{ title: t('nav.offers_sent') }} />
       <Stack.Screen name="OffersReceived" component={OffersReceivedScreen} options={{ title: t('nav.offers_received') }} />
       <Stack.Screen name="FreeAgents" component={FreeAgentsScreen} options={{ title: t('nav.free_agents') }} />
+      <Stack.Screen name="LoanPortfolio" component={LoanPortfolioScreen} options={{ title: t('loan_portfolio.title') }} />
       <Stack.Screen name="MyListings" component={MyListingsScreen} options={{ title: t('nav.my_listings') }} />
       {/* League table as a pushable screen */}
       <Stack.Screen name="LeagueStandings" component={StandingsScreen} options={{ title: t('nav.league_table') }} />
