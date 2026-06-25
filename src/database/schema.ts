@@ -547,6 +547,7 @@ CREATE TABLE IF NOT EXISTS set_piece_takers (
   penalty_taker_id   INTEGER,
   free_kick_taker_id INTEGER,
   corner_taker_id    INTEGER,
+  corner_routine     TEXT    NOT NULL DEFAULT 'auto',
   PRIMARY KEY (save_id, club_id)
 );
 

@@ -262,6 +262,8 @@ export const useDatabaseStore = create<DatabaseStore>((set) => ({
           PRIMARY KEY (save_id, club_id)
         );
       `);
+      // C8-f rotina de escanteio
+      await addColumnIfMissing(db, 'set_piece_takers', 'corner_routine', "TEXT NOT NULL DEFAULT 'auto'");
 
       // P8 achievements: per-save unlocked milestones + one-time onboarding gate.
       await addColumnIfMissing(db, 'save_games', 'onboarding_seen', 'INTEGER NOT NULL DEFAULT 0');
