@@ -33,6 +33,7 @@ import { ScoutingScreen } from '@/screens/reports/ScoutingScreen';
 import { InternationalsScreen } from '@/screens/national/InternationalsScreen';
 import { HistoryScreen } from '@/screens/history/HistoryScreen';
 import { PlayerDetailRoute } from '@/screens/squad/PlayerDetailRoute';
+import { MoraleBreakdownScreen } from '@/screens/squad/MoraleBreakdownScreen';
 import { TeamTalkScreen } from '@/screens/squad/TeamTalkScreen';
 import { SetPiecesScreen } from '@/screens/tactics/SetPiecesScreen';
 import { MatchResultScreen } from '@/screens/home/MatchResultScreen';
@@ -75,6 +76,7 @@ export function RootNavigator() {
       <Stack.Screen name="GameOver" component={GameOverScreen} options={{ headerShown: false }} />
       {/* Player detail + match result (reachable from reports, squad, results) */}
       <Stack.Screen name="PlayerDetail" component={PlayerDetailRoute} options={{ title: t('nav.player') }} />
+      <Stack.Screen name="MoraleBreakdown" component={MoraleBreakdownScreen} options={{ title: t('psychology.title') }} />
       <Stack.Screen name="TeamTalk" component={TeamTalkScreen} options={{ title: t('nav.team_talk') }} />
       <Stack.Screen name="SetPieces" component={SetPiecesScreen} options={{ title: t('nav.set_pieces') }} />
       <Stack.Screen name="MatchResult" component={MatchResultScreen} options={{ title: t('nav.match_result') }} />

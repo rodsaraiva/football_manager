@@ -353,6 +353,22 @@ export default function PlayerDetailScreen({ player, onBack }: PlayerDetailScree
             <StatBar label="Fitness" value={player.fitness} maxValue={100} />
           </View>
 
+          {/* C5: personality archetype + "why this morale?" deep-link */}
+          <View style={styles.psychologyRow}>
+            <Badge
+              value={t(('psychology.archetype_' + player.personality) as TKey)}
+              tone={player.falloutState === 'wantsOut' ? 'danger' : player.falloutState === 'unsettled' ? 'warning' : 'neutral'}
+              size="sm"
+            />
+            <Pressable
+              onPress={() => navigation.navigate('MoraleBreakdown', { playerId: player.id })}
+              testID="playerdetail-morale-why"
+              accessibilityLabel={t('psychology.link_why')}
+            >
+              <Label color={accent.accent}>{t('psychology.link_why')}</Label>
+            </Pressable>
+          </View>
+
           {/* Foot info */}
           <View style={styles.footRow}>
             <View style={styles.footItem}>
@@ -649,6 +665,12 @@ const styles = StyleSheet.create({
     fontSize: fontSize.xl,
   },
   barsSection: {
+    marginTop: spacing.md,
+  },
+  psychologyRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     marginTop: spacing.md,
   },
   footRow: {

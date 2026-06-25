@@ -7,6 +7,7 @@ export type RootStackParamList = {
   MatchHalftime: undefined;
   PressConference: undefined;
   PlayerDetail: { playerId: number };
+  MoraleBreakdown: { playerId: number };
   EndOfSeason: undefined;
   TeamTalk: undefined;
   SetPieces: undefined;
