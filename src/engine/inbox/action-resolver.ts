@@ -1,4 +1,5 @@
 import type { DbHandle } from '@/database/queries/players';
+import type { TKey } from '@/i18n/translate';
 import type { InboxActionChoice } from './inbox-types';
 import { getThreadView, appendMessage, setThreadStatus } from '@/database/queries/inbox';
 import {
@@ -79,10 +80,10 @@ export async function resolveInboxAction(
 
 async function closeWithReply(
   db: DbHandle, saveId: number, threadId: number, season: number, week: number,
-  titleKey: string, bodyKey: string, icon: string,
+  titleKey: TKey, bodyKey: TKey, icon: string,
 ): Promise<void> {
   await appendMessage(db, saveId, threadId, {
-    season, week, titleKey: titleKey as never, bodyKey: bodyKey as never, icon, fromSelf: true,
+    season, week, titleKey, bodyKey, icon, fromSelf: true,
   });
   await setThreadStatus(db, saveId, threadId, 'resolved');
 }

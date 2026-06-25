@@ -25,9 +25,9 @@ export async function emitOfferReceived(
     { category: 'transfer', refKind: 'transfer_offer', refId: args.offerId, actionKind: 'offer_response', deadlineSeason, deadlineWeek },
     {
       season: args.season, week: args.week,
-      titleKey: 'inbox.offer_received_title' as never,
+      titleKey: 'inbox.offer_received_title',
       titleVars: { player: args.playerName },
-      bodyKey: 'inbox.offer_received_body' as never,
+      bodyKey: 'inbox.offer_received_body',
       bodyVars: { club: args.offeringClubName, fee: args.fee },
       icon: '💰',
     },
@@ -43,9 +43,9 @@ export async function emitLoanReturn(
     { category: 'loan', refKind: 'player', actionKind: 'none' },
     {
       season: args.season, week: args.week,
-      titleKey: 'inbox.loan_return_title' as never,
+      titleKey: 'inbox.loan_return_title',
       titleVars: { player: args.playerName },
-      bodyKey: 'inbox.loan_return_body' as never,
+      bodyKey: 'inbox.loan_return_body',
       bodyVars: { club: args.parentClubName },
       icon: '↩️',
     },
