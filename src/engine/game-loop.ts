@@ -7,6 +7,7 @@ import { getAssistantsBySave, getAssistantByRole } from '@/database/queries/assi
 import { maybeGenerateComment } from './assistant/comment-generator';
 import { AssistantComment } from '@/types/assistant';
 import { processPendingOffers } from './transfer/offer-processor';
+import { expireInboxDeadlines } from '@/engine/inbox/deadline-sweeper';
 import { processYouthLoanWeek } from '@/engine/youth/youth-loans';
 import { generateAiOffersForSquad, generateAiToAiOffers } from './transfer/ai-offer-generator';
 import { expireStaleOffers, prunExpiredBlocks } from './transfer/negotiation';
@@ -697,6 +698,10 @@ export async function advanceGameWeek(params: AdvanceWeekParams): Promise<Advanc
     await generateAiToAiOffers(db, saveId, rng, season, week, playerClubId);
     await generateAiOffersForSquad(db, saveId, playerClubId, rng, season, week);
   }
+
+  // 3c-pre. Expira itens acionáveis da Inbox cujo prazo venceu (default action) antes de
+  //         processar novas ofertas, p/ o badge refletir só pendências reais da semana.
+  await expireInboxDeadlines(db, saveId, season, week);
 
   // 3c. Process pending offers submitted by the player (always, not gated by window)
   await processPendingOffers(db, saveId, season, week, playerClubId);

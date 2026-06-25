@@ -7,6 +7,7 @@ import { StandingsEntry } from '@/engine/competition/standings';
 import { useBoardStore } from '@/store/board-store';
 import { useAssistantStore } from '@/store/assistant-store';
 import { countUnread } from '@/database/queries/news';
+import { countUnreadThreads, countActionableThreads } from '@/database/queries/inbox';
 import type { DbHandle } from '@/database/queries/players';
 
 interface GameState {
@@ -61,6 +62,9 @@ interface GameState {
   pendingAnnouncedRetirementIds: number[];
   // W3 news: contador de notícias não-lidas (badge na NewsTab)
   unreadNewsCount: number;
+  // C6 inbox: badges. actionable tem prioridade na aba.
+  unreadInboxCount: number;
+  actionableInboxCount: number;
 }
 
 interface GameActions {
@@ -94,6 +98,8 @@ interface GameActions {
   setPendingAnnouncedRetirementIds: (ids: number[]) => void;
   setUnreadNewsCount: (n: number) => void;
   refreshUnreadNewsCount: (db: DbHandle) => Promise<void>;
+  setInboxCounts: (counts: { unread: number; actionable: number }) => void;
+  refreshInboxCounts: (db: DbHandle) => Promise<void>;
   // Data loading
   setSquad: (squad: Player[]) => void;
   setCompetitions: (competitions: Competition[]) => void;
@@ -136,6 +142,8 @@ const initialState: GameState = {
   lastRetiredPlayerIds: [],
   pendingAnnouncedRetirementIds: [],
   unreadNewsCount: 0,
+  unreadInboxCount: 0,
+  actionableInboxCount: 0,
 };
 
 export const useGameStore = create<GameStore>((set, get) => ({
@@ -240,6 +248,16 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (!save) return;
     const n = await countUnread(db, save.id);
     set({ unreadNewsCount: n });
+  },
+  setInboxCounts: ({ unread, actionable }) => set({ unreadInboxCount: unread, actionableInboxCount: actionable }),
+  refreshInboxCounts: async (db) => {
+    const save = get().currentSave;
+    if (!save) return;
+    const [unread, actionable] = await Promise.all([
+      countUnreadThreads(db, save.id),
+      countActionableThreads(db, save.id),
+    ]);
+    set({ unreadInboxCount: unread, actionableInboxCount: actionable });
   },
   setSquad: (squad) => set({ squad }),
   setCompetitions: (competitions) => set({ competitions }),
