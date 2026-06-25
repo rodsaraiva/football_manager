@@ -38,7 +38,7 @@ import { getAchievementDef } from '@/engine/achievements/achievements-catalog';
 import { isOnboardingSeen, setOnboardingSeen } from '@/database/queries/save';
 import { AchievementToast } from '@/components/AchievementToast';
 import { OnboardingModal } from '@/components/OnboardingModal';
-import { startUserMatchHalftime } from '@/engine/match-day/halftime';
+import { startUserMatchLive } from '@/engine/match-day/live-match';
 import { resolveAdvanceReload } from '@/engine/advance-reload';
 import { ensureSeasonFixtures } from '@/engine/competition/calendar';
 import { FORMATION_ROWS } from '@/engine/formations';
@@ -107,7 +107,7 @@ export function HomeScreen() {
     setPressPending,
     setLastMatchResult,
     setLastMatchContext,
-    setHalftime,
+    setLive,
     lastMatchIsHome,
     lastMatchOpponentName,
     setNewSeason,
@@ -456,7 +456,7 @@ export function HomeScreen() {
     if (isAdvancing || !dbHandle || !playerClubId || !currentSave) return;
     setAdvancing(true);
     try {
-      const ctx = await startUserMatchHalftime({
+      const ctx = await startUserMatchLive({
         dbHandle,
         season,
         week,
@@ -469,17 +469,19 @@ export function HomeScreen() {
         await handleAdvanceWeek();
         return;
       }
-      setHalftime({
-        halftime: ctx.halftime,
+      setLive({
+        halftime: ctx.state,
         isHome: ctx.isHome,
         opponentName: ctx.opponentName,
         bench: ctx.homeBench,
         tactic: ctx.homeTactic,
         fixtureId: ctx.fixtureId,
+        windowKind: ctx.windowKind,
+        advice: ctx.advice,
       });
-      navigation.navigate('MatchHalftime');
+      navigation.navigate('MatchLiveWindow', { windowKind: ctx.windowKind });
     } catch (err) {
-      console.error('[HomeScreen] startUserMatchHalftime failed:', err);
+      console.error('[HomeScreen] startUserMatchLive failed:', err);
     } finally {
       setAdvancing(false);
     }
@@ -491,7 +493,7 @@ export function HomeScreen() {
     season,
     week,
     setAdvancing,
-    setHalftime,
+    setLive,
     navigation,
     handleAdvanceWeek,
   ]);

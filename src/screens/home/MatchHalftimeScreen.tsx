@@ -20,8 +20,11 @@ import { RootStackParamList } from '@/navigation/types';
 import { MatchEvent, Mentality, Pressing, Tempo } from '@/types';
 import { Tactic } from '@/types/tactic';
 import { PlayerForStrength } from '@/engine/simulation/team-strength';
-import { resumeSecondHalf, SecondHalfOverrides } from '@/engine/simulation/match-engine';
-import { orientResultToFixture } from '@/engine/match-day/halftime';
+import { SecondHalfOverrides } from '@/engine/simulation/match-engine';
+import { advanceToNextWindow, finishLiveMatch, nextWindowBlock } from '@/engine/match-day/live-match';
+import { getAssistantByRole } from '@/database/queries/assistants';
+import type { AssistantArchetype } from '@/types/assistant';
+import type { MatchAdvice } from '@/types/match-advice';
 import { advanceGameWeek } from '@/engine/game-loop';
 import { resolveAdvanceReload } from '@/engine/advance-reload';
 import { getPlayerById } from '@/database/queries/players';
@@ -86,6 +89,8 @@ export function MatchHalftimeScreen() {
     halftimeOpponentName,
     halftimeBench,
     halftimeTactic,
+    liveWindowKind,
+    liveAdvice,
     playerClub,
     currentSave,
     playerClubId,
@@ -93,7 +98,7 @@ export function MatchHalftimeScreen() {
     week,
     setLastMatchResult,
     setLastMatchContext,
-    setHalftime,
+    setLive,
     setPressPending,
     updateWeek,
     setPlayerClub,
@@ -207,86 +212,152 @@ export function MatchHalftimeScreen() {
   const setSubIn = (idx: number, inId: number) =>
     setSubs(subs.map((s, i) => (i === idx ? { ...s, inId } : s)));
 
-  const handleResume = async () => {
+  // ── Live-window framing (C7) ───────────────────────────────────────────
+  const windowKind = liveWindowKind ?? 'halftime';
+  // Janelas já consumidas: intervalo conta 1; cada janela do 2º tempo (currentBlock>=22) +1.
+  const windowsUsed = halftime.currentBlock >= 22 ? 2 : 1;
+  // Última janela quando não há mais ponto fixo de pausa antes do fim.
+  const isLastWindow = nextWindowBlock(halftime.currentBlock, windowsUsed) === null;
+
+  // Aplica um conselho ao painel de ajustes (pré-preenche o controle correspondente).
+  const applyAdvice = (advice: MatchAdvice) => {
+    if (advice.suggestedMentality) setMentality(advice.suggestedMentality);
+    if (advice.suggestedPressing) setPressing(advice.suggestedPressing);
+    if (
+      advice.suggestedSubOutId != null &&
+      advice.suggestedSubInId != null &&
+      canAddSub &&
+      onPitchIds.has(advice.suggestedSubOutId) &&
+      !usedOutIds.has(advice.suggestedSubOutId) &&
+      !usedInIds.has(advice.suggestedSubInId)
+    ) {
+      setSubs([...subs, { outId: advice.suggestedSubOutId, inId: advice.suggestedSubInId }]);
+    }
+  };
+
+  const buildOverrides = (): SecondHalfOverrides => ({
+    homeTactic: { ...(halftimeTactic as Tactic), mentality, pressing, tempo },
+    homeSubs: subs.filter(s => onPitchIds.has(s.outId)),
+  });
+
+  // Recarrega o arquétipo/qualidade do assistente p/ recomputar conselho na próxima janela.
+  const loadAssistantMeta = async (): Promise<{ archetype: AssistantArchetype; qualityStars: number }> => {
+    const a = currentSave ? await getAssistantByRole(dbHandle!, currentSave.id, 'squad') : null;
+    return { archetype: (a?.archetype as AssistantArchetype) ?? 'tactician', qualityStars: a?.qualityStars ?? 3 };
+  };
+
+  // Avança para a PRÓXIMA janela do 2º tempo (sem finalizar). Permanece na tela.
+  const handleAdvance = async () => {
     if (resuming || !dbHandle || !currentSave || !playerClubId) return;
     setResuming(true);
     try {
-      const newTactic: Tactic = {
-        ...(halftimeTactic as Tactic),
-        mentality,
-        pressing,
-        tempo,
-      };
-      const overrides: SecondHalfOverrides = {
-        homeTactic: newTactic,
-        homeSubs: subs.filter(s => onPitchIds.has(s.outId)),
-      };
-      // Resume with the live rng held in the halftime snapshot.
-      const engineResult = resumeSecondHalf(halftime, overrides);
-      // Re-orient to the fixture's home/away frame before persisting.
-      const fixtureResult = orientResultToFixture(engineResult, halftimeIsHome);
-
-      setLastMatchContext(halftimeIsHome, oppName);
-
-      const rng = new SeededRng(season * 1000 + week);
-      const result = await advanceGameWeek({
-        dbHandle,
-        season,
-        week,
-        playerClubId,
-        saveId: currentSave.id,
-        rng,
-        userMatchResultOverride: fixtureResult,
+      const { archetype, qualityStars } = await loadAssistantMeta();
+      const next = advanceToNextWindow({
+        state: halftime,
+        isHome: halftimeIsHome,
+        opponentName: oppName,
+        windowsUsed,
+        overrides: buildOverrides(),
+        // D7 (settings-store) fornecerá os toggles de trigger; engine já suporta.
+        triggers: [],
+        archetype,
+        qualityStars,
       });
-
-      updateWeek(result.newSeason, result.newWeek);
-      if (result.playerMatchResult) setLastMatchResult(result.playerMatchResult);
-      // Mirror the press gate the engine armed (a user match was played) so the
-      // MatchResult continue button routes into the press conference.
-      if (result.playerMatchResult) setPressPending(true);
-
-      // Post-match achievement checkpoint (USER perspective). The toast surfaces on Home
-      // via the store, since this path navigates away to MatchResult.
-      if (result.playerMatchResult) {
-        const pmr = result.playerMatchResult;
-        const myGoals = halftimeIsHome ? pmr.homeGoals : pmr.awayGoals;
-        const oppGoals = halftimeIsHome ? pmr.awayGoals : pmr.homeGoals;
-        const totalWins = await countClubWins(dbHandle, currentSave.id, playerClubId);
-        try {
-          const newly = await processAchievementCheckpoint({
-            db: dbHandle,
-            saveId: currentSave.id,
-            season,
-            week,
-            snapshot: { justWon: myGoals > oppGoals, goalMargin: myGoals - oppGoals, totalWins },
-          });
-          if (newly.length > 0) setPendingAchievementToastIds(newly.map((d) => d.id));
-        } catch { /* best-effort */ }
+      if (!next) {
+        // Já chegou ao fim — finaliza direto (overrides já aplicados acima ⇒ vazios).
+        await finalizeMatch({});
+        return;
       }
-      if (result.assistantComment) {
-        setPendingComment(result.assistantComment);
-        setLastCommentWeek(result.newWeek);
-      }
-      // P9: surface the international call-up notice on Home (this path navigates away).
-      setPendingInternationalCallUpCount(result.internationalCallUps?.length ?? 0);
-      setHalftime(null);
-
-      const updatedClub = await getClubById(dbHandle, currentSave.id, playerClubId);
-      if (updatedClub) setPlayerClub(updatedClub);
-
-      const reload = resolveAdvanceReload({ result, season });
-      const allFixtures = await getClubFixtures(dbHandle, currentSave.id, playerClubId, reload.fetchSeasonForRecents);
-      setRecentResults(allFixtures.filter(f => f.played).slice(-5));
-
-      if (reload.shouldStartNewSeason) setNewSeason(true);
-      if (result.retiringPlayerIds.length > 0) setLastRetiredPlayerIds(result.retiringPlayerIds);
-      if (result.newlyAnnouncedRetirementIds.length > 0) {
-        setPendingAnnouncedRetirementIds(result.newlyAnnouncedRetirementIds);
-      }
-
-      navigation.replace('MatchResult', { fixtureId: halftime.input.fixtureId });
+      setLive({
+        halftime: next.state,
+        isHome: next.isHome,
+        opponentName: next.opponentName,
+        bench: next.homeBench,
+        tactic: next.homeTactic,
+        fixtureId: next.fixtureId,
+        windowKind: next.windowKind,
+        advice: next.advice,
+      });
+      // Reset dos controles para o estado tático corrente da nova janela.
+      setMentality(next.homeTactic.mentality);
+      setPressing(next.homeTactic.pressing);
+      setTempo(next.homeTactic.tempo);
+      setSubs([]);
+      setResuming(false);
     } catch (err) {
-      console.error('[MatchHalftime] resume failed:', err);
+      console.error('[MatchHalftime] advance failed:', err);
+      setResuming(false);
+    }
+  };
+
+  // Finaliza a partida (aplica overrides finais, roda até o fim, persiste).
+  const finalizeMatch = async (overrides: SecondHalfOverrides) => {
+    if (!dbHandle || !currentSave || !playerClubId) return;
+    const fixtureResult = finishLiveMatch({ state: halftime, isHome: halftimeIsHome, overrides });
+
+    setLastMatchContext(halftimeIsHome, oppName);
+
+    const rng = new SeededRng(season * 1000 + week);
+    const result = await advanceGameWeek({
+      dbHandle,
+      season,
+      week,
+      playerClubId,
+      saveId: currentSave.id,
+      rng,
+      userMatchResultOverride: fixtureResult,
+    });
+
+    updateWeek(result.newSeason, result.newWeek);
+    if (result.playerMatchResult) setLastMatchResult(result.playerMatchResult);
+    if (result.playerMatchResult) setPressPending(true);
+
+    if (result.playerMatchResult) {
+      const pmr = result.playerMatchResult;
+      const myGoals = halftimeIsHome ? pmr.homeGoals : pmr.awayGoals;
+      const oppG = halftimeIsHome ? pmr.awayGoals : pmr.homeGoals;
+      const totalWins = await countClubWins(dbHandle, currentSave.id, playerClubId);
+      try {
+        const newly = await processAchievementCheckpoint({
+          db: dbHandle,
+          saveId: currentSave.id,
+          season,
+          week,
+          snapshot: { justWon: myGoals > oppG, goalMargin: myGoals - oppG, totalWins },
+        });
+        if (newly.length > 0) setPendingAchievementToastIds(newly.map((d) => d.id));
+      } catch { /* best-effort */ }
+    }
+    if (result.assistantComment) {
+      setPendingComment(result.assistantComment);
+      setLastCommentWeek(result.newWeek);
+    }
+    setPendingInternationalCallUpCount(result.internationalCallUps?.length ?? 0);
+    setLive(null);
+
+    const updatedClub = await getClubById(dbHandle, currentSave.id, playerClubId);
+    if (updatedClub) setPlayerClub(updatedClub);
+
+    const reload = resolveAdvanceReload({ result, season });
+    const allFixtures = await getClubFixtures(dbHandle, currentSave.id, playerClubId, reload.fetchSeasonForRecents);
+    setRecentResults(allFixtures.filter(f => f.played).slice(-5));
+
+    if (reload.shouldStartNewSeason) setNewSeason(true);
+    if (result.retiringPlayerIds.length > 0) setLastRetiredPlayerIds(result.retiringPlayerIds);
+    if (result.newlyAnnouncedRetirementIds.length > 0) {
+      setPendingAnnouncedRetirementIds(result.newlyAnnouncedRetirementIds);
+    }
+
+    navigation.replace('MatchResult', { fixtureId: halftime.input.fixtureId });
+  };
+
+  const handleFinish = async () => {
+    if (resuming || !dbHandle || !currentSave || !playerClubId) return;
+    setResuming(true);
+    try {
+      await finalizeMatch(buildOverrides());
+    } catch (err) {
+      console.error('[MatchHalftime] finish failed:', err);
       setResuming(false);
     }
   };
@@ -319,8 +390,41 @@ export function MatchHalftimeScreen() {
           </View>
           <Body numberOfLines={1} style={[styles.teamName, styles.teamNameRight]}>{rightName}</Body>
         </View>
-        <Label color={accent.accent} style={styles.title}>{t('halftime.title')}</Label>
+        <Label color={accent.accent} style={styles.title}>{t(`live.window_${windowKind}` as TKey)}</Label>
       </Card>
+
+      {/* Assistant advice panel (C7) */}
+      <View style={styles.section}>
+        <Title style={styles.sectionTitle}>{t('live.advice_title')}</Title>
+        {liveAdvice.length === 0 ? (
+          <Caption style={styles.emptyText}>{t('live.no_advice')}</Caption>
+        ) : (
+          <Card variant="summary" accent={accent.accent}>
+            {liveAdvice.map((advice, idx) => {
+              const canApply =
+                advice.suggestedMentality != null ||
+                advice.suggestedPressing != null ||
+                (advice.suggestedSubOutId != null && advice.suggestedSubInId != null);
+              return (
+                <View key={idx} style={styles.adviceRow}>
+                  <Body numberOfLines={2} style={styles.adviceText}>{t(advice.text.key, advice.text.vars)}</Body>
+                  {canApply && (
+                    <View style={styles.adviceApply}>
+                      <Button
+                        label={t('live.apply')}
+                        variant="ghost"
+                        onPress={() => applyAdvice(advice)}
+                        testID={`advice-apply-${advice.kind}`}
+                        accessibilityLabel={t('live.apply')}
+                      />
+                    </View>
+                  )}
+                </View>
+              );
+            })}
+          </Card>
+        )}
+      </View>
 
       {/* First-half stats (user perspective on the left) */}
       <View style={styles.section}>
@@ -464,16 +568,29 @@ export function MatchHalftimeScreen() {
         </Card>
       </View>
 
-      {/* Resume */}
+      {/* Continue / Finish (C7 live windows) */}
       <View style={styles.resumeWrap}>
+        {!isLastWindow && (
+          <View style={styles.advanceBtn}>
+            <Button
+              label={t('live.advance')}
+              variant="secondary"
+              loading={resuming}
+              disabled={resuming}
+              onPress={handleAdvance}
+              testID="live-advance"
+              accessibilityLabel={t('live.advance')}
+            />
+          </View>
+        )}
         <Button
-          label={resuming ? t('halftime.resuming') : t('halftime.resume')}
+          label={resuming ? t('halftime.resuming') : t('live.finish')}
           variant="primary"
           loading={resuming}
           disabled={resuming}
-          onPress={handleResume}
-          testID="halftime-resume"
-          accessibilityLabel={t('halftime.resume')}
+          onPress={handleFinish}
+          testID="live-finish"
+          accessibilityLabel={t('live.finish')}
         />
       </View>
     </ScrollView>
@@ -563,4 +680,12 @@ const styles = {
     marginHorizontal: spacing.md,
     marginTop: spacing.sm,
   },
+  advanceBtn: { marginBottom: spacing.sm },
+  adviceRow: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    paddingVertical: spacing.xs,
+  },
+  adviceText: { flex: 1 },
+  adviceApply: { marginLeft: spacing.sm },
 };
