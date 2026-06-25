@@ -1,6 +1,8 @@
 import { DbHandle } from '@/database/queries/players';
-import { getPlayersByClub, getPlayersWithAttributesByClub, setPlayerSuspension, updatePlayerMorale } from '@/database/queries/players';
-import { computeMatchMoraleDelta, computeWeeklyMoraleDrift, applyMoraleDelta } from '@/engine/morale/morale-engine';
+import { getPlayersByClub, getPlayersWithAttributesByClub, setPlayerSuspension } from '@/database/queries/players';
+import { applyMatchPsychology, applyWeeklyPsychology } from '@/engine/morale/psychology-orchestrator';
+import { pruneMoraleEvents } from '@/database/queries/morale';
+import { MORALE_EVENTS_KEEP_SEASONS } from '@/engine/balance';
 import { getAssistantsBySave, getAssistantByRole } from '@/database/queries/assistants';
 import { maybeGenerateComment } from './assistant/comment-generator';
 import { AssistantComment } from '@/types/assistant';
@@ -483,28 +485,19 @@ export async function advanceGameWeek(params: AdvanceWeekParams): Promise<Advanc
       }
     }
 
-    // 9. Post-match morale for the player's squad (result + who played).
+    // 9. Post-match morale for the player's squad (C5 psychology: drivers modulated
+    // by personality + persisted to the ledger).
     const isHomeForMorale = playerFixture.homeClubId === playerClubId;
     const myGoals = isHomeForMorale ? matchResult.homeGoals : matchResult.awayGoals;
     const oppGoals = isHomeForMorale ? matchResult.awayGoals : matchResult.homeGoals;
     const goalDiff = myGoals - oppGoals;
     const matchOutcome: 'win' | 'draw' | 'loss' = goalDiff > 0 ? 'win' : goalDiff < 0 ? 'loss' : 'draw';
 
-    const moraleSquad = await getPlayersByClub(db, saveId, playerClubId);
-    for (const mp of moraleSquad) {
-      const played = startingIds.has(mp.id);
-      const delta = computeMatchMoraleDelta({
-        result: matchOutcome,
-        played,
-        minutesPlayed: played ? 90 : 0,
-        goalDiff,
-        benchStreakWeeks: played ? 0 : (mp.consecutiveLowMoraleWeeks ?? 0),
-      });
-      const newMorale = applyMoraleDelta(mp.morale, delta);
-      if (newMorale !== mp.morale) {
-        await updatePlayerMorale(db, saveId, mp.id, newMorale);
-      }
-    }
+    await applyMatchPsychology(
+      db, saveId, playerClubId,
+      { outcome: matchOutcome, goalDiff, startingIds },
+      season, week,
+    );
 
     // 9b. P5: a user match was played this week → arm the post-match press
     // conference gate. Both the instant and halftime-resume paths call
@@ -855,16 +848,14 @@ export async function advanceGameWeek(params: AdvanceWeekParams): Promise<Advanc
     }
   }
 
-  // 7a. Idle-week morale drift when the player's club did not play this week — pulls
-  // morale toward the neutral target, so the streak SQL below sees the drifted value.
+  // 7a. Idle-week psychology when the player's club did not play this week — drift toward
+  // the neutral target + chemistry drift + fallout escalation, all save-isolated &
+  // deterministic (seed derived from save/season/week). Runs before the streak SQL below.
   if (!playerFixture) {
-    const idleSquad = await getPlayersByClub(db, saveId, playerClubId);
-    for (const sp of idleSquad) {
-      const newMorale = applyMoraleDelta(sp.morale, computeWeeklyMoraleDrift(sp.morale));
-      if (newMorale !== sp.morale) {
-        await updatePlayerMorale(db, saveId, sp.id, newMorale);
-      }
-    }
+    await applyWeeklyPsychology(
+      db, saveId, playerClubId, season, week,
+      new SeededRng(saveId * 1_000_000 + season * 1000 + week),
+    );
   }
 
   // 7b. Update low-morale streak para jogadores na janela etária, ainda não anunciados.
@@ -950,6 +941,8 @@ export async function advanceGameWeek(params: AdvanceWeekParams): Promise<Advanc
     // C1: materialize hall-of-fame/records for the player's club and reinforce
     // rivalries from this season's head-to-heads.
     await archiveLegacy(db, saveId, season, playerClubId);
+    // C5: prune the morale-driver ledger to a rolling window at the rollover.
+    await pruneMoraleEvents(db, saveId, MORALE_EVENTS_KEEP_SEASONS, season);
   }
   const newWeek = isSeasonEnd ? 1 : week + 1;
   const newSeason = isSeasonEnd ? season + 1 : season;
