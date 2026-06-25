@@ -333,15 +333,15 @@ function pickPlayerIn(
   return candidates[0];
 }
 
-// ─── Resumable halftime state (P4: in-match management) ──────────────────────
+// ─── Resumable live-match state (C7: in-match management) ─────────────────────
 
 /**
- * Live mid-match snapshot taken at halftime. `rng` is the SAME live SeededRng
- * instance the block loop was consuming — it is threaded across the pause in
- * memory (never serialized), so resuming continues the deterministic stream
- * exactly where the first half stopped.
+ * Live mid-match snapshot at ANY block boundary. `rng` is the SAME live SeededRng
+ * instance the block loop consumes — threaded across pauses in memory (never
+ * serialized), so resuming continues the deterministic stream exactly where it
+ * stopped. `currentBlock` = the NEXT block to run (0..TOTAL_BLOCKS).
  */
-export interface HalftimeState {
+export interface LiveMatchState {
   home: TeamState;
   away: TeamState;
   events: MatchEvent[];
@@ -349,9 +349,14 @@ export interface HalftimeState {
   homeAdv: number;
   rng: SeededRng;
   input: MatchInput;
+  currentBlock: number;
 }
 
-/** Manager overrides applied to the HOME team at the start of the second half. */
+/** Retrocompat: HalftimeState era o snapshot fixo no bloco 15. Agora é só o
+ *  caso particular do LiveMatchState. */
+export type HalftimeState = LiveMatchState;
+
+/** Manager overrides applied to the HOME team at a window boundary. */
 export interface SecondHalfOverrides {
   homeTactic?: Tactic;
   homeSubs?: { outId: number; inId: number }[];
@@ -359,12 +364,9 @@ export interface SecondHalfOverrides {
 
 // ─── Main ────────────────────────────────────────────────────────────────────
 
-/**
- * Runs the first half (blocks 0..HALF_BLOCK-1) and returns the live snapshot,
- * including the mid-stream rng instance. Pairs with `resumeSecondHalf`.
- */
-export function simulateFirstHalf(input: MatchInput): HalftimeState {
-  const { rng, fixtureId, homeSquad, awaySquad, homeTactic, awayTactic } = input;
+/** Cria o estado inicial sem rodar bloco algum (currentBlock = 0). */
+export function initLiveMatch(input: MatchInput): LiveMatchState {
+  const { homeSquad, awaySquad, homeTactic, awayTactic } = input;
   const homeBench = input.homeBench ?? [];
   const awayBench = input.awayBench ?? [];
 
@@ -378,10 +380,22 @@ export function simulateFirstHalf(input: MatchInput): HalftimeState {
 
   const home = makeTeam(homeSquad, homeBench, homeTactic, true, homeAdv, input.homeSetPieceTakers);
   const away = makeTeam(awaySquad, awayBench, awayTactic, false, homeAdv, input.awaySetPieceTakers);
-  const events: MatchEvent[] = [];
-  const usedMinutes = new Set<number>();
+  return {
+    home, away, events: [], usedMinutes: new Set<number>(),
+    homeAdv, rng: input.rng, input, currentBlock: 0,
+  };
+}
 
-  for (let block = 0; block < HALF_BLOCK; block++) {
+/**
+ * Roda do currentBlock até untilBlock (exclusivo), threadando o mesmo rng.
+ * Clampa untilBlock em TOTAL_BLOCKS; untilBlock <= currentBlock é no-op.
+ * Muta e devolve o MESMO state.
+ */
+export function simulateSegment(state: LiveMatchState, untilBlock: number): LiveMatchState {
+  const target = Math.min(untilBlock, TOTAL_BLOCKS);
+  const { home, away, events, usedMinutes, homeAdv, rng, input } = state;
+  const { fixtureId } = input;
+  for (let block = state.currentBlock; block < target; block++) {
     const isSecondHalf = block >= HALF_BLOCK;
     // #3: Drain fatigue at the start of each block
     drainFatigue(home, block, homeAdv);
@@ -390,20 +404,22 @@ export function simulateFirstHalf(input: MatchInput): HalftimeState {
     runBlock(home, away, block, isSecondHalf, fixtureId, events, rng, usedMinutes, homeAdv);
     runBlock(away, home, block, isSecondHalf, fixtureId, events, rng, usedMinutes, homeAdv);
   }
-
-  return { home, away, events, usedMinutes, homeAdv, rng, input };
+  state.currentBlock = Math.max(state.currentBlock, target);
+  return state;
 }
 
-// Applies manager overrides to the HOME team only, at the H2 boundary. The
-// engine's existing auto-subs stay enabled — manual subs are additive and the
-// shared `subsUsed` cap naturally limits how many auto-subs can follow.
-function applySecondHalfOverrides(state: HalftimeState, overrides: SecondHalfOverrides): void {
+/**
+ * Applies manager overrides to the HOME team only, at the current window boundary.
+ * The engine's existing auto-subs stay enabled — manual subs are additive and the
+ * shared `subsUsed` cap naturally limits how many auto-subs can follow.
+ */
+export function applyWindowOverrides(state: LiveMatchState, overrides: SecondHalfOverrides): void {
   const { home, homeAdv, events, usedMinutes, rng } = state;
   const fixtureId = state.input.fixtureId;
 
   if (overrides.homeTactic) {
     home.tactic = overrides.homeTactic;
-    // Recompute strength from the new tactic so the change takes effect for H2,
+    // Recompute strength from the new tactic so the change takes effect,
     // using the same fitness-adjusted players the loop's periodic recalc uses.
     const adjusted = home.squad.map(p => ({
       ...p,
@@ -426,30 +442,18 @@ function applySecondHalfOverrides(state: HalftimeState, overrides: SecondHalfOve
     home.subsUsed++;
     home.strength = calculateTeamStrength({ players: home.squad, tactic: home.tactic, isHome: home.isHome, homeAdvantageMult: homeAdv });
 
-    const minute = blockToMinute(HALF_BLOCK, rng, usedMinutes);
+    const minute = blockToMinute(state.currentBlock, rng, usedMinutes);
     events.push({ fixtureId, minute, type: 'substitution', playerId: sub.outId, secondaryPlayerId: benchPlayer.id });
   }
 }
 
-/**
- * Resumes from a halftime snapshot: applies manager overrides to the HOME team,
- * runs blocks HALF_BLOCK..TOTAL_BLOCKS-1 (threading the same rng), then computes
- * the full MatchResult including first-half events/stats/ratings.
- */
-export function resumeSecondHalf(state: HalftimeState, overrides?: SecondHalfOverrides): MatchResult {
-  const { home, away, events, usedMinutes, homeAdv, rng, input } = state;
-  const { fixtureId, homeSquad, awaySquad } = input;
-
-  if (overrides) applySecondHalfOverrides(state, overrides);
-
-  for (let block = HALF_BLOCK; block < TOTAL_BLOCKS; block++) {
-    const isSecondHalf = block >= HALF_BLOCK;
-    drainFatigue(home, block, homeAdv);
-    drainFatigue(away, block, homeAdv);
-
-    runBlock(home, away, block, isSecondHalf, fixtureId, events, rng, usedMinutes, homeAdv);
-    runBlock(away, home, block, isSecondHalf, fixtureId, events, rng, usedMinutes, homeAdv);
+/** Computa o MatchResult final. Exige currentBlock === TOTAL_BLOCKS. */
+export function finalizeMatchResult(state: LiveMatchState): MatchResult {
+  if (state.currentBlock !== TOTAL_BLOCKS) {
+    throw new Error(`finalizeMatchResult: match not finished (currentBlock=${state.currentBlock})`);
   }
+  const { home, away, events, rng, input } = state;
+  const { homeSquad, awaySquad } = input;
 
   // ─── Stats ─────────────────────────────────────────────────────────────
   const totalMid = home.strength.midfield + away.strength.midfield;
@@ -512,6 +516,26 @@ export function resumeSecondHalf(state: HalftimeState, overrides?: SecondHalfOve
   const awayRatings = calculatePlayerRatings(awI, events, away.goals > home.goals, home.goals, rng);
 
   return { homeGoals: home.goals, awayGoals: away.goals, events, homeRatings, awayRatings, stats, attendance };
+}
+
+// ─── Wrappers retrocompat (compose-equals-whole intacto) ─────────────────────
+
+/**
+ * Runs the first half (blocks 0..HALF_BLOCK-1) and returns the live snapshot,
+ * including the mid-stream rng instance. Pairs with `resumeSecondHalf`.
+ */
+export function simulateFirstHalf(input: MatchInput): LiveMatchState {
+  return simulateSegment(initLiveMatch(input), HALF_BLOCK);
+}
+
+/**
+ * Resumes from a live snapshot: applies manager overrides to the HOME team,
+ * runs to the end (threading the same rng), then computes the full MatchResult.
+ */
+export function resumeSecondHalf(state: LiveMatchState, overrides?: SecondHalfOverrides): MatchResult {
+  if (overrides) applyWindowOverrides(state, overrides);
+  simulateSegment(state, TOTAL_BLOCKS);
+  return finalizeMatchResult(state);
 }
 
 /**
