@@ -28,6 +28,8 @@ function mkPlayer(id: number, o: Partial<Player> = {}): Player {
     consecutiveLowMoraleWeeks: o.consecutiveLowMoraleWeeks ?? 0,
     willRetireAtSeasonEnd: o.willRetireAtSeasonEnd ?? false,
     squadTier: o.squadTier ?? 'first',
+    personality: o.personality ?? 'balanced',
+    falloutState: o.falloutState ?? 'none',
   };
 }
 

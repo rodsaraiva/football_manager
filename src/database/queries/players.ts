@@ -36,6 +36,8 @@ interface PlayerRow {
   will_retire_at_season_end: number;
   suspension_weeks_left: number;
   squad_tier: string;
+  personality: string;
+  fallout_state: string;
 }
 
 interface PlayerAttributesRow {
@@ -89,6 +91,8 @@ function rowToPlayer(row: PlayerRow): Player {
     consecutiveLowMoraleWeeks: row.consecutive_low_morale_weeks ?? 0,
     willRetireAtSeasonEnd: (row.will_retire_at_season_end ?? 0) === 1,
     squadTier: (row.squad_tier as SquadTier) ?? 'first',
+    personality: (row.personality ?? 'balanced') as Player['personality'],
+    falloutState: (row.fallout_state ?? 'none') as Player['falloutState'],
   };
 }
 

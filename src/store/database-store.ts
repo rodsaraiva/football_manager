@@ -289,6 +289,32 @@ export const useDatabaseStore = create<DatabaseStore>((set) => ({
         CREATE INDEX IF NOT EXISTS idx_news_save_read   ON news_items(save_id, read);
       `);
 
+      // C5 squad psychology: per-player archetype + fallout state, morale-driver ledger,
+      // chemistry clique graph. Legacy saves get defaults 'balanced'/'none'.
+      await addColumnIfMissing(db, 'players', 'personality',   "TEXT NOT NULL DEFAULT 'balanced'");
+      await addColumnIfMissing(db, 'players', 'fallout_state', "TEXT NOT NULL DEFAULT 'none'");
+      await db.execAsync(`
+        CREATE TABLE IF NOT EXISTS morale_events (
+          id        INTEGER PRIMARY KEY AUTOINCREMENT,
+          save_id   INTEGER NOT NULL REFERENCES save_games(id),
+          player_id INTEGER NOT NULL REFERENCES players(id),
+          kind      TEXT    NOT NULL,
+          delta     REAL    NOT NULL,
+          season    INTEGER NOT NULL,
+          week      INTEGER NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS chemistry_links (
+          id        INTEGER PRIMARY KEY AUTOINCREMENT,
+          save_id   INTEGER NOT NULL REFERENCES save_games(id),
+          club_id   INTEGER NOT NULL REFERENCES clubs(id),
+          group_idx INTEGER NOT NULL,
+          player_id INTEGER NOT NULL REFERENCES players(id),
+          cohesion  REAL    NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_morale_events_player ON morale_events(save_id, player_id, season, week);
+        CREATE INDEX IF NOT EXISTS idx_chem_links_club      ON chemistry_links(save_id, club_id);
+      `);
+
       // Migration: corrige wages inflados em 100x por bug antigo em computeWage (Math.round * 10 em vez de /10).
       // Heurística: média de wage acima de 50k indica DB seedado pelo código bugado — divide por 100.
       const wageProbe = await db.getFirstAsync<{ avg: number | null }>('SELECT AVG(wage) AS avg FROM players') ?? { avg: null };
