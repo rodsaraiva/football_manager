@@ -62,12 +62,15 @@ export type RootStackParamList = {
   Records: undefined;
   ManagerTimeline: undefined;
   Rivalries: undefined;
+  // C6 inbox: detalhe de thread
+  InboxThread: { threadId: number };
 };
 
 export type TabParamList = {
   HomeTab: undefined;
   SquadTab: undefined;
   NewsTab: undefined;
+  InboxTab: undefined;
   TacticsTab: undefined;
   ClubTab: undefined;
   ReportsTab: undefined;

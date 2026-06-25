@@ -48,6 +48,7 @@ import { HallOfFameScreen } from '@/screens/career/HallOfFameScreen';
 import { RecordsScreen } from '@/screens/career/RecordsScreen';
 import { ManagerTimelineScreen } from '@/screens/career/ManagerTimelineScreen';
 import { RivalriesScreen } from '@/screens/career/RivalriesScreen';
+import { InboxThreadScreen } from '@/screens/inbox/InboxThreadScreen';
 import { YouthAcademyScreen } from '@/screens/squad/YouthAcademyScreen';
 import { TopScorersScreen } from '@/screens/league/TopScorersScreen';
 import { CupBracketScreen } from '@/screens/league/CupBracketScreen';
@@ -127,6 +128,7 @@ export function RootNavigator() {
       <Stack.Screen name="YouthAcademy" component={YouthAcademyScreen} options={{ title: t('nav.youth_academy') }} />
       <Stack.Screen name="TopScorers" component={TopScorersScreen} options={{ title: t('nav.top_scorers') }} />
       <Stack.Screen name="CupBracket" component={CupBracketScreen} options={{ title: t('nav.cup_bracket') }} />
+      <Stack.Screen name="InboxThread" component={InboxThreadScreen} options={{ title: t('inbox.title') }} />
     </Stack.Navigator>
   );
 }
