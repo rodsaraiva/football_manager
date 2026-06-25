@@ -13,6 +13,8 @@ import { useGameStore } from '@/store/game-store';
 import { useDatabaseStore } from '@/store/database-store';
 import { useBoardStore } from '@/store/board-store';
 import { getPlayersByClub, updatePlayerMorale } from '@/database/queries/players';
+import { getClubById } from '@/database/queries/clubs';
+import { applyPressSentiment } from '@/engine/press/apply-press-sentiment';
 import { getRecentForm } from '@/database/queries/player-stats';
 import { getRecentFixturesForClub } from '@/database/queries/fixtures';
 import { getSaveBoardTrust, updateSaveBoardTrust } from '@/database/queries/board';
@@ -111,6 +113,11 @@ export function PressConferenceScreen() {
       const nextTrust = clampTrust(trust + res.confidenceDelta);
       await updateSaveBoardTrust(dbHandle, saveId, nextTrust);
       setCurrentTrust(nextTrust);
+
+      // C8-g: a coletiva alimenta o sentimento de mídia acumulado (tier por
+      // reputação do clube). Pular a coletiva NÃO mexe no sentimento.
+      const club = await getClubById(dbHandle, saveId, playerClubId);
+      if (club) await applyPressSentiment(dbHandle, saveId, club.reputation, tone, outcome);
 
       // W3 news: persist a press headline keyed to the board-confidence swing.
       const tier =
