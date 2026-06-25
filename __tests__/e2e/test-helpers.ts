@@ -233,6 +233,7 @@ export async function respondToJobOfferGate(
     offeringClubId: offeringClubIdOrNull,
     offerSeason: endedSeason,
     newSeason: ctx.season,
+    band: 'step_up',
     rng: new SeededRng(ctx.saveId * 13 + endedSeason),
   });
   ctx.playerClubId = offeringClubIdOrNull;
@@ -300,6 +301,7 @@ export async function endSeasonHeadless(
         offeringClubId: newClubId,
         offerSeason: endedSeason,
         newSeason: ctx.season,
+        band: 'rescue',
         rng: new SeededRng(ctx.saveId * 13 + endedSeason),
       });
       await setUnemployed(ctx.db, ctx.saveId, false);

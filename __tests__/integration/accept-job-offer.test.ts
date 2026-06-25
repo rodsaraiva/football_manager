@@ -48,6 +48,7 @@ describe('acceptJobOffer (integration, real SQLite)', () => {
       offeringClubId,
       offerSeason: OFFER_SEASON,
       newSeason: NEW_SEASON,
+      band: 'step_up',
       rng: new SeededRng(1),
     });
 

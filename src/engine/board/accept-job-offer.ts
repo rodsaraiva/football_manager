@@ -7,8 +7,16 @@ import { getClubById } from '@/database/queries/clubs';
 import { generateObjective } from '@/engine/board/objective-generator';
 import { upsertBoardObjective, getBoardObjective } from '@/database/queries/board';
 import { setJobOfferStatus, expirePendingJobOffers } from '@/database/queries/job-offers';
-import { setJobOffersPending, setPreseasonPending } from '@/database/queries/save';
+import {
+  setJobOffersPending,
+  setPreseasonPending,
+  getManagerReputation,
+  setUnemployedSince,
+} from '@/database/queries/save';
 import { setManagerExitReason } from '@/database/queries/legacy';
+import { OfferBand } from '@/engine/board/job-offers-engine';
+import { buildManagerContract } from '@/engine/board/manager-contract-engine';
+import { upsertManagerContract } from '@/database/queries/manager-contract';
 
 export interface AcceptJobOfferParams {
   db: DbHandle;
@@ -19,6 +27,8 @@ export interface AcceptJobOfferParams {
   /** The upcoming season the manager will work — the fresh objective is keyed here. */
   newSeason: number;
   rng: SeededRng;
+  /** Banda da oferta — define os termos do contrato do técnico no novo clube. */
+  band: OfferBand;
 }
 
 /**
@@ -74,6 +84,18 @@ export async function acceptJobOffer(p: AcceptJobOfferParams): Promise<{ newClub
   // 5/6. Clear the job-offers gate; open pre-season for the new club.
   await setJobOffersPending(db, saveId, false);
   await setPreseasonPending(db, saveId, true);
+
+  // 7. C4 — gravar o contrato do técnico para o novo clube + sair do spell de desemprego.
+  const managerRep = await getManagerReputation(db, saveId);
+  const terms = buildManagerContract({
+    clubReputation: newClub.reputation,
+    managerReputation: managerRep,
+    band: p.band,
+    startSeason: newSeason,
+    rng: new SeededRng(newSeason * 31337 + offeringClubId),
+  });
+  await upsertManagerContract(db, saveId, { clubId: offeringClubId, ...terms });
+  await setUnemployedSince(db, saveId, null);
 
   const newObjective = await getBoardObjective(db, saveId, offeringClubId, newSeason);
   if (!newObjective) throw new Error('acceptJobOffer: failed to read back the new objective');
