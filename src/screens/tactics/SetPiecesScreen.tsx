@@ -13,7 +13,7 @@ import { useGameStore } from '@/store/game-store';
 import { useDatabaseStore } from '@/store/database-store';
 import { getPlayersByClub, getPlayerById } from '@/database/queries/players';
 import { getSetPieceTakers, setSetPieceTakers } from '@/database/queries/set-piece-takers';
-import { SetPieceTakers } from '@/engine/simulation/match-engine';
+import { SetPieceTakers, CornerRoutine } from '@/engine/simulation/match-engine';
 import { calculateOverall } from '@/utils/overall';
 import { Player, PlayerAttributes } from '@/types';
 import { useTranslation } from '@/i18n';
@@ -94,6 +94,14 @@ export function SetPiecesScreen() {
     { slot: 'corner', label: t('setpieces.corner') },
   ];
 
+  const cornerRoutine: CornerRoutine = takers.cornerRoutine ?? 'auto';
+  const routineOptions: { value: CornerRoutine; label: string }[] = [
+    { value: 'auto', label: t('setpieces.routine_auto') },
+    { value: 'near_post', label: t('setpieces.routine_near_post') },
+    { value: 'far_post', label: t('setpieces.routine_far_post') },
+    { value: 'short', label: t('setpieces.routine_short') },
+  ];
+
   if (loading) {
     return (
       <View style={[commonStyles.screen, styles.centered]}>
@@ -160,6 +168,30 @@ export function SetPiecesScreen() {
         })
       )}
 
+      {squad.length > 0 && (
+        <Card variant="detail" accent={accent.accent} style={styles.section}>
+          <Label color={colors.textMuted} style={styles.sectionLabel}>{t('setpieces.corner_routine')}</Label>
+          <View style={styles.routineRow}>
+            {routineOptions.map((opt) => {
+              const active = cornerRoutine === opt.value;
+              return (
+                <Pressable
+                  key={opt.value}
+                  style={[styles.routineChip, active && { backgroundColor: accent.accent, borderColor: accent.accent }]}
+                  onPress={() => persist({ ...takers, cornerRoutine: opt.value })}
+                  testID={`setpieces-routine-${opt.value}`}
+                  accessibilityRole="button"
+                  accessibilityLabel={opt.label}
+                  accessibilityState={{ selected: active }}
+                >
+                  <Caption color={active ? colors.text : colors.textSecondary}>{opt.label}</Caption>
+                </Pressable>
+              );
+            })}
+          </View>
+        </Card>
+      )}
+
       <Caption color={colors.textMuted} style={styles.hint}>{t('setpieces.hint')}</Caption>
     </ScrollView>
   );
@@ -206,6 +238,19 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.surface,
   },
   optionName: { flex: 1 },
+  routineRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  routineChip: {
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.background,
+  },
   hint: {
     fontStyle: 'italic',
     marginTop: spacing.md,
