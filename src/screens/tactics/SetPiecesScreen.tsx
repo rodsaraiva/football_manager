@@ -24,7 +24,8 @@ type PlayerWithOvr = Player & { attributes: PlayerAttributes; overall: number };
 
 type TakerSlot = 'penalty' | 'free_kick' | 'corner';
 
-const SLOT_KEY: Record<TakerSlot, keyof SetPieceTakers> = {
+type TakerIdKey = 'penaltyTakerId' | 'freeKickTakerId' | 'cornerTakerId';
+const SLOT_KEY: Record<TakerSlot, TakerIdKey> = {
   penalty: 'penaltyTakerId',
   free_kick: 'freeKickTakerId',
   corner: 'cornerTakerId',

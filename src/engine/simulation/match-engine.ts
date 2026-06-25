@@ -10,10 +10,25 @@ import { resolveTaker } from './set-piece-takers';
 // P7: manager-designated set-piece takers. Each id nullable/undefined → engine
 // auto-picks by attribute (legacy behavior). Threaded as an optional MatchInput
 // field so the no-designation path is byte-for-byte identical to before.
+export type CornerRoutine = 'auto' | 'near_post' | 'far_post' | 'short';
+
 export interface SetPieceTakers {
   penaltyTakerId?: number | null;
   freeKickTakerId?: number | null;
   cornerTakerId?: number | null;
+  cornerRoutine?: CornerRoutine; // C8-f: undefined/'auto' = legado
+}
+
+const CORNER_ROUTINE_MULT: Record<CornerRoutine, number> = {
+  auto: 1.0,
+  short: 0.85,      // troca curta: menos cabeçada, mais posse
+  near_post: 1.10,  // primeiro pau: desvio rápido
+  far_post: 1.20,   // segundo pau: cruzamento p/ cabeceador alto
+};
+
+/** Multiplicador da prob. de gol de escanteio pela rotina. undefined/'auto' = 1.0. Puro. */
+export function cornerRoutineMultiplier(routine: CornerRoutine | undefined): number {
+  return routine ? CORNER_ROUTINE_MULT[routine] : 1.0;
 }
 
 export interface MatchInput {
@@ -655,7 +670,7 @@ function runBlock(
   }
 
   // ── Corner goal (heading) ──────────────────────────────────────────────
-  if (team.corners > 0 && rng.next() < CORNER_GOAL_PROB * team.strength.width * focus.cornerGoalMult * form.wingPlayMult) {
+  if (team.corners > 0 && rng.next() < CORNER_GOAL_PROB * team.strength.width * focus.cornerGoalMult * form.wingPlayMult * cornerRoutineMultiplier(team.takers?.cornerRoutine)) {
     const scorer = pickHeaderScorer(team.squad, rng);
     const gk = findGoalkeeper(opp.squad);
     team.shots++; team.shotsOnTarget++; team.corners--;
