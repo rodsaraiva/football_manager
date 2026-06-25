@@ -2,6 +2,7 @@ import {
   createE2EContext,
   playUntilSeasonEnd,
   endSeasonHeadless,
+  advanceUnemploymentHeadless,
   E2EContext,
 } from './test-helpers';
 import { getManagerReputation, setManagerReputation } from '@/database/queries/save';
@@ -121,4 +122,61 @@ describe('E2E · career loop (multi-season)', () => {
     const b = await run();
     expect(a).toEqual(b);
   }, 120_000);
+
+  it('demitido → spell de 2+ temporadas → aceita resgate de banda menor → continua', async () => {
+    await playUntilSeasonEnd(ctx, 4321);
+    ctx.rawDb.prepare('UPDATE save_games SET board_trust = 0 WHERE id = ?').run(ctx.saveId); // força demissão
+    const repAtDismissal = await getManagerReputation(ctx.db, ctx.saveId);
+
+    // demitido sem aceitar imediatamente → entra no spell (unemployed=1, since=season)
+    const fired = await endSeasonHeadless(ctx, { accept: false, enterSpell: true });
+    expect(fired.fired).toBe(true);
+    const unemp = ctx.rawDb
+      .prepare('SELECT unemployed, unemployed_since_season FROM save_games WHERE id = ?')
+      .get(ctx.saveId) as { unemployed: number; unemployed_since_season: number | null };
+    expect(unemp.unemployed).toBe(1);
+    expect(unemp.unemployed_since_season).not.toBeNull();
+
+    // avança 2 rodadas de mercado: primeira sem aceitar (decaimento + dreno), depois aceita
+    await advanceUnemploymentHeadless(ctx, { accept: false });
+    const r2 = await advanceUnemploymentHeadless(ctx, { accept: true });
+    expect(r2.accepted).toBe(true);
+
+    const repAfter = await getManagerReputation(ctx.db, ctx.saveId);
+    expect(repAfter).toBeLessThan(repAtDismissal); // decaimento durante o spell
+    // segue jogando uma temporada inteira no novo clube sem crash
+    const next = await playUntilSeasonEnd(ctx, 4322);
+    expect(next.isSeasonEnd).toBe(true);
+  }, 180_000);
+
+  it('spell até o piso terminal encerra a carreira', async () => {
+    await playUntilSeasonEnd(ctx, 8000);
+    ctx.rawDb.prepare('UPDATE save_games SET board_trust = 0 WHERE id = ?').run(ctx.saveId);
+    await endSeasonHeadless(ctx, { accept: false, enterSpell: true });
+    // poupança no chão força terminal já na próxima rodada
+    ctx.rawDb.prepare('UPDATE save_games SET manager_savings = ? WHERE id = ?').run(-2, ctx.saveId);
+    const r = await advanceUnemploymentHeadless(ctx, { accept: false });
+    expect(r.terminal).toBe(true);
+    const ended = ctx.rawDb.prepare('SELECT ended FROM save_games WHERE id = ?').get(ctx.saveId) as { ended: number };
+    expect(ended.ended).toBe(1);
+  }, 180_000);
+
+  it('spell é reprodutível: dois saves, mesmo seed → estado-chave idêntico', async () => {
+    const run = async () => {
+      const c = await createE2EContext();
+      await playUntilSeasonEnd(c, 9001);
+      c.rawDb.prepare('UPDATE save_games SET board_trust = 0 WHERE id = ?').run(c.saveId);
+      await endSeasonHeadless(c, { accept: false, enterSpell: true });
+      await advanceUnemploymentHeadless(c, { accept: false });
+      const snap = c.rawDb
+        .prepare('SELECT manager_reputation, manager_savings, unemployed_since_season FROM save_games WHERE id = ?')
+        .get(c.saveId);
+      const offers = c.rawDb
+        .prepare('SELECT offering_club_id FROM job_offers WHERE save_id = ? ORDER BY offering_club_id')
+        .all(c.saveId);
+      c.rawDb.close();
+      return JSON.stringify({ snap, offers });
+    };
+    expect(await run()).toEqual(await run());
+  }, 180_000);
 });
