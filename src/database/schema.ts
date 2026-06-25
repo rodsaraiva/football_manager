@@ -32,6 +32,7 @@ export const TABLE_NAMES: string[] = [
   'scouting',
   'scout_missions',
   'job_offers',
+  'manager_contracts',
   'set_piece_takers',
   'achievements',
   'news_items',
@@ -326,6 +327,8 @@ CREATE TABLE IF NOT EXISTS save_games (
   manager_reputation INTEGER NOT NULL DEFAULT 50,
   job_offers_pending INTEGER NOT NULL DEFAULT 0,
   unemployed      INTEGER NOT NULL DEFAULT 0,
+  unemployed_since_season INTEGER,
+  manager_savings         INTEGER NOT NULL DEFAULT 0,
   onboarding_seen INTEGER NOT NULL DEFAULT 0,
   created_at      TEXT    NOT NULL,
   updated_at      TEXT    NOT NULL
@@ -341,6 +344,20 @@ CREATE TABLE IF NOT EXISTS job_offers (
   status          TEXT    NOT NULL DEFAULT 'pending',
   UNIQUE(save_id, season, offering_club_id)
 );
+
+-- C4 manager job market: 1 contrato ativo por save (UNIQUE save_id). save-isolated.
+CREATE TABLE IF NOT EXISTS manager_contracts (
+  id              INTEGER PRIMARY KEY AUTOINCREMENT,
+  save_id         INTEGER NOT NULL REFERENCES save_games(id),
+  club_id         INTEGER NOT NULL REFERENCES clubs(id),
+  start_season    INTEGER NOT NULL,
+  end_season      INTEGER NOT NULL,
+  wage_per_season INTEGER NOT NULL,
+  release_clause  INTEGER NOT NULL,
+  expectation     INTEGER NOT NULL,
+  UNIQUE(save_id)
+);
+CREATE INDEX IF NOT EXISTS idx_manager_contracts_save ON manager_contracts(save_id);
 
 -- Pre-season friendlies live in their own table, fully separate from official
 -- fixtures/competitions. The standings/archiver/promotion engines only read the

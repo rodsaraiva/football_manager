@@ -109,6 +109,24 @@ export const useDatabaseStore = create<DatabaseStore>((set) => ({
       // W2 rescue offers: set when the manager is dismissed at season-end and routed
       // to smaller-club rescue offers (decline all = game over). Mirrors job_offers_pending.
       await addColumnIfMissing(db, 'save_games', 'unemployed', 'INTEGER NOT NULL DEFAULT 0');
+      // C4 manager job market: spell de desemprego como estado (temporada de início +
+      // poupança pessoal) + tabela de contrato do técnico (1 ativo por save).
+      await addColumnIfMissing(db, 'save_games', 'unemployed_since_season', 'INTEGER');
+      await addColumnIfMissing(db, 'save_games', 'manager_savings', 'INTEGER NOT NULL DEFAULT 0');
+      await db.execAsync(`
+        CREATE TABLE IF NOT EXISTS manager_contracts (
+          id              INTEGER PRIMARY KEY AUTOINCREMENT,
+          save_id         INTEGER NOT NULL,
+          club_id         INTEGER NOT NULL,
+          start_season    INTEGER NOT NULL,
+          end_season      INTEGER NOT NULL,
+          wage_per_season INTEGER NOT NULL,
+          release_clause  INTEGER NOT NULL,
+          expectation     INTEGER NOT NULL,
+          UNIQUE(save_id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_manager_contracts_save ON manager_contracts(save_id);
+      `);
       await db.execAsync(`
         CREATE TABLE IF NOT EXISTS job_offers (
           id               INTEGER PRIMARY KEY AUTOINCREMENT,
