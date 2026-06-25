@@ -120,10 +120,9 @@ export async function getCompletedIntelForClub(
 ): Promise<boolean> {
   const row = (await db
     .prepare(
-      `SELECT 1 AS one FROM scout_missions
-        WHERE save_id = ? AND type = 'opponent_intel' AND target_club_id = ? AND status = 'completed'
-        LIMIT 1`,
+      `SELECT COUNT(*) AS n FROM scout_missions
+        WHERE save_id = ? AND type = 'opponent_intel' AND target_club_id = ? AND status = 'completed'`,
     )
-    .get(saveId, clubId)) as { one: number } | undefined;
-  return row !== undefined;
+    .get(saveId, clubId)) as { n: number } | undefined | null;
+  return (row?.n ?? 0) > 0;
 }
