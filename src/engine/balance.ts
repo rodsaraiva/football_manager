@@ -104,6 +104,32 @@ export const MORALE_HEAVY_DEFEAT_EXTRA = -1;     // applied when conceding by >=
 export const MORALE_DRIFT_TARGET = 50;
 export const MORALE_DRIFT_RATE = 0.1;            // fraction of the gap closed per idle week
 
+// ─── C5: Psicologia — personalidade (modula deltas de driver por arquétipo) ────
+// Multiplicadores por (arquétipo, "sinal" do driver). 1.0 = neutro. Aplicado sobre
+// o delta base; o resultado é clampado em magnitude p/ não explodir a moral.
+export const PERSONALITY_BENCH_DAMPEN_LEADER = 0.5;   // líder sofre metade do banco
+export const PERSONALITY_WAGE_AMPLIFY_MERCENARY = 1.6; // mercenário liga p/ salário
+export const PERSONALITY_CRITICISM_AMPLIFY_TEMPER = 1.5; // temperamental explode com crítica
+export const PERSONALITY_NEGATIVE_AMPLIFY_PROBLEM = 1.3; // dressing-room amplia qualquer negativo
+export const PERSONALITY_MODIFIER_MAX_MAGNITUDE = 8;   // teto absoluto do delta após modulação
+
+// ─── C5: Psicologia — química de cliques ──────────────────────────────────────
+export const CHEMISTRY_MAX_GROUPS = 3;            // até N cliques por elenco
+export const CHEMISTRY_AFF_NATIONALITY = 0.4;     // peso de nacionalidade compartilhada
+export const CHEMISTRY_AFF_AGE_BAND = 0.3;        // peso de faixa etária próxima (<=3 anos)
+export const CHEMISTRY_AFF_TENURE = 0.3;          // peso de tempo de casa próximo
+export const CHEMISTRY_DRIFT_HAPPY = 75;          // moral do membro acima disto → grupo puxa p/ cima
+export const CHEMISTRY_DRIFT_SAD = 35;            // abaixo disto → grupo arrasta p/ baixo
+export const CHEMISTRY_DRIFT_MAX_BONUS = 1.5;     // |bônus| máximo por semana
+
+// ─── C5: Psicologia — conflito / fallout (máquina de estados por jogador) ──────
+export const FALLOUT_RISK_ARCHETYPES: readonly string[] = ['temperamental', 'mercenary', 'dressingRoomProblem'];
+export const FALLOUT_STREAK_TO_UNSETTLE = 3;        // semanas de moral baixa p/ ficar inquieto
+export const FALLOUT_CRITICISMS_TO_WANT_OUT = 2;    // críticas recentes p/ pedir p/ sair
+export const FALLOUT_RECOVERY_MORALE = 70;          // moral acima disto regride o estado (histerese)
+export const MORALE_EVENTS_KEEP_SEASONS = 2;        // janela do ledger podada no rollover
+export const FALLOUT_CRITICISM_LOOKBACK_WEEKS = 8;  // janela p/ contar críticas recentes
+
 // ─── Ordinary (age-based) retirement (progression-wired) ─────────────────────
 export const ORDINARY_RETIREMENT_BASE_PROB = 0.05;   // at RETIREMENT_MIN_AGE
 export const ORDINARY_RETIREMENT_AGE_SLOPE = 0.07;   // added per year above the min age
