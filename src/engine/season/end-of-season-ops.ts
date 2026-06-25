@@ -6,6 +6,7 @@ import { getStaffEffects } from '@/engine/staff/staff-effects';
 import { calculateOverall } from '@/utils/overall';
 import { recalculatePotential } from '@/engine/training/potential';
 import { generateYouthPlayers } from '@/engine/youth/youth-academy';
+import { derivePersonality, toPersonalityScale } from '@/engine/morale/personality';
 import { YouthSpecialization } from '@/engine/youth/youth-levers';
 import { detectOrdinaryRetirements, RetirementDecision } from '@/engine/retirement/retirement-engine';
 import { SeededRng } from '@/engine/rng';
@@ -94,12 +95,23 @@ export async function generateClubYouth(
   let nextId = (maxIdRow?.maxId ?? saveOffset(saveId)) + 1;
 
   for (const y of youth) {
+    // C5: personalidade derivada dos atributos mentais; nextId é o seedComponent
+    // (estável e determinístico por save), espelhando derivePersonalitiesForSave.
+    const personality = derivePersonality(
+      toPersonalityScale({
+        leadership: y.attributes.leadership,
+        composure: y.attributes.composure,
+        aggression: y.attributes.aggression,
+        decisions: y.attributes.decisions,
+      }),
+      nextId,
+    );
     await db.prepare(
-      'INSERT INTO players (id, save_id, name, nationality, age, position, secondary_position, club_id, wage, contract_end, market_value, base_potential, effective_potential, morale, fitness, injury_weeks_left, is_free_agent, squad_tier) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      'INSERT INTO players (id, save_id, name, nationality, age, position, secondary_position, club_id, wage, contract_end, market_value, base_potential, effective_potential, morale, fitness, injury_weeks_left, is_free_agent, squad_tier, personality) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
     ).run(
       nextId, saveId, y.name, nationality, y.age, y.position, null,
       clubId, 5000, newSeason + 3, 100000,
-      y.basePotential, y.basePotential, 70, 100, 0, 0, 'youth',
+      y.basePotential, y.basePotential, 70, 100, 0, 0, 'youth', personality,
     );
     const a = y.attributes;
     await db.prepare(

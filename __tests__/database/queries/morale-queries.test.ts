@@ -4,8 +4,9 @@ import { DbHandle } from '@/database/queries/players';
 import {
   appendMoraleEvents, getMoraleEvents, pruneMoraleEvents,
   setPlayerPersonality, setFalloutState, countRecentCriticisms,
-  replaceChemistryLinks, getChemistryGroups,
+  replaceChemistryLinks, getChemistryGroups, derivePersonalitiesForSave,
 } from '@/database/queries/morale';
+import { derivePersonality, toPersonalityScale } from '@/engine/morale/personality';
 import { MoraleDriver } from '@/engine/morale/driver-ledger';
 
 const S = TEST_SAVE_ID;
@@ -63,6 +64,28 @@ describe('morale ledger / chemistry / personality queries', () => {
     const row = rawDb.prepare('SELECT personality, fallout_state FROM players WHERE save_id=? AND id=?').get(S, playerId) as { personality: string; fallout_state: string };
     expect(row.personality).toBe('leader');
     expect(row.fallout_state).toBe('unsettled');
+  });
+
+  it('derivePersonalitiesForSave deriva dos atributos, é determinística e isola por save', async () => {
+    await derivePersonalitiesForSave(db, S);
+    const rows = rawDb
+      .prepare('SELECT p.id AS id, p.personality AS personality, a.leadership AS leadership, a.composure AS composure, a.aggression AS aggression, a.decisions AS decisions FROM players p JOIN player_attributes a ON a.player_id=p.id AND a.save_id=p.save_id WHERE p.save_id=?')
+      .all(S) as Array<{ id: number; personality: string; leadership: number; composure: number; aggression: number; decisions: number }>;
+    expect(rows.length).toBeGreaterThan(0);
+    // bate exatamente com a função pura (mesmo seedComponent = id)
+    for (const r of rows) {
+      const expected = derivePersonality(
+        toPersonalityScale({ leadership: r.leadership, composure: r.composure, aggression: r.aggression, decisions: r.decisions }),
+        r.id,
+      );
+      expect(r.personality).toBe(expected);
+    }
+    // não fica tudo 'balanced' — a psicologia precisa de variedade pra escalar
+    const distinct = new Set(rows.map((r) => r.personality));
+    expect(distinct.size).toBeGreaterThan(1);
+    // a query escopa por save_id no WHERE: derivar o save S não muda outros saves.
+    const touched = rawDb.prepare("SELECT COUNT(*) AS n FROM players WHERE save_id != ? AND personality != 'balanced'").get(S) as { n: number };
+    expect(touched.n).toBe(0);
   });
 
   it('replace/getChemistryGroups substitui e isola por clube/save', async () => {

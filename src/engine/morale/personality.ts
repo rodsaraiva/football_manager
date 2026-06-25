@@ -18,9 +18,25 @@ export interface PersonalityInput {
 }
 
 /**
+ * Mapeia atributos na escala de jogo (1-99) para a escala FM (1-20) que os limiares
+ * de derivePersonality esperam. Necessário porque players/youth são gerados em 1-99 —
+ * sem normalizar, leadership/composure sempre cruzam os limiares e todo mundo vira 'leader'.
+ */
+export function toPersonalityScale(input: PersonalityInput): PersonalityInput {
+  const conv = (v: number): number => Math.max(1, Math.min(20, Math.round((v / 99) * 20)));
+  return {
+    leadership: conv(input.leadership),
+    composure: conv(input.composure),
+    aggression: conv(input.aggression),
+    decisions: conv(input.decisions),
+  };
+}
+
+/**
  * Pure & deterministic: mapeia atributos mentais + um componente da seed do save
  * para um arquétipo estável. O seedComponent (0..N) só desempata na faixa "balanced",
  * garantindo variedade sem quebrar determinismo (mesma seed → mesmo arquétipo).
+ * Espera atributos na escala FM (1-20); use toPersonalityScale para converter de 1-99.
  */
 export function derivePersonality(input: PersonalityInput, seedComponent: number): PersonalityArchetype {
   const { leadership, composure, aggression, decisions } = input;

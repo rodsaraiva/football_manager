@@ -28,6 +28,7 @@ import { RootStackParamList } from '@/navigation/types';
 import { League, Club, Country, Difficulty } from '@/types';
 import { generateAssistant } from '@/engine/assistant/assistant-engine';
 import { insertAssistant } from '@/database/queries/assistants';
+import { derivePersonalitiesForSave } from '@/database/queries/morale';
 import { SeededRng } from '@/engine/rng';
 import { AssistantRole } from '@/types/assistant';
 import { generateObjective } from '@/engine/board/objective-generator';
@@ -187,6 +188,10 @@ export function NewGameScreen() {
 
       // C1: seed rivalries once per save (deterministic by saveId), now that clubs exist.
       await bootstrapRivalries(dbHandle, saveId);
+
+      // C5: derive cada personalidade dos atributos mentais (determinístico por id de jogador).
+      // Sem isto a psicologia (química/fallout) fica inerte — todo jogador ficaria 'balanced'.
+      await derivePersonalitiesForSave(dbHandle, saveId);
 
       startNewGame(saveId, playerClubId, 1, 1);
 

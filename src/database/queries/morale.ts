@@ -1,6 +1,6 @@
 import type { DbHandle } from './players';
 import type { MoraleDriver, MoraleDriverKind } from '@/engine/morale/driver-ledger';
-import type { PersonalityArchetype } from '@/engine/morale/personality';
+import { derivePersonality, toPersonalityScale, type PersonalityArchetype } from '@/engine/morale/personality';
 import type { FalloutState } from '@/engine/morale/fallout';
 import type { ChemistryGroup } from '@/engine/morale/chemistry';
 
@@ -36,6 +36,33 @@ export async function setPlayerPersonality(
   db: DbHandle, saveId: number, playerId: number, p: PersonalityArchetype,
 ): Promise<void> {
   await db.prepare('UPDATE players SET personality = ? WHERE save_id = ? AND id = ?').run(p, saveId, playerId);
+}
+
+/**
+ * Atribui personalidade a TODOS os jogadores do save derivando-a dos atributos mentais.
+ * Determinístico: o id do jogador é o seedComponent (estável por save), então a mesma
+ * seed do mundo sempre produz os mesmos arquétipos. Roda uma vez ao criar o save —
+ * sem isso todo jogador fica 'balanced' e a psicologia (química/fallout) fica inerte.
+ */
+export async function derivePersonalitiesForSave(db: DbHandle, saveId: number): Promise<void> {
+  const rows = (await db
+    .prepare(
+      `SELECT p.id AS id, a.leadership AS leadership, a.composure AS composure,
+              a.aggression AS aggression, a.decisions AS decisions
+         FROM players p
+         JOIN player_attributes a ON a.player_id = p.id AND a.save_id = p.save_id
+        WHERE p.save_id = ?`,
+    )
+    .all(saveId)) as Array<{
+    id: number; leadership: number; composure: number; aggression: number; decisions: number;
+  }>;
+  for (const r of rows) {
+    const archetype = derivePersonality(
+      toPersonalityScale({ leadership: r.leadership, composure: r.composure, aggression: r.aggression, decisions: r.decisions }),
+      r.id,
+    );
+    await db.prepare('UPDATE players SET personality = ? WHERE save_id = ? AND id = ?').run(archetype, saveId, r.id);
+  }
 }
 
 export async function setFalloutState(
