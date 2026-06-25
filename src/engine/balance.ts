@@ -34,6 +34,16 @@ export const MANAGER_REP_OBJECTIVE_FAILED_PENALTY = -3;
 export const MANAGER_JOB_OFFER_STEP = 12;
 export const MANAGER_JOB_OFFER_MAX = 3;
 
+// C4 manager job market — unemployment spell + contract + ambition weighting.
+export const MANAGER_REP_UNEMPLOYED_DECAY = -4;   // reputação perdida por temporada parada
+export const MANAGER_REP_FLOOR = 1;               // piso de reputação (clamp)
+export const MANAGER_CONTRACT_MIN_SEASONS = 2;
+export const MANAGER_CONTRACT_MAX_SEASONS = 4;
+export const MANAGER_SAVINGS_INITIAL = 0;
+export const MANAGER_UNEMPLOYED_DRAIN = 1;        // poupança drenada por temporada de desemprego
+export const MANAGER_SAVINGS_FLOOR = -3;          // poupança terminal → encerra a carreira
+export const MANAGER_OFFER_AMBITION_WEIGHT = 0.6; // peso da ambição no sorteio ponderado
+
 export const RETIREMENT_MIN_AGE = 33;
 export const RETIREMENT_MAX_AGE = 40;
 export const RETIREMENT_MORALE_THRESHOLD = 50;
