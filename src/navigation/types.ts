@@ -52,6 +52,8 @@ export type RootStackParamList = {
   PreSeason: undefined;
   // Career: rival job offers at season-end
   JobOffers: undefined;
+  // C4 career: manager profile (reputation, contract, savings)
+  ManagerProfile: undefined;
   // Career: achievements / milestones
   Achievements: undefined;
   // C1 dynasty/legacy

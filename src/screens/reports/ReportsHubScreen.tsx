@@ -251,6 +251,14 @@ export function ReportsHubScreen() {
         />
         <HubCard
           icon="shield"
+          title={t('managerprofile.title')}
+          subtitle={t('managerprofile.reputation')}
+          accent={colors.reportHistory}
+          onPress={() => navigation.navigate('ManagerProfile')}
+          testID="hub-manager-profile"
+        />
+        <HubCard
+          icon="shield"
           title={t('legacy.rivalries_title')}
           subtitle={t('rivalry.head_to_head')}
           accent={colors.danger}
