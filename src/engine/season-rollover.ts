@@ -51,7 +51,7 @@ export async function rolloverSeason(p: RolloverSeasonParams): Promise<RolloverS
 
     // 2. Return loaned players to their parent clubs FIRST, so a player on loan
     //    whose contract ended is restored to the parent before expiry releases him.
-    await returnExpiredLoans(db, saveId, endedSeason);
+    await returnExpiredLoans(db, saveId, endedSeason, playerClubId);
 
     // 2c. C2: liquida o desenvolvimento dos empréstimos de base ANTES de incrementar
     //     idade/expirar contrato, espelhando a ordem do loan genérico.
