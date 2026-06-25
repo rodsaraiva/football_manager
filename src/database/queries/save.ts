@@ -85,3 +85,27 @@ export async function isOnboardingSeen(db: DbHandle, saveId: number): Promise<bo
     .get(saveId)) as { onboarding_seen: number } | undefined;
   return row?.onboarding_seen === 1;
 }
+
+// ─── C4 manager job market: poupança pessoal + temporada de início do desemprego ──
+
+export async function getManagerSavings(db: DbHandle, saveId: number): Promise<number> {
+  const row = (await db
+    .prepare('SELECT manager_savings FROM save_games WHERE id = ?')
+    .get(saveId)) as { manager_savings: number } | undefined;
+  return row?.manager_savings ?? 0;
+}
+
+export async function setManagerSavings(db: DbHandle, saveId: number, v: number): Promise<void> {
+  await db.prepare('UPDATE save_games SET manager_savings = ? WHERE id = ?').run(v, saveId);
+}
+
+export async function getUnemployedSince(db: DbHandle, saveId: number): Promise<number | null> {
+  const row = (await db
+    .prepare('SELECT unemployed_since_season FROM save_games WHERE id = ?')
+    .get(saveId)) as { unemployed_since_season: number | null } | undefined;
+  return row?.unemployed_since_season ?? null;
+}
+
+export async function setUnemployedSince(db: DbHandle, saveId: number, season: number | null): Promise<void> {
+  await db.prepare('UPDATE save_games SET unemployed_since_season = ? WHERE id = ?').run(season, saveId);
+}
