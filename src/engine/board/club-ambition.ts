@@ -13,7 +13,7 @@ export function computeClubAmbition(input: ClubAmbitionInput): number {
   const div = Math.max(1, input.divisionLevel);
   // "merecimento" de divisão a partir da reputação: rep 100 → div 1, rep ~0 → div ~5.
   const expectedDivision = 1 + ((100 - rep) / 100) * 4; // 1..5
-  const gap = expectedDivision - div;                   // >0 quando está ABAIXO do que merece
+  const gap = div - expectedDivision;                   // >0 quando está ABAIXO (divisão pior) do que merece
   // gap ∈ [-4, +4] → escalar para 0..1 centrado em 0.5.
   return Math.min(1, Math.max(0, 0.5 + gap / 8));
 }
