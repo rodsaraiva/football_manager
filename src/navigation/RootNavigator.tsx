@@ -82,6 +82,7 @@ export function RootNavigator() {
       <Stack.Screen name="SetPieces" component={SetPiecesScreen} options={{ title: t('nav.set_pieces') }} />
       <Stack.Screen name="MatchResult" component={MatchResultScreen} options={{ title: t('nav.match_result') }} />
       <Stack.Screen name="MatchHalftime" component={MatchHalftimeScreen} options={{ title: t('nav.halftime') }} />
+      <Stack.Screen name="MatchLiveWindow" component={MatchHalftimeScreen} options={{ title: t('nav.halftime') }} />
       <Stack.Screen name="PressConference" component={PressConferenceScreen} options={{ title: t('nav.press') }} />
       {/* Club sub-screens */}
       <Stack.Screen name="ClubFinances" component={FinancesScreen} options={{ title: t('nav.finances') }} />

@@ -5,6 +5,7 @@ export type RootStackParamList = {
   Settings: undefined;
   MatchResult: { fixtureId: number };
   MatchHalftime: undefined;
+  MatchLiveWindow: { windowKind: import('@/types/match-advice').LiveWindowKind };
   PressConference: undefined;
   PlayerDetail: { playerId: number };
   MoraleBreakdown: { playerId: number };
