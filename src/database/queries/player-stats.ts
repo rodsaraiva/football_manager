@@ -152,3 +152,19 @@ export async function getRecentForm(
   const avgRating = minutesPlayed > 0 ? weightedRatingSum / minutesPlayed : 0;
   return { minutesPlayed, totalPossibleMinutes, avgRating };
 }
+
+/**
+ * Últimos N avg_ratings do jogador na temporada (proxy de forma recente:
+ * player_stats agrega por competição, sem rating por-jogo). Ordena por minutos
+ * desc como aproximação de "jogos recentes". Save-isolado. Sem RNG.
+ */
+export async function getLastNMatchForm(
+  db: DbHandle, saveId: number, playerId: number, season: number, n: number,
+): Promise<number[]> {
+  const rows = (await db.prepare(
+    `SELECT avg_rating FROM player_stats
+     WHERE save_id = ? AND player_id = ? AND season = ? AND minutes_played > 0
+     ORDER BY minutes_played DESC LIMIT ?`,
+  ).all(saveId, playerId, season, n)) as Array<{ avg_rating: number }>;
+  return rows.map((r) => r.avg_rating);
+}
