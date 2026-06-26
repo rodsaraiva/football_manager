@@ -163,7 +163,7 @@ export async function getNextFixtureForClub(
        LIMIT 1`,
     )
     .get(saveId, season, clubId, clubId);
-  const parsed = parseRow(fixtureRowSchema, row, 'fixtures.getNextFixtureForClub');
+  const parsed = parseRow(fixtureRowSchema.nullable(), row, 'fixtures.getNextFixtureForClub');
   return parsed ? rowToFixture(parsed) : null;
 }
 
