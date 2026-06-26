@@ -9,9 +9,10 @@ import {
   setHaptics,
   setFontScale,
   setDifficultyDefault,
+  setShow2D,
 } from '@/store/settings-store';
 
-const DEFAULTS = { reduceMotion: false, haptics: true, fontScale: 1, difficultyDefault: 'normal' } as const;
+const DEFAULTS = { reduceMotion: false, haptics: true, fontScale: 1, difficultyDefault: 'normal', show2D: false } as const;
 
 describe('settings store', () => {
   let rawDb: Database.Database;
@@ -58,6 +59,16 @@ describe('settings store', () => {
     expect(useSettingsStore.getState()).toMatchObject({
       reduceMotion: true, haptics: false, fontScale: 0.9, difficultyDefault: 'easy',
     });
+  });
+
+  it('show2D persiste em show_2d e sobrevive ao hydrate', async () => {
+    await setShow2D(db, true);
+    expect(useSettingsStore.getState().show2D).toBe(true);
+    expect(await getSetting(db, 'show_2d')).toBe('1');
+
+    useSettingsStore.setState({ ...DEFAULTS }); // wipe in-memory
+    await hydrateSettings(db);
+    expect(useSettingsStore.getState().show2D).toBe(true);
   });
 
   it('hydrateSettings ignores invalid font_scale / difficulty', async () => {

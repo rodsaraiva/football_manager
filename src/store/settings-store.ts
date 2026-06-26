@@ -8,6 +8,8 @@ export interface SettingsState {
   haptics: boolean;
   fontScale: number;
   difficultyDefault: Difficulty;
+  /** L2.7: preferência opt-in "Ver em 2D" no resultado da partida. Default OFF. */
+  show2D: boolean;
 }
 
 const VALID_FONT_SCALES = [0.9, 1, 1.15];
@@ -18,6 +20,7 @@ const DEFAULTS: SettingsState = {
   haptics: true,
   fontScale: 1,
   difficultyDefault: 'normal',
+  show2D: false,
 };
 
 export const useSettingsStore = create<SettingsState>(() => ({ ...DEFAULTS }));
@@ -28,6 +31,7 @@ export async function hydrateSettings(db: DbHandle): Promise<void> {
   const haptics = await getSetting(db, 'haptics');
   const scaleRaw = await getSetting(db, 'font_scale');
   const diffRaw = await getSetting(db, 'difficulty_default');
+  const show2D = await getSetting(db, 'show_2d');
 
   const scale = scaleRaw === null ? DEFAULTS.fontScale : Number(scaleRaw);
   const diff = diffRaw as Difficulty | null;
@@ -38,6 +42,7 @@ export async function hydrateSettings(db: DbHandle): Promise<void> {
     fontScale: VALID_FONT_SCALES.includes(scale) ? scale : DEFAULTS.fontScale,
     difficultyDefault:
       diff && VALID_DIFFICULTIES.includes(diff) ? diff : DEFAULTS.difficultyDefault,
+    show2D: show2D === null ? DEFAULTS.show2D : show2D === '1',
   });
 }
 
@@ -59,4 +64,9 @@ export async function setFontScale(db: DbHandle, v: number): Promise<void> {
 export async function setDifficultyDefault(db: DbHandle, v: Difficulty): Promise<void> {
   useSettingsStore.setState({ difficultyDefault: v });
   await setSetting(db, 'difficulty_default', v);
+}
+
+export async function setShow2D(db: DbHandle, v: boolean): Promise<void> {
+  useSettingsStore.setState({ show2D: v });
+  await setSetting(db, 'show_2d', v ? '1' : '0');
 }

@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, ScrollView } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, ScrollView, Switch } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { colors, alpha, spacing, radius, commonStyles } from '@/theme';
@@ -8,7 +8,12 @@ import { Card, Button } from '@/components/kit';
 import { Display, Title, Body, Label, Caption, Stat } from '@/components/typography';
 import { useTranslation } from '@/i18n';
 import { useGameStore } from '@/store/game-store';
+import { useDatabaseStore } from '@/store/database-store';
+import { useSettingsStore, setShow2D } from '@/store/settings-store';
 import MatchEventItem from '@/components/MatchEventItem';
+import { ShotMap } from '@/components/ShotMap';
+import { HeatMap } from '@/components/HeatMap';
+import { getMatchEvents } from '@/database/queries/fixtures';
 import { RootStackParamList } from '@/navigation/types';
 import { PlayerRating } from '@/engine/simulation/player-rating';
 import { MatchEvent } from '@/types';
@@ -119,6 +124,27 @@ export function MatchResultScreen() {
   const accent = useClubAccent();
   const navigation = useNavigation<NavProp>();
   const { lastMatchResult, playerClub, lastMatchIsHome, lastMatchOpponentName, pressPending } = useGameStore();
+  const { dbHandle } = useDatabaseStore();
+  const show2D = useSettingsStore((s) => s.show2D);
+
+  // Geometria (x/y/xg) só existe persistida no DB — o objeto in-memory do store não a
+  // carrega. Deriva o fixtureId de qualquer evento e carrega sob demanda quando o 2D liga.
+  const fixtureId = lastMatchResult?.events.find((e) => e.fixtureId != null)?.fixtureId ?? null;
+  const [geoEvents, setGeoEvents] = useState<MatchEvent[]>([]);
+
+  useEffect(() => {
+    if (!show2D || !dbHandle || fixtureId == null) return;
+    let active = true;
+    (async () => {
+      const rows = await getMatchEvents(dbHandle, fixtureId);
+      if (active) setGeoEvents(rows);
+    })();
+    return () => {
+      active = false;
+    };
+  }, [show2D, dbHandle, fixtureId]);
+
+  const hasGeometry = geoEvents.some((e) => e.x != null && e.y != null);
 
   // After acknowledging the result, route into the press conference when the gate is
   // armed (set by advanceGameWeek when a user match was played). Covers the halftime-
@@ -177,6 +203,58 @@ export function MatchResultScreen() {
           {t('matchresult.attendance', { count: lastMatchResult.attendance.toLocaleString() })}
         </Caption>
       </Card>
+
+      {/* 2D opt-in (L2.7) — default OFF: casual segue só no resumo */}
+      <View style={styles.section}>
+        <Card variant="summary" accent={accent.accent}>
+          <View style={styles.toggleRow}>
+            <View style={styles.toggleLabelWrap}>
+              <Body>{t('matchresult.view_2d')}</Body>
+              <Caption color={colors.textSecondary}>{t('matchresult.view_2d_desc')}</Caption>
+            </View>
+            <Switch
+              testID="matchresult-2d-toggle"
+              accessibilityLabel={t('matchresult.view_2d')}
+              value={show2D}
+              onValueChange={(v) => {
+                if (dbHandle) setShow2D(dbHandle, v);
+              }}
+            />
+          </View>
+
+          {show2D && (
+            <View testID="matchresult-2d-maps" style={styles.mapsWrap}>
+              {hasGeometry ? (
+                <>
+                  <Label style={styles.mapTitle}>{t('matchresult.shotmap')}</Label>
+                  <View style={styles.mapCenter}>
+                    <ShotMap
+                      testID="matchresult-shotmap"
+                      events={geoEvents}
+                      labels={{
+                        goal: t('matchresult.shot_goal'),
+                        onTarget: t('matchresult.shot_on_target'),
+                        offTarget: t('matchresult.shot_off_target'),
+                        saved: t('matchresult.shot_saved'),
+                      }}
+                    />
+                  </View>
+                  <Label style={[styles.mapTitle, styles.mapTitleSpacer]}>{t('matchresult.heatmap')}</Label>
+                  <View style={styles.mapCenter}>
+                    <HeatMap
+                      testID="matchresult-heatmap"
+                      events={geoEvents}
+                      labels={{ less: t('matchresult.heat_less'), more: t('matchresult.heat_more') }}
+                    />
+                  </View>
+                </>
+              ) : (
+                <Caption color={colors.textSecondary}>{t('matchresult.no_geometry')}</Caption>
+              )}
+            </View>
+          )}
+        </Card>
+      </View>
 
       {/* Match Events */}
       {goalEvents.length > 0 && (
@@ -312,5 +390,26 @@ const styles = {
   continueWrap: {
     marginHorizontal: spacing.md,
     marginTop: spacing.sm,
+  },
+  toggleRow: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    justifyContent: 'space-between' as const,
+  },
+  toggleLabelWrap: {
+    flex: 1,
+    marginRight: spacing.sm,
+  },
+  mapsWrap: {
+    marginTop: spacing.md,
+  },
+  mapTitle: {
+    marginBottom: spacing.sm,
+  },
+  mapTitleSpacer: {
+    marginTop: spacing.lg,
+  },
+  mapCenter: {
+    alignItems: 'center' as const,
   },
 };
