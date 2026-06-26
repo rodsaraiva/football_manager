@@ -26,6 +26,7 @@ import { SeededRng } from '@/engine/rng';
 import { NATIONAL_HOME_ADVANTAGE, NATIONAL_TOURNAMENT_COMP_ID_BASE } from '@/engine/balance';
 import { saveOffset } from '@/database/constants';
 import { advanceNationalTournament } from './national-tournament';
+import { recordUserNationMatch } from './national-consequences';
 import { WeekContext } from './week-context';
 
 // Fase: P9 convocações internacionais. Em semanas de janela FIFA os jogadores de
@@ -126,6 +127,8 @@ export async function advanceNationalWindow(
             awayReputation: strengthById.get(f.awayClubId) ?? 50,
           });
           await updateNationalFixtureResult(db, saveId, f.id, result.homeGoals, result.awayGoals);
+          // L1-D: caps/gols dos titulares do usuário + prestígio do técnico pelo resultado.
+          await recordUserNationMatch(db, saveId, userIsHome, userLineup, result);
           continue;
         }
       }

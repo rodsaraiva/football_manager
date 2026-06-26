@@ -87,6 +87,14 @@ export const NATIONAL_FIXTURE_ID_BASE = 92_000_000;
 export const NATIONAL_TOURNAMENT_COMP_ID_BASE = 93_000_000;
 export const NATIONAL_TOURNAMENT_FIXTURE_ID_BASE = 94_000_000;
 
+// L1-D: prestígio do técnico por resultado internacional da seleção DIRIGIDA pelo usuário.
+// Modesto por jogo (espelha a disciplina de magnitude de manager-reputation-engine), com um
+// bônus bem maior por vencer o torneio. Só a seleção do usuário move a reputação — jogos de
+// rivais não contam. Clampado em [1,100] como o resto da reputação do técnico.
+export const MANAGER_REP_NATIONAL_WIN = 1;
+export const MANAGER_REP_NATIONAL_LOSS = -1;
+export const MANAGER_REP_NATIONAL_TITLE_BONUS = 6;
+
 // ── C7: gestão in-match (janelas ao vivo + conselho) ─────────────────────────
 // Pontos de pausa FIXOS no 2º tempo (em blocos de 3 min; TOTAL_BLOCKS=30, HALF_BLOCK=15).
 // 15 = intervalo (já existente). 22 ≈ minuto 66 (o "horário clássico de mexer").

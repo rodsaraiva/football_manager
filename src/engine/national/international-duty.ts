@@ -17,8 +17,12 @@ export const INTERNATIONAL_BREAK_WEEKS: number[] = [7, 15, 23, 31];
 // Eligibility floor: only genuine international-caliber players get called up.
 export const INTERNATIONAL_CALLUP_MIN_OVERALL = 75;
 
-// Flat fitness cost of returning from international duty (the trip, not a match).
-export const TRAVEL_FATIGUE_PENALTY = 8;
+// Flat fitness cost of returning from international duty: the TRIP only (displacement),
+// NOT the match. L1-D moved the match-minutes load onto C8 congestion (national_fixtures the
+// player STARTED count toward gamesInWindow in human-match-consequences). To avoid charging
+// the same cost twice (anti double-punishment, spec §8), this penalty was trimmed to reflect
+// just the travel portion — the playing load is no longer baked in here.
+export const TRAVEL_FATIGUE_PENALTY = 4;
 
 // Mirrors the schema's fitness CHECK (fitness BETWEEN 1 AND 100): travel fatigue
 // can never drop a player below 1.

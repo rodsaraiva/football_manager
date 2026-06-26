@@ -406,10 +406,19 @@ export const useDatabaseStore = create<DatabaseStore>((set) => ({
           user_managed_won      INTEGER NOT NULL DEFAULT 0,
           UNIQUE(save_id, competition_id, season)
         );
+        CREATE TABLE IF NOT EXISTS national_caps (
+          id        INTEGER PRIMARY KEY AUTOINCREMENT,
+          save_id   INTEGER NOT NULL REFERENCES save_games(id),
+          player_id INTEGER NOT NULL REFERENCES players(id),
+          caps      INTEGER NOT NULL DEFAULT 0,
+          goals     INTEGER NOT NULL DEFAULT 0,
+          UNIQUE(save_id, player_id)
+        );
         CREATE INDEX IF NOT EXISTS idx_national_teams_save           ON national_teams(save_id);
         CREATE INDEX IF NOT EXISTS idx_national_fixtures_save_season ON national_fixtures(save_id, season, week);
         CREATE INDEX IF NOT EXISTS idx_national_callups_save_window  ON national_callups(save_id, national_team_id, season, window);
         CREATE INDEX IF NOT EXISTS idx_national_titles_save          ON national_titles(save_id);
+        CREATE INDEX IF NOT EXISTS idx_national_caps_save            ON national_caps(save_id, player_id);
       `);
 
       // Migration: corrige wages inflados em 100x por bug antigo em computeWage (Math.round * 10 em vez de /10).

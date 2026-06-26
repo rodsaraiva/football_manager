@@ -238,3 +238,34 @@ export async function updateNationalFixtureResult(
     .prepare('UPDATE national_fixtures SET home_goals = ?, away_goals = ?, played = 1 WHERE save_id = ? AND id = ?')
     .run(homeGoals, awayGoals, saveId, fixtureId);
 }
+
+/**
+ * L1-D (sinergia C8): por jogador, quantos jogos da SELEÇÃO ele DISPUTOU como TITULAR na
+ * janela [fromWeek, toWeek] da temporada. Casa a convocação (national_callups.window =
+ * national_fixtures.week, mesma seleção) com o fixture jogado. Alimenta a contagem de
+ * congestão de C8 (minutos de seleção elevam a carga consumida), sem ser cobrado como viagem.
+ * Retorna Map vazio quando não há nada na janela. Determinístico (sem RNG).
+ */
+export async function getNationalStartsInWindow(
+  db: DbHandle,
+  saveId: number,
+  season: number,
+  fromWeek: number,
+  toWeek: number,
+): Promise<Map<number, number>> {
+  const rows = (await db
+    .prepare(
+      `SELECT nc.player_id AS pid, COUNT(*) AS n
+         FROM national_fixtures nf
+         JOIN national_callups nc
+           ON nc.save_id = nf.save_id
+          AND nc.season  = nf.season
+          AND nc.window  = nf.week
+          AND nc.national_team_id IN (nf.home_national_id, nf.away_national_id)
+        WHERE nf.save_id = ? AND nf.season = ? AND nf.week BETWEEN ? AND ?
+          AND nf.played = 1 AND nc.is_starter = 1
+        GROUP BY nc.player_id`,
+    )
+    .all(saveId, season, fromWeek, toWeek)) as Array<{ pid: number; n: number }>;
+  return new Map(rows.map((r) => [r.pid, r.n]));
+}

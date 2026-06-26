@@ -17,6 +17,7 @@ import {
   nationalMatchSeed,
   NationalLineup,
 } from './national-lineup';
+import { recordUserNationMatch, applyUserNationTitleReputation } from './national-consequences';
 import { calculateStandings } from '@/engine/competition/standings';
 import { generateKnockoutRound } from '@/engine/competition/fixture-generator';
 import {
@@ -134,6 +135,8 @@ async function simulateTournamentFixture(
         awayReputation: strengthById.get(f.awayClubId) ?? 50,
       });
       await updateNationalFixtureResult(db, saveId, f.id, result.homeGoals, result.awayGoals);
+      // L1-D: caps/gols dos titulares do usuário + prestígio do técnico pelo resultado.
+      await recordUserNationMatch(db, saveId, userIsHome, userLineup, result);
       return;
     }
   }
@@ -165,6 +168,8 @@ async function recordChampion(
     runnerUpNationalId: runnerUpId,
     userManagedWon: userWon,
   });
+  // L1-D: bônus de prestígio do técnico por conquistar o torneio (idempotente via guarda acima).
+  if (userWon) await applyUserNationTitleReputation(db, saveId);
   await insertNewsItem(db, saveId, {
     season,
     week,

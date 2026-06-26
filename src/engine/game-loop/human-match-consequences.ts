@@ -8,6 +8,7 @@ import { getStaffEffects, assistantAbilityFromStars } from '@/engine/staff/staff
 import { setPressPending } from '@/database/queries/save';
 import { assignMatchInjuries, injuryRecoveryStep } from '@/engine/simulation/injury';
 import { computeCongestion } from '@/engine/simulation/congestion';
+import { getNationalStartsInWindow } from '@/database/queries/national-fixtures';
 import { resolveMatchSuspensions } from '@/engine/simulation/match-consequences';
 import { calculateWeeklyProgression } from '@/engine/training/progression';
 import { PlayerAttributes } from '@/types';
@@ -136,12 +137,20 @@ export async function humanMatchConsequences(ctx: WeekContext): Promise<void> {
          AND season = ? AND week BETWEEN ? AND ? AND home_goals IS NOT NULL`,
     ).get(saveId, playerClubId, playerClubId, season, windowStart, week - 1)) as { n: number };
     const gamesInWindow = congestionRow.n + 1; // +1 = a partida desta semana
+
+    // L1-D (sinergia C8 / anti-dupla-punição §8): jogos de SELEÇÃO em que o jogador foi
+    // TITULAR na mesma janela também contam como carga. O custo de PARTIDA (minutos) entra
+    // por aqui (congestão), enquanto applyTravelFatigue cobra só o DESLOCAMENTO — custos
+    // distintos, sem somar o mesmo peso duas vezes. Por-jogador, pois cada um pode ter
+    // disputado um nº diferente de jogos pela seleção.
+    const nationalStartsByPlayer = await getNationalStartsInWindow(db, saveId, season, windowStart, week - 1);
     for (const p of playerSquadRaw) {
       const played = startingIds.has(p.id);
       let newFitness: number;
       if (played) {
         const baseDrop = rng.nextInt(5, 15);
-        const { fitnessDrop } = computeCongestion({ gamesInWindow, baseFitnessDrop: baseDrop });
+        const playerGames = gamesInWindow + (nationalStartsByPlayer.get(p.id) ?? 0);
+        const { fitnessDrop } = computeCongestion({ gamesInWindow: playerGames, baseFitnessDrop: baseDrop });
         newFitness = Math.max(30, p.fitness - fitnessDrop);
       } else {
         const gain = rng.nextInt(5, 15);
