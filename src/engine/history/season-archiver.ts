@@ -1,48 +1,109 @@
+import { z } from 'zod';
 import { DbHandle } from '../../database/queries/players';
+import { parseRows, parseRow } from '../../database/parse-rows';
 import { LeagueStanding } from './types';
 import { buildDivisionPairs } from '../competition/promotion';
 import { getAllLeagues } from '../../database/queries/leagues';
 import { insertPromotedIgnore } from '../../database/queries/season-promoted';
 import { calculateLeaguePrize, calculateCupPrize, PrizeAward } from '../finance/prize-money';
 
-interface CompetitionRow {
-  id: number;
-  type: 'league' | 'cup' | 'continental';
-  format: 'round_robin' | 'knockout' | 'group_knockout';
-  league_id: number | null;
-}
+const competitionRowSchema = z
+  .object({
+    id: z.number(),
+    type: z.enum(['league', 'cup', 'continental']),
+    format: z.enum(['round_robin', 'knockout', 'group_knockout']),
+    league_id: z.number().nullable(),
+  })
+  .passthrough();
+type CompetitionRow = z.infer<typeof competitionRowSchema>;
 
-interface LeagueRow {
-  id: number;
-  relegation_spots: number;
-  division_level: number;
-}
+const leagueRowSchema = z
+  .object({
+    id: z.number(),
+    relegation_spots: z.number(),
+    division_level: z.number(),
+  })
+  .passthrough();
+type LeagueRow = z.infer<typeof leagueRowSchema>;
 
-interface FixtureRow {
-  id: number;
-  home_club_id: number;
-  away_club_id: number;
-  home_goals: number | null;
-  away_goals: number | null;
-  played: number;
-  round: string | null;
-}
+const fixtureRowSchema = z
+  .object({
+    id: z.number(),
+    home_club_id: z.number(),
+    away_club_id: z.number(),
+    home_goals: z.number().nullable(),
+    away_goals: z.number().nullable(),
+    played: z.number(),
+    round: z.string().nullable(),
+  })
+  .passthrough();
+type FixtureRow = z.infer<typeof fixtureRowSchema>;
+
+const countRowSchema = z.object({ c: z.number() }).passthrough();
+
+const mvpCandidateRowSchema = z
+  .object({
+    player_id: z.number(),
+    club_id: z.number().nullable(),
+    avg_rating: z.number(),
+    appearances: z.number(),
+    age: z.number(),
+  })
+  .passthrough();
+type MvpCandidateRow = z.infer<typeof mvpCandidateRowSchema>;
+
+const scorerRowSchema = z
+  .object({
+    player_id: z.number(),
+    club_id: z.number().nullable(),
+    goals: z.number(),
+  })
+  .passthrough();
+
+const assisterRowSchema = z
+  .object({
+    secondary_player_id: z.number(),
+    club_id: z.number().nullable(),
+    assists: z.number(),
+  })
+  .passthrough();
+
+const playerIdRowSchema = z.object({ id: z.number() }).passthrough();
+
+const shootoutRowSchema = z
+  .object({
+    player_id: z.number(),
+    secondary_player_id: z.number().nullable(),
+  })
+  .passthrough();
+
+// EH-4: mapeia cada schema de linha de tabela única à sua tabela em schema.ts.
+// Schemas de junção/agregação (count, scorer, assister, mvp) não têm tabela única.
+export const __rowSchemas: Array<{ table: string; schema: import('zod').ZodObject<any> }> = [
+  { table: 'competitions', schema: competitionRowSchema },
+  { table: 'leagues', schema: leagueRowSchema },
+  { table: 'fixtures', schema: fixtureRowSchema },
+  { table: 'match_events', schema: shootoutRowSchema },
+  { table: 'players', schema: playerIdRowSchema },
+];
 
 async function getCompetitionsForSeason(db: DbHandle, saveId: number, season: number): Promise<CompetitionRow[]> {
-  return (await db
+  const rows = await db
     .prepare(
       `SELECT DISTINCT c.id, c.type, c.format, c.league_id
        FROM competitions c
        JOIN fixtures f ON f.competition_id = c.id AND f.save_id = c.save_id
        WHERE c.save_id = ? AND f.season = ? AND f.played = 1`,
     )
-    .all(saveId, season)) as CompetitionRow[];
+    .all(saveId, season);
+  return parseRows(competitionRowSchema, rows, 'season-archiver.getCompetitionsForSeason');
 }
 
-async function getLeague(db: DbHandle, leagueId: number): Promise<LeagueRow | undefined> {
-  return (await db
+async function getLeague(db: DbHandle, leagueId: number): Promise<LeagueRow | null> {
+  const row = await db
     .prepare('SELECT id, relegation_spots, division_level FROM leagues WHERE id = ?')
-    .get(leagueId)) as LeagueRow | undefined;
+    .get(leagueId);
+  return parseRow(leagueRowSchema.nullable(), row, 'season-archiver.getLeague');
 }
 
 async function getPlayedFixtures(
@@ -51,12 +112,13 @@ async function getPlayedFixtures(
   competitionId: number,
   season: number,
 ): Promise<FixtureRow[]> {
-  return (await db
+  const rows = await db
     .prepare(
       `SELECT id, home_club_id, away_club_id, home_goals, away_goals, played, round
        FROM fixtures WHERE save_id = ? AND competition_id = ? AND season = ? AND played = 1`,
     )
-    .all(saveId, competitionId, season)) as FixtureRow[];
+    .all(saveId, competitionId, season);
+  return parseRows(fixtureRowSchema, rows, 'season-archiver.getPlayedFixtures');
 }
 
 function computeStandings(fixtures: FixtureRow[]): LeagueStanding[] {
@@ -102,22 +164,11 @@ function computeStandings(fixtures: FixtureRow[]): LeagueStanding[] {
   });
 }
 
-interface ScorerRow { player_id: number; club_id: number; goals: number; }
-interface AssisterRow { secondary_player_id: number; club_id: number; assists: number; }
-
-interface MvpCandidateRow {
-  player_id: number;
-  club_id: number;
-  avg_rating: number;
-  appearances: number;
-  age: number;
-}
-
 async function getLeagueClubCount(db: DbHandle, saveId: number, leagueId: number): Promise<number> {
   const row = await db
     .prepare('SELECT COUNT(*) AS c FROM clubs WHERE save_id = ? AND league_id = ?')
-    .get(saveId, leagueId) as { c: number };
-  return row.c;
+    .get(saveId, leagueId);
+  return parseRow(countRowSchema, row, 'season-archiver.getLeagueClubCount').c;
 }
 
 async function getClubFixturesPlayed(
@@ -125,7 +176,7 @@ async function getClubFixturesPlayed(
   saveId: number,
   competitionId: number,
   season: number,
-  clubId: number,
+  clubId: number | null,
 ): Promise<number> {
   const row = await db
     .prepare(
@@ -133,8 +184,8 @@ async function getClubFixturesPlayed(
        WHERE save_id = ? AND competition_id = ? AND season = ? AND played = 1
          AND (home_club_id = ? OR away_club_id = ?)`,
     )
-    .get(saveId, competitionId, season, clubId, clubId) as { c: number };
-  return row.c;
+    .get(saveId, competitionId, season, clubId, clubId);
+  return parseRow(countRowSchema, row, 'season-archiver.getClubFixturesPlayed').c;
 }
 
 async function getCandidates(
@@ -143,7 +194,7 @@ async function getCandidates(
   competitionId: number,
   season: number,
 ): Promise<MvpCandidateRow[]> {
-  return (await db
+  const rows = await db
     .prepare(
       `SELECT ps.player_id AS player_id, p.club_id AS club_id,
               ps.avg_rating AS avg_rating, ps.appearances AS appearances, p.age AS age
@@ -152,7 +203,8 @@ async function getCandidates(
        WHERE ps.save_id = ? AND ps.competition_id = ? AND ps.season = ?
        ORDER BY ps.avg_rating DESC, ps.player_id ASC`,
     )
-    .all(saveId, competitionId, season)) as MvpCandidateRow[];
+    .all(saveId, competitionId, season);
+  return parseRows(mvpCandidateRowSchema, rows, 'season-archiver.getCandidates');
 }
 
 async function minGamesForCompetition(
@@ -160,7 +212,7 @@ async function minGamesForCompetition(
   saveId: number,
   competition: CompetitionRow,
   season: number,
-  clubId: number,
+  clubId: number | null,
 ): Promise<number> {
   if (competition.type === 'league' && competition.league_id != null) {
     const n = await getLeagueClubCount(db, saveId, competition.league_id);
@@ -207,7 +259,7 @@ async function insertAwardIgnore(
   awardType: 'top_scorer' | 'top_assister' | 'mvp' | 'breakthrough',
   rank: number,
   playerId: number,
-  clubId: number,
+  clubId: number | null,
   value: number,
 ): Promise<void> {
   await db
@@ -220,9 +272,11 @@ async function insertAwardIgnore(
 }
 
 async function archiveTopScorers(db: DbHandle, saveId: number, competitionId: number, season: number): Promise<void> {
-  const rows = (await db
-    .prepare(
-      `SELECT me.player_id AS player_id, p.club_id AS club_id, COUNT(*) AS goals
+  const rows = parseRows(
+    scorerRowSchema,
+    await db
+      .prepare(
+        `SELECT me.player_id AS player_id, p.club_id AS club_id, COUNT(*) AS goals
        FROM match_events me
        JOIN fixtures f ON f.id = me.fixture_id AND f.save_id = ?
        JOIN players  p ON p.id = me.player_id AND p.save_id = f.save_id
@@ -230,17 +284,21 @@ async function archiveTopScorers(db: DbHandle, saveId: number, competitionId: nu
        GROUP BY me.player_id
        ORDER BY goals DESC, me.player_id ASC
        LIMIT 5`,
-    )
-    .all(saveId, competitionId, season)) as ScorerRow[];
+      )
+      .all(saveId, competitionId, season),
+    'season-archiver.archiveTopScorers',
+  );
   for (let i = 0; i < rows.length; i++) {
     await insertAwardIgnore(db, saveId, season, competitionId, 'top_scorer', i + 1, rows[i].player_id, rows[i].club_id, rows[i].goals);
   }
 }
 
 async function archiveTopAssisters(db: DbHandle, saveId: number, competitionId: number, season: number): Promise<void> {
-  const rows = (await db
-    .prepare(
-      `SELECT me.secondary_player_id AS secondary_player_id, p.club_id AS club_id, COUNT(*) AS assists
+  const rows = parseRows(
+    assisterRowSchema,
+    await db
+      .prepare(
+        `SELECT me.secondary_player_id AS secondary_player_id, p.club_id AS club_id, COUNT(*) AS assists
        FROM match_events me
        JOIN fixtures f ON f.id = me.fixture_id AND f.save_id = ?
        JOIN players  p ON p.id = me.secondary_player_id AND p.save_id = f.save_id
@@ -248,8 +306,10 @@ async function archiveTopAssisters(db: DbHandle, saveId: number, competitionId: 
        GROUP BY me.secondary_player_id
        ORDER BY assists DESC, me.secondary_player_id ASC
        LIMIT 5`,
-    )
-    .all(saveId, competitionId, season)) as AssisterRow[];
+      )
+      .all(saveId, competitionId, season),
+    'season-archiver.archiveTopAssisters',
+  );
   for (let i = 0; i < rows.length; i++) {
     await insertAwardIgnore(
       db, saveId, season, competitionId, 'top_assister', i + 1,
@@ -299,9 +359,13 @@ async function snapshotChampionSquad(
   competitionId: number,
   championClubId: number,
 ): Promise<void> {
-  const players = (await db
-    .prepare('SELECT id FROM players WHERE save_id = ? AND club_id = ?')
-    .all(saveId, championClubId)) as Array<{ id: number }>;
+  const players = parseRows(
+    playerIdRowSchema,
+    await db
+      .prepare('SELECT id FROM players WHERE save_id = ? AND club_id = ?')
+      .all(saveId, championClubId),
+    'season-archiver.snapshotChampionSquad',
+  );
   for (const p of players) {
     await db
       .prepare(
@@ -317,11 +381,15 @@ async function getShootoutWinner(
   db: DbHandle,
   fixtureId: number,
 ): Promise<{ winnerClubId: number; loserClubId: number } | null> {
-  const row = (await db
-    .prepare(
-      "SELECT player_id, secondary_player_id FROM match_events WHERE fixture_id = ? AND type = 'penalty_shootout' LIMIT 1",
-    )
-    .get(fixtureId)) as { player_id: number; secondary_player_id: number | null } | undefined;
+  const row = parseRow(
+    shootoutRowSchema.nullable(),
+    await db
+      .prepare(
+        "SELECT player_id, secondary_player_id FROM match_events WHERE fixture_id = ? AND type = 'penalty_shootout' LIMIT 1",
+      )
+      .get(fixtureId),
+    'season-archiver.getShootoutWinner',
+  );
   if (!row || row.secondary_player_id == null) return null;
   return { winnerClubId: row.player_id, loserClubId: row.secondary_player_id };
 }
