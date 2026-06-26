@@ -70,6 +70,17 @@ export const ASSISTANT_COMMENT_CHANCE_PER_WEEK = 0.15;
 // seasonsAtClub thresholds to reach each star level (index = star - 1)
 export const ASSISTANT_QUALITY_THRESHOLDS = [0, 2, 4, 7, 10] as const;
 
+// ─── L1: seleção nacional ───────────────────────────────────────────────────
+// Tamanho do pool considerado para a força da seleção (top-N elegíveis por overall).
+export const NATIONAL_POOL_TOP_N = 23;
+// Vantagem de jogar em casa somada à força agregada no modelo abstrato de resultado.
+export const NATIONAL_HOME_ADVANTAGE = 5;
+// Bases de id (dentro do stride do save) para entidades da seleção, escolhidas bem
+// acima do espaço de clubs/competitions/fixtures de liga para nunca colidirem.
+export const NATIONAL_TEAM_ID_BASE = 90_000_000;
+export const NATIONAL_COMP_ID_BASE = 91_000_000;
+export const NATIONAL_FIXTURE_ID_BASE = 92_000_000;
+
 // ── C7: gestão in-match (janelas ao vivo + conselho) ─────────────────────────
 // Pontos de pausa FIXOS no 2º tempo (em blocos de 3 min; TOTAL_BLOCKS=30, HALF_BLOCK=15).
 // 15 = intervalo (já existente). 22 ≈ minuto 66 (o "horário clássico de mexer").

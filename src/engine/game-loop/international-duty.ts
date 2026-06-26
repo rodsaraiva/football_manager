@@ -1,5 +1,11 @@
-import { getPlayersWithAttributesByClub } from '@/database/queries/players';
+import { getPlayersWithAttributesByClub, DbHandle } from '@/database/queries/players';
 import { insertNewsItem } from '@/database/queries/news';
+import { loadNationalTeams } from '@/database/queries/national-teams';
+import {
+  ensureNationalFixtures,
+  loadNationalFixturesDue,
+  updateNationalFixtureResult,
+} from '@/database/queries/national-fixtures';
 import { calculateOverall } from '@/utils/overall';
 import {
   isInternationalBreak,
@@ -7,6 +13,9 @@ import {
   applyTravelFatigue,
   CallUpCandidate,
 } from '@/engine/national/international-duty';
+import { simulateAbstractMatch } from '@/engine/national/nationality';
+import { SeededRng } from '@/engine/rng';
+import { NATIONAL_HOME_ADVANTAGE } from '@/engine/balance';
 import { WeekContext } from './week-context';
 
 // Fase: P9 convocações internacionais. Em semanas de janela FIFA os jogadores de
@@ -43,7 +52,35 @@ export async function internationalDuty(ctx: WeekContext): Promise<number[]> {
         bodyVars: { count: internationalCallUps.length },
       });
     }
+
+    // L1: avança o calendário internacional na mesma janela FIFA. No-op para saves sem
+    // seleções semeadas (mundos de teste legados), preservando a fadiga/news acima.
+    await advanceNationalWindow(db, saveId, season, week);
   }
 
   return internationalCallUps;
+}
+
+// Gera (se faltar) os jogos da temporada e resolve os da janela atual com resultados
+// abstratos determinísticos (SeededRng namespaced por save/season/week + força do pool).
+export async function advanceNationalWindow(
+  db: DbHandle,
+  saveId: number,
+  season: number,
+  week: number,
+): Promise<void> {
+  await ensureNationalFixtures(db, saveId, season);
+  const due = await loadNationalFixturesDue(db, saveId, season, week);
+  if (due.length === 0) return;
+
+  const teams = await loadNationalTeams(db, saveId);
+  const strengthById = new Map(teams.map((t) => [t.id, t.strength]));
+
+  const rng = new SeededRng(saveId * 7919 + season * 1000 + week * 31 + 0x4e54);
+  for (const f of due) {
+    const homeStrength = (strengthById.get(f.homeClubId) ?? 0) + NATIONAL_HOME_ADVANTAGE;
+    const awayStrength = strengthById.get(f.awayClubId) ?? 0;
+    const { homeGoals, awayGoals } = simulateAbstractMatch(rng, homeStrength, awayStrength);
+    await updateNationalFixtureResult(db, saveId, f.id, homeGoals, awayGoals);
+  }
 }

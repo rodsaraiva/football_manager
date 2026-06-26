@@ -360,6 +360,35 @@ export const useDatabaseStore = create<DatabaseStore>((set) => ({
         CREATE INDEX IF NOT EXISTS idx_chem_links_club      ON chemistry_links(save_id, club_id);
       `);
 
+      // L1 seleção nacional: modelo de seleções + calendário internacional espelho.
+      // Espelha exatamente a DDL de schema.ts. IF NOT EXISTS = saves legados ganham na abertura.
+      await db.execAsync(`
+        CREATE TABLE IF NOT EXISTS national_teams (
+          id              INTEGER PRIMARY KEY,
+          save_id         INTEGER NOT NULL REFERENCES save_games(id),
+          country_id      INTEGER NOT NULL REFERENCES countries(id),
+          name            TEXT    NOT NULL,
+          continent       TEXT    NOT NULL,
+          strength        INTEGER NOT NULL DEFAULT 0,
+          is_user_managed INTEGER NOT NULL DEFAULT 0
+        );
+        CREATE TABLE IF NOT EXISTS national_fixtures (
+          id                INTEGER PRIMARY KEY,
+          save_id           INTEGER NOT NULL REFERENCES save_games(id),
+          competition_id    INTEGER NOT NULL,
+          season            INTEGER NOT NULL,
+          week              INTEGER NOT NULL,
+          round             INTEGER,
+          home_national_id  INTEGER NOT NULL REFERENCES national_teams(id),
+          away_national_id  INTEGER NOT NULL REFERENCES national_teams(id),
+          home_goals        INTEGER,
+          away_goals        INTEGER,
+          played            INTEGER NOT NULL DEFAULT 0
+        );
+        CREATE INDEX IF NOT EXISTS idx_national_teams_save           ON national_teams(save_id);
+        CREATE INDEX IF NOT EXISTS idx_national_fixtures_save_season ON national_fixtures(save_id, season, week);
+      `);
+
       // Migration: corrige wages inflados em 100x por bug antigo em computeWage (Math.round * 10 em vez de /10).
       // Heurística: média de wage acima de 50k indica DB seedado pelo código bugado — divide por 100.
       const wageProbe = await db.getFirstAsync<{ avg: number | null }>('SELECT AVG(wage) AS avg FROM players') ?? { avg: null };

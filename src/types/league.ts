@@ -15,7 +15,7 @@ export interface League {
   relegationSpots: number;
 }
 
-export type CompetitionType = 'league' | 'cup' | 'continental';
+export type CompetitionType = 'league' | 'cup' | 'continental' | 'national';
 export type CompetitionFormat = 'round_robin' | 'knockout' | 'group_knockout';
 
 export interface Competition {

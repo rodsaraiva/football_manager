@@ -29,6 +29,7 @@ import { League, Club, Country, Difficulty } from '@/types';
 import { generateAssistant } from '@/engine/assistant/assistant-engine';
 import { insertAssistant } from '@/database/queries/assistants';
 import { derivePersonalitiesForSave } from '@/database/queries/morale';
+import { seedNationalTeams } from '@/database/queries/national-teams';
 import { SeededRng } from '@/engine/rng';
 import { AssistantRole } from '@/types/assistant';
 import { generateObjective } from '@/engine/board/objective-generator';
@@ -192,6 +193,9 @@ export function NewGameScreen() {
       // C5: derive cada personalidade dos atributos mentais (determinístico por id de jogador).
       // Sem isto a psicologia (química/fallout) fica inerte — todo jogador ficaria 'balanced'.
       await derivePersonalitiesForSave(dbHandle, saveId);
+
+      // L1: cria as seleções nacionais (1/país jogável) e define a dirigida pelo usuário.
+      await seedNationalTeams(dbHandle, saveId);
 
       startNewGame(saveId, playerClubId, 1, 1);
 

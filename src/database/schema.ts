@@ -46,6 +46,8 @@ export const TABLE_NAMES: string[] = [
   'academy_reputation_history',
   'morale_events',
   'chemistry_links',
+  'national_teams',
+  'national_fixtures',
 ];
 
 export const SCHEMA_SQL = `
@@ -724,6 +726,30 @@ CREATE TABLE IF NOT EXISTS academy_reputation_history (
   delta      INTEGER NOT NULL,
   UNIQUE(save_id, club_id, season)
 );
+
+CREATE TABLE IF NOT EXISTS national_teams (
+  id              INTEGER PRIMARY KEY,
+  save_id         INTEGER NOT NULL REFERENCES save_games(id),
+  country_id      INTEGER NOT NULL REFERENCES countries(id),
+  name            TEXT    NOT NULL,
+  continent       TEXT    NOT NULL,
+  strength        INTEGER NOT NULL DEFAULT 0,
+  is_user_managed INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS national_fixtures (
+  id                INTEGER PRIMARY KEY,
+  save_id           INTEGER NOT NULL REFERENCES save_games(id),
+  competition_id    INTEGER NOT NULL,
+  season            INTEGER NOT NULL,
+  week              INTEGER NOT NULL,
+  round             INTEGER,
+  home_national_id  INTEGER NOT NULL REFERENCES national_teams(id),
+  away_national_id  INTEGER NOT NULL REFERENCES national_teams(id),
+  home_goals        INTEGER,
+  away_goals        INTEGER,
+  played            INTEGER NOT NULL DEFAULT 0
+);
 `;
 
 // Composite save_id indexes are created AFTER the save_id migration (database-store),
@@ -740,6 +766,8 @@ CREATE INDEX IF NOT EXISTS idx_youth_loans_save_parent   ON youth_loans(save_id,
 CREATE INDEX IF NOT EXISTS idx_youth_loans_active        ON youth_loans(save_id, settled, recalled);
 CREATE INDEX IF NOT EXISTS idx_players_save_tier         ON players(save_id, club_id, squad_tier);
 CREATE INDEX IF NOT EXISTS idx_academy_rep_hist          ON academy_reputation_history(save_id, club_id, season);
+CREATE INDEX IF NOT EXISTS idx_national_teams_save        ON national_teams(save_id);
+CREATE INDEX IF NOT EXISTS idx_national_fixtures_save_season ON national_fixtures(save_id, season, week);
 `;
 
 export interface DbExec {
