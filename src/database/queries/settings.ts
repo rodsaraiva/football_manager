@@ -1,9 +1,17 @@
+import { z, ZodObject } from 'zod';
+import { parseRow } from '../parse-rows';
 import { DbHandle } from './players';
 
+const appSettingsValueRowSchema = z.object({ value: z.string() }).passthrough();
+
+export const __rowSchemas: Array<{ table: string; schema: ZodObject<any> }> = [
+  { table: 'app_settings', schema: appSettingsValueRowSchema },
+];
+
 export async function getSetting(db: DbHandle, key: string): Promise<string | null> {
-  const row = (await db
+  const row = parseRow(appSettingsValueRowSchema.nullable(), await db
     .prepare('SELECT value FROM app_settings WHERE key = ?')
-    .get(key)) as { value: string } | undefined;
+    .get(key), 'getSetting');
   return row?.value ?? null;
 }
 

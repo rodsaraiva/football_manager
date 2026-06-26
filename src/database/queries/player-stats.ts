@@ -1,18 +1,34 @@
+import { z, ZodObject } from 'zod';
+import { parseRows, parseRow } from '../parse-rows';
 import { DbHandle } from './players';
 import { PlayerStats } from '../../types/player';
 
-interface PlayerStatsRow {
-  player_id: number;
-  season: number;
-  competition_id: number;
-  appearances: number;
-  goals: number;
-  assists: number;
-  yellow_cards: number;
-  red_cards: number;
-  avg_rating: number;
-  minutes_played: number;
-}
+// player_stats: todas as colunas NOT NULL; .passthrough() deixa save_id passar.
+const playerStatsRowSchema = z
+  .object({
+    player_id: z.number(),
+    season: z.number(),
+    competition_id: z.number(),
+    appearances: z.number(),
+    goals: z.number(),
+    assists: z.number(),
+    yellow_cards: z.number(),
+    red_cards: z.number(),
+    avg_rating: z.number(),
+    minutes_played: z.number(),
+  })
+  .passthrough();
+type PlayerStatsRow = z.infer<typeof playerStatsRowSchema>;
+
+// Projeções de colunas (subset), não linhas 1:1 de tabela: fora de __rowSchemas.
+const recentFormRowSchema = z
+  .object({ appearances: z.number(), avg_rating: z.number(), minutes_played: z.number() })
+  .passthrough();
+const lastNFormRowSchema = z.object({ avg_rating: z.number() }).passthrough();
+
+export const __rowSchemas: Array<{ table: string; schema: ZodObject<any> }> = [
+  { table: 'player_stats', schema: playerStatsRowSchema },
+];
 
 function rowToPlayerStats(row: PlayerStatsRow): PlayerStats {
   return {
@@ -43,9 +59,10 @@ export interface UpsertPlayerStatsInput {
 }
 
 export async function upsertPlayerStats(db: DbHandle, saveId: number, input: UpsertPlayerStatsInput): Promise<void> {
-  const existing = await db
+  const existingRow = await db
     .prepare('SELECT * FROM player_stats WHERE save_id = ? AND player_id = ? AND season = ? AND competition_id = ?')
-    .get(saveId, input.playerId, input.season, input.competitionId) as PlayerStatsRow | undefined;
+    .get(saveId, input.playerId, input.season, input.competitionId);
+  const existing = parseRow(playerStatsRowSchema.nullable(), existingRow, 'player-stats.upsertPlayerStats');
 
   if (!existing) {
     await db
@@ -98,8 +115,8 @@ export async function getPlayerStatsByCompetition(
 ): Promise<PlayerStats[]> {
   const rows = await db
     .prepare('SELECT * FROM player_stats WHERE save_id = ? AND season = ? AND competition_id = ?')
-    .all(saveId, season, competitionId) as PlayerStatsRow[];
-  return rows.map(rowToPlayerStats);
+    .all(saveId, season, competitionId);
+  return parseRows(playerStatsRowSchema, rows, 'player-stats.getPlayerStatsByCompetition').map(rowToPlayerStats);
 }
 
 export async function getPlayerStatsForPlayer(
@@ -109,8 +126,8 @@ export async function getPlayerStatsForPlayer(
 ): Promise<PlayerStats[]> {
   const rows = await db
     .prepare('SELECT * FROM player_stats WHERE save_id = ? AND player_id = ? ORDER BY season ASC, competition_id ASC')
-    .all(saveId, playerId) as PlayerStatsRow[];
-  return rows.map(rowToPlayerStats);
+    .all(saveId, playerId);
+  return parseRows(playerStatsRowSchema, rows, 'player-stats.getPlayerStatsForPlayer').map(rowToPlayerStats);
 }
 
 export interface RecentForm {
@@ -131,15 +148,12 @@ export async function getRecentForm(
   playerId: number,
   season: number,
 ): Promise<RecentForm> {
-  const rows = (await db
+  const rawRows = await db
     .prepare(
       'SELECT appearances, avg_rating, minutes_played FROM player_stats WHERE save_id = ? AND player_id = ? AND season = ?',
     )
-    .all(saveId, playerId, season)) as Array<{
-      appearances: number;
-      avg_rating: number;
-      minutes_played: number;
-    }>;
+    .all(saveId, playerId, season);
+  const rows = parseRows(recentFormRowSchema, rawRows, 'player-stats.getRecentForm');
 
   let minutesPlayed = 0;
   let totalPossibleMinutes = 0;
@@ -161,10 +175,11 @@ export async function getRecentForm(
 export async function getLastNMatchForm(
   db: DbHandle, saveId: number, playerId: number, season: number, n: number,
 ): Promise<number[]> {
-  const rows = (await db.prepare(
+  const rawRows = await db.prepare(
     `SELECT avg_rating FROM player_stats
      WHERE save_id = ? AND player_id = ? AND season = ? AND minutes_played > 0
      ORDER BY minutes_played DESC LIMIT ?`,
-  ).all(saveId, playerId, season, n)) as Array<{ avg_rating: number }>;
+  ).all(saveId, playerId, season, n);
+  const rows = parseRows(lastNFormRowSchema, rawRows, 'player-stats.getLastNMatchForm');
   return rows.map((r) => r.avg_rating);
 }

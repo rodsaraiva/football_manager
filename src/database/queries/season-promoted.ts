@@ -1,4 +1,17 @@
+import { z, ZodObject } from 'zod';
+import { parseRow } from '../parse-rows';
 import { DbHandle } from './players';
+
+const promotedForClubRowSchema = z
+  .object({
+    league_id: z.number(),
+    final_position: z.number(),
+  })
+  .passthrough();
+
+export const __rowSchemas: Array<{ table: string; schema: ZodObject<any> }> = [
+  { table: 'season_promoted', schema: promotedForClubRowSchema },
+];
 
 export async function insertPromotedIgnore(
   db: DbHandle,
@@ -23,10 +36,11 @@ export async function getPromotedForClub(
   season: number,
   clubId: number,
 ): Promise<{ leagueId: number; finalPosition: number } | null> {
-  const row = (await db
+  const raw = await db
     .prepare(
       'SELECT league_id, final_position FROM season_promoted WHERE save_id = ? AND season = ? AND club_id = ? LIMIT 1',
     )
-    .get(saveId, season, clubId)) as { league_id: number; final_position: number } | undefined;
+    .get(saveId, season, clubId);
+  const row = parseRow(promotedForClubRowSchema.nullable(), raw, 'season-promoted.getPromotedForClub');
   return row ? { leagueId: row.league_id, finalPosition: row.final_position } : null;
 }

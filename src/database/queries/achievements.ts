@@ -1,3 +1,5 @@
+import { z, ZodObject } from 'zod';
+import { parseRows } from '../parse-rows';
 import { DbHandle } from './players';
 
 export interface UnlockedAchievement {
@@ -6,23 +8,38 @@ export interface UnlockedAchievement {
   week: number;
 }
 
-interface AchievementRow {
-  achievement_id: string;
-  season: number;
-  week: number;
-}
+// Projeção parcial de achievements (achievement_id/season/week NOT NULL no schema).
+const achievementRowSchema = z
+  .object({
+    achievement_id: z.string(),
+    season: z.number(),
+    week: z.number(),
+  })
+  .passthrough();
+type AchievementRow = z.infer<typeof achievementRowSchema>;
+
+const achievementIdRowSchema = z.object({ achievement_id: z.string() }).passthrough();
+
+export const __rowSchemas: Array<{ table: string; schema: ZodObject<any> }> = [
+  { table: 'achievements', schema: achievementRowSchema },
+  { table: 'achievements', schema: achievementIdRowSchema },
+];
 
 /** All achievements unlocked for this save, ordered by when they fired. */
 export async function getUnlockedAchievements(
   db: DbHandle,
   saveId: number,
 ): Promise<UnlockedAchievement[]> {
-  const rows = (await db
+  const rows = await db
     .prepare(
       'SELECT achievement_id, season, week FROM achievements WHERE save_id = ? ORDER BY season ASC, week ASC',
     )
-    .all(saveId)) as AchievementRow[];
-  return rows.map((r) => ({ achievementId: r.achievement_id, season: r.season, week: r.week }));
+    .all(saveId);
+  return parseRows(achievementRowSchema, rows, 'achievements.getUnlockedAchievements').map((r) => ({
+    achievementId: r.achievement_id,
+    season: r.season,
+    week: r.week,
+  }));
 }
 
 /**
@@ -40,9 +57,11 @@ export async function unlockAchievements(
   if (ids.length === 0) return [];
 
   const existing = new Set(
-    ((await db
-      .prepare('SELECT achievement_id FROM achievements WHERE save_id = ?')
-      .all(saveId)) as { achievement_id: string }[]).map((r) => r.achievement_id),
+    parseRows(
+      achievementIdRowSchema,
+      await db.prepare('SELECT achievement_id FROM achievements WHERE save_id = ?').all(saveId),
+      'achievements.unlockAchievements',
+    ).map((r) => r.achievement_id),
   );
 
   const newly: string[] = [];

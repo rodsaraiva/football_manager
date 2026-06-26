@@ -1,31 +1,65 @@
+import { z, ZodObject } from 'zod';
 import { Transfer, TransferOffer, TransferType, OfferStatus } from '@/types';
+import { parseRows, parseRow } from '../parse-rows';
 import { DbHandle } from './players';
 import { LoanedPlayerRow } from '@/engine/transfer/loan-portfolio';
 
-interface TransferRow {
-  id: number;
-  player_id: number;
-  season: number;
-  from_club_id: number | null;
-  to_club_id: number | null;
-  fee: number;
-  wage_offered: number;
-  type: string;
-  loan_end: number | null;
-}
+const transferRowSchema = z
+  .object({
+    id: z.number(),
+    player_id: z.number(),
+    season: z.number(),
+    from_club_id: z.number().nullable(),
+    to_club_id: z.number().nullable(),
+    fee: z.number(),
+    wage_offered: z.number(),
+    type: z.string(),
+    loan_end: z.number().nullable(),
+  })
+  .passthrough();
+type TransferRow = z.infer<typeof transferRowSchema>;
 
-interface TransferOfferRow {
-  id: number;
-  player_id: number;
-  offering_club_id: number;
-  selling_club_id: number;
-  fee_offered: number;
-  wage_offered: number;
-  status: string;
-  response_week: number | null;
-  offer_type: string | null;
-  loan_end: number | null;
-}
+// offer_type é NOT NULL no SQL, mas o cast antigo o tratava como nullable; mantido fiel.
+const transferOfferRowSchema = z
+  .object({
+    id: z.number(),
+    player_id: z.number(),
+    offering_club_id: z.number(),
+    selling_club_id: z.number(),
+    fee_offered: z.number(),
+    wage_offered: z.number(),
+    status: z.string(),
+    response_week: z.number().nullable(),
+    offer_type: z.string().nullable(),
+    loan_end: z.number().nullable(),
+  })
+  .passthrough();
+type TransferOfferRow = z.infer<typeof transferOfferRowSchema>;
+
+export const __rowSchemas: Array<{ table: string; schema: ZodObject<any> }> = [
+  { table: 'transfers', schema: transferRowSchema },
+  { table: 'transfer_offers', schema: transferOfferRowSchema },
+];
+
+// Projeção com aliases/JOIN — não é linha de tabela, fica fora de __rowSchemas.
+const activeLoanRowSchema = z
+  .object({
+    playerId: z.number(),
+    name: z.string(),
+    loanClubId: z.number(),
+    loanClubName: z.string().nullable(),
+    loanEnd: z.number(),
+  })
+  .passthrough();
+
+// Agregados COALESCE(SUM())/CASE — projeção, fora de __rowSchemas.
+const loanStatRowSchema = z
+  .object({
+    appearances: z.number(),
+    minutesPlayed: z.number(),
+    avgRating: z.number(),
+  })
+  .passthrough();
 
 function rowToTransfer(row: TransferRow): Transfer {
   return {
@@ -90,15 +124,15 @@ export async function createTransfer(db: DbHandle, saveId: number, input: Create
 export async function getTransfersBySeason(db: DbHandle, saveId: number, season: number): Promise<Transfer[]> {
   const rows = await db
     .prepare('SELECT * FROM transfers WHERE save_id = ? AND season = ?')
-    .all(saveId, season) as TransferRow[];
-  return rows.map(rowToTransfer);
+    .all(saveId, season);
+  return parseRows(transferRowSchema, rows, 'transfers.getTransfersBySeason').map(rowToTransfer);
 }
 
 export async function getTransfersByClub(db: DbHandle, saveId: number, clubId: number): Promise<Transfer[]> {
   const rows = await db
     .prepare('SELECT * FROM transfers WHERE save_id = ? AND (to_club_id = ? OR from_club_id = ?) ORDER BY season DESC, id DESC')
-    .all(saveId, clubId, clubId) as TransferRow[];
-  return rows.map(rowToTransfer);
+    .all(saveId, clubId, clubId);
+  return parseRows(transferRowSchema, rows, 'transfers.getTransfersByClub').map(rowToTransfer);
 }
 
 export interface CreateOfferInput {
@@ -140,29 +174,30 @@ export async function createOffer(db: DbHandle, saveId: number, input: CreateOff
 export async function getPendingOffers(db: DbHandle, saveId: number): Promise<TransferOffer[]> {
   const rows = await db
     .prepare("SELECT * FROM transfer_offers WHERE save_id = ? AND status = 'pending'")
-    .all(saveId) as TransferOfferRow[];
-  return rows.map(rowToTransferOffer);
+    .all(saveId);
+  return parseRows(transferOfferRowSchema, rows, 'transfers.getPendingOffers').map(rowToTransferOffer);
 }
 
 export async function getOffersByOfferingClub(db: DbHandle, saveId: number, clubId: number): Promise<TransferOffer[]> {
   const rows = await db
     .prepare('SELECT * FROM transfer_offers WHERE save_id = ? AND offering_club_id = ? ORDER BY id DESC')
-    .all(saveId, clubId) as TransferOfferRow[];
-  return rows.map(rowToTransferOffer);
+    .all(saveId, clubId);
+  return parseRows(transferOfferRowSchema, rows, 'transfers.getOffersByOfferingClub').map(rowToTransferOffer);
 }
 
 export async function getOffersBySellingClub(db: DbHandle, saveId: number, clubId: number): Promise<TransferOffer[]> {
   const rows = await db
     .prepare('SELECT * FROM transfer_offers WHERE save_id = ? AND selling_club_id = ? ORDER BY id DESC')
-    .all(saveId, clubId) as TransferOfferRow[];
-  return rows.map(rowToTransferOffer);
+    .all(saveId, clubId);
+  return parseRows(transferOfferRowSchema, rows, 'transfers.getOffersBySellingClub').map(rowToTransferOffer);
 }
 
 export async function getOfferById(db: DbHandle, saveId: number, offerId: number): Promise<TransferOffer | null> {
   const row = await db
     .prepare('SELECT * FROM transfer_offers WHERE save_id = ? AND id = ?')
-    .get(saveId, offerId) as TransferOfferRow | undefined;
-  return row ? rowToTransferOffer(row) : null;
+    .get(saveId, offerId);
+  const parsed = parseRow(transferOfferRowSchema.nullable(), row, 'transfers.getOfferById');
+  return parsed ? rowToTransferOffer(parsed) : null;
 }
 
 export async function updateOfferStatus(
@@ -207,7 +242,7 @@ export async function deleteOffer(db: DbHandle, saveId: number, offerId: number)
 export async function getActiveLoansByParent(
   db: DbHandle, saveId: number, parentClubId: number,
 ): Promise<LoanedPlayerRow[]> {
-  const rows = (await db.prepare(
+  const rawRows = await db.prepare(
     `SELECT t.player_id AS playerId, p.name AS name, p.club_id AS loanClubId,
             c.name AS loanClubName, t.loan_end AS loanEnd
      FROM transfers t
@@ -215,19 +250,19 @@ export async function getActiveLoansByParent(
      LEFT JOIN clubs c ON c.save_id = t.save_id AND c.id = p.club_id
      WHERE t.save_id = ? AND t.type = 'loan' AND t.loan_end IS NOT NULL
        AND t.from_club_id = ? AND p.club_id != ?`,
-  ).all(saveId, parentClubId, parentClubId)) as Array<{
-    playerId: number; name: string; loanClubId: number; loanClubName: string | null; loanEnd: number;
-  }>;
+  ).all(saveId, parentClubId, parentClubId);
+  const rows = parseRows(activeLoanRowSchema, rawRows, 'transfers.getActiveLoansByParent');
 
   const out: LoanedPlayerRow[] = [];
   for (const r of rows) {
-    const stat = (await db.prepare(
+    const rawStat = await db.prepare(
       `SELECT COALESCE(SUM(appearances),0) AS appearances,
               COALESCE(SUM(minutes_played),0) AS minutesPlayed,
               CASE WHEN SUM(minutes_played) > 0
                    THEN SUM(avg_rating * minutes_played) / SUM(minutes_played) ELSE 0 END AS avgRating
        FROM player_stats WHERE save_id = ? AND player_id = ?`,
-    ).get(saveId, r.playerId)) as { appearances: number; minutesPlayed: number; avgRating: number };
+    ).get(saveId, r.playerId);
+    const stat = parseRow(loanStatRowSchema, rawStat, 'transfers.getActiveLoansByParent.stats');
     out.push({
       playerId: r.playerId, name: r.name, loanClubId: r.loanClubId,
       loanClubName: r.loanClubName ?? '', loanEnd: r.loanEnd,

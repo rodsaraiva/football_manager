@@ -1,10 +1,26 @@
+import { z, ZodObject } from 'zod';
+import { parseRows, parseRow } from '../parse-rows';
 import { DbHandle } from './players';
 
-interface ScoutingRow {
-  player_id: number;
-  knowledge: number;
-  scout_id: number | null;
-}
+// Projeções parciais da tabela scouting (subconjuntos de colunas); .passthrough()
+// deixa save_id passar quando presente. Nenhuma mapeia 1:1 a tabela inteira → __rowSchemas vazio.
+const knowledgeRowSchema = z.object({ knowledge: z.number() }).passthrough();
+
+const scoutingRowSchema = z
+  .object({
+    player_id: z.number(),
+    knowledge: z.number(),
+    scout_id: z.number().nullable(),
+  })
+  .passthrough();
+type ScoutingRow = z.infer<typeof scoutingRowSchema>;
+
+// scout_id IS NOT NULL no WHERE garante não-nulo (fiel ao cast original).
+const activeAssignmentRowSchema = z
+  .object({ player_id: z.number(), scout_id: z.number() })
+  .passthrough();
+
+export const __rowSchemas: Array<{ table: string; schema: ZodObject<any> }> = [];
 
 export interface ScoutingRowDto {
   playerId: number;
@@ -18,17 +34,22 @@ export async function getPlayerKnowledge(
   saveId: number,
   playerId: number,
 ): Promise<number> {
-  const row = (await db
+  const row = await db
     .prepare('SELECT knowledge FROM scouting WHERE save_id = ? AND player_id = ?')
-    .get(saveId, playerId)) as { knowledge: number } | undefined;
-  return row?.knowledge ?? 0;
+    .get(saveId, playerId);
+  const parsed = row ? parseRow(knowledgeRowSchema, row, 'scouting.getPlayerKnowledge') : null;
+  return parsed?.knowledge ?? 0;
 }
 
 export async function getScoutingRows(db: DbHandle, saveId: number): Promise<ScoutingRowDto[]> {
-  const rows = (await db
+  const rows = await db
     .prepare('SELECT player_id, knowledge, scout_id FROM scouting WHERE save_id = ?')
-    .all(saveId)) as ScoutingRow[];
-  return rows.map((r) => ({ playerId: r.player_id, knowledge: r.knowledge, scoutId: r.scout_id }));
+    .all(saveId);
+  return parseRows(scoutingRowSchema, rows, 'scouting.getScoutingRows').map((r: ScoutingRow) => ({
+    playerId: r.player_id,
+    knowledge: r.knowledge,
+    scoutId: r.scout_id,
+  }));
 }
 
 /**
@@ -86,10 +107,13 @@ export async function getActiveAssignments(
   db: DbHandle,
   saveId: number,
 ): Promise<{ playerId: number; scoutId: number }[]> {
-  const rows = (await db
+  const rows = await db
     .prepare(
       'SELECT player_id, scout_id FROM scouting WHERE save_id = ? AND scout_id IS NOT NULL AND knowledge < 100',
     )
-    .all(saveId)) as { player_id: number; scout_id: number }[];
-  return rows.map((r) => ({ playerId: r.player_id, scoutId: r.scout_id }));
+    .all(saveId);
+  return parseRows(activeAssignmentRowSchema, rows, 'scouting.getActiveAssignments').map((r) => ({
+    playerId: r.player_id,
+    scoutId: r.scout_id,
+  }));
 }

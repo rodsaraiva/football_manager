@@ -1,9 +1,11 @@
+import { z, ZodObject } from 'zod';
 import type { DbHandle } from './players';
 import type {
   InboxCategory, InboxActionKind, InboxRefKind,
   InboxThread, InboxMessage, InboxThreadView,
 } from '@/engine/inbox/inbox-types';
 import type { TKey } from '@/i18n/translate';
+import { parseRows, parseRow } from '../parse-rows';
 
 export interface NewThreadInput {
   category: InboxCategory;
@@ -24,16 +26,48 @@ export interface NewMessageInput {
   fromSelf?: boolean;
 }
 
-interface ThreadRow {
-  id: number; category: string; ref_kind: string; ref_id: number | null;
-  action_kind: string; status: string; deadline_season: number | null;
-  deadline_week: number | null; read: number; last_season: number; last_week: number;
-}
-interface MessageRow {
-  id: number; thread_id: number; season: number; week: number;
-  title_key: string; title_vars: string; body_key: string; body_vars: string;
-  icon: string; from_self: number;
-}
+// Campos consumidos por toInboxThread; read/deadline são INTEGER (nullable conforme schema.ts).
+const threadRowSchema = z
+  .object({
+    id: z.number(),
+    category: z.string(),
+    ref_kind: z.string(),
+    ref_id: z.number().nullable(),
+    action_kind: z.string(),
+    status: z.string(),
+    deadline_season: z.number().nullable(),
+    deadline_week: z.number().nullable(),
+    read: z.number(),
+    last_season: z.number(),
+    last_week: z.number(),
+  })
+  .passthrough();
+type ThreadRow = z.infer<typeof threadRowSchema>;
+
+// from_self é INTEGER 0/1 (code converte === 1); *_vars são TEXT JSON.
+const messageRowSchema = z
+  .object({
+    id: z.number(),
+    thread_id: z.number(),
+    season: z.number(),
+    week: z.number(),
+    title_key: z.string(),
+    title_vars: z.string(),
+    body_key: z.string(),
+    body_vars: z.string(),
+    icon: z.string(),
+    from_self: z.number(),
+  })
+  .passthrough();
+type MessageRow = z.infer<typeof messageRowSchema>;
+
+// COUNT(*) AS n é projeção agregada, não linha de tabela: fora de __rowSchemas.
+const countRowSchema = z.object({ n: z.number() }).passthrough();
+
+export const __rowSchemas: Array<{ table: string; schema: ZodObject<any> }> = [
+  { table: 'inbox_threads', schema: threadRowSchema },
+  { table: 'inbox_messages', schema: messageRowSchema },
+];
 
 function parseVars(json: string): Record<string, string | number> | undefined {
   if (!json || json === '{}') return undefined;
@@ -122,20 +156,24 @@ export async function appendMessage(
 export async function getThreadView(
   db: DbHandle, saveId: number, threadId: number,
 ): Promise<InboxThreadView | null> {
-  const row = (await db
+  const rawRow = await db
     .prepare(
       `SELECT id, category, ref_kind, ref_id, action_kind, status, deadline_season, deadline_week, read, last_season, last_week
        FROM inbox_threads WHERE save_id = ? AND id = ?`,
     )
-    .get(saveId, threadId)) as ThreadRow | undefined;
-  if (!row) return null;
-  const msgRows = (await db
+    .get(saveId, threadId);
+  if (!rawRow) return null;
+  const row = parseRow(threadRowSchema, rawRow, 'inbox.getThreadView');
+  const msgRows = await db
     .prepare(
       `SELECT id, thread_id, season, week, title_key, title_vars, body_key, body_vars, icon, from_self
        FROM inbox_messages WHERE save_id = ? AND thread_id = ? ORDER BY id ASC`,
     )
-    .all(saveId, threadId)) as MessageRow[];
-  return { ...toInboxThread(row), messages: msgRows.map(toInboxMessage) };
+    .all(saveId, threadId);
+  return {
+    ...toInboxThread(row),
+    messages: parseRows(messageRowSchema, msgRows, 'inbox.getThreadView').map(toInboxMessage),
+  };
 }
 
 export async function getThreads(
@@ -143,7 +181,7 @@ export async function getThreads(
 ): Promise<InboxThread[]> {
   const where = opts?.category ? 'save_id = ? AND category = ?' : 'save_id = ?';
   const params = opts?.category ? [saveId, opts.category] : [saveId];
-  const rows = (await db
+  const rows = await db
     .prepare(
       `SELECT id, category, ref_kind, ref_id, action_kind, status, deadline_season, deadline_week, read, last_season, last_week
        FROM inbox_threads WHERE ${where}
@@ -152,8 +190,8 @@ export async function getThreads(
                 deadline_season ASC, deadline_week ASC,
                 last_season DESC, last_week DESC, id DESC`,
     )
-    .all(...params)) as ThreadRow[];
-  return rows.map(toInboxThread);
+    .all(...params);
+  return parseRows(threadRowSchema, rows, 'inbox.getThreads').map(toInboxThread);
 }
 
 export async function markThreadRead(db: DbHandle, saveId: number, threadId: number): Promise<void> {
@@ -167,23 +205,23 @@ export async function setThreadStatus(
 }
 
 export async function countUnreadThreads(db: DbHandle, saveId: number): Promise<number> {
-  const row = (await db
+  const row = await db
     .prepare('SELECT COUNT(*) AS n FROM inbox_threads WHERE save_id = ? AND read = 0')
-    .get(saveId)) as { n: number } | undefined;
-  return row?.n ?? 0;
+    .get(saveId);
+  return parseRow(countRowSchema, row, 'inbox.countUnreadThreads').n;
 }
 
 export async function countActionableThreads(db: DbHandle, saveId: number): Promise<number> {
-  const row = (await db
+  const row = await db
     .prepare("SELECT COUNT(*) AS n FROM inbox_threads WHERE save_id = ? AND status = 'open' AND action_kind != 'none'")
-    .get(saveId)) as { n: number } | undefined;
-  return row?.n ?? 0;
+    .get(saveId);
+  return parseRow(countRowSchema, row, 'inbox.countActionableThreads').n;
 }
 
 export async function getExpiredActionableThreads(
   db: DbHandle, saveId: number, season: number, week: number,
 ): Promise<InboxThread[]> {
-  const rows = (await db
+  const rows = await db
     .prepare(
       `SELECT id, category, ref_kind, ref_id, action_kind, status, deadline_season, deadline_week, read, last_season, last_week
        FROM inbox_threads
@@ -191,6 +229,6 @@ export async function getExpiredActionableThreads(
          AND deadline_season IS NOT NULL AND deadline_week IS NOT NULL
          AND (deadline_season < ? OR (deadline_season = ? AND deadline_week <= ?))`,
     )
-    .all(saveId, season, season, week)) as ThreadRow[];
-  return rows.map(toInboxThread);
+    .all(saveId, season, season, week);
+  return parseRows(threadRowSchema, rows, 'inbox.getExpiredActionableThreads').map(toInboxThread);
 }

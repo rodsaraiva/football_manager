@@ -1,8 +1,46 @@
+import { z, ZodObject } from 'zod';
 import type { DbHandle } from './players';
+import { parseRows, parseRow } from '../parse-rows';
 import type { MoraleDriver, MoraleDriverKind } from '@/engine/morale/driver-ledger';
 import { derivePersonality, toPersonalityScale, type PersonalityArchetype } from '@/engine/morale/personality';
 import type { FalloutState } from '@/engine/morale/fallout';
 import type { ChemistryGroup } from '@/engine/morale/chemistry';
+
+const moraleEventRowSchema = z
+  .object({
+    kind: z.string(),
+    delta: z.number(),
+    season: z.number(),
+    week: z.number(),
+  })
+  .passthrough();
+
+const chemistryLinkRowSchema = z
+  .object({
+    group_idx: z.number(),
+    player_id: z.number(),
+    cohesion: z.number(),
+  })
+  .passthrough();
+
+// JOIN players+player_attributes com aliases: projeção, fora de __rowSchemas.
+const personalitySourceRowSchema = z
+  .object({
+    id: z.number(),
+    leadership: z.number(),
+    composure: z.number(),
+    aggression: z.number(),
+    decisions: z.number(),
+  })
+  .passthrough();
+
+// COUNT(*) AS n: agregado, não é linha de tabela.
+const criticismCountRowSchema = z.object({ n: z.number() }).passthrough();
+
+export const __rowSchemas: Array<{ table: string; schema: ZodObject<any> }> = [
+  { table: 'morale_events', schema: moraleEventRowSchema },
+  { table: 'chemistry_links', schema: chemistryLinkRowSchema },
+];
 
 export async function appendMoraleEvents(
   db: DbHandle, saveId: number, playerId: number, drivers: readonly MoraleDriver[],
@@ -17,12 +55,14 @@ export async function appendMoraleEvents(
 export async function getMoraleEvents(
   db: DbHandle, saveId: number, playerId: number, limit: number,
 ): Promise<MoraleDriver[]> {
-  const rows = (await db
+  const rows = await db
     .prepare(
       'SELECT kind, delta, season, week FROM morale_events WHERE save_id = ? AND player_id = ? ORDER BY season DESC, week DESC, id DESC LIMIT ?',
     )
-    .all(saveId, playerId, limit)) as Array<{ kind: string; delta: number; season: number; week: number }>;
-  return rows.map((r) => ({ kind: r.kind as MoraleDriverKind, delta: r.delta, season: r.season, week: r.week }));
+    .all(saveId, playerId, limit);
+  return parseRows(moraleEventRowSchema, rows, 'getMoraleEvents').map((r) => ({
+    kind: r.kind as MoraleDriverKind, delta: r.delta, season: r.season, week: r.week,
+  }));
 }
 
 export async function pruneMoraleEvents(
@@ -45,7 +85,7 @@ export async function setPlayerPersonality(
  * sem isso todo jogador fica 'balanced' e a psicologia (química/fallout) fica inerte.
  */
 export async function derivePersonalitiesForSave(db: DbHandle, saveId: number): Promise<void> {
-  const rows = (await db
+  const rows = await db
     .prepare(
       `SELECT p.id AS id, a.leadership AS leadership, a.composure AS composure,
               a.aggression AS aggression, a.decisions AS decisions
@@ -53,10 +93,8 @@ export async function derivePersonalitiesForSave(db: DbHandle, saveId: number): 
          JOIN player_attributes a ON a.player_id = p.id AND a.save_id = p.save_id
         WHERE p.save_id = ?`,
     )
-    .all(saveId)) as Array<{
-    id: number; leadership: number; composure: number; aggression: number; decisions: number;
-  }>;
-  for (const r of rows) {
+    .all(saveId);
+  for (const r of parseRows(personalitySourceRowSchema, rows, 'derivePersonalitiesForSave')) {
     const archetype = derivePersonality(
       toPersonalityScale({ leadership: r.leadership, composure: r.composure, aggression: r.aggression, decisions: r.decisions }),
       r.id,
@@ -75,14 +113,14 @@ export async function setFalloutState(
 export async function countRecentCriticisms(
   db: DbHandle, saveId: number, playerId: number, sinceSeason: number, sinceWeek: number,
 ): Promise<number> {
-  const row = (await db
+  const row = await db
     .prepare(
       `SELECT COUNT(*) AS n FROM morale_events
         WHERE save_id = ? AND player_id = ? AND kind = 'criticism'
           AND (season > ? OR (season = ? AND week >= ?))`,
     )
-    .get(saveId, playerId, sinceSeason, sinceSeason, sinceWeek)) as { n: number };
-  return row.n;
+    .get(saveId, playerId, sinceSeason, sinceSeason, sinceWeek);
+  return parseRow(criticismCountRowSchema, row, 'countRecentCriticisms').n;
 }
 
 export async function replaceChemistryLinks(
@@ -102,13 +140,13 @@ export async function replaceChemistryLinks(
 export async function getChemistryGroups(
   db: DbHandle, saveId: number, clubId: number,
 ): Promise<ChemistryGroup[]> {
-  const rows = (await db
+  const rows = await db
     .prepare(
       'SELECT group_idx, player_id, cohesion FROM chemistry_links WHERE save_id = ? AND club_id = ? ORDER BY group_idx, player_id',
     )
-    .all(saveId, clubId)) as Array<{ group_idx: number; player_id: number; cohesion: number }>;
+    .all(saveId, clubId);
   const byIdx = new Map<number, ChemistryGroup>();
-  for (const r of rows) {
+  for (const r of parseRows(chemistryLinkRowSchema, rows, 'getChemistryGroups')) {
     let g = byIdx.get(r.group_idx);
     if (!g) { g = { memberIds: [], cohesion: r.cohesion }; byIdx.set(r.group_idx, g); }
     g.memberIds.push(r.player_id);

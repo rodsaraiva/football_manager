@@ -1,3 +1,4 @@
+import { z, ZodObject } from 'zod';
 import {
   Tactic,
   TacticPosition,
@@ -10,31 +11,50 @@ import {
   AttackFocus,
   SubstitutionStrategy,
 } from '@/types';
+import { parseRows, parseRow } from '../parse-rows';
 import { DbHandle } from './players';
 import { runInTransaction } from '../transaction';
 
-interface TacticRow {
-  id: number;
-  club_id: number;
-  name: string;
-  is_active: number;
-  formation: string;
-  mentality: string;
-  pressing: string;
-  passing_style: string;
-  tempo: string;
-  width: string;
-  attack_focus: string | null;
-  sub_strategy: string | null;
-}
+// is_active é inteiro 0/1; attack_focus/sub_strategy mantêm nullable por fidelidade ao
+// cast anterior (o código defaultava com ?? 'balanced').
+const tacticRowSchema = z
+  .object({
+    id: z.number(),
+    club_id: z.number(),
+    name: z.string(),
+    is_active: z.number(),
+    formation: z.string(),
+    mentality: z.string(),
+    pressing: z.string(),
+    passing_style: z.string(),
+    tempo: z.string(),
+    width: z.string(),
+    attack_focus: z.string().nullable(),
+    sub_strategy: z.string().nullable(),
+  })
+  .passthrough();
+type TacticRow = z.infer<typeof tacticRowSchema>;
 
-interface TacticPositionRow {
-  tactic_id: number;
-  slot: number;
-  player_id: number | null;
-  position_role: string;
-  instructions: string;
-}
+// player_id é nullable (coluna sem NOT NULL); demais campos NOT NULL.
+const tacticPositionRowSchema = z
+  .object({
+    tactic_id: z.number(),
+    slot: z.number(),
+    player_id: z.number().nullable(),
+    position_role: z.string(),
+    instructions: z.string(),
+  })
+  .passthrough();
+type TacticPositionRow = z.infer<typeof tacticPositionRowSchema>;
+
+// Projeções (guard SELECT id / SELECT slot_index, player_id): fora de __rowSchemas.
+const tacticIdRowSchema = z.object({ id: z.number() }).passthrough().nullable();
+const lineupRowSchema = z.object({ slot_index: z.number(), player_id: z.number() }).passthrough();
+
+export const __rowSchemas: Array<{ table: string; schema: ZodObject<any> }> = [
+  { table: 'tactics', schema: tacticRowSchema },
+  { table: 'tactic_positions', schema: tacticPositionRowSchema },
+];
 
 function rowToTactic(row: TacticRow): Tactic {
   return {
@@ -72,15 +92,15 @@ function rowToTacticPosition(row: TacticPositionRow): TacticPosition {
 export async function getActiveTactic(db: DbHandle, saveId: number, clubId: number): Promise<Tactic | null> {
   const row = await db
     .prepare('SELECT * FROM tactics WHERE save_id = ? AND club_id = ? AND is_active = 1')
-    .get(saveId, clubId) as TacticRow | undefined;
-  return row ? rowToTactic(row) : null;
+    .get(saveId, clubId);
+  return row ? rowToTactic(parseRow(tacticRowSchema, row, 'tactics.getActiveTactic')) : null;
 }
 
 export async function getTacticPositions(db: DbHandle, saveId: number, tacticId: number): Promise<TacticPosition[]> {
   const rows = await db
     .prepare('SELECT tp.* FROM tactic_positions tp JOIN tactics t ON t.id = tp.tactic_id WHERE t.save_id = ? AND tp.tactic_id = ? ORDER BY tp.slot ASC')
-    .all(saveId, tacticId) as TacticPositionRow[];
-  return rows.map(rowToTacticPosition);
+    .all(saveId, tacticId);
+  return parseRows(tacticPositionRowSchema, rows, 'tactics.getTacticPositions').map(rowToTacticPosition);
 }
 
 export interface UpdateTacticInput {
@@ -151,9 +171,11 @@ export async function setTacticLineup(
 ): Promise<void> {
   await runInTransaction(db, async () => {
     // Guard: verify the tactic belongs to this save before mutating lineup
-    const tactic = await db
-      .prepare('SELECT id FROM tactics WHERE save_id = ? AND id = ?')
-      .get(saveId, tacticId) as { id: number } | undefined;
+    const tactic = parseRow(
+      tacticIdRowSchema,
+      await db.prepare('SELECT id FROM tactics WHERE save_id = ? AND id = ?').get(saveId, tacticId),
+      'tactics.setTacticLineup',
+    );
     if (!tactic) return;
 
     await db.prepare('DELETE FROM tactic_lineup WHERE tactic_id = ?').run(tacticId);
@@ -172,16 +194,19 @@ export async function getTacticLineup(
   tacticId: number,
 ): Promise<{ starterIds: number[]; benchIds: number[] } | null> {
   // Guard: verify the tactic belongs to this save
-  const tactic = await db
-    .prepare('SELECT id FROM tactics WHERE save_id = ? AND id = ?')
-    .get(saveId, tacticId) as { id: number } | undefined;
+  const tactic = parseRow(
+    tacticIdRowSchema,
+    await db.prepare('SELECT id FROM tactics WHERE save_id = ? AND id = ?').get(saveId, tacticId),
+    'tactics.getTacticLineup',
+  );
   if (!tactic) return null;
 
   const rows = await db
     .prepare('SELECT slot_index, player_id FROM tactic_lineup WHERE tactic_id = ? ORDER BY slot_index ASC')
-    .all(tacticId) as { slot_index: number; player_id: number }[];
-  if (rows.length === 0) return null;
-  const starterIds = rows.filter(r => r.slot_index < 11).map(r => r.player_id);
-  const benchIds = rows.filter(r => r.slot_index >= 11).map(r => r.player_id);
+    .all(tacticId);
+  const parsed = parseRows(lineupRowSchema, rows, 'tactics.getTacticLineup');
+  if (parsed.length === 0) return null;
+  const starterIds = parsed.filter(r => r.slot_index < 11).map(r => r.player_id);
+  const benchIds = parsed.filter(r => r.slot_index >= 11).map(r => r.player_id);
   return { starterIds, benchIds };
 }

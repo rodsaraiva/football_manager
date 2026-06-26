@@ -1,3 +1,5 @@
+import { z, ZodObject } from 'zod';
+import { parseRows, parseRow } from '../parse-rows';
 import { DbHandle } from './players';
 import type { MissionType } from '@/engine/scouting/scout-missions';
 
@@ -12,27 +14,38 @@ export interface ScoutMissionDto {
   status: 'active' | 'completed' | 'expired';
 }
 
-interface ScoutMissionRow {
-  id: number;
-  scout_id: number;
-  type: MissionType;
-  target_player_id: number | null;
-  target_club_id: number | null;
-  region_code: string | null;
-  weeks_elapsed: number;
-  status: 'active' | 'completed' | 'expired';
-}
+// Campos consumidos por toDto; .passthrough() deixa save_id/created_* passarem.
+const scoutMissionRowSchema = z
+  .object({
+    id: z.number(),
+    scout_id: z.number(),
+    type: z.string(),
+    target_player_id: z.number().nullable(),
+    target_club_id: z.number().nullable(),
+    region_code: z.string().nullable(),
+    weeks_elapsed: z.number(),
+    status: z.string(),
+  })
+  .passthrough();
+type ScoutMissionRow = z.infer<typeof scoutMissionRowSchema>;
+
+// COUNT(*): projeção, não é linha de tabela — fora de __rowSchemas.
+const intelCountRowSchema = z.object({ n: z.number() }).passthrough();
+
+export const __rowSchemas: Array<{ table: string; schema: ZodObject<any> }> = [
+  { table: 'scout_missions', schema: scoutMissionRowSchema },
+];
 
 function toDto(r: ScoutMissionRow): ScoutMissionDto {
   return {
     id: r.id,
     scoutId: r.scout_id,
-    type: r.type,
+    type: r.type as MissionType,
     targetPlayerId: r.target_player_id,
     targetClubId: r.target_club_id,
     regionCode: r.region_code,
     weeksElapsed: r.weeks_elapsed,
-    status: r.status,
+    status: r.status as ScoutMissionDto['status'],
   };
 }
 
@@ -70,10 +83,10 @@ export async function createMission(
 }
 
 export async function getActiveMissions(db: DbHandle, saveId: number): Promise<ScoutMissionDto[]> {
-  const rows = (await db
+  const rows = await db
     .prepare(`SELECT * FROM scout_missions WHERE save_id = ? AND status = 'active'`)
-    .all(saveId)) as ScoutMissionRow[];
-  return rows.map(toDto);
+    .all(saveId);
+  return parseRows(scoutMissionRowSchema, rows, 'scout-missions.getActiveMissions').map(toDto);
 }
 
 export async function getMissionsByScout(
@@ -81,10 +94,10 @@ export async function getMissionsByScout(
   saveId: number,
   scoutId: number,
 ): Promise<ScoutMissionDto[]> {
-  const rows = (await db
+  const rows = await db
     .prepare(`SELECT * FROM scout_missions WHERE save_id = ? AND scout_id = ? AND status = 'active'`)
-    .all(saveId, scoutId)) as ScoutMissionRow[];
-  return rows.map(toDto);
+    .all(saveId, scoutId);
+  return parseRows(scoutMissionRowSchema, rows, 'scout-missions.getMissionsByScout').map(toDto);
 }
 
 export async function setMissionWeeks(
@@ -118,11 +131,12 @@ export async function getCompletedIntelForClub(
   saveId: number,
   clubId: number,
 ): Promise<boolean> {
-  const row = (await db
+  const row = await db
     .prepare(
       `SELECT COUNT(*) AS n FROM scout_missions
         WHERE save_id = ? AND type = 'opponent_intel' AND target_club_id = ? AND status = 'completed'`,
     )
-    .get(saveId, clubId)) as { n: number } | undefined | null;
-  return (row?.n ?? 0) > 0;
+    .get(saveId, clubId);
+  const parsed = row ? parseRow(intelCountRowSchema, row, 'scout-missions.getCompletedIntelForClub') : null;
+  return (parsed?.n ?? 0) > 0;
 }
