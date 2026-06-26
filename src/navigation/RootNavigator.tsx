@@ -32,6 +32,9 @@ import { ReportsProjectionScreen } from '@/screens/reports/ReportsProjectionScre
 import { ReportsFreeAgentScoutScreen } from '@/screens/reports/ReportsFreeAgentScoutScreen';
 import { ScoutingScreen } from '@/screens/reports/ScoutingScreen';
 import { InternationalsScreen } from '@/screens/national/InternationalsScreen';
+import { NationalSquadScreen } from '@/screens/national/NationalSquadScreen';
+import { NationalCalendarScreen } from '@/screens/national/NationalCalendarScreen';
+import { NationalHistoryScreen } from '@/screens/national/NationalHistoryScreen';
 import { HistoryScreen } from '@/screens/history/HistoryScreen';
 import { PlayerDetailRoute } from '@/screens/squad/PlayerDetailRoute';
 import { MoraleBreakdownScreen } from '@/screens/squad/MoraleBreakdownScreen';
@@ -116,6 +119,9 @@ export function RootNavigator() {
       <Stack.Screen name="ReportsFreeAgentScout" component={ReportsFreeAgentScoutScreen} options={{ title: t('nav.reports_free_agent_scout') }} />
       <Stack.Screen name="Scouting" component={ScoutingScreen} options={{ title: t('nav.scouting') }} />
       <Stack.Screen name="Internationals" component={InternationalsScreen} options={{ title: t('nav.internationals') }} />
+      <Stack.Screen name="NationalSquad" component={NationalSquadScreen} options={{ title: t('nav.national_squad') }} />
+      <Stack.Screen name="NationalCalendar" component={NationalCalendarScreen} options={{ title: t('nav.national_calendar') }} />
+      <Stack.Screen name="NationalHistory" component={NationalHistoryScreen} options={{ title: t('nav.national_history') }} />
       {/* History hub */}
       <Stack.Screen name="SeasonHistory" component={HistoryScreen} options={{ title: t('nav.history') }} />
       {/* Orphan screens wired in */}

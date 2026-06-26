@@ -1,11 +1,14 @@
 import React, { useCallback, useState } from 'react';
 import { View, ScrollView, StyleSheet } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { colors, spacing, commonStyles } from '@/theme';
+import { RootStackParamList } from '@/navigation/types';
 import { useTranslation } from '@/i18n';
 import { useGameStore } from '@/store/game-store';
 import { useDatabaseStore } from '@/store/database-store';
 import { getPlayersWithAttributesByClub } from '@/database/queries/players';
+import { getUserManagedNation, NationalTeam } from '@/database/queries/national-teams';
 import { calculateOverall } from '@/utils/overall';
 import { Position } from '@/types';
 import {
@@ -14,8 +17,9 @@ import {
   INTERNATIONAL_CALLUP_MIN_OVERALL,
   TRAVEL_FATIGUE_PENALTY,
 } from '@/engine/national/international-duty';
-import { Card, Badge, EmptyState } from '@/components/kit';
-import { Headline, Body, Label, Caption, Stat } from '@/components/typography';
+import { activeNationalWindow } from '@/engine/national/national-views';
+import { Card, Badge, Button, EmptyState } from '@/components/kit';
+import { Headline, Title, Body, Label, Caption, Stat } from '@/components/typography';
 
 interface InternationalPlayer {
   id: number;
@@ -30,18 +34,23 @@ interface NationalityGroup {
 }
 
 export function InternationalsScreen() {
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { playerClubId, week, currentSave } = useGameStore();
   const { dbHandle } = useDatabaseStore();
   const { t } = useTranslation();
   const saveId = currentSave?.id;
 
+  const [nation, setNation] = useState<NationalTeam | null>(null);
   const [groups, setGroups] = useState<NationalityGroup[]>([]);
   const [calledUpIds, setCalledUpIds] = useState<Set<number>>(new Set());
 
   const isBreak = isInternationalBreak(week);
+  const windowWeek = activeNationalWindow(week);
 
   const load = useCallback(async () => {
     if (!dbHandle || playerClubId == null || saveId == null) return;
+    setNation(await getUserManagedNation(dbHandle, saveId));
+
     const squad = await getPlayersWithAttributesByClub(dbHandle, saveId, playerClubId);
     const eligible = squad
       .filter((p) => !p.isFreeAgent)
@@ -54,7 +63,6 @@ export function InternationalsScreen() {
       }))
       .filter((p) => p.overall >= INTERNATIONAL_CALLUP_MIN_OVERALL);
 
-    // Current call-up uses the same deterministic selection the engine runs.
     setCalledUpIds(new Set(selectCallUps(eligible)));
 
     const byNationality = new Map<string, InternationalPlayer[]>();
@@ -81,18 +89,66 @@ export function InternationalsScreen() {
   return (
     <ScrollView style={commonStyles.screen} contentContainerStyle={styles.container}>
       <View style={styles.header}>
-        <Headline>{t('internationals.title')}</Headline>
-        <Body color={colors.primary}>{t('internationals.subtitle')}</Body>
+        <Headline>{t('national.hub_title')}</Headline>
+        <Body color={colors.textSecondary}>{t('internationals.subtitle')}</Body>
+      </View>
+
+      {nation ? (
+        <Card variant="detail" accent={colors.primary} selected style={styles.nationCard}>
+          <Title>{nation.name}</Title>
+          <View style={styles.nationStats}>
+            <View style={styles.nationStat}>
+              <Label color={colors.textMuted}>{t('national.strength')}</Label>
+              <Stat color={colors.primaryLight}>{nation.strength}</Stat>
+            </View>
+            <View style={styles.nationStat}>
+              <Label color={colors.textMuted}>{t('national.continent')}</Label>
+              <Body>{nation.continent}</Body>
+            </View>
+          </View>
+        </Card>
+      ) : (
+        <View style={styles.emptyWrap}>
+          <EmptyState art="squad" title={t('national.no_nation')} />
+        </View>
+      )}
+
+      <View style={styles.actions}>
+        <Button
+          label={t('national.open_squad')}
+          onPress={() => navigation.navigate('NationalSquad')}
+          accessibilityLabel={t('national.open_squad')}
+          testID="national-open-squad"
+        />
+        <Button
+          label={t('national.open_calendar')}
+          variant="secondary"
+          onPress={() => navigation.navigate('NationalCalendar')}
+          accessibilityLabel={t('national.open_calendar')}
+          testID="national-open-calendar"
+        />
+        <Button
+          label={t('national.open_history')}
+          variant="secondary"
+          onPress={() => navigation.navigate('NationalHistory')}
+          accessibilityLabel={t('national.open_history')}
+          testID="national-open-history"
+        />
       </View>
 
       {isBreak && (
-        <Card variant="detail" accent={colors.primary} selected style={styles.breakBanner}>
+        <Card variant="detail" accent={colors.warning} style={styles.breakBanner}>
           <Body>{t('internationals.break_banner')}</Body>
           <Caption color={colors.textSecondary}>
             {t('internationals.fatigue_note', { penalty: TRAVEL_FATIGUE_PENALTY })}
           </Caption>
         </Card>
       )}
+
+      <View style={styles.sectionHeader}>
+        <Label color={colors.textMuted}>{t('national.eligible_context')}</Label>
+        <Caption color={colors.textMuted}>{t('national.window', { week: windowWeek })}</Caption>
+      </View>
 
       {groups.length === 0 ? (
         <View style={styles.emptyWrap}>
@@ -135,12 +191,31 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
     marginBottom: spacing.sm,
   },
+  nationCard: {
+    marginHorizontal: spacing.md,
+    marginBottom: spacing.sm,
+    gap: spacing.sm,
+  },
+  nationStats: { flexDirection: 'row', gap: spacing.xl },
+  nationStat: { gap: spacing.xxs },
+  actions: {
+    paddingHorizontal: spacing.md,
+    gap: spacing.sm,
+    marginBottom: spacing.md,
+  },
   breakBanner: {
     marginHorizontal: spacing.md,
     marginBottom: spacing.sm,
     gap: spacing.xxs,
   },
-  emptyWrap: { marginHorizontal: spacing.md },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.md,
+    marginBottom: spacing.xs,
+  },
+  emptyWrap: { marginHorizontal: spacing.md, marginBottom: spacing.sm },
   groupCard: {
     marginHorizontal: spacing.md,
     marginBottom: spacing.sm,
@@ -153,13 +228,8 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: colors.border,
   },
-  playerPos: {
-    width: 44,
-  },
+  playerPos: { width: 44 },
   playerInfo: { flex: 1, gap: spacing.xxs },
   calledUpTag: { alignSelf: 'flex-start' },
-  playerOvr: {
-    width: 32,
-    textAlign: 'right',
-  },
+  playerOvr: { width: 32, textAlign: 'right' },
 });

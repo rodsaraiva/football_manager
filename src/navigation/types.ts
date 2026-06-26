@@ -42,6 +42,10 @@ export type RootStackParamList = {
   Scouting: undefined;
   // International duty (club-side): squad members at national-team level
   Internationals: undefined;
+  // L1: national-team management sub-screens (hub = Internationals)
+  NationalSquad: undefined;
+  NationalCalendar: undefined;
+  NationalHistory: undefined;
   // My listings
   MyListings: undefined;
   // History hub
