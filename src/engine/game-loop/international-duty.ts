@@ -23,7 +23,9 @@ import {
 } from '@/engine/national/international-duty';
 import { simulateAbstractMatch } from '@/engine/national/nationality';
 import { SeededRng } from '@/engine/rng';
-import { NATIONAL_HOME_ADVANTAGE } from '@/engine/balance';
+import { NATIONAL_HOME_ADVANTAGE, NATIONAL_TOURNAMENT_COMP_ID_BASE } from '@/engine/balance';
+import { saveOffset } from '@/database/constants';
+import { advanceNationalTournament } from './national-tournament';
 import { WeekContext } from './week-context';
 
 // Fase: P9 convocações internacionais. Em semanas de janela FIFA os jogadores de
@@ -85,43 +87,53 @@ export async function advanceNationalWindow(
   const userNation = await getUserManagedNation(db, saveId);
   if (userNation) await ensureAutoCallUps(db, saveId, userNation, season, week);
 
-  const due = await loadNationalFixturesDue(db, saveId, season, week);
-  if (due.length === 0) return;
-
   const teams = await loadNationalTeams(db, saveId);
+  if (teams.length < 2) return;
   const strengthById = new Map(teams.map((t) => [t.id, t.strength]));
   const nameById = new Map(teams.map((t) => [t.id, t.name]));
 
-  const rng = new SeededRng(saveId * 7919 + season * 1000 + week * 31 + 0x4e54);
-  for (const f of due) {
-    const homeStrength = (strengthById.get(f.homeClubId) ?? 0) + NATIONAL_HOME_ADVANTAGE;
-    const awayStrength = strengthById.get(f.awayClubId) ?? 0;
-    const abstract = simulateAbstractMatch(rng, homeStrength, awayStrength);
+  // Só jogos de ELIMINATÓRIA aqui (exclui o mata-mata do torneio, que vive noutra competição
+  // dentro do mesmo national_fixtures e é resolvido por advanceNationalTournament).
+  const off = saveOffset(saveId);
+  const due = (await loadNationalFixturesDue(db, saveId, season, week)).filter(
+    (f) => f.competitionId < off + NATIONAL_TOURNAMENT_COMP_ID_BASE,
+  );
 
-    const userIsHome = userNation != null && f.homeClubId === userNation.id;
-    const userIsAway = userNation != null && f.awayClubId === userNation.id;
+  if (due.length > 0) {
+    const rng = new SeededRng(saveId * 7919 + season * 1000 + week * 31 + 0x4e54);
+    for (const f of due) {
+      const homeStrength = (strengthById.get(f.homeClubId) ?? 0) + NATIONAL_HOME_ADVANTAGE;
+      const awayStrength = strengthById.get(f.awayClubId) ?? 0;
+      const abstract = simulateAbstractMatch(rng, homeStrength, awayStrength);
 
-    if (userNation && (userIsHome || userIsAway)) {
-      const userLineup = await buildUserNationLineup(db, saveId, userNation, season, week);
-      const rivalId = userIsHome ? f.awayClubId : f.homeClubId;
-      const rivalName = nameById.get(rivalId) ?? '';
-      const rivalLineup = await buildSyntheticNationLineup(db, saveId, rivalName);
+      const userIsHome = userNation != null && f.homeClubId === userNation.id;
+      const userIsAway = userNation != null && f.awayClubId === userNation.id;
 
-      const home: NationalLineup = userIsHome ? userLineup : rivalLineup;
-      const away: NationalLineup = userIsHome ? rivalLineup : userLineup;
-      // Lados sem XI elegível: cai no resultado abstrato (não trava o calendário).
-      if (home.squad.length > 0 && away.squad.length > 0) {
-        const result = simulateNationalMatch(f.id, nationalMatchSeed(saveId, season, week, f.id), {
-          home,
-          homeReputation: strengthById.get(f.homeClubId) ?? 50,
-          away,
-          awayReputation: strengthById.get(f.awayClubId) ?? 50,
-        });
-        await updateNationalFixtureResult(db, saveId, f.id, result.homeGoals, result.awayGoals);
-        continue;
+      if (userNation && (userIsHome || userIsAway)) {
+        const userLineup = await buildUserNationLineup(db, saveId, userNation, season, week);
+        const rivalId = userIsHome ? f.awayClubId : f.homeClubId;
+        const rivalName = nameById.get(rivalId) ?? '';
+        const rivalLineup = await buildSyntheticNationLineup(db, saveId, rivalName);
+
+        const home: NationalLineup = userIsHome ? userLineup : rivalLineup;
+        const away: NationalLineup = userIsHome ? rivalLineup : userLineup;
+        // Lados sem XI elegível: cai no resultado abstrato (não trava o calendário).
+        if (home.squad.length > 0 && away.squad.length > 0) {
+          const result = simulateNationalMatch(f.id, nationalMatchSeed(saveId, season, week, f.id), {
+            home,
+            homeReputation: strengthById.get(f.homeClubId) ?? 50,
+            away,
+            awayReputation: strengthById.get(f.awayClubId) ?? 50,
+          });
+          await updateNationalFixtureResult(db, saveId, f.id, result.homeGoals, result.awayGoals);
+          continue;
+        }
       }
-    }
 
-    await updateNationalFixtureResult(db, saveId, f.id, abstract.homeGoals, abstract.awayGoals);
+      await updateNationalFixtureResult(db, saveId, f.id, abstract.homeGoals, abstract.awayGoals);
+    }
   }
+
+  // Torneio final: nas janelas livres da temporada de torneio, roda o mata-mata.
+  await advanceNationalTournament(db, saveId, season, week, teams, userNation);
 }

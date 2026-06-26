@@ -50,10 +50,14 @@ function rowToFixture(row: NationalFixtureRow): Fixture {
   };
 }
 
-interface CycleSchedule {
+export interface CycleSchedule {
   baseSeason: number;
   competitionId: number;
   cycle: number;
+  /** Quantas temporadas o ciclo de eliminatória ocupa. */
+  cycleSeasons: number;
+  /** Última temporada do ciclo — onde o torneio final é disputado. */
+  tournamentSeason: number;
   /** Full double round-robin of the cycle, mapped to (season, week, round). */
   fixtures: Array<{ id: number; season: number; week: number; round: number; homeId: number; awayId: number }>;
 }
@@ -62,7 +66,7 @@ interface CycleSchedule {
 // sorteio dos confrontos via SeededRng, depois mapeia cada rodada lógica do round-robin para
 // uma janela FIFA global (4/temporada). O ciclo dura ceil(rodadas / janelas-por-temporada)
 // temporadas, então nunca encosta na semana SEASON_END.
-function buildCycleSchedule(saveId: number, season: number, nationalIds: number[]): CycleSchedule {
+export function buildCycleSchedule(saveId: number, season: number, nationalIds: number[]): CycleSchedule {
   const off = saveOffset(saveId);
 
   // Round-robin "neutro" (startWeek 0 ⇒ week == índice da rodada lógica) para descobrir o nº de rodadas.
@@ -91,7 +95,7 @@ function buildCycleSchedule(saveId: number, season: number, nationalIds: number[
     };
   });
 
-  return { baseSeason, competitionId, cycle, fixtures };
+  return { baseSeason, competitionId, cycle, cycleSeasons, tournamentSeason: baseSeason + cycleSeasons - 1, fixtures };
 }
 
 /**
@@ -174,6 +178,53 @@ export async function loadNationalFixturesDue(
     )
     .all(saveId, season, week);
   return parseRows(nationalFixtureRowSchema, rows, 'national-fixtures.loadNationalFixturesDue').map(rowToFixture);
+}
+
+/** Jogos de uma competição internacional específica na temporada (ex.: o mata-mata do torneio). */
+export async function loadNationalFixturesByCompetition(
+  db: DbHandle,
+  saveId: number,
+  season: number,
+  competitionId: number,
+): Promise<Fixture[]> {
+  const rows = await db
+    .prepare(
+      'SELECT * FROM national_fixtures WHERE save_id = ? AND season = ? AND competition_id = ? ORDER BY id ASC',
+    )
+    .all(saveId, season, competitionId);
+  return parseRows(nationalFixtureRowSchema, rows, 'national-fixtures.loadNationalFixturesByCompetition').map(rowToFixture);
+}
+
+export interface KnockoutFixtureRow {
+  id: number;
+  competitionId: number;
+  season: number;
+  week: number;
+  round: number;
+  homeId: number;
+  awayId: number;
+}
+
+/** Insere (com ids explícitos) os jogos de uma rodada de mata-mata internacional, ainda não jogados. */
+export async function insertNationalKnockoutFixtures(
+  db: DbHandle,
+  saveId: number,
+  fixtures: KnockoutFixtureRow[],
+): Promise<void> {
+  if (fixtures.length === 0) return;
+  const values = fixtures
+    .map(
+      (f) =>
+        `(${f.id}, ${saveId}, ${f.competitionId}, ${f.season}, ${f.week}, ${f.round}, ${f.homeId}, ${f.awayId}, 0)`,
+    )
+    .join(',');
+  await db
+    .prepare(
+      `INSERT INTO national_fixtures
+         (id, save_id, competition_id, season, week, round, home_national_id, away_national_id, played)
+       VALUES ${values}`,
+    )
+    .run();
 }
 
 export async function updateNationalFixtureResult(

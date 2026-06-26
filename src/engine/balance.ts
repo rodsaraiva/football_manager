@@ -82,6 +82,10 @@ export const NATIONAL_HOME_ADVANTAGE = 5;
 export const NATIONAL_TEAM_ID_BASE = 90_000_000;
 export const NATIONAL_COMP_ID_BASE = 91_000_000;
 export const NATIONAL_FIXTURE_ID_BASE = 92_000_000;
+// Torneio final (mata-mata): comp/fixture ids num espaço próprio, acima da eliminatória,
+// para nunca colidirem com os jogos de qualificação no mesmo national_fixtures.
+export const NATIONAL_TOURNAMENT_COMP_ID_BASE = 93_000_000;
+export const NATIONAL_TOURNAMENT_FIXTURE_ID_BASE = 94_000_000;
 
 // ── C7: gestão in-match (janelas ao vivo + conselho) ─────────────────────────
 // Pontos de pausa FIXOS no 2º tempo (em blocos de 3 min; TOTAL_BLOCKS=30, HALF_BLOCK=15).

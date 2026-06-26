@@ -61,6 +61,7 @@ const CATEGORY_ICON: Record<NewsCategory, IconName> = {
   achievement: 'check',
   scouting: 'target',
   callup: 'squad',
+  national: 'shield',
 };
 
 const CATEGORY_ACCENT: Record<NewsCategory, string> = {
@@ -82,6 +83,7 @@ const CATEGORY_ACCENT: Record<NewsCategory, string> = {
   achievement: colors.success,
   scouting: colors.accent,
   callup: colors.primaryLight,
+  national: colors.gold,
 };
 
 // Itens de ranking (artilheiros) carregam um índice textual "1." em vez de emoji.
