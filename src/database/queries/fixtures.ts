@@ -72,6 +72,9 @@ function rowToMatchEvent(row: MatchEventRow): MatchEvent {
     secondaryPlayerId: row.secondary_player_id,
   };
   if (row.xg != null) event.xg = row.xg;
+  if (row.x != null) event.x = row.x;
+  if (row.y != null) event.y = row.y;
+  if (row.phase != null) event.phase = row.phase;
   return event;
 }
 

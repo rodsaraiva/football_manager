@@ -25,6 +25,11 @@ export interface MatchEvent {
   // eventos sem chute (cartões, subs) e em gols de bola parada. Opcional ⇒ eventos
   // legados/AI seguem válidos.
   xg?: number;
+  // L2 Fase 2: geometria normalizada [0,1]×[0,1] + fase, derivada fora da stream do
+  // jogo e persistida só na partida do usuário. Opcional ⇒ eventos legados/AI sem geometria.
+  x?: number;
+  y?: number;
+  phase?: string;
 }
 
 /**

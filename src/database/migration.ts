@@ -68,17 +68,10 @@ const MATCH_EVENT_GEOMETRY_COLUMNS: Array<{ name: string; type: string }> = [
   { name: 'phase', type: 'TEXT' },
 ];
 
-/** Async production migration (expo-sqlite) das colunas de geometria. Idempotente. */
-export async function migrateMatchEventGeometryAsync(db: AsyncMigrationDb): Promise<void> {
-  if (!(await tableExistsAsync(db, 'match_events'))) return;
-  for (const col of MATCH_EVENT_GEOMETRY_COLUMNS) {
-    if (!(await hasColumnAsync(db, 'match_events', col.name))) {
-      await db.execAsync(`ALTER TABLE match_events ADD COLUMN ${col.name} ${col.type}`);
-    }
-  }
-}
-
-/** Synchronous twin for tests (better-sqlite3). Same semantics. */
+// Em produção (expo-sqlite) as colunas de geometria são garantidas no boot via
+// addColumnIfMissing no database-store; a função síncrona abaixo cobre o path de
+// teste (better-sqlite3) que valida a migração de um save legado.
+/** Synchronous twin for tests (better-sqlite3). */
 export function migrateMatchEventGeometry(raw: SyncMigrationDb): void {
   const tableExists = (t: string) =>
     (raw.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name=?").all(t) as unknown[]).length > 0;
