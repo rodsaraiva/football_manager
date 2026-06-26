@@ -48,6 +48,7 @@ export const TABLE_NAMES: string[] = [
   'chemistry_links',
   'national_teams',
   'national_fixtures',
+  'national_callups',
 ];
 
 export const SCHEMA_SQL = `
@@ -750,6 +751,18 @@ CREATE TABLE IF NOT EXISTS national_fixtures (
   away_goals        INTEGER,
   played            INTEGER NOT NULL DEFAULT 0
 );
+
+CREATE TABLE IF NOT EXISTS national_callups (
+  id                INTEGER PRIMARY KEY AUTOINCREMENT,
+  save_id           INTEGER NOT NULL REFERENCES save_games(id),
+  national_team_id  INTEGER NOT NULL REFERENCES national_teams(id),
+  season            INTEGER NOT NULL,
+  window            INTEGER NOT NULL,
+  player_id         INTEGER NOT NULL REFERENCES players(id),
+  is_starter        INTEGER NOT NULL DEFAULT 0,
+  source            TEXT    NOT NULL DEFAULT 'auto',
+  UNIQUE(save_id, national_team_id, season, window, player_id)
+);
 `;
 
 // Composite save_id indexes are created AFTER the save_id migration (database-store),
@@ -768,6 +781,7 @@ CREATE INDEX IF NOT EXISTS idx_players_save_tier         ON players(save_id, clu
 CREATE INDEX IF NOT EXISTS idx_academy_rep_hist          ON academy_reputation_history(save_id, club_id, season);
 CREATE INDEX IF NOT EXISTS idx_national_teams_save        ON national_teams(save_id);
 CREATE INDEX IF NOT EXISTS idx_national_fixtures_save_season ON national_fixtures(save_id, season, week);
+CREATE INDEX IF NOT EXISTS idx_national_callups_save_window ON national_callups(save_id, national_team_id, season, window);
 `;
 
 export interface DbExec {

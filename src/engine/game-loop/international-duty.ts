@@ -1,11 +1,19 @@
 import { getPlayersWithAttributesByClub, DbHandle } from '@/database/queries/players';
 import { insertNewsItem } from '@/database/queries/news';
-import { loadNationalTeams } from '@/database/queries/national-teams';
+import { loadNationalTeams, getUserManagedNation } from '@/database/queries/national-teams';
 import {
   ensureNationalFixtures,
   loadNationalFixturesDue,
   updateNationalFixtureResult,
 } from '@/database/queries/national-fixtures';
+import {
+  ensureAutoCallUps,
+  buildUserNationLineup,
+  buildSyntheticNationLineup,
+  simulateNationalMatch,
+  nationalMatchSeed,
+  NationalLineup,
+} from './national-lineup';
 import { calculateOverall } from '@/utils/overall';
 import {
   isInternationalBreak,
@@ -61,8 +69,11 @@ export async function internationalDuty(ctx: WeekContext): Promise<number[]> {
   return internationalCallUps;
 }
 
-// Gera (se faltar) os jogos da temporada e resolve os da janela atual com resultados
-// abstratos determinísticos (SeededRng namespaced por save/season/week + força do pool).
+// Gera (se faltar) os jogos da temporada e resolve os da janela atual. Jogos rival-vs-rival
+// seguem o modelo ABSTRATO (SeededRng namespaced por save/season/week + força do pool). A
+// seleção GERIDA passa por escalação REAL no match engine (seed própria por fixture). O
+// stream do rng abstrato é consumido para TODOS os jogos (mesmo do usuário) e só sobrescrito
+// pelo resultado real depois — assim os resultados rival-vs-rival ficam idênticos ao L1-A.
 export async function advanceNationalWindow(
   db: DbHandle,
   saveId: number,
@@ -70,17 +81,47 @@ export async function advanceNationalWindow(
   week: number,
 ): Promise<void> {
   await ensureNationalFixtures(db, saveId, season);
+
+  const userNation = await getUserManagedNation(db, saveId);
+  if (userNation) await ensureAutoCallUps(db, saveId, userNation, season, week);
+
   const due = await loadNationalFixturesDue(db, saveId, season, week);
   if (due.length === 0) return;
 
   const teams = await loadNationalTeams(db, saveId);
   const strengthById = new Map(teams.map((t) => [t.id, t.strength]));
+  const nameById = new Map(teams.map((t) => [t.id, t.name]));
 
   const rng = new SeededRng(saveId * 7919 + season * 1000 + week * 31 + 0x4e54);
   for (const f of due) {
     const homeStrength = (strengthById.get(f.homeClubId) ?? 0) + NATIONAL_HOME_ADVANTAGE;
     const awayStrength = strengthById.get(f.awayClubId) ?? 0;
-    const { homeGoals, awayGoals } = simulateAbstractMatch(rng, homeStrength, awayStrength);
-    await updateNationalFixtureResult(db, saveId, f.id, homeGoals, awayGoals);
+    const abstract = simulateAbstractMatch(rng, homeStrength, awayStrength);
+
+    const userIsHome = userNation != null && f.homeClubId === userNation.id;
+    const userIsAway = userNation != null && f.awayClubId === userNation.id;
+
+    if (userNation && (userIsHome || userIsAway)) {
+      const userLineup = await buildUserNationLineup(db, saveId, userNation, season, week);
+      const rivalId = userIsHome ? f.awayClubId : f.homeClubId;
+      const rivalName = nameById.get(rivalId) ?? '';
+      const rivalLineup = await buildSyntheticNationLineup(db, saveId, rivalName);
+
+      const home: NationalLineup = userIsHome ? userLineup : rivalLineup;
+      const away: NationalLineup = userIsHome ? rivalLineup : userLineup;
+      // Lados sem XI elegível: cai no resultado abstrato (não trava o calendário).
+      if (home.squad.length > 0 && away.squad.length > 0) {
+        const result = simulateNationalMatch(f.id, nationalMatchSeed(saveId, season, week, f.id), {
+          home,
+          homeReputation: strengthById.get(f.homeClubId) ?? 50,
+          away,
+          awayReputation: strengthById.get(f.awayClubId) ?? 50,
+        });
+        await updateNationalFixtureResult(db, saveId, f.id, result.homeGoals, result.awayGoals);
+        continue;
+      }
+    }
+
+    await updateNationalFixtureResult(db, saveId, f.id, abstract.homeGoals, abstract.awayGoals);
   }
 }

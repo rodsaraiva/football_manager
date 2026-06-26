@@ -5,6 +5,10 @@
 // ABSTRACTED — the only mechanical effect is TRAVEL FATIGUE: a flat fitness cost
 // representing the trip. There is no national-team management mode here.
 
+import { Position } from '@/types';
+import { POSITION_GROUP } from '@/engine/simulation/squad-selection';
+import { NATIONAL_SQUAD_SIZE } from '@/engine/balance';
+
 // A handful of plausible FIFA-break weeks. SEASON_END_WEEK is 58, so these all
 // fall comfortably inside the playable season and never collide with the season
 // turn. Spread across the calendar to mirror the real Sep/Oct/Mar/Jun windows.
@@ -61,4 +65,50 @@ export function selectCallUps(squad: CallUpCandidate[]): number[] {
 
 export function applyTravelFatigue(fitness: number): number {
   return Math.max(FITNESS_FLOOR, fitness - TRAVEL_FATIGUE_PENALTY);
+}
+
+// ─── L1-B: convocação gerida do pool da seleção ──────────────────────────────
+
+export interface NationalSquadCandidate {
+  id: number;
+  position: Position;
+  overall: number;
+}
+
+// Mínimos por grupo posicional para garantir que um XI válido (1 GK, linha de defesa,
+// meio e ataque) sempre possa ser escalado a partir da convocação. Somam < size; as
+// vagas restantes vão para os melhores overall independente de grupo.
+const SQUAD_MIN_BY_GROUP: Record<string, number> = { GK: 2, DEF: 6, MID: 6, FWD: 3 };
+
+/**
+ * Convocação determinística do POOL da seleção (substitui o "melhor de um clube" para
+ * o lado-seleção): seleciona NATIONAL_SQUAD_SIZE jogadores cobrindo posições. Primeiro
+ * garante os mínimos por grupo (melhores por overall, desempate id), depois preenche o
+ * restante pelos melhores overall. Retorna os ids ordenados por overall desc, id asc.
+ * Pura, sem RNG — mesma entrada ⇒ mesma lista. Pool menor que size ⇒ retorna todos.
+ */
+export function selectNationalSquad(
+  pool: readonly NationalSquadCandidate[],
+  size: number = NATIONAL_SQUAD_SIZE,
+): number[] {
+  const sorted = [...pool].sort((a, b) => b.overall - a.overall || a.id - b.id);
+  const picked = new Set<number>();
+
+  for (const [group, min] of Object.entries(SQUAD_MIN_BY_GROUP)) {
+    let count = 0;
+    for (const p of sorted) {
+      if (count >= min || picked.size >= size) break;
+      if (picked.has(p.id)) continue;
+      if ((POSITION_GROUP[p.position] ?? 'MID') === group) {
+        picked.add(p.id);
+        count++;
+      }
+    }
+  }
+  for (const p of sorted) {
+    if (picked.size >= size) break;
+    picked.add(p.id);
+  }
+
+  return sorted.filter((p) => picked.has(p.id)).map((p) => p.id);
 }

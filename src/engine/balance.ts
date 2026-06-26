@@ -73,6 +73,8 @@ export const ASSISTANT_QUALITY_THRESHOLDS = [0, 2, 4, 7, 10] as const;
 // ─── L1: seleção nacional ───────────────────────────────────────────────────
 // Tamanho do pool considerado para a força da seleção (top-N elegíveis por overall).
 export const NATIONAL_POOL_TOP_N = 23;
+// Tamanho da convocação gerida por janela FIFA (titulares + reservas).
+export const NATIONAL_SQUAD_SIZE = 23;
 // Vantagem de jogar em casa somada à força agregada no modelo abstrato de resultado.
 export const NATIONAL_HOME_ADVANTAGE = 5;
 // Bases de id (dentro do stride do save) para entidades da seleção, escolhidas bem

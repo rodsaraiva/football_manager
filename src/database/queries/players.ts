@@ -184,6 +184,64 @@ export async function getPlayersWithAttributesByClub(
     .map((p) => ({ ...rowToPlayer(p), attributes: attrsById.get(p.id)! }));
 }
 
+// Carrega jogadores (com atributos) por um conjunto de ids do save, num round-trip.
+// Usado pela escalação da seleção (convocados podem vir de clubes distintos).
+export async function getPlayersWithAttributesByIds(
+  db: DbHandle,
+  saveId: number,
+  ids: number[],
+): Promise<(Player & { attributes: PlayerAttributes })[]> {
+  if (ids.length === 0) return [];
+  const placeholders = ids.map(() => '?').join(',');
+  const playerRows = parseRows(
+    playerRowSchema,
+    await db.prepare(`SELECT * FROM players WHERE save_id = ? AND id IN (${placeholders})`).all(saveId, ...ids),
+    'players.getPlayersWithAttributesByIds',
+  );
+  if (playerRows.length === 0) return [];
+  const attrRows = parseRows(
+    playerAttributesRowSchema,
+    await db
+      .prepare('SELECT * FROM player_attributes WHERE player_id IN (' + playerRows.map(() => '?').join(',') + ')')
+      .all(...playerRows.map((p) => p.id)),
+    'players.getPlayersWithAttributesByIds.attrs',
+  );
+  const attrsById = new Map(attrRows.map((a) => [a.player_id, rowToAttributes(a)]));
+  return playerRows
+    .filter((p) => attrsById.has(p.id))
+    .map((p) => ({ ...rowToPlayer(p), attributes: attrsById.get(p.id)! }));
+}
+
+// Carrega jogadores (com atributos) por demônimos de nacionalidade — pool da seleção
+// (independe de clube). Usado para escalar a seleção rival e a pré-convocação da IA.
+export async function getPlayersWithAttributesByNationalities(
+  db: DbHandle,
+  saveId: number,
+  nationalities: string[],
+): Promise<(Player & { attributes: PlayerAttributes })[]> {
+  if (nationalities.length === 0) return [];
+  const placeholders = nationalities.map(() => '?').join(',');
+  const playerRows = parseRows(
+    playerRowSchema,
+    await db
+      .prepare(`SELECT * FROM players WHERE save_id = ? AND nationality IN (${placeholders})`)
+      .all(saveId, ...nationalities),
+    'players.getPlayersWithAttributesByNationalities',
+  );
+  if (playerRows.length === 0) return [];
+  const attrRows = parseRows(
+    playerAttributesRowSchema,
+    await db
+      .prepare('SELECT * FROM player_attributes WHERE player_id IN (' + playerRows.map(() => '?').join(',') + ')')
+      .all(...playerRows.map((p) => p.id)),
+    'players.getPlayersWithAttributesByNationalities.attrs',
+  );
+  const attrsById = new Map(attrRows.map((a) => [a.player_id, rowToAttributes(a)]));
+  return playerRows
+    .filter((p) => attrsById.has(p.id))
+    .map((p) => ({ ...rowToPlayer(p), attributes: attrsById.get(p.id)! }));
+}
+
 export async function getPlayerById(
   db: DbHandle,
   saveId: number,
