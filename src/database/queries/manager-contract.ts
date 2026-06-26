@@ -1,18 +1,24 @@
+import { z } from 'zod';
 import { DbHandle } from './players';
+import { parseRow } from '../parse-rows';
 import { ManagerContractTerms } from '@/engine/board/manager-contract-engine';
 
 export interface ManagerContractRow extends ManagerContractTerms {
   clubId: number;
 }
 
-interface Row {
-  club_id: number;
-  start_season: number;
-  end_season: number;
-  wage_per_season: number;
-  release_clause: number;
-  expectation: number;
-}
+const managerContractRowSchema = z
+  .object({
+    club_id: z.number(),
+    start_season: z.number(),
+    end_season: z.number(),
+    wage_per_season: z.number(),
+    release_clause: z.number(),
+    expectation: z.number(),
+  })
+  .passthrough();
+
+export const __rowSchemas = [{ table: 'manager_contracts', schema: managerContractRowSchema }];
 
 /** Grava (ou substitui) o contrato ativo do save. UNIQUE(save_id) garante 1 linha. */
 export async function upsertManagerContract(db: DbHandle, saveId: number, c: ManagerContractRow): Promise<void> {
@@ -33,12 +39,13 @@ export async function upsertManagerContract(db: DbHandle, saveId: number, c: Man
 }
 
 export async function getActiveManagerContract(db: DbHandle, saveId: number): Promise<ManagerContractRow | null> {
-  const row = (await db
+  const raw = await db
     .prepare(
       `SELECT club_id, start_season, end_season, wage_per_season, release_clause, expectation
          FROM manager_contracts WHERE save_id = ?`,
     )
-    .get(saveId)) as Row | undefined;
+    .get(saveId);
+  const row = parseRow(managerContractRowSchema.nullable(), raw, 'manager-contract.getActiveManagerContract');
   if (!row) return null;
   return {
     clubId: row.club_id,
