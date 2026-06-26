@@ -30,6 +30,11 @@ const matchEventRowSchema = z
     type: z.string(),
     player_id: z.number(),
     secondary_player_id: z.number().nullable(),
+    // L2: xG da chance + geometria normalizada. Nullable — eventos AI/legados não têm.
+    xg: z.number().nullable().optional(),
+    x: z.number().nullable().optional(),
+    y: z.number().nullable().optional(),
+    phase: z.string().nullable().optional(),
   })
   .passthrough();
 type MatchEventRow = z.infer<typeof matchEventRowSchema>;
@@ -59,13 +64,15 @@ function rowToFixture(row: FixtureRow): Fixture {
 }
 
 function rowToMatchEvent(row: MatchEventRow): MatchEvent {
-  return {
+  const event: MatchEvent = {
     fixtureId: row.fixture_id,
     minute: row.minute,
     type: row.type as MatchEventType,
     playerId: row.player_id,
     secondaryPlayerId: row.secondary_player_id,
   };
+  if (row.xg != null) event.xg = row.xg;
+  return event;
 }
 
 export interface CreateFixtureInput {
@@ -130,12 +137,27 @@ export interface AddMatchEventInput {
   type: MatchEventType;
   playerId: number;
   secondaryPlayerId?: number | null;
+  // L2: xG da chance (Fase 1) + geometria normalizada (Fase 2). Opcionais.
+  xg?: number | null;
+  x?: number | null;
+  y?: number | null;
+  phase?: string | null;
 }
 
 export async function addMatchEvent(db: DbHandle, input: AddMatchEventInput): Promise<void> {
   await db.prepare(
-    'INSERT INTO match_events (fixture_id, minute, type, player_id, secondary_player_id) VALUES (?, ?, ?, ?, ?)',
-  ).run(input.fixtureId, input.minute, input.type, input.playerId, input.secondaryPlayerId ?? null);
+    'INSERT INTO match_events (fixture_id, minute, type, player_id, secondary_player_id, xg, x, y, phase) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+  ).run(
+    input.fixtureId,
+    input.minute,
+    input.type,
+    input.playerId,
+    input.secondaryPlayerId ?? null,
+    input.xg ?? null,
+    input.x ?? null,
+    input.y ?? null,
+    input.phase ?? null,
+  );
 }
 
 export async function getMatchEvents(db: DbHandle, fixtureId: number): Promise<MatchEvent[]> {

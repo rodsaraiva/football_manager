@@ -251,7 +251,11 @@ CREATE TABLE IF NOT EXISTS match_events (
   minute              INTEGER NOT NULL,
   type                TEXT    NOT NULL,
   player_id           INTEGER NOT NULL REFERENCES players(id),
-  secondary_player_id INTEGER REFERENCES players(id)
+  secondary_player_id INTEGER REFERENCES players(id),
+  xg                  REAL,
+  x                   REAL,
+  y                   REAL,
+  phase               TEXT
 );
 
 CREATE TABLE IF NOT EXISTS transfers (

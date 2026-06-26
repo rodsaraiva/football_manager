@@ -20,6 +20,11 @@ export interface MatchEvent {
   type: MatchEventType;
   playerId: number;
   secondaryPlayerId: number | null;
+  // L2 Fase 1: qualidade da chance (expected goals) do chute que gerou o evento.
+  // Presente só nos eventos de chute em jogo aberto (gol/chute/defesa); ausente em
+  // eventos sem chute (cartões, subs) e em gols de bola parada. Opcional ⇒ eventos
+  // legados/AI seguem válidos.
+  xg?: number;
 }
 
 /**

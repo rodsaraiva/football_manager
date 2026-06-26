@@ -19,6 +19,7 @@ import { getLastNMatchForm } from '@/database/queries/player-stats';
 import { computeFormModifier } from '@/engine/simulation/form';
 import { SeededRng } from '@/engine/rng';
 import { MatchResult } from '@/engine/simulation/match-engine';
+import { deriveMatchGeometry } from '@/engine/simulation/match-geometry';
 import { simulateWeekFixtures, ClubMatchData, FixtureSimInput } from '@/engine/simulation/match-runner';
 import { getRivalry } from '@/database/queries/legacy';
 import { deriveDerbyBonus } from '@/engine/legacy/derby-bonus';
@@ -251,13 +252,32 @@ export async function simulateAndPersist(input: SimulateAndPersistInput): Promis
     await persistMatchStats(db, saveId, fixture, result);
     if (playerFixture && fixture.id === playerFixture.id) {
       playerMatchResult = result;
-      for (const event of result.events) {
+      // L2 Fase 2: geometria derivada FORA da stream do jogo (RNG próprio por
+      // evento), só para a partida do usuário — espelha o que já fazemos com
+      // match_events. AI fica só com agregados.
+      const homeData = clubData.get(fixture.homeClubId);
+      const awayData = clubData.get(fixture.awayClubId);
+      const fallbackTactic = (homeData ?? awayData)!.tactic;
+      const geometry = deriveMatchGeometry(result, {
+        fixtureId: fixture.id,
+        homeSquad: [...(homeData?.squad ?? []), ...(homeData?.bench ?? [])],
+        awaySquad: [...(awayData?.squad ?? []), ...(awayData?.bench ?? [])],
+        homeTactic: homeData?.tactic ?? fallbackTactic,
+        awayTactic: awayData?.tactic ?? fallbackTactic,
+      });
+      for (let i = 0; i < result.events.length; i++) {
+        const event = result.events[i];
+        const geo = geometry[i];
         await addMatchEvent(db, {
           fixtureId: fixture.id,
           minute: event.minute,
           type: event.type,
           playerId: event.playerId,
           secondaryPlayerId: event.secondaryPlayerId,
+          xg: event.xg ?? null,
+          x: geo?.x ?? null,
+          y: geo?.y ?? null,
+          phase: geo?.phase ?? null,
         });
       }
     }

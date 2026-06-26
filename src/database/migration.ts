@@ -58,6 +58,38 @@ export async function migrateSaveIdAsync(db: AsyncMigrationDb): Promise<void> {
   }
 }
 
+// L2: colunas aditivas de match_events (xg + geometria). Em DB fresco já existem
+// (SCHEMA_SQL as declara). Em DB legado são adicionadas NULLABLE — ADD COLUMN não
+// pode ser NOT NULL em tabela populada, e o read-path trata null como ausência.
+const MATCH_EVENT_GEOMETRY_COLUMNS: Array<{ name: string; type: string }> = [
+  { name: 'xg', type: 'REAL' },
+  { name: 'x', type: 'REAL' },
+  { name: 'y', type: 'REAL' },
+  { name: 'phase', type: 'TEXT' },
+];
+
+/** Async production migration (expo-sqlite) das colunas de geometria. Idempotente. */
+export async function migrateMatchEventGeometryAsync(db: AsyncMigrationDb): Promise<void> {
+  if (!(await tableExistsAsync(db, 'match_events'))) return;
+  for (const col of MATCH_EVENT_GEOMETRY_COLUMNS) {
+    if (!(await hasColumnAsync(db, 'match_events', col.name))) {
+      await db.execAsync(`ALTER TABLE match_events ADD COLUMN ${col.name} ${col.type}`);
+    }
+  }
+}
+
+/** Synchronous twin for tests (better-sqlite3). Same semantics. */
+export function migrateMatchEventGeometry(raw: SyncMigrationDb): void {
+  const tableExists = (t: string) =>
+    (raw.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name=?").all(t) as unknown[]).length > 0;
+  if (!tableExists('match_events')) return;
+  const cols = raw.prepare('PRAGMA table_info(match_events)').all() as Array<{ name: string }>;
+  const existing = new Set(cols.map((c) => c.name));
+  for (const col of MATCH_EVENT_GEOMETRY_COLUMNS) {
+    if (!existing.has(col.name)) raw.exec(`ALTER TABLE match_events ADD COLUMN ${col.name} ${col.type}`);
+  }
+}
+
 /** Synchronous twin for tests (better-sqlite3). Same semantics. */
 export function migrateSaveId(raw: SyncMigrationDb): void {
   const tableExists = (t: string) =>

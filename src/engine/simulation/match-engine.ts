@@ -639,11 +639,11 @@ function runBlock(
       if (gk && rng.next() < gkSaveChance) {
         // Saved!
         events.push({ fixtureId, minute, type: 'save', playerId: gk.id, secondaryPlayerId: scorer.id });
-        events.push({ fixtureId, minute, type: 'shot_on_target', playerId: scorer.id, secondaryPlayerId: null });
+        events.push({ fixtureId, minute, type: 'shot_on_target', playerId: scorer.id, secondaryPlayerId: null, xg: xgChance });
       } else {
         // Goal
         team.goals++;
-        events.push({ fixtureId, minute, type: 'goal', playerId: scorer.id, secondaryPlayerId: null });
+        events.push({ fixtureId, minute, type: 'goal', playerId: scorer.id, secondaryPlayerId: null, xg: xgChance });
         if (rng.next() < ASSIST_CHANCE) {
           const a = pickAssister(team.squad, scorer.id, rng);
           if (a) events.push({ fixtureId, minute, type: 'assist', playerId: a.id, secondaryPlayerId: scorer.id });
@@ -658,7 +658,7 @@ function runBlock(
     } else {
       // Shot off target or wide
       team.shots++;
-      events.push({ fixtureId, minute, type: 'shot_off_target', playerId: scorer.id, secondaryPlayerId: null });
+      events.push({ fixtureId, minute, type: 'shot_off_target', playerId: scorer.id, secondaryPlayerId: null, xg: xgChance });
       if (rng.next() < 0.35) team.corners++;
     }
   } else if (rng.next() < 0.04 * tempo * form.attackMult) {

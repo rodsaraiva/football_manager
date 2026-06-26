@@ -91,6 +91,12 @@ export const useDatabaseStore = create<DatabaseStore>((set) => ({
       await addColumnIfMissing(db, 'players', 'loan_wage', 'INTEGER');
       await addColumnIfMissing(db, 'clubs', 'debt_weeks', 'INTEGER NOT NULL DEFAULT 0');
 
+      // L2: xG por chance + geometria normalizada dos eventos da partida do usuário.
+      await addColumnIfMissing(db, 'match_events', 'xg', 'REAL');
+      await addColumnIfMissing(db, 'match_events', 'x', 'REAL');
+      await addColumnIfMissing(db, 'match_events', 'y', 'REAL');
+      await addColumnIfMissing(db, 'match_events', 'phase', 'TEXT');
+
       // Board stakes: game-over flag once the manager is dismissed.
       await addColumnIfMissing(db, 'save_games', 'ended', 'INTEGER NOT NULL DEFAULT 0');
 
