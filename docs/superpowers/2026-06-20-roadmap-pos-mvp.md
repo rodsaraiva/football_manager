@@ -101,7 +101,7 @@ Cada um é um épico próprio; o spec traz **visão, decomposição em sub-épic
 | **L6** | Desktop (Steam) + editor de clubes/ligas | [l6](specs/2026-06-20-l6-desktop-editor-design.md) | Port web-wrapper + UI de editor + pipeline de assets | linguagem de design madura (D) |
 | **L7** | Áudio (música + SFX) | [l7](specs/2026-06-20-l7-audio-design.md) | Trilha ambiente + SFX de eventos; respeita "sem progressão offline" | D6 (eventos de motion já mapeados) |
 | **L8** | Conquistas cross-save + leaderboards | [l8](specs/2026-06-20-l8-cross-save-achievements-design.md) | Play Games / Game Center; ranking global | **L4** (auth) |
-| **L9** | Dados reais licenciados | [l9](specs/2026-06-20-l9-licensed-data-design.md) | Decisão de **negócio/licenciamento**; muda modelo. Parado por padrão. | decisão de negócio |
+| ~~**L9**~~ | ~~Dados reais licenciados~~ | [l9](specs/2026-06-20-l9-licensed-data-design.md) | **DESCARTADO (2026-06-27): jogo será SEM licenciamento.** Dados fictícios/gerados (seed) são permanentes; customização fica a cargo do editor (L6). | — |
 
 **Nota sobre L3:** é habilitador transversal. Recomenda-se **antecipá-lo parcialmente** (decompor `game-loop`/`match-engine`) assim que um épico C exigir tocar essas funções, evitando crescer o monólito.
 
@@ -127,4 +127,4 @@ Cada um é um épico próprio; o spec traz **visão, decomposição em sub-épic
 - **C4:** demissão = perde cargo e migra (recomendado) vs fim do save — herdar a decisão do W2 e estender.
 - **C7:** profundidade do controle ao vivo (subs a qualquer minuto vs janelas) — decidir no spec por custo de UX casual.
 - **L3:** antecipar a decomposição do engine ou esperar a primeira feature C que force.
-- **L9:** decisão de negócio sobre licenciamento — fora de escopo até deliberação do PO.
+- **L9:** ~~decisão de negócio sobre licenciamento~~ → **DECIDIDO em 2026-06-27: jogo SEM licenciamento.** L9 descartado; dados fictícios/gerados são o modelo permanente. Eleva o valor do **L6 (editor de clubes/ligas)** como caminho de customização do usuário.
