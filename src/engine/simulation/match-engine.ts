@@ -1,4 +1,4 @@
-import { MatchEvent, Position } from '@/types';
+import { MatchEvent, MatchEventType, Position } from '@/types';
 import { Tactic } from '@/types/tactic';
 import { SeededRng } from '@/engine/rng';
 import { PlayerForStrength, TeamStrength, calculateTeamStrength } from './team-strength';
@@ -50,6 +50,11 @@ export interface MatchInput {
   // C8-e: recent-form modifier por jogador (id → -1..+1). Ausente ⇒ legado.
   homeFormModifiers?: Map<number, number>;
   awayFormModifiers?: Map<number, number>;
+  // L2 Fase 6: emite eventos de fase granulares (tackle/key_pass/recovery/
+  // possession_change). Ausente/false ⇒ legado byte-a-byte: nenhum evento de fase,
+  // zero consumo extra do rng principal. Quando true, usa uma stream SEPARADA
+  // (phaseRng) que NÃO toca o rng do placar/cartões.
+  emitPhaseEvents?: boolean;
   rng: SeededRng;
 }
 
@@ -66,6 +71,12 @@ export interface MatchStats {
   awayCorners: number;
   homeXG: number; // #2
   awayXG: number; // #2
+  // L2 Fase 6: agregados de fase, presentes SÓ quando emitPhaseEvents está ON
+  // (ausentes ⇒ legado byte-a-byte). Derivados dos eventos de fase.
+  homeTackles?: number;
+  awayTackles?: number;
+  homeKeyPasses?: number;
+  awayKeyPasses?: number;
 }
 
 export interface MatchResult {
@@ -110,6 +121,15 @@ const MOMENTUM_SCORER_PENALTY = 0.05;
 const HOME_ADVANTAGE_BASE = 1.04;
 const HOME_ADVANTAGE_MAX = 1.12;
 const STADIUM_CAPACITY = 60000;
+
+// ─── L2 Fase 6: phaseRng namespaced ──────────────────────────────────────────
+// Offset primo grande p/ separar a stream de eventos de fase do rng principal.
+// O seed combina fixtureId/block/lado de forma determinística (o `| 0` interno do
+// SeededRng trunca para 32 bits — determinismo preservado).
+const PHASE_RNG_OFFSET = 1_000_000_007;
+function phaseRngSeed(fixtureId: number, block: number, side: number): number {
+  return PHASE_RNG_OFFSET + fixtureId * 7919 + block * 31 + side;
+}
 
 const ATTACK_POS = new Set<string>(['ST', 'LW', 'RW']);
 const HEADER_POS = new Set<string>(['CB', 'ST']);
@@ -246,6 +266,8 @@ export interface TeamState {
   momentumBlocksLeft: number;           // #5
   momentumType: 'chase' | 'scorer' | 'none'; // #5
   cameInAsSub: Set<number>;
+  tackles: number;   // L2 Fase 6 (só incrementado com emitPhaseEvents ON)
+  keyPasses: number; // L2 Fase 6
 }
 
 function makeTeam(
@@ -270,6 +292,8 @@ function makeTeam(
     momentumBlocksLeft: 0,
     momentumType: 'none',
     cameInAsSub: new Set(),
+    tackles: 0,
+    keyPasses: 0,
   };
 }
 
@@ -413,14 +437,18 @@ export function simulateSegment(state: LiveMatchState, untilBlock: number): Live
   const target = Math.min(untilBlock, TOTAL_BLOCKS);
   const { home, away, events, usedMinutes, homeAdv, rng, input } = state;
   const { fixtureId } = input;
+  const emitPhase = input.emitPhaseEvents === true;
   for (let block = state.currentBlock; block < target; block++) {
     const isSecondHalf = block >= HALF_BLOCK;
     // #3: Drain fatigue at the start of each block
     drainFatigue(home, block, homeAdv);
     drainFatigue(away, block, homeAdv);
 
-    runBlock(home, away, block, isSecondHalf, fixtureId, events, rng, usedMinutes, homeAdv);
-    runBlock(away, home, block, isSecondHalf, fixtureId, events, rng, usedMinutes, homeAdv);
+    // L2 Fase 6: stream de fase SEPARADA por (fixture, block, lado). null ⇒ legado.
+    const homePhaseRng = emitPhase ? new SeededRng(phaseRngSeed(fixtureId, block, 0)) : null;
+    const awayPhaseRng = emitPhase ? new SeededRng(phaseRngSeed(fixtureId, block, 1)) : null;
+    runBlock(home, away, block, isSecondHalf, fixtureId, events, rng, usedMinutes, homeAdv, homePhaseRng);
+    runBlock(away, home, block, isSecondHalf, fixtureId, events, rng, usedMinutes, homeAdv, awayPhaseRng);
   }
   state.currentBlock = Math.max(state.currentBlock, target);
   return state;
@@ -506,6 +534,14 @@ export function finalizeMatchResult(state: LiveMatchState): MatchResult {
     awayXG: Math.round(away.xG * 100) / 100,
   };
 
+  // L2 Fase 6: agregados de fase só quando ON (ausentes ⇒ legado byte-a-byte).
+  if (input.emitPhaseEvents) {
+    stats.homeTackles = home.tackles;
+    stats.awayTackles = away.tackles;
+    stats.homeKeyPasses = home.keyPasses;
+    stats.awayKeyPasses = away.keyPasses;
+  }
+
   // ─── Attendance ────────────────────────────────────────────────────────
   const avgRep = (input.homeClubReputation + input.awayClubReputation) / 2;
   const attendance = Math.round(avgRep * 500 + rng.nextInt(0, 10000));
@@ -580,6 +616,7 @@ function runBlock(
   fixtureId: number, events: MatchEvent[], rng: SeededRng,
   usedMinutes: Set<number>,
   homeAdvantageMult: number,
+  phaseRng: SeededRng | null,
 ): void {
   if (team.squad.length === 0) return;
   const tempo = team.strength.tempo;
@@ -588,12 +625,28 @@ function runBlock(
   const form = formationModifiers(team.tactic.formation);
   const oppForm = formationModifiers(opp.tactic.formation);
 
-  resolveOpenPlay(team, opp, fixtureId, events, rng, minute, tempo, focus, form, oppForm);
-  resolveCorner(team, opp, fixtureId, events, rng, minute, focus, form);
-  resolvePenalty(team, opp, block, fixtureId, events, rng, usedMinutes, tempo);
-  resolveCards(team, opp, block, fixtureId, events, rng, usedMinutes, homeAdvantageMult);
-  resolveInjury(team, opp, block, fixtureId, events, rng, usedMinutes, homeAdvantageMult);
+  resolveOpenPlay(team, opp, fixtureId, events, rng, minute, tempo, focus, form, oppForm, phaseRng);
+  resolveCorner(team, opp, fixtureId, events, rng, minute, focus, form, phaseRng);
+  resolvePenalty(team, opp, block, fixtureId, events, rng, usedMinutes, tempo, minute, phaseRng);
+  resolveCards(team, opp, block, fixtureId, events, rng, usedMinutes, homeAdvantageMult, minute, phaseRng);
+  resolveInjury(team, opp, block, fixtureId, events, rng, usedMinutes, homeAdvantageMult, minute, phaseRng);
   resolveSubstitution(team, opp, block, isSecondHalf, fixtureId, events, rng, usedMinutes, homeAdvantageMult);
+}
+
+// ─── L2 Fase 6: emissão de eventos de fase (stream phaseRng, nunca o rng principal) ──
+
+/** Empurra um evento de fase descritivo. Só chamado com phaseRng não-nulo. */
+function pushPhaseEvent(
+  events: MatchEvent[], fixtureId: number, minute: number,
+  type: MatchEventType, playerId: number, secondaryPlayerId: number | null, phase: string,
+): void {
+  events.push({ fixtureId, minute, type, playerId, secondaryPlayerId, phase });
+}
+
+function pickPhaseTeammate(squad: PlayerForStrength[], excludeId: number, rng: SeededRng): PlayerForStrength | null {
+  const c = squad.filter(p => p.id !== excludeId);
+  if (c.length === 0) return null;
+  return rng.pick(c);
 }
 
 /**
@@ -607,6 +660,7 @@ function resolveOpenPlay(
   focus: ReturnType<typeof attackFocusModifiers>,
   form: ReturnType<typeof formationModifiers>,
   oppForm: ReturnType<typeof formationModifiers>,
+  phaseRng: SeededRng | null,
 ): void {
   // ── #5: Momentum modifier ─────────────────────────────────────────────
   let momentumAttackMult = 1.0;
@@ -693,6 +747,29 @@ function resolveOpenPlay(
     team.shots++;
     if (rng.next() < 0.35) team.corners++;
   }
+
+  // ── L2 Fase 6: build-up descritivo (phaseRng — não toca o rng acima) ──────
+  if (phaseRng) {
+    if (phaseRng.next() < 0.5) {
+      const passer = phaseRng.weightedPick(team.squad, team.squad.map(p => p.attributes.passing + p.attributes.vision));
+      const receiver = pickPhaseTeammate(team.squad, passer.id, phaseRng);
+      pushPhaseEvent(events, fixtureId, minute, 'key_pass', passer.id, receiver?.id ?? null, 'open_play');
+      team.keyPasses++;
+    }
+    if (opp.squad.length > 0 && phaseRng.next() < 0.45) {
+      const tackler = phaseRng.weightedPick(opp.squad, opp.squad.map(p => p.attributes.aggression + p.attributes.strength));
+      pushPhaseEvent(events, fixtureId, minute, 'tackle', tackler.id, null, 'open_play');
+      opp.tackles++;
+    }
+    if (phaseRng.next() < 0.4) {
+      const recoverer = phaseRng.pick(team.squad);
+      pushPhaseEvent(events, fixtureId, minute, 'recovery', recoverer.id, null, 'open_play');
+    }
+    if (phaseRng.next() < 0.4) {
+      const carrier = phaseRng.pick(team.squad);
+      pushPhaseEvent(events, fixtureId, minute, 'possession_change', carrier.id, null, 'open_play');
+    }
+  }
 }
 
 /** Gol de escanteio (cabeçada) com defesa do GK e assistência do cobrador (P7). */
@@ -702,6 +779,7 @@ function resolveCorner(
   minute: number,
   focus: ReturnType<typeof attackFocusModifiers>,
   form: ReturnType<typeof formationModifiers>,
+  phaseRng: SeededRng | null,
 ): void {
   // ── Corner goal (heading) ──────────────────────────────────────────────
   if (team.corners > 0 && rng.next() < CORNER_GOAL_PROB * team.strength.width * focus.cornerGoalMult * form.wingPlayMult * cornerRoutineMultiplier(team.takers?.cornerRoutine)) {
@@ -737,6 +815,19 @@ function resolveCorner(
     }
   }
 
+  // ── L2 Fase 6: cruzamento + segunda bola (phaseRng) ──────────────────────
+  if (phaseRng && team.squad.length > 0) {
+    if (phaseRng.next() < 0.5) {
+      const crosser = phaseRng.weightedPick(team.squad, team.squad.map(p => p.attributes.crossing + p.attributes.passing));
+      const target = pickPhaseTeammate(team.squad, crosser.id, phaseRng);
+      pushPhaseEvent(events, fixtureId, minute, 'key_pass', crosser.id, target?.id ?? null, 'corner');
+      team.keyPasses++;
+    }
+    if (opp.squad.length > 0 && phaseRng.next() < 0.4) {
+      const clearer = phaseRng.pick(opp.squad);
+      pushPhaseEvent(events, fixtureId, minute, 'recovery', clearer.id, null, 'corner');
+    }
+  }
 }
 
 /** Pênalti em jogo aberto: cobrança designada (P7) ou melhor finalizador. */
@@ -744,7 +835,15 @@ function resolvePenalty(
   team: TeamState, opp: TeamState,
   block: number, fixtureId: number, events: MatchEvent[], rng: SeededRng,
   usedMinutes: Set<number>, tempo: number,
+  minute: number, phaseRng: SeededRng | null,
 ): void {
+  // ── L2 Fase 6: falta dentro da área (desarme do adversário) ──────────────
+  if (phaseRng && opp.squad.length > 0 && phaseRng.next() < 0.3) {
+    const tackler = phaseRng.weightedPick(opp.squad, opp.squad.map(p => p.attributes.aggression + p.attributes.strength));
+    pushPhaseEvent(events, fixtureId, minute, 'tackle', tackler.id, null, 'penalty_box');
+    opp.tackles++;
+  }
+
   // ── Penalty ────────────────────────────────────────────────────────────
   const penP = PENALTY_PROB * tempo * (team.strength.attack / Math.max(opp.strength.defense, 1));
   if (rng.next() < penP) {
@@ -778,7 +877,15 @@ function resolveCards(
   team: TeamState, opp: TeamState,
   block: number, fixtureId: number, events: MatchEvent[], rng: SeededRng,
   usedMinutes: Set<number>, homeAdvantageMult: number,
+  minute: number, phaseRng: SeededRng | null,
 ): void {
+  // ── L2 Fase 6: o desarme/falta que origina o lance disciplinar ───────────
+  if (phaseRng && team.squad.length > 0 && phaseRng.next() < 0.3) {
+    const fouler = phaseRng.weightedPick(team.squad, team.squad.map(p => p.attributes.aggression + 20));
+    pushPhaseEvent(events, fixtureId, minute, 'tackle', fouler.id, null, 'foul');
+    team.tackles++;
+  }
+
   // ── Yellow card ────────────────────────────────────────────────────────
   const yelP = YELLOW_BASE_PROB * (1 + team.strength.pressing * 0.6 + opp.strength.pressing * 0.3);
   if (rng.next() < yelP) {
@@ -882,7 +989,15 @@ function resolveInjury(
   team: TeamState, opp: TeamState,
   block: number, fixtureId: number, events: MatchEvent[], rng: SeededRng,
   usedMinutes: Set<number>, homeAdvantageMult: number,
+  minute: number, phaseRng: SeededRng | null,
 ): void {
+  // ── L2 Fase 6: disputa física que pode gerar a lesão ─────────────────────
+  if (phaseRng && opp.squad.length > 0 && phaseRng.next() < 0.25) {
+    const tackler = phaseRng.weightedPick(opp.squad, opp.squad.map(p => p.attributes.aggression + p.attributes.strength));
+    pushPhaseEvent(events, fixtureId, minute, 'tackle', tackler.id, null, 'duel');
+    opp.tackles++;
+  }
+
   // ── Injury (forces substitution) ───────────────────────────────────────
   if (rng.next() < INJURY_PROB && team.squad.length > 1) {
     const player = rng.pick(team.squad);

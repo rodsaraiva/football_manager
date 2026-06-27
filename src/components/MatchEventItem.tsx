@@ -34,6 +34,11 @@ const EVENT_GLYPHS: Record<MatchEventType, EventGlyph> = {
   shot_off_target: { icon: 'target', color: colors.textMuted },
   save: { icon: 'glove', color: colors.textSecondary },
   penalty_shootout: { icon: 'goal', color: colors.text },
+  // L2 Fase 6: eventos de fase descritivos (timeline detalhada / PassNetwork futura).
+  tackle: { icon: 'shield', color: colors.textMuted },
+  key_pass: { icon: 'assist', color: colors.textMuted },
+  recovery: { icon: 'shield', color: colors.textMuted },
+  possession_change: { icon: 'arrowRight', color: colors.textMuted },
 };
 
 export default function MatchEventItem({
