@@ -569,6 +569,11 @@ export function simulateMatch(input: MatchInput): MatchResult {
 
 // ─── Block simulation for one team ───────────────────────────────────────────
 
+/**
+ * Orquestrador de UM time atacando num bloco. Encadeia os sub-resolvedores na
+ * ordem fixa de consumo do rng — esta ordem é a invariante de determinismo
+ * byte-a-byte e NÃO pode mudar.
+ */
 function runBlock(
   team: TeamState, opp: TeamState,
   block: number, isSecondHalf: boolean,
@@ -583,6 +588,26 @@ function runBlock(
   const form = formationModifiers(team.tactic.formation);
   const oppForm = formationModifiers(opp.tactic.formation);
 
+  resolveOpenPlay(team, opp, fixtureId, events, rng, minute, tempo, focus, form, oppForm);
+  resolveCorner(team, opp, fixtureId, events, rng, minute, focus, form);
+  resolvePenalty(team, opp, block, fixtureId, events, rng, usedMinutes, tempo);
+  resolveCards(team, opp, block, fixtureId, events, rng, usedMinutes, homeAdvantageMult);
+  resolveInjury(team, opp, block, fixtureId, events, rng, usedMinutes, homeAdvantageMult);
+  resolveSubstitution(team, opp, block, isSecondHalf, fixtureId, events, rng, usedMinutes, homeAdvantageMult);
+}
+
+/**
+ * #2/#5: momentum + ataque em jogo aberto (xG, conversão, defesa do GK, escanteio
+ * gerado por chute pra fora). Consome o rng vivo na ordem original.
+ */
+function resolveOpenPlay(
+  team: TeamState, opp: TeamState,
+  fixtureId: number, events: MatchEvent[], rng: SeededRng,
+  minute: number, tempo: number,
+  focus: ReturnType<typeof attackFocusModifiers>,
+  form: ReturnType<typeof formationModifiers>,
+  oppForm: ReturnType<typeof formationModifiers>,
+): void {
   // ── #5: Momentum modifier ─────────────────────────────────────────────
   let momentumAttackMult = 1.0;
   if (team.momentumBlocksLeft > 0) {
@@ -668,7 +693,16 @@ function runBlock(
     team.shots++;
     if (rng.next() < 0.35) team.corners++;
   }
+}
 
+/** Gol de escanteio (cabeçada) com defesa do GK e assistência do cobrador (P7). */
+function resolveCorner(
+  team: TeamState, opp: TeamState,
+  fixtureId: number, events: MatchEvent[], rng: SeededRng,
+  minute: number,
+  focus: ReturnType<typeof attackFocusModifiers>,
+  form: ReturnType<typeof formationModifiers>,
+): void {
   // ── Corner goal (heading) ──────────────────────────────────────────────
   if (team.corners > 0 && rng.next() < CORNER_GOAL_PROB * team.strength.width * focus.cornerGoalMult * form.wingPlayMult * cornerRoutineMultiplier(team.takers?.cornerRoutine)) {
     const scorer = pickHeaderScorer(team.squad, rng);
@@ -703,6 +737,14 @@ function runBlock(
     }
   }
 
+}
+
+/** Pênalti em jogo aberto: cobrança designada (P7) ou melhor finalizador. */
+function resolvePenalty(
+  team: TeamState, opp: TeamState,
+  block: number, fixtureId: number, events: MatchEvent[], rng: SeededRng,
+  usedMinutes: Set<number>, tempo: number,
+): void {
   // ── Penalty ────────────────────────────────────────────────────────────
   const penP = PENALTY_PROB * tempo * (team.strength.attack / Math.max(opp.strength.defense, 1));
   if (rng.next() < penP) {
@@ -726,6 +768,17 @@ function runBlock(
     }
   }
 
+}
+
+/**
+ * Cartões: amarelo (com 2º amarelo→vermelho) e vermelho direto, cada um com
+ * follow-up de pênalti/falta sofridos pelo adversário.
+ */
+function resolveCards(
+  team: TeamState, opp: TeamState,
+  block: number, fixtureId: number, events: MatchEvent[], rng: SeededRng,
+  usedMinutes: Set<number>, homeAdvantageMult: number,
+): void {
   // ── Yellow card ────────────────────────────────────────────────────────
   const yelP = YELLOW_BASE_PROB * (1 + team.strength.pressing * 0.6 + opp.strength.pressing * 0.3);
   if (rng.next() < yelP) {
@@ -822,6 +875,14 @@ function runBlock(
     }
   }
 
+}
+
+/** Lesão que força substituição (ou expulsa em campo se sem reservas). */
+function resolveInjury(
+  team: TeamState, opp: TeamState,
+  block: number, fixtureId: number, events: MatchEvent[], rng: SeededRng,
+  usedMinutes: Set<number>, homeAdvantageMult: number,
+): void {
   // ── Injury (forces substitution) ───────────────────────────────────────
   if (rng.next() < INJURY_PROB && team.squad.length > 1) {
     const player = rng.pick(team.squad);
@@ -844,6 +905,15 @@ function runBlock(
     }
   }
 
+}
+
+/** Substituição inteligente (só 2º tempo), com taxa ajustada por subStrategy. */
+function resolveSubstitution(
+  team: TeamState, opp: TeamState,
+  block: number, isSecondHalf: boolean,
+  fixtureId: number, events: MatchEvent[], rng: SeededRng,
+  usedMinutes: Set<number>, homeAdvantageMult: number,
+): void {
   // ── Regular substitution (second half only) ────────────────────────────
   if (isSecondHalf && team.subsUsed < MAX_SUBS && team.squad.length > 1 && team.bench.length > 0) {
     let rate = substitutionRate(team.tactic);
