@@ -47,8 +47,8 @@ export async function retirementPhase(ctx: WeekContext, isSeasonEnd: boolean): P
          WHEN morale < ? THEN consecutive_low_morale_weeks + 1
          ELSE 0
        END
-     WHERE age >= ? AND age <= ? AND will_retire_at_season_end = 0 AND club_id IS NOT NULL AND is_free_agent = 0`,
-  ).run(RETIREMENT_MORALE_THRESHOLD, RETIREMENT_MIN_AGE, RETIREMENT_MAX_AGE);
+     WHERE save_id = ? AND age >= ? AND age <= ? AND will_retire_at_season_end = 0 AND club_id IS NOT NULL AND is_free_agent = 0`,
+  ).run(RETIREMENT_MORALE_THRESHOLD, saveId, RETIREMENT_MIN_AGE, RETIREMENT_MAX_AGE);
 
   // 7c. Trigger antecipado: anunciar aposentadoria se streak+janela batem.
   // Roda só no clube do player (v0.1: low_morale é escopo do jogador humano).
