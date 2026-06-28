@@ -1,15 +1,16 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   View,
-  Text,
-  Pressable,
   ScrollView,
-  StyleSheet,
   ActivityIndicator,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { colors, spacing, fontSize, radius, commonStyles } from '@/theme';
+import { colors, spacing, fontSize, commonStyles } from '@/theme';
+import { useClubAccent } from '@/theme/useClubAccent';
+import { Card, Button, Chip, Icon } from '@/components/kit';
+import type { IconName } from '@/components/kit';
+import { Display, Title, Body, Label, Caption, Stat } from '@/components/typography';
 import { useTranslation } from '@/i18n';
 import type { TKey } from '@/i18n/translate';
 import { useGameStore } from '@/store/game-store';
@@ -19,8 +20,11 @@ import { RootStackParamList } from '@/navigation/types';
 import { MatchEvent, Mentality, Pressing, Tempo } from '@/types';
 import { Tactic } from '@/types/tactic';
 import { PlayerForStrength } from '@/engine/simulation/team-strength';
-import { resumeSecondHalf, SecondHalfOverrides } from '@/engine/simulation/match-engine';
-import { orientResultToFixture } from '@/engine/match-day/halftime';
+import { SecondHalfOverrides } from '@/engine/simulation/match-engine';
+import { advanceToNextWindow, finishLiveMatch, nextWindowBlock } from '@/engine/match-day/live-match';
+import { getAssistantByRole } from '@/database/queries/assistants';
+import type { AssistantArchetype } from '@/types/assistant';
+import type { MatchAdvice } from '@/types/match-advice';
 import { advanceGameWeek } from '@/engine/game-loop';
 import { resolveAdvanceReload } from '@/engine/advance-reload';
 import { getPlayerById } from '@/database/queries/players';
@@ -44,23 +48,25 @@ interface ChipRowProps<T extends string> {
   value: T;
   onSelect: (v: T) => void;
   labelFor: (v: T) => string;
+  accent: string;
 }
 
-function ChipRow<T extends string>({ label, options, value, onSelect, labelFor }: ChipRowProps<T>) {
+function ChipRow<T extends string>({ label, options, value, onSelect, labelFor, accent }: ChipRowProps<T>) {
   return (
     <View style={styles.settingRow}>
-      <Text style={styles.settingLabel}>{label}</Text>
+      <Label style={styles.settingLabel}>{label}</Label>
       <View style={styles.optionGroup}>
         {options.map((opt) => (
-          <Pressable
-            key={opt}
-            style={[styles.optionButton, value === opt && styles.optionButtonActive]}
-            onPress={() => onSelect(opt)}
-          >
-            <Text style={[styles.optionButtonText, value === opt && styles.optionButtonTextActive]}>
-              {labelFor(opt)}
-            </Text>
-          </Pressable>
+          <View key={opt} style={styles.optionItem}>
+            <Chip
+              label={labelFor(opt)}
+              selected={value === opt}
+              accent={accent}
+              onPress={() => onSelect(opt)}
+              testID={`halftime-opt-${opt}`}
+              accessibilityLabel={labelFor(opt)}
+            />
+          </View>
         ))}
       </View>
     </View>
@@ -74,6 +80,7 @@ interface PendingSub {
 
 export function MatchHalftimeScreen() {
   const { t } = useTranslation();
+  const accent = useClubAccent();
   const navigation = useNavigation<NavProp>();
 
   const {
@@ -82,6 +89,8 @@ export function MatchHalftimeScreen() {
     halftimeOpponentName,
     halftimeBench,
     halftimeTactic,
+    liveWindowKind,
+    liveAdvice,
     playerClub,
     currentSave,
     playerClubId,
@@ -89,7 +98,7 @@ export function MatchHalftimeScreen() {
     week,
     setLastMatchResult,
     setLastMatchContext,
-    setHalftime,
+    setLive,
     setPressPending,
     updateWeek,
     setPlayerClub,
@@ -154,10 +163,16 @@ export function MatchHalftimeScreen() {
   if (!halftime || halftimeIsHome === null) {
     return (
       <View style={[commonStyles.screen, styles.centered]}>
-        <Text style={styles.noDataText}>{t('halftime.no_match')}</Text>
-        <Pressable style={styles.resumeButton} onPress={() => navigation.goBack()}>
-          <Text style={styles.resumeButtonText}>{t('matchresult.continue')}</Text>
-        </Pressable>
+        <Body style={styles.noDataText}>{t('halftime.no_match')}</Body>
+        <View style={styles.guardButton}>
+          <Button
+            label={t('matchresult.continue')}
+            variant="primary"
+            onPress={() => navigation.goBack()}
+            testID="halftime-back"
+            accessibilityLabel={t('matchresult.continue')}
+          />
+        </View>
       </View>
     );
   }
@@ -197,86 +212,152 @@ export function MatchHalftimeScreen() {
   const setSubIn = (idx: number, inId: number) =>
     setSubs(subs.map((s, i) => (i === idx ? { ...s, inId } : s)));
 
-  const handleResume = async () => {
+  // ── Live-window framing (C7) ───────────────────────────────────────────
+  const windowKind = liveWindowKind ?? 'halftime';
+  // Janelas já consumidas: intervalo conta 1; cada janela do 2º tempo (currentBlock>=22) +1.
+  const windowsUsed = halftime.currentBlock >= 22 ? 2 : 1;
+  // Última janela quando não há mais ponto fixo de pausa antes do fim.
+  const isLastWindow = nextWindowBlock(halftime.currentBlock, windowsUsed) === null;
+
+  // Aplica um conselho ao painel de ajustes (pré-preenche o controle correspondente).
+  const applyAdvice = (advice: MatchAdvice) => {
+    if (advice.suggestedMentality) setMentality(advice.suggestedMentality);
+    if (advice.suggestedPressing) setPressing(advice.suggestedPressing);
+    if (
+      advice.suggestedSubOutId != null &&
+      advice.suggestedSubInId != null &&
+      canAddSub &&
+      onPitchIds.has(advice.suggestedSubOutId) &&
+      !usedOutIds.has(advice.suggestedSubOutId) &&
+      !usedInIds.has(advice.suggestedSubInId)
+    ) {
+      setSubs([...subs, { outId: advice.suggestedSubOutId, inId: advice.suggestedSubInId }]);
+    }
+  };
+
+  const buildOverrides = (): SecondHalfOverrides => ({
+    homeTactic: { ...(halftimeTactic as Tactic), mentality, pressing, tempo },
+    homeSubs: subs.filter(s => onPitchIds.has(s.outId)),
+  });
+
+  // Recarrega o arquétipo/qualidade do assistente p/ recomputar conselho na próxima janela.
+  const loadAssistantMeta = async (): Promise<{ archetype: AssistantArchetype; qualityStars: number }> => {
+    const a = currentSave ? await getAssistantByRole(dbHandle!, currentSave.id, 'squad') : null;
+    return { archetype: (a?.archetype as AssistantArchetype) ?? 'tactician', qualityStars: a?.qualityStars ?? 3 };
+  };
+
+  // Avança para a PRÓXIMA janela do 2º tempo (sem finalizar). Permanece na tela.
+  const handleAdvance = async () => {
     if (resuming || !dbHandle || !currentSave || !playerClubId) return;
     setResuming(true);
     try {
-      const newTactic: Tactic = {
-        ...(halftimeTactic as Tactic),
-        mentality,
-        pressing,
-        tempo,
-      };
-      const overrides: SecondHalfOverrides = {
-        homeTactic: newTactic,
-        homeSubs: subs.filter(s => onPitchIds.has(s.outId)),
-      };
-      // Resume with the live rng held in the halftime snapshot.
-      const engineResult = resumeSecondHalf(halftime, overrides);
-      // Re-orient to the fixture's home/away frame before persisting.
-      const fixtureResult = orientResultToFixture(engineResult, halftimeIsHome);
-
-      setLastMatchContext(halftimeIsHome, oppName);
-
-      const rng = new SeededRng(season * 1000 + week);
-      const result = await advanceGameWeek({
-        dbHandle,
-        season,
-        week,
-        playerClubId,
-        saveId: currentSave.id,
-        rng,
-        userMatchResultOverride: fixtureResult,
+      const { archetype, qualityStars } = await loadAssistantMeta();
+      const next = advanceToNextWindow({
+        state: halftime,
+        isHome: halftimeIsHome,
+        opponentName: oppName,
+        windowsUsed,
+        overrides: buildOverrides(),
+        // D7 (settings-store) fornecerá os toggles de trigger; engine já suporta.
+        triggers: [],
+        archetype,
+        qualityStars,
       });
-
-      updateWeek(result.newSeason, result.newWeek);
-      if (result.playerMatchResult) setLastMatchResult(result.playerMatchResult);
-      // Mirror the press gate the engine armed (a user match was played) so the
-      // MatchResult continue button routes into the press conference.
-      if (result.playerMatchResult) setPressPending(true);
-
-      // Post-match achievement checkpoint (USER perspective). The toast surfaces on Home
-      // via the store, since this path navigates away to MatchResult.
-      if (result.playerMatchResult) {
-        const pmr = result.playerMatchResult;
-        const myGoals = halftimeIsHome ? pmr.homeGoals : pmr.awayGoals;
-        const oppGoals = halftimeIsHome ? pmr.awayGoals : pmr.homeGoals;
-        const totalWins = await countClubWins(dbHandle, currentSave.id, playerClubId);
-        try {
-          const newly = await processAchievementCheckpoint({
-            db: dbHandle,
-            saveId: currentSave.id,
-            season,
-            week,
-            snapshot: { justWon: myGoals > oppGoals, goalMargin: myGoals - oppGoals, totalWins },
-          });
-          if (newly.length > 0) setPendingAchievementToastIds(newly.map((d) => d.id));
-        } catch { /* best-effort */ }
+      if (!next) {
+        // Já chegou ao fim — finaliza direto (overrides já aplicados acima ⇒ vazios).
+        await finalizeMatch({});
+        return;
       }
-      if (result.assistantComment) {
-        setPendingComment(result.assistantComment);
-        setLastCommentWeek(result.newWeek);
-      }
-      // P9: surface the international call-up notice on Home (this path navigates away).
-      setPendingInternationalCallUpCount(result.internationalCallUps?.length ?? 0);
-      setHalftime(null);
-
-      const updatedClub = await getClubById(dbHandle, currentSave.id, playerClubId);
-      if (updatedClub) setPlayerClub(updatedClub);
-
-      const reload = resolveAdvanceReload({ result, season });
-      const allFixtures = await getClubFixtures(dbHandle, currentSave.id, playerClubId, reload.fetchSeasonForRecents);
-      setRecentResults(allFixtures.filter(f => f.played).slice(-5));
-
-      if (reload.shouldStartNewSeason) setNewSeason(true);
-      if (result.retiringPlayerIds.length > 0) setLastRetiredPlayerIds(result.retiringPlayerIds);
-      if (result.newlyAnnouncedRetirementIds.length > 0) {
-        setPendingAnnouncedRetirementIds(result.newlyAnnouncedRetirementIds);
-      }
-
-      navigation.replace('MatchResult', { fixtureId: halftime.input.fixtureId });
+      setLive({
+        halftime: next.state,
+        isHome: next.isHome,
+        opponentName: next.opponentName,
+        bench: next.homeBench,
+        tactic: next.homeTactic,
+        fixtureId: next.fixtureId,
+        windowKind: next.windowKind,
+        advice: next.advice,
+      });
+      // Reset dos controles para o estado tático corrente da nova janela.
+      setMentality(next.homeTactic.mentality);
+      setPressing(next.homeTactic.pressing);
+      setTempo(next.homeTactic.tempo);
+      setSubs([]);
+      setResuming(false);
     } catch (err) {
-      console.error('[MatchHalftime] resume failed:', err);
+      console.error('[MatchHalftime] advance failed:', err);
+      setResuming(false);
+    }
+  };
+
+  // Finaliza a partida (aplica overrides finais, roda até o fim, persiste).
+  const finalizeMatch = async (overrides: SecondHalfOverrides) => {
+    if (!dbHandle || !currentSave || !playerClubId) return;
+    const fixtureResult = finishLiveMatch({ state: halftime, isHome: halftimeIsHome, overrides });
+
+    setLastMatchContext(halftimeIsHome, oppName);
+
+    const rng = new SeededRng(season * 1000 + week);
+    const result = await advanceGameWeek({
+      dbHandle,
+      season,
+      week,
+      playerClubId,
+      saveId: currentSave.id,
+      rng,
+      userMatchResultOverride: fixtureResult,
+    });
+
+    updateWeek(result.newSeason, result.newWeek);
+    if (result.playerMatchResult) setLastMatchResult(result.playerMatchResult);
+    if (result.playerMatchResult) setPressPending(true);
+
+    if (result.playerMatchResult) {
+      const pmr = result.playerMatchResult;
+      const myGoals = halftimeIsHome ? pmr.homeGoals : pmr.awayGoals;
+      const oppG = halftimeIsHome ? pmr.awayGoals : pmr.homeGoals;
+      const totalWins = await countClubWins(dbHandle, currentSave.id, playerClubId);
+      try {
+        const newly = await processAchievementCheckpoint({
+          db: dbHandle,
+          saveId: currentSave.id,
+          season,
+          week,
+          snapshot: { justWon: myGoals > oppG, goalMargin: myGoals - oppG, totalWins },
+        });
+        if (newly.length > 0) setPendingAchievementToastIds(newly.map((d) => d.id));
+      } catch { /* best-effort */ }
+    }
+    if (result.assistantComment) {
+      setPendingComment(result.assistantComment);
+      setLastCommentWeek(result.newWeek);
+    }
+    setPendingInternationalCallUpCount(result.internationalCallUps?.length ?? 0);
+    setLive(null);
+
+    const updatedClub = await getClubById(dbHandle, currentSave.id, playerClubId);
+    if (updatedClub) setPlayerClub(updatedClub);
+
+    const reload = resolveAdvanceReload({ result, season });
+    const allFixtures = await getClubFixtures(dbHandle, currentSave.id, playerClubId, reload.fetchSeasonForRecents);
+    setRecentResults(allFixtures.filter(f => f.played).slice(-5));
+
+    if (reload.shouldStartNewSeason) setNewSeason(true);
+    if (result.retiringPlayerIds.length > 0) setLastRetiredPlayerIds(result.retiringPlayerIds);
+    if (result.newlyAnnouncedRetirementIds.length > 0) {
+      setPendingAnnouncedRetirementIds(result.newlyAnnouncedRetirementIds);
+    }
+
+    navigation.replace('MatchResult', { fixtureId: halftime.input.fixtureId });
+  };
+
+  const handleFinish = async () => {
+    if (resuming || !dbHandle || !currentSave || !playerClubId) return;
+    setResuming(true);
+    try {
+      await finalizeMatch(buildOverrides());
+    } catch (err) {
+      console.error('[MatchHalftime] finish failed:', err);
       setResuming(false);
     }
   };
@@ -285,134 +366,186 @@ export function MatchHalftimeScreen() {
     e => e.type !== 'assist' && e.type !== 'shot_off_target' && e.type !== 'save',
   );
 
-  const getIcon = (type: MatchEvent['type']) => {
-    if (type === 'goal') return '⚽';
-    if (type === 'penalty_scored') return '⚽(P)';
-    if (type === 'penalty_missed') return '❌(P)';
-    if (type === 'free_kick_scored') return '⚽(FK)';
-    if (type === 'yellow') return '🟨';
-    if (type === 'red') return '🟥';
-    if (type === 'injury') return '🏥';
-    if (type === 'substitution') return '🔄';
-    return '•';
+  const getIcon = (type: MatchEvent['type']): { name: IconName; color: string; suffix?: string } => {
+    if (type === 'goal') return { name: 'goal', color: colors.text };
+    if (type === 'penalty_scored') return { name: 'goal', color: colors.text, suffix: '(P)' };
+    if (type === 'penalty_missed') return { name: 'close', color: colors.danger, suffix: '(P)' };
+    if (type === 'free_kick_scored') return { name: 'goal', color: colors.text, suffix: '(FK)' };
+    if (type === 'yellow') return { name: 'yellow', color: colors.warning };
+    if (type === 'red') return { name: 'red', color: colors.danger };
+    if (type === 'injury') return { name: 'injury', color: colors.danger };
+    if (type === 'substitution') return { name: 'sub', color: colors.textSecondary };
+    return { name: 'target', color: colors.textMuted };
   };
 
   return (
     <ScrollView style={commonStyles.screen} contentContainerStyle={styles.container}>
       {/* Partial score */}
-      <View style={styles.scoreCard}>
-        <Text style={styles.scoreLabel}>{t('halftime.partial_score')}</Text>
+      <Card variant="hero" accent={accent.accent} style={styles.scoreCard}>
+        <Label style={styles.scoreLabel}>{t('halftime.partial_score')}</Label>
         <View style={styles.scoreRow}>
-          <Text style={styles.teamName} numberOfLines={1}>{leftName}</Text>
+          <Body numberOfLines={1} style={styles.teamName}>{leftName}</Body>
           <View style={styles.scoreBox}>
-            <Text style={styles.score}>{leftGoals} - {rightGoals}</Text>
+            <Display>{leftGoals} - {rightGoals}</Display>
           </View>
-          <Text style={[styles.teamName, styles.teamNameRight]} numberOfLines={1}>{rightName}</Text>
+          <Body numberOfLines={1} style={[styles.teamName, styles.teamNameRight]}>{rightName}</Body>
         </View>
-        <Text style={styles.title}>{t('halftime.title')}</Text>
+        <Label color={accent.accent} style={styles.title}>{t(`live.window_${windowKind}` as TKey)}</Label>
+      </Card>
+
+      {/* Assistant advice panel (C7) */}
+      <View style={styles.section}>
+        <Title style={styles.sectionTitle}>{t('live.advice_title')}</Title>
+        {liveAdvice.length === 0 ? (
+          <Caption style={styles.emptyText}>{t('live.no_advice')}</Caption>
+        ) : (
+          <Card variant="summary" accent={accent.accent}>
+            {liveAdvice.map((advice, idx) => {
+              const canApply =
+                advice.suggestedMentality != null ||
+                advice.suggestedPressing != null ||
+                (advice.suggestedSubOutId != null && advice.suggestedSubInId != null);
+              return (
+                <View key={idx} style={styles.adviceRow}>
+                  <Body numberOfLines={2} style={styles.adviceText}>{t(advice.text.key, advice.text.vars)}</Body>
+                  {canApply && (
+                    <View style={styles.adviceApply}>
+                      <Button
+                        label={t('live.apply')}
+                        variant="ghost"
+                        onPress={() => applyAdvice(advice)}
+                        testID={`advice-apply-${advice.kind}`}
+                        accessibilityLabel={t('live.apply')}
+                      />
+                    </View>
+                  )}
+                </View>
+              );
+            })}
+          </Card>
+        )}
       </View>
 
       {/* First-half stats (user perspective on the left) */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>{t('halftime.first_half_stats')}</Text>
-        <View style={styles.statsCard}>
+        <Title style={styles.sectionTitle}>{t('halftime.first_half_stats')}</Title>
+        <Card variant="summary" accent={accent.accent}>
           <StatLine label={t('halftime.possession')} user={`${userPossession(hs, as)}%`} opp={`${100 - userPossession(hs, as)}%`} />
           <StatLine label={t('halftime.shots')} user={hs.shots} opp={as.shots} />
           <StatLine label={t('halftime.shots_on_target')} user={hs.shotsOnTarget} opp={as.shotsOnTarget} />
           <StatLine label={t('halftime.fouls')} user={hs.fouls} opp={as.fouls} />
           <StatLine label={t('halftime.corners')} user={hs.corners} opp={as.corners} />
           <StatLine label={t('halftime.xg')} user={hs.xG.toFixed(2)} opp={as.xG.toFixed(2)} />
-        </View>
+        </Card>
       </View>
 
       {/* First-half events */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>{t('halftime.first_half_events')}</Text>
+        <Title style={styles.sectionTitle}>{t('halftime.first_half_events')}</Title>
         {firstHalfEvents.length === 0 ? (
-          <Text style={styles.emptyText}>{t('halftime.no_events')}</Text>
+          <Caption style={styles.emptyText}>{t('halftime.no_events')}</Caption>
         ) : (
-          <View style={styles.statsCard}>
-            {firstHalfEvents.map((ev, idx) => (
-              <View key={idx} style={styles.eventRow}>
-                <Text style={styles.eventMinute}>{ev.minute}'</Text>
-                <Text style={styles.eventIcon}>{getIcon(ev.type)}</Text>
-                <Text style={styles.eventName} numberOfLines={1}>{nameOf(ev.playerId)}</Text>
-              </View>
-            ))}
-          </View>
+          <Card variant="summary" accent={accent.accent}>
+            {firstHalfEvents.map((ev, idx) => {
+              const g = getIcon(ev.type);
+              return (
+                <View key={idx} style={styles.eventRow}>
+                  <Label color={accent.accent} style={styles.eventMinute}>{ev.minute}'</Label>
+                  <View style={styles.eventIcon}>
+                    <Icon name={g.name} color={g.color} size={fontSize.md} />
+                    {g.suffix != null && <Caption color={g.color}>{g.suffix}</Caption>}
+                  </View>
+                  <Body numberOfLines={1} style={styles.eventName}>{nameOf(ev.playerId)}</Body>
+                </View>
+              );
+            })}
+          </Card>
         )}
       </View>
 
       {/* Substitutions */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>{t('halftime.substitutions')}</Text>
-        <Text style={styles.subsUsed}>
+        <Title style={styles.sectionTitle}>{t('halftime.substitutions')}</Title>
+        <Caption style={styles.subsUsed}>
           {t('halftime.subs_used', { used: subsUsedSoFar + subs.length, max: SUB_CAP })}
-        </Text>
+        </Caption>
         {bench.length === 0 ? (
-          <Text style={styles.emptyText}>{t('halftime.bench_empty')}</Text>
+          <Caption style={styles.emptyText}>{t('halftime.bench_empty')}</Caption>
         ) : (
-          <View style={styles.statsCard}>
+          <Card variant="summary" accent={accent.accent}>
             {subs.map((sub, idx) => (
               <View key={idx} style={styles.subEditor}>
                 <View style={styles.subPickerCol}>
-                  <Text style={styles.subPickerLabel}>{t('halftime.pick_out')}</Text>
+                  <Label style={styles.subPickerLabel}>{t('halftime.pick_out')}</Label>
                   <View style={styles.chipWrap}>
                     {onPitch
                       .filter(p => p.id === sub.outId || !usedOutIds.has(p.id))
                       .map(p => (
-                        <Pressable
+                        <Chip
                           key={p.id}
-                          style={[styles.miniChip, sub.outId === p.id && styles.miniChipActive]}
+                          label={`${p.position} ${nameOf(p.id)}`}
+                          selected={sub.outId === p.id}
+                          accent={accent.accent}
                           onPress={() => setSubOut(idx, p.id)}
-                        >
-                          <Text style={[styles.miniChipText, sub.outId === p.id && styles.miniChipTextActive]}>
-                            {p.position} {nameOf(p.id)}
-                          </Text>
-                        </Pressable>
+                          testID={`halftime-out-${p.id}`}
+                          accessibilityLabel={`${p.position} ${nameOf(p.id)}`}
+                        />
                       ))}
                   </View>
-                  <Text style={styles.subPickerLabel}>{t('halftime.pick_in')}</Text>
+                  <Label style={styles.subPickerLabel}>{t('halftime.pick_in')}</Label>
                   <View style={styles.chipWrap}>
                     {bench
                       .filter(p => p.id === sub.inId || !usedInIds.has(p.id))
                       .map(p => (
-                        <Pressable
+                        <Chip
                           key={p.id}
-                          style={[styles.miniChip, sub.inId === p.id && styles.miniChipActive]}
+                          label={`${p.position} ${nameOf(p.id)}`}
+                          selected={sub.inId === p.id}
+                          accent={accent.accent}
                           onPress={() => setSubIn(idx, p.id)}
-                        >
-                          <Text style={[styles.miniChipText, sub.inId === p.id && styles.miniChipTextActive]}>
-                            {p.position} {nameOf(p.id)}
-                          </Text>
-                        </Pressable>
+                          testID={`halftime-in-${p.id}`}
+                          accessibilityLabel={`${p.position} ${nameOf(p.id)}`}
+                        />
                       ))}
                   </View>
                 </View>
-                <Pressable style={styles.removeBtn} onPress={() => removeSub(idx)}>
-                  <Text style={styles.removeBtnText}>{t('halftime.remove_sub')}</Text>
-                </Pressable>
+                <View style={styles.removeBtn}>
+                  <Button
+                    label={t('halftime.remove_sub')}
+                    variant="ghost"
+                    onPress={() => removeSub(idx)}
+                    testID={`halftime-remove-${idx}`}
+                    accessibilityLabel={t('halftime.remove_sub')}
+                  />
+                </View>
               </View>
             ))}
             {canAddSub && (
-              <Pressable style={styles.addSubBtn} onPress={addSub}>
-                <Text style={styles.addSubBtnText}>{t('halftime.add_sub')}</Text>
-              </Pressable>
+              <View style={styles.addSubBtn}>
+                <Button
+                  label={t('halftime.add_sub')}
+                  variant="secondary"
+                  onPress={addSub}
+                  testID="halftime-add-sub"
+                  accessibilityLabel={t('halftime.add_sub')}
+                />
+              </View>
             )}
-          </View>
+          </Card>
         )}
       </View>
 
       {/* Tactical tweaks */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>{t('halftime.tactics')}</Text>
-        <View style={styles.statsCard}>
+        <Title style={styles.sectionTitle}>{t('halftime.tactics')}</Title>
+        <Card variant="summary" accent={accent.accent}>
           <ChipRow
             label={t('halftime.label_mentality')}
             options={MENTALITY_OPTIONS}
             value={mentality}
             onSelect={setMentality}
             labelFor={(o) => t(`tactics.opt_${o}` as TKey)}
+            accent={accent.accent}
           />
           <View style={styles.divider} />
           <ChipRow
@@ -421,6 +554,7 @@ export function MatchHalftimeScreen() {
             value={pressing}
             onSelect={setPressing}
             labelFor={(o) => t(`tactics.opt_${o}` as TKey)}
+            accent={accent.accent}
           />
           <View style={styles.divider} />
           <ChipRow
@@ -429,25 +563,36 @@ export function MatchHalftimeScreen() {
             value={tempo}
             onSelect={setTempo}
             labelFor={(o) => t(`tactics.opt_${o}` as TKey)}
+            accent={accent.accent}
           />
-        </View>
+        </Card>
       </View>
 
-      {/* Resume */}
-      <Pressable
-        style={[styles.resumeButton, resuming && styles.resumeButtonDisabled]}
-        onPress={handleResume}
-        disabled={resuming}
-      >
-        {resuming ? (
-          <View style={styles.resumingRow}>
-            <ActivityIndicator color={colors.text} size="small" />
-            <Text style={[styles.resumeButtonText, { marginLeft: spacing.sm }]}>{t('halftime.resuming')}</Text>
+      {/* Continue / Finish (C7 live windows) */}
+      <View style={styles.resumeWrap}>
+        {!isLastWindow && (
+          <View style={styles.advanceBtn}>
+            <Button
+              label={t('live.advance')}
+              variant="secondary"
+              loading={resuming}
+              disabled={resuming}
+              onPress={handleAdvance}
+              testID="live-advance"
+              accessibilityLabel={t('live.advance')}
+            />
           </View>
-        ) : (
-          <Text style={styles.resumeButtonText}>{t('halftime.resume')}</Text>
         )}
-      </Pressable>
+        <Button
+          label={resuming ? t('halftime.resuming') : t('live.finish')}
+          variant="primary"
+          loading={resuming}
+          disabled={resuming}
+          onPress={handleFinish}
+          testID="live-finish"
+          accessibilityLabel={t('live.finish')}
+        />
+      </View>
     </ScrollView>
   );
 }
@@ -468,69 +613,46 @@ interface StatLineProps {
 function StatLine({ label, user, opp }: StatLineProps) {
   return (
     <View style={styles.statLine}>
-      <Text style={styles.statValue}>{user}</Text>
-      <Text style={styles.statLabel}>{label}</Text>
-      <Text style={[styles.statValue, { textAlign: 'right' }]}>{opp}</Text>
+      <Stat style={styles.statValue}>{user}</Stat>
+      <Label style={styles.statLabel}>{label}</Label>
+      <Stat style={[styles.statValue, styles.statValueRight]}>{opp}</Stat>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  container: { paddingBottom: spacing.xl * 2 },
-  centered: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  noDataText: { color: colors.textSecondary, fontSize: fontSize.lg, marginBottom: spacing.lg },
+const styles = {
+  container: { paddingBottom: spacing.xxl },
+  centered: { flex: 1, alignItems: 'center' as const, justifyContent: 'center' as const },
+  noDataText: { marginBottom: spacing.lg },
+  guardButton: { alignSelf: 'stretch' as const, marginHorizontal: spacing.md },
   scoreCard: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    padding: spacing.lg,
     margin: spacing.md,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.primary,
+    alignItems: 'center' as const,
   },
   scoreLabel: {
-    color: colors.textMuted,
-    fontSize: fontSize.xs,
-    fontWeight: '700',
-    letterSpacing: 1,
     marginBottom: spacing.sm,
   },
-  scoreRow: { flexDirection: 'row', alignItems: 'center', width: '100%' },
-  teamName: { color: colors.text, fontSize: fontSize.md, fontWeight: '600', flex: 1, textAlign: 'left' },
-  teamNameRight: { textAlign: 'right' },
+  scoreRow: { flexDirection: 'row' as const, alignItems: 'center' as const, width: '100%' as const },
+  teamName: { flex: 1, textAlign: 'left' as const },
+  teamNameRight: { textAlign: 'right' as const },
   scoreBox: { paddingHorizontal: spacing.md },
-  score: { color: colors.text, fontSize: fontSize.xxl, fontWeight: 'bold' },
   title: {
-    color: colors.primary,
-    fontSize: fontSize.sm,
-    fontWeight: '700',
-    letterSpacing: 2,
     marginTop: spacing.sm,
   },
   section: { marginHorizontal: spacing.md, marginBottom: spacing.md },
   sectionTitle: {
-    color: colors.text,
-    fontSize: fontSize.md,
-    fontWeight: '700',
     marginBottom: spacing.sm,
-    letterSpacing: 0.5,
   },
-  statsCard: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    padding: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  statLine: { flexDirection: 'row', alignItems: 'center', paddingVertical: spacing.xs },
-  statValue: { color: colors.text, fontSize: fontSize.sm, fontWeight: '600', width: 50 },
-  statLabel: { color: colors.textMuted, fontSize: fontSize.xs, flex: 1, textAlign: 'center', textTransform: 'uppercase', letterSpacing: 0.5 },
-  emptyText: { color: colors.textMuted, fontSize: fontSize.sm, fontStyle: 'italic' },
-  eventRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 4 },
-  eventMinute: { color: colors.primary, fontSize: fontSize.sm, fontWeight: 'bold', width: 36 },
-  eventIcon: { fontSize: fontSize.sm, width: 32, textAlign: 'center' },
-  eventName: { color: colors.text, fontSize: fontSize.sm, flex: 1 },
-  subsUsed: { color: colors.textMuted, fontSize: fontSize.xs, marginBottom: spacing.sm },
+  statLine: { flexDirection: 'row' as const, alignItems: 'center' as const, paddingVertical: spacing.xs },
+  statValue: { width: spacing.xxl },
+  statValueRight: { textAlign: 'right' as const },
+  statLabel: { flex: 1, textAlign: 'center' as const },
+  emptyText: { fontStyle: 'italic' as const },
+  eventRow: { flexDirection: 'row' as const, alignItems: 'center' as const, paddingVertical: spacing.xxs },
+  eventMinute: { width: spacing.xl },
+  eventIcon: { width: spacing.xl, alignItems: 'center' as const },
+  eventName: { flex: 1 },
+  subsUsed: { marginBottom: spacing.sm },
   subEditor: {
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
@@ -539,67 +661,31 @@ const styles = StyleSheet.create({
   },
   subPickerCol: { flex: 1 },
   subPickerLabel: {
-    color: colors.textMuted,
-    fontSize: fontSize.xs,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
     marginBottom: spacing.xs,
     marginTop: spacing.xs,
   },
-  chipWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs },
-  miniChip: {
-    paddingVertical: 4,
-    paddingHorizontal: spacing.sm,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  miniChipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-  miniChipText: { color: colors.textSecondary, fontSize: fontSize.xs },
-  miniChipTextActive: { color: colors.text, fontWeight: '700' },
-  removeBtn: { alignSelf: 'flex-end', paddingVertical: spacing.xs, paddingHorizontal: spacing.sm },
-  removeBtnText: { color: colors.danger, fontSize: fontSize.xs, fontWeight: '600' },
+  chipWrap: { flexDirection: 'row' as const, flexWrap: 'wrap' as const, gap: spacing.xs },
+  removeBtn: { alignSelf: 'flex-end' as const, marginTop: spacing.xs },
   addSubBtn: {
-    alignItems: 'center',
-    paddingVertical: spacing.sm,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.primary,
-    borderStyle: 'dashed',
+    marginTop: spacing.sm,
   },
-  addSubBtnText: { color: colors.primary, fontSize: fontSize.sm, fontWeight: '600' },
   settingRow: { paddingVertical: spacing.sm },
   settingLabel: {
-    color: colors.textMuted,
-    fontSize: fontSize.xs,
-    fontWeight: 'bold',
-    textTransform: 'uppercase',
-    letterSpacing: 1,
     marginBottom: spacing.sm,
   },
-  optionGroup: { flexDirection: 'row', gap: spacing.sm },
-  optionButton: {
-    flex: 1,
-    paddingVertical: spacing.sm,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    alignItems: 'center',
-  },
-  optionButtonActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-  optionButtonText: { color: colors.textSecondary, fontSize: fontSize.sm, fontWeight: '600' },
-  optionButtonTextActive: { color: colors.text },
+  optionGroup: { flexDirection: 'row' as const, gap: spacing.sm, flexWrap: 'wrap' as const },
+  optionItem: {},
   divider: { height: 1, backgroundColor: colors.border, marginVertical: spacing.xxs },
-  resumeButton: {
-    backgroundColor: colors.primary,
-    borderRadius: radius.md,
-    paddingVertical: 16,
+  resumeWrap: {
     marginHorizontal: spacing.md,
     marginTop: spacing.sm,
-    alignItems: 'center',
   },
-  resumeButtonDisabled: { opacity: 0.6 },
-  resumeButtonText: { color: colors.text, fontSize: fontSize.lg, fontWeight: 'bold', letterSpacing: 1 },
-  resumingRow: { flexDirection: 'row', alignItems: 'center' },
-});
+  advanceBtn: { marginBottom: spacing.sm },
+  adviceRow: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    paddingVertical: spacing.xs,
+  },
+  adviceText: { flex: 1 },
+  adviceApply: { marginLeft: spacing.sm },
+};

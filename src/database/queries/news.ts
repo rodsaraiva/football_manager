@@ -1,6 +1,8 @@
+import { z, ZodObject } from 'zod';
 import type { DbHandle } from './players';
 import type { NewsItem, NewsCategory } from '@/engine/news/news-generator';
 import type { TKey } from '@/i18n/translate';
+import { parseRows, parseRow } from '../parse-rows';
 
 export interface NewsItemInput {
   season: number;
@@ -14,19 +16,30 @@ export interface NewsItemInput {
   priority: number;
 }
 
-export interface PersistedNewsRow {
-  id: number;
-  season: number;
-  week: number;
-  category: string;
-  title_key: string;
-  title_vars: string;
-  body_key: string;
-  body_vars: string;
-  icon: string;
-  priority: number;
-  read: number;
-}
+// Mapeia 1:1 a news_items (todas as colunas NOT NULL); select omite save_id, coberto por .passthrough().
+const persistedNewsRowSchema = z
+  .object({
+    id: z.number(),
+    season: z.number(),
+    week: z.number(),
+    category: z.string(),
+    title_key: z.string(),
+    title_vars: z.string(),
+    body_key: z.string(),
+    body_vars: z.string(),
+    icon: z.string(),
+    priority: z.number(),
+    read: z.number(),
+  })
+  .passthrough();
+export type PersistedNewsRow = z.infer<typeof persistedNewsRowSchema>;
+
+// COUNT(*) AS n: projeção agregada, não é linha de tabela — fora de __rowSchemas.
+const unreadCountRowSchema = z.object({ n: z.number() }).passthrough();
+
+export const __rowSchemas: Array<{ table: string; schema: ZodObject<any> }> = [
+  { table: 'news_items', schema: persistedNewsRowSchema },
+];
 
 export async function insertNewsItem(db: DbHandle, saveId: number, input: NewsItemInput): Promise<number> {
   const result = (await db
@@ -51,13 +64,14 @@ export async function insertNewsItem(db: DbHandle, saveId: number, input: NewsIt
 }
 
 export async function getNewsItems(db: DbHandle, saveId: number, season: number): Promise<PersistedNewsRow[]> {
-  return (await db
+  const rows = await db
     .prepare(
       `SELECT id, season, week, category, title_key, title_vars, body_key, body_vars, icon, priority, read
        FROM news_items WHERE save_id = ? AND season = ?
        ORDER BY priority DESC, week DESC, id DESC`,
     )
-    .all(saveId, season)) as PersistedNewsRow[];
+    .all(saveId, season);
+  return parseRows(persistedNewsRowSchema, rows, 'news.getNewsItems');
 }
 
 export async function markNewsRead(db: DbHandle, saveId: number): Promise<void> {
@@ -65,10 +79,10 @@ export async function markNewsRead(db: DbHandle, saveId: number): Promise<void> 
 }
 
 export async function countUnread(db: DbHandle, saveId: number): Promise<number> {
-  const row = (await db
+  const row = await db
     .prepare('SELECT COUNT(*) AS n FROM news_items WHERE save_id = ? AND read = 0')
-    .get(saveId)) as { n: number } | undefined;
-  return row?.n ?? 0;
+    .get(saveId);
+  return row ? parseRow(unreadCountRowSchema, row, 'news.countUnread').n : 0;
 }
 
 function parseVars(json: string): Record<string, string | number> | undefined {

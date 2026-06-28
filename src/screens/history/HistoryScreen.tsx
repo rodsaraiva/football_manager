@@ -1,27 +1,36 @@
 import React, { useEffect, useState } from 'react';
 import {
   View,
-  Text,
   ScrollView,
   StyleSheet,
-  TouchableOpacity,
   ActivityIndicator,
 } from 'react-native';
-import { colors, spacing, fontSize, radius, commonStyles } from '@/theme';
+import { colors, spacing, commonStyles } from '@/theme';
+import { useClubAccent } from '@/theme/useClubAccent';
 import { useTranslation } from '@/i18n';
 import { useGameStore } from '@/store/game-store';
 import { useDatabaseStore } from '@/store/database-store';
 import { getSeasonSummary, SeasonCompetitionSummary } from '@/database/queries/history';
+import { getClubNameMap, getPlayerNameMap, getManagerCareer } from '@/database/queries/legacy';
+import { classifySeasonSaga } from '@/engine/legacy/saga-engine';
+import type { TKey } from '@/i18n/translate';
+import { Card, Chip, EmptyState } from '@/components/kit';
+import { Title, Body, Label } from '@/components/typography';
 
 export function HistoryScreen() {
   const { t } = useTranslation();
+  const { accent } = useClubAccent();
   const { season: currentSeason, currentSave } = useGameStore();
   const { dbHandle } = useDatabaseStore();
   const saveId = currentSave?.id;
 
   const defaultSeason = currentSeason > 1 ? currentSeason - 1 : 1;
+  const { playerClubId } = useGameStore();
   const [selectedSeason, setSelectedSeason] = useState<number>(defaultSeason);
   const [summary, setSummary] = useState<SeasonCompetitionSummary[]>([]);
+  const [clubNames, setClubNames] = useState<Map<number, string>>(new Map());
+  const [playerNames, setPlayerNames] = useState<Map<number, string>>(new Map());
+  const [seasonSaga, setSeasonSaga] = useState<{ titleKey: string; bodyKey: string; vars: Record<string, string | number> } | null>(null);
   const [loading, setLoading] = useState(false);
 
   const seasons: number[] = [];
@@ -33,27 +42,45 @@ export function HistoryScreen() {
     setLoading(true);
     (async () => {
       const data = await getSeasonSummary(dbHandle, saveId, selectedSeason);
+      const clubs = await getClubNameMap(dbHandle, saveId);
+      const playerIds = data.flatMap((e) => [
+        ...e.topScorers.map((s) => s.playerId),
+        ...e.topAssisters.map((s) => s.playerId),
+        e.mvp?.playerId, e.breakthrough?.playerId,
+      ]).filter((id): id is number => id != null);
+      const players = await getPlayerNameMap(dbHandle, saveId, playerIds);
+      const career = await getManagerCareer(dbHandle, saveId);
+      const entry = career.find((c) => c.season === selectedSeason);
+      const saga = entry
+        ? classifySeasonSaga({
+            season: entry.season, leaguePosition: entry.leaguePosition, totalTeams: entry.totalTeams,
+            expectedPosition: null, wonLeague: entry.leaguePosition === 1, wonCup: false,
+            wasPromoted: false, wasRelegated: false, trophies: entry.trophies,
+          })
+        : null;
       if (!cancelled) {
         setSummary(data);
+        setClubNames(clubs);
+        setPlayerNames(players);
+        setSeasonSaga(saga);
         setLoading(false);
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [dbHandle, saveId, selectedSeason]);
+  }, [dbHandle, saveId, selectedSeason, playerClubId]);
 
   if (seasons.length === 0) {
     return (
       <View style={[commonStyles.screen, styles.center]}>
-        <Text style={styles.emptyText}>{t('history.no_seasons')}</Text>
+        <EmptyState art="generic" title={t('history.no_seasons')} />
       </View>
     );
   }
 
   return (
     <ScrollView style={commonStyles.screen} contentContainerStyle={styles.container}>
-      {/* Season chip row */}
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -61,106 +88,116 @@ export function HistoryScreen() {
         contentContainerStyle={styles.chipRowContent}
       >
         {seasons.map((s) => (
-          <TouchableOpacity
+          <Chip
             key={s}
-            style={[styles.chip, selectedSeason === s && styles.chipSelected]}
+            label={t('standings.season', { season: s })}
+            selected={selectedSeason === s}
+            accent={accent}
             onPress={() => setSelectedSeason(s)}
-          >
-            <Text style={[styles.chipText, selectedSeason === s && styles.chipTextSelected]}>
-              {t('standings.season', { season: s })}
-            </Text>
-          </TouchableOpacity>
+            testID={`history-season-${s}`}
+          />
         ))}
       </ScrollView>
 
-      {/* Content */}
       {loading ? (
         <View style={styles.center}>
           <ActivityIndicator color={colors.primary} size="large" />
         </View>
       ) : summary.length === 0 ? (
         <View style={styles.center}>
-          <Text style={styles.emptyText}>{t('history.no_data', { season: selectedSeason })}</Text>
+          <EmptyState art="search" title={t('history.no_data', { season: selectedSeason })} />
         </View>
       ) : (
-        summary.map((entry) => (
-          <SummaryCard key={entry.competitionId} entry={entry} />
-        ))
+        <>
+          {seasonSaga && (
+            <Card variant="detail" style={styles.card} testID="history-saga">
+              <Label>{t(seasonSaga.titleKey as TKey, seasonSaga.vars)}</Label>
+              <Body color={colors.text}>{t(seasonSaga.bodyKey as TKey, seasonSaga.vars)}</Body>
+            </Card>
+          )}
+          {summary.map((entry) => (
+            <SummaryCard key={entry.competitionId} entry={entry} clubNames={clubNames} playerNames={playerNames} />
+          ))}
+        </>
       )}
     </ScrollView>
   );
 }
 
-function SummaryCard({ entry }: { entry: SeasonCompetitionSummary }) {
+function SummaryCard({
+  entry, clubNames, playerNames,
+}: {
+  entry: SeasonCompetitionSummary;
+  clubNames: Map<number, string>;
+  playerNames: Map<number, string>;
+}) {
   const { t } = useTranslation();
   const topScorer = entry.topScorers[0] ?? null;
   const topAssister = entry.topAssisters[0] ?? null;
+  const club = (id: number) => clubNames.get(id) ?? `#${id}`;
+  const player = (id: number) => playerNames.get(id) ?? `#${id}`;
 
   return (
-    <View style={styles.card}>
-      {/* Card header */}
-      <View style={[styles.cardHeader, { borderBottomColor: colors.border }]}>
-        <Text style={styles.competitionName}>{entry.competitionName || `Competition ${entry.competitionId}`}</Text>
+    <Card variant="detail" style={styles.card}>
+      <View style={styles.cardHeader}>
+        <Title>{entry.competitionName || `Competition ${entry.competitionId}`}</Title>
       </View>
 
-      {/* Champion / Runner-up */}
       <View style={styles.section}>
-        <Row label={t('history.champion')} value={`Club ${entry.championClubId}`} valueColor={colors.gold} />
+        <Row label={t('history.champion')} value={club(entry.championClubId)} valueColor={colors.gold} />
         {entry.runnerUpClubId != null && (
-          <Row label={t('history.runner_up')} value={`Club ${entry.runnerUpClubId}`} valueColor={colors.silver} />
+          <Row label={t('history.runner_up')} value={club(entry.runnerUpClubId)} valueColor={colors.silver} />
         )}
       </View>
 
-      {/* Awards */}
       {(topScorer || topAssister || entry.mvp || entry.breakthrough) && (
         <View style={[styles.section, styles.sectionBorder]}>
-          <Text style={styles.sectionLabel}>{t('history.awards')}</Text>
+          <Label>{t('history.awards')}</Label>
           {topScorer && (
             <Row
               label={t('history.top_scorer')}
-              value={`Player ${topScorer.playerId} — ${topScorer.value} goals`}
+              value={`${player(topScorer.playerId)} — ${topScorer.value}`}
               valueColor={colors.text}
             />
           )}
           {topAssister && (
             <Row
               label={t('history.top_assister')}
-              value={`Player ${topAssister.playerId} — ${topAssister.value} assists`}
+              value={`${player(topAssister.playerId)} — ${topAssister.value}`}
               valueColor={colors.text}
             />
           )}
           {entry.mvp && (
             <Row
               label={t('history.mvp')}
-              value={`Player ${entry.mvp.playerId}`}
+              value={player(entry.mvp.playerId)}
               valueColor={colors.primaryLight}
             />
           )}
           {entry.breakthrough && (
             <Row
               label={t('history.breakthrough')}
-              value={`Player ${entry.breakthrough.playerId}`}
+              value={player(entry.breakthrough.playerId)}
               valueColor={colors.success}
             />
           )}
         </View>
       )}
 
-      {/* Relegated clubs */}
       {entry.relegated.length > 0 && (
         <View style={[styles.section, styles.sectionBorder]}>
-          <Text style={styles.sectionLabel}>{t('history.relegated')}</Text>
+          <Label>{t('history.relegated')}</Label>
           {entry.relegated.map((rel) => (
             <Row
               key={rel.clubId}
-              label={`${rel.finalPosition}th`}
-              value={`Club ${rel.clubId}`}
+              label={`${rel.finalPosition}`}
+              value={club(rel.clubId)}
               valueColor={colors.danger}
             />
           ))}
         </View>
       )}
-    </View>
+    </Card>
   );
 }
 
@@ -175,8 +212,8 @@ function Row({
 }) {
   return (
     <View style={styles.row}>
-      <Text style={styles.rowLabel}>{label}</Text>
-      <Text style={[styles.rowValue, { color: valueColor }]}>{value}</Text>
+      <Body color={colors.textSecondary}>{label}</Body>
+      <Body color={valueColor}>{value}</Body>
     </View>
   );
 }
@@ -184,13 +221,7 @@ function Row({
 const styles = StyleSheet.create({
   container: { paddingBottom: spacing.xl },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing.lg },
-  emptyText: {
-    color: colors.textMuted,
-    fontSize: fontSize.md,
-    textAlign: 'center',
-  },
 
-  // Chip row
   chipRow: {
     flexGrow: 0,
     borderBottomWidth: 1,
@@ -202,76 +233,30 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     gap: spacing.sm,
   },
-  chip: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-    borderRadius: radius.pill,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.background,
-  },
-  chipSelected: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  chipText: {
-    color: colors.textSecondary,
-    fontSize: fontSize.sm,
-    fontWeight: '600',
-  },
-  chipTextSelected: {
-    color: colors.text,
-  },
 
-  // Card
   card: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
     marginHorizontal: spacing.md,
     marginTop: spacing.sm,
-    borderWidth: 1,
-    borderColor: colors.border,
     overflow: 'hidden',
+    gap: spacing.sm,
   },
   cardHeader: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
+    paddingBottom: spacing.sm,
     borderBottomWidth: 1,
-  },
-  competitionName: {
-    color: colors.text,
-    fontSize: fontSize.md,
-    fontWeight: '700',
+    borderBottomColor: colors.border,
   },
   section: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
+    gap: spacing.xxs,
   },
   sectionBorder: {
     borderTopWidth: 1,
     borderTopColor: colors.border,
+    paddingTop: spacing.sm,
   },
-  sectionLabel: {
-    color: colors.textMuted,
-    fontSize: fontSize.xs,
-    fontWeight: '600',
-    letterSpacing: 1,
-    marginBottom: spacing.xs,
-  },
-
-  // Row
   row: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 3,
-  },
-  rowLabel: {
-    color: colors.textSecondary,
-    fontSize: fontSize.sm,
-  },
-  rowValue: {
-    fontSize: fontSize.sm,
-    fontWeight: '600',
+    paddingVertical: spacing.xxs,
   },
 });

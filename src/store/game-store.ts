@@ -1,12 +1,14 @@
 import { create } from 'zustand';
-import { SaveGame, Club, Player, Fixture, Competition } from '@/types';
+import { SaveGame, Club, Player, Fixture, Competition, Difficulty } from '@/types';
 import { MatchResult, HalftimeState } from '@/engine/simulation/match-engine';
 import { PlayerForStrength } from '@/engine/simulation/team-strength';
 import { Tactic } from '@/types/tactic';
+import { LiveWindowKind, MatchAdvice } from '@/types/match-advice';
 import { StandingsEntry } from '@/engine/competition/standings';
 import { useBoardStore } from '@/store/board-store';
 import { useAssistantStore } from '@/store/assistant-store';
 import { countUnread } from '@/database/queries/news';
+import { countUnreadThreads, countActionableThreads } from '@/database/queries/inbox';
 import type { DbHandle } from '@/database/queries/players';
 
 interface GameState {
@@ -35,6 +37,11 @@ interface GameState {
   halftimeBench: PlayerForStrength[];
   halftimeTactic: Tactic | null;
   halftimeFixtureId: number | null;
+  // C7 (live windows): kind da janela atual (intervalo / 2º tempo / reta final) e
+  // o conselho do assistente recomputado para o snapshot vivo. Transientes como o
+  // halftime — descartados num reload mid-match.
+  liveWindowKind: LiveWindowKind | null;
+  liveAdvice: MatchAdvice[];
   // UI flags
   isAdvancing: boolean;
   isNewSeason: boolean;
@@ -61,11 +68,14 @@ interface GameState {
   pendingAnnouncedRetirementIds: number[];
   // W3 news: contador de notícias não-lidas (badge na NewsTab)
   unreadNewsCount: number;
+  // C6 inbox: badges. actionable tem prioridade na aba.
+  unreadInboxCount: number;
+  actionableInboxCount: number;
 }
 
 interface GameActions {
   // Save management
-  startNewGame: (saveId: number, clubId: number, season: number, week: number) => void;
+  startNewGame: (saveId: number, clubId: number, season: number, week: number, difficulty?: Difficulty) => void;
   loadSave: (save: SaveGame) => void;
   clearGame: () => void;
   // Week advancement
@@ -81,6 +91,16 @@ interface GameActions {
     tactic: Tactic;
     fixtureId: number;
   } | null) => void;
+  setLive: (ctx: {
+    halftime: HalftimeState;
+    isHome: boolean;
+    opponentName: string;
+    bench: PlayerForStrength[];
+    tactic: Tactic;
+    fixtureId: number;
+    windowKind: LiveWindowKind;
+    advice: MatchAdvice[];
+  } | null) => void;
   setNewSeason: (isNew: boolean) => void;
   setPreseasonPending: (pending: boolean) => void;
   setPressPending: (pending: boolean) => void;
@@ -94,6 +114,8 @@ interface GameActions {
   setPendingAnnouncedRetirementIds: (ids: number[]) => void;
   setUnreadNewsCount: (n: number) => void;
   refreshUnreadNewsCount: (db: DbHandle) => Promise<void>;
+  setInboxCounts: (counts: { unread: number; actionable: number }) => void;
+  refreshInboxCounts: (db: DbHandle) => Promise<void>;
   // Data loading
   setSquad: (squad: Player[]) => void;
   setCompetitions: (competitions: Competition[]) => void;
@@ -123,6 +145,8 @@ const initialState: GameState = {
   halftimeBench: [],
   halftimeTactic: null,
   halftimeFixtureId: null,
+  liveWindowKind: null,
+  liveAdvice: [],
   isAdvancing: false,
   isNewSeason: false,
   preseasonPending: false,
@@ -136,11 +160,13 @@ const initialState: GameState = {
   lastRetiredPlayerIds: [],
   pendingAnnouncedRetirementIds: [],
   unreadNewsCount: 0,
+  unreadInboxCount: 0,
+  actionableInboxCount: 0,
 };
 
 export const useGameStore = create<GameStore>((set, get) => ({
   ...initialState,
-  startNewGame: (saveId, clubId, season, week) =>
+  startNewGame: (saveId, clubId, season, week, difficulty = 'normal') =>
     set({
       currentSave: {
         id: saveId,
@@ -148,7 +174,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         currentSeason: season,
         currentWeek: week,
         playerClubId: clubId,
-        difficulty: 'normal',
+        difficulty,
         preseasonPending: false,
         pressPending: false,
         jobOffersPending: false,
@@ -184,6 +210,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
       halftimeBench: [],
       halftimeTactic: null,
       halftimeFixtureId: null,
+      liveWindowKind: null,
+      liveAdvice: [],
       playerClub: null,
       isNewSeason: false,
       preseasonPending: save.preseasonPending,
@@ -214,6 +242,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
           halftimeBench: ctx.bench,
           halftimeTactic: ctx.tactic,
           halftimeFixtureId: ctx.fixtureId,
+          liveWindowKind: 'halftime',
+          liveAdvice: [],
         }
       : {
           halftime: null,
@@ -222,6 +252,30 @@ export const useGameStore = create<GameStore>((set, get) => ({
           halftimeBench: [],
           halftimeTactic: null,
           halftimeFixtureId: null,
+          liveWindowKind: null,
+          liveAdvice: [],
+        }),
+  setLive: (ctx) =>
+    set(ctx
+      ? {
+          halftime: ctx.halftime,
+          halftimeIsHome: ctx.isHome,
+          halftimeOpponentName: ctx.opponentName,
+          halftimeBench: ctx.bench,
+          halftimeTactic: ctx.tactic,
+          halftimeFixtureId: ctx.fixtureId,
+          liveWindowKind: ctx.windowKind,
+          liveAdvice: ctx.advice,
+        }
+      : {
+          halftime: null,
+          halftimeIsHome: null,
+          halftimeOpponentName: null,
+          halftimeBench: [],
+          halftimeTactic: null,
+          halftimeFixtureId: null,
+          liveWindowKind: null,
+          liveAdvice: [],
         }),
   setNewSeason: (isNew) => set({ isNewSeason: isNew }),
   setPreseasonPending: (pending) => set({ preseasonPending: pending }),
@@ -240,6 +294,16 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (!save) return;
     const n = await countUnread(db, save.id);
     set({ unreadNewsCount: n });
+  },
+  setInboxCounts: ({ unread, actionable }) => set({ unreadInboxCount: unread, actionableInboxCount: actionable }),
+  refreshInboxCounts: async (db) => {
+    const save = get().currentSave;
+    if (!save) return;
+    const [unread, actionable] = await Promise.all([
+      countUnreadThreads(db, save.id),
+      countActionableThreads(db, save.id),
+    ]);
+    set({ unreadInboxCount: unread, actionableInboxCount: actionable });
   },
   setSquad: (squad) => set({ squad }),
   setCompetitions: (competitions) => set({ competitions }),

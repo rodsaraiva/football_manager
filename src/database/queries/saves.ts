@@ -1,22 +1,34 @@
+import { z, ZodObject } from 'zod';
 import { SaveGame, Difficulty } from '@/types';
+import { parseRows, parseRow } from '../parse-rows';
 import { DbHandle } from './players';
 
-interface SaveGameRow {
-  id: number;
-  name: string;
-  current_season: number;
-  current_week: number;
-  player_club_id: number;
-  difficulty: string;
-  preseason_pending: number | null;
-  press_pending: number | null;
-  job_offers_pending: number | null;
-  unemployed: number | null;
-  manager_reputation: number | null;
-  onboarding_seen: number | null;
-  created_at: string;
-  updated_at: string;
-}
+// Só os campos consumidos por rowToSaveGame; .passthrough() deixa as demais colunas passarem.
+// Booleanos/reputação são NOT NULL no schema, mas o cast anterior os tipava como number|null
+// (e o código faz `=== 1` / `?? 50`) — mantém .nullable() por fidelidade.
+const saveGameRowSchema = z
+  .object({
+    id: z.number(),
+    name: z.string(),
+    current_season: z.number(),
+    current_week: z.number(),
+    player_club_id: z.number(),
+    difficulty: z.string(),
+    preseason_pending: z.number().nullable(),
+    press_pending: z.number().nullable(),
+    job_offers_pending: z.number().nullable(),
+    unemployed: z.number().nullable(),
+    manager_reputation: z.number().nullable(),
+    onboarding_seen: z.number().nullable(),
+    created_at: z.string(),
+    updated_at: z.string(),
+  })
+  .passthrough();
+type SaveGameRow = z.infer<typeof saveGameRowSchema>;
+
+export const __rowSchemas: Array<{ table: string; schema: ZodObject<any> }> = [
+  { table: 'save_games', schema: saveGameRowSchema },
+];
 
 function rowToSaveGame(row: SaveGameRow): SaveGame {
   return {
@@ -67,15 +79,16 @@ export async function createSave(db: DbHandle, input: CreateSaveInput): Promise<
 export async function getAllSaves(db: DbHandle): Promise<SaveGame[]> {
   const rows = await db
     .prepare('SELECT * FROM save_games ORDER BY updated_at DESC')
-    .all() as SaveGameRow[];
-  return rows.map(rowToSaveGame);
+    .all();
+  return parseRows(saveGameRowSchema, rows, 'saves.getAllSaves').map(rowToSaveGame);
 }
 
 export async function getSaveById(db: DbHandle, saveId: number): Promise<SaveGame | null> {
   const row = await db
     .prepare('SELECT * FROM save_games WHERE id = ?')
-    .get(saveId) as SaveGameRow | undefined;
-  return row ? rowToSaveGame(row) : null;
+    .get(saveId);
+  const parsed = parseRow(saveGameRowSchema.nullable(), row, 'saves.getSaveById');
+  return parsed ? rowToSaveGame(parsed) : null;
 }
 
 export async function updateSaveWeek(

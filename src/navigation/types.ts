@@ -2,10 +2,13 @@ export type RootStackParamList = {
   MainMenu: undefined;
   NewGame: undefined;
   Game: undefined;
+  Settings: undefined;
   MatchResult: { fixtureId: number };
   MatchHalftime: undefined;
+  MatchLiveWindow: { windowKind: import('@/types/match-advice').LiveWindowKind };
   PressConference: undefined;
   PlayerDetail: { playerId: number };
+  MoraleBreakdown: { playerId: number };
   EndOfSeason: undefined;
   TeamTalk: undefined;
   SetPieces: undefined;
@@ -23,6 +26,7 @@ export type RootStackParamList = {
   OffersSent: undefined;
   OffersReceived: undefined;
   FreeAgents: undefined;
+  LoanPortfolio: undefined;
   // League standings (reachable from Matches and Reports hub)
   LeagueStandings: undefined;
   // Reports sub-screens
@@ -38,6 +42,10 @@ export type RootStackParamList = {
   Scouting: undefined;
   // International duty (club-side): squad members at national-team level
   Internationals: undefined;
+  // L1: national-team management sub-screens (hub = Internationals)
+  NationalSquad: undefined;
+  NationalCalendar: undefined;
+  NationalHistory: undefined;
   // My listings
   MyListings: undefined;
   // History hub
@@ -51,14 +59,24 @@ export type RootStackParamList = {
   PreSeason: undefined;
   // Career: rival job offers at season-end
   JobOffers: undefined;
+  // C4 career: manager profile (reputation, contract, savings)
+  ManagerProfile: undefined;
   // Career: achievements / milestones
   Achievements: undefined;
+  // C1 dynasty/legacy
+  HallOfFame: undefined;
+  Records: undefined;
+  ManagerTimeline: undefined;
+  Rivalries: undefined;
+  // C6 inbox: detalhe de thread
+  InboxThread: { threadId: number };
 };
 
 export type TabParamList = {
   HomeTab: undefined;
   SquadTab: undefined;
   NewsTab: undefined;
+  InboxTab: undefined;
   TacticsTab: undefined;
   ClubTab: undefined;
   ReportsTab: undefined;

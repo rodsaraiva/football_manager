@@ -37,6 +37,7 @@ describe('set-piece taker queries', () => {
       penaltyTakerId: p1,
       freeKickTakerId: p2,
       cornerTakerId: p3,
+      cornerRoutine: 'auto',
     });
   });
 
@@ -47,6 +48,7 @@ describe('set-piece taker queries', () => {
       penaltyTakerId: p2,
       freeKickTakerId: p3,
       cornerTakerId: p1,
+      cornerRoutine: 'auto',
     });
     const count = (rawDb
       .prepare('SELECT COUNT(*) AS c FROM set_piece_takers WHERE save_id = ? AND club_id = ?')
@@ -61,6 +63,7 @@ describe('set-piece taker queries', () => {
       penaltyTakerId: null,
       freeKickTakerId: p2,
       cornerTakerId: null,
+      cornerRoutine: 'auto',
     });
   });
 

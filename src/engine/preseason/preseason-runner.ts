@@ -16,6 +16,8 @@ import { SeededRng } from '@/engine/rng';
 import { simulateMatch, MatchResult } from '@/engine/simulation/match-engine';
 import { calculateWeeklyIncome } from '@/engine/finance/finance-engine';
 import { applyFriendlyFitnessGain } from './preseason-engine';
+import { computeFriendlyEffect } from './preseason-effects';
+import { applyMoraleDelta } from '@/engine/morale/morale-engine';
 
 interface LoadedClub {
   reputation: number;
@@ -140,16 +142,29 @@ export async function playFriendly(p: PlayFriendlyParams): Promise<PlayFriendlyR
     }
   }
 
-  // Small fitness boost for the player squad's starters (participants).
+  // Fitness boost + morale/sharpness for the player squad's starters
+  // (participants). Morale escala pela força do adversário; afiação é fixa por
+  // jogo. applyFriendlyFitnessGain consome o RNG na MESMA posição do baseline
+  // (1 roll por participante); computeFriendlyEffect não usa RNG.
   const isHome = friendly.homeClubId === playerClubId;
   const playerStartingIds = isHome ? home.startingIds : away.startingIds;
+  const myGoals = isHome ? result.homeGoals : result.awayGoals;
+  const oppGoals = isHome ? result.awayGoals : result.homeGoals;
+  const myReputation = isHome ? home.reputation : away.reputation;
+  const oppReputation = isHome ? away.reputation : home.reputation;
   const squad = await getPlayersByClub(db, saveId, playerClubId);
   for (const player of squad) {
     const participated = playerStartingIds.has(player.id);
-    const next = applyFriendlyFitnessGain(player.fitness, participated, rng);
-    if (next !== player.fitness) {
-      await db.prepare('UPDATE players SET fitness = ? WHERE save_id = ? AND id = ?').run(next, saveId, player.id);
-    }
+    const nextFitness = applyFriendlyFitnessGain(player.fitness, participated, rng);
+    const eff = computeFriendlyEffect({ myGoals, oppGoals, myReputation, oppReputation, participated });
+    const nextMorale = applyMoraleDelta(player.morale, eff.moraleDelta);
+    const sharpRow = (await db
+      .prepare('SELECT match_sharpness AS s FROM players WHERE save_id = ? AND id = ?')
+      .get(saveId, player.id)) as { s: number } | undefined;
+    const nextSharp = Math.max(1, Math.min(100, (sharpRow?.s ?? 100) + eff.sharpnessDelta));
+    await db
+      .prepare('UPDATE players SET fitness = ?, morale = ?, match_sharpness = ? WHERE save_id = ? AND id = ?')
+      .run(nextFitness, nextMorale, nextSharp, saveId, player.id);
   }
 
   return { result, isHome };

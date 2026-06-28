@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator, RefreshControl, Pressable } from 'react-native';
+import { View, StyleSheet, ScrollView, ActivityIndicator, RefreshControl, Pressable } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import { colors, spacing, fontSize, radius, commonStyles } from '@/theme';
+import { colors, spacing, commonStyles } from '@/theme';
+import { Card } from '@/components/kit';
+import { Caption, Body, Label, Stat } from '@/components/typography';
 import { useGameStore } from '@/store/game-store';
 import { useDatabaseStore } from '@/store/database-store';
 import { useNavigation } from '@react-navigation/native';
@@ -108,7 +110,7 @@ export function ReportsFinancialScreen() {
   if (!report) {
     return (
       <View style={[commonStyles.screen, styles.center]}>
-        <Text style={styles.subtitle}>{t('report.fin_no_data')}</Text>
+        <Body color={colors.textMuted}>{t('report.fin_no_data')}</Body>
       </View>
     );
   }
@@ -129,34 +131,34 @@ export function ReportsFinancialScreen() {
       }
     >
       {/* Budget highlight */}
-      <View style={styles.card}>
-        <Text style={styles.cardLabel}>{t('report.fin_current_cash')}</Text>
-        <Text style={styles.budgetAmount}>{formatMoney(report.budget)}</Text>
-      </View>
+      <Card variant="summary" style={styles.card}>
+        <Caption style={styles.cardLabel}>{t('report.fin_current_cash')}</Caption>
+        <Stat color={colors.success} style={styles.budgetAmount}>{formatMoney(report.budget)}</Stat>
+      </Card>
 
       {/* Season summary */}
-      <View style={styles.card}>
-        <Text style={styles.cardLabel}>{t('report.fin_season')}</Text>
+      <Card variant="summary" style={styles.card}>
+        <Caption style={styles.cardLabel}>{t('report.fin_season')}</Caption>
         <StatRow label={t('report.fin_revenue')} value={formatMoney(report.seasonIncome)} color={colors.success} />
         <StatRow label={t('report.fin_expense')} value={formatMoney(-report.seasonExpenses)} color={colors.danger} />
         <View style={styles.divider} />
         <StatRow label={t('report.fin_balance')} value={formatMoney(report.seasonNet)} color={netColor} emphasis />
-      </View>
+      </Card>
 
       {/* Transfer balance */}
-      <View style={styles.card}>
-        <Text style={styles.cardLabel}>{t('report.fin_transfers')}</Text>
+      <Card variant="summary" style={styles.card}>
+        <Caption style={styles.cardLabel}>{t('report.fin_transfers')}</Caption>
         <StatRow
           label={t('report.fin_transfer_balance')}
           value={formatMoney(report.transferBalance)}
           color={tbColor}
           emphasis
         />
-      </View>
+      </Card>
 
       {/* Payroll */}
-      <View style={styles.card}>
-        <Text style={styles.cardLabel}>{t('report.fin_payroll')}</Text>
+      <Card variant="summary" style={styles.card}>
+        <Caption style={styles.cardLabel}>{t('report.fin_payroll')}</Caption>
         <StatRow label={t('report.fin_weekly_payroll')} value={`${formatMoney(report.weeklyPayroll)}${t('report.fin_per_week')}`} color={colors.text} />
         <StatRow label={t('report.fin_budget')} value={`${formatMoney(report.wageBudget)}${t('report.fin_per_week')}`} color={colors.textSecondary} />
         <View style={styles.divider} />
@@ -166,25 +168,25 @@ export function ReportsFinancialScreen() {
           color={payrollColor}
           emphasis
         />
-      </View>
+      </Card>
 
       {/* Projection */}
-      <View style={styles.card}>
-        <Text style={styles.cardLabel}>{t('report.fin_projection')}</Text>
+      <Card variant="summary" style={styles.card}>
+        <Caption style={styles.cardLabel}>{t('report.fin_projection')}</Caption>
         <StatRow
           label={t('report.fin_cash_in_10_weeks')}
           value={formatMoney(report.projectedBudgetIn10Weeks)}
           color={report.projectedBudgetIn10Weeks >= report.budget ? colors.success : colors.warning}
         />
-      </View>
+      </Card>
 
       {/* Category breakdown */}
       {(report.breakdown.income.length > 0 || report.breakdown.expenses.length > 0) && (
-        <View style={styles.card}>
-          <Text style={styles.cardLabel}>{t('report.fin_by_category')}</Text>
+        <Card variant="summary" style={styles.card}>
+          <Caption style={styles.cardLabel}>{t('report.fin_by_category')}</Caption>
           {report.breakdown.income.length > 0 && (
             <>
-              <Text style={styles.subSection}>{t('report.fin_revenues')}</Text>
+              <Label style={styles.subSection}>{t('report.fin_revenues')}</Label>
               {report.breakdown.income.map((b) => (
                 <StatRow
                   key={`in-${b.type}`}
@@ -197,7 +199,7 @@ export function ReportsFinancialScreen() {
           )}
           {report.breakdown.expenses.length > 0 && (
             <>
-              <Text style={[styles.subSection, { marginTop: spacing.sm }]}>{t('report.fin_expenses')}</Text>
+              <Label style={[styles.subSection, { marginTop: spacing.sm }]}>{t('report.fin_expenses')}</Label>
               {report.breakdown.expenses.map((b) => (
                 <StatRow
                   key={`out-${b.type}`}
@@ -208,52 +210,55 @@ export function ReportsFinancialScreen() {
               ))}
             </>
           )}
-        </View>
+        </Card>
       )}
 
       {/* Previous season comparison */}
       {report.previousSeason && (
-        <View style={styles.card}>
-          <Text style={styles.cardLabel}>{t('report.fin_vs_previous_season')}</Text>
+        <Card variant="summary" style={styles.card}>
+          <Caption style={styles.cardLabel}>{t('report.fin_vs_previous_season')}</Caption>
           <DeltaRow label={t('report.fin_revenue')} delta={report.previousSeason.incomeDelta} positiveIsGood />
           <DeltaRow label={t('report.fin_expense')} delta={report.previousSeason.expensesDelta} positiveIsGood={false} />
           <View style={styles.divider} />
           <DeltaRow label={t('report.fin_balance')} delta={report.previousSeason.netDelta} positiveIsGood emphasis />
-        </View>
+        </Card>
       )}
 
       {/* Top salaries */}
       {report.topSalaries.length > 0 && (
-        <View style={styles.card}>
-          <Text style={styles.cardLabel}>{t('report.fin_top_salaries')}</Text>
+        <Card variant="summary" style={styles.card}>
+          <Caption style={styles.cardLabel}>{t('report.fin_top_salaries')}</Caption>
           {report.topSalaries.map((s) => (
             <Pressable
               key={s.playerId}
               onPress={() => navigation.navigate('PlayerDetail', { playerId: s.playerId })}
               style={({ pressed }) => [styles.salaryRow, pressed && { opacity: 0.6 }]}
+              accessibilityRole="button"
+              accessibilityLabel={s.name}
+              testID={`salary-row-${s.playerId}`}
             >
               <View style={{ flex: 1 }}>
-                <Text style={styles.salaryName}>{s.name}</Text>
-                <Text style={styles.salaryMeta}>
+                <Body style={styles.salaryName}>{s.name}</Body>
+                <Caption>
                   {s.position} · {t('report.fin_share_of_payroll', { pct: Math.round(s.shareOfPayroll * 100) })}
-                </Text>
+                </Caption>
               </View>
-              <Text style={styles.salaryValue}>{formatMoney(s.wage)}{t('report.fin_per_week')}</Text>
+              <Label style={styles.salaryValue}>{formatMoney(s.wage)}{t('report.fin_per_week')}</Label>
             </Pressable>
           ))}
-        </View>
+        </Card>
       )}
 
       {/* Suggestions */}
-      <View style={styles.card}>
-        <Text style={styles.cardLabel}>{t('report.fin_recommendations')}</Text>
+      <Card variant="summary" style={styles.card}>
+        <Caption style={styles.cardLabel}>{t('report.fin_recommendations')}</Caption>
         {report.suggestions.map((s, i) => (
           <View key={i} style={styles.suggestionLine}>
-            <Text style={styles.suggestionBullet}>•</Text>
-            <Text style={styles.suggestionText}>{s}</Text>
+            <Body style={styles.suggestionBullet}>•</Body>
+            <Body style={styles.suggestionText}>{s}</Body>
           </View>
         ))}
-      </View>
+      </Card>
     </ScrollView>
   );
 }
@@ -271,8 +276,10 @@ function StatRow({
 }) {
   return (
     <View style={styles.statRow}>
-      <Text style={styles.statLabel}>{label}</Text>
-      <Text style={[styles.statValue, { color }, emphasis && styles.statValueEmphasis]}>{value}</Text>
+      <Label style={styles.statLabel}>{label}</Label>
+      {emphasis
+        ? <Stat color={color} style={styles.statValueEmphasis}>{value}</Stat>
+        : <Body style={[styles.statValue, { color }]}>{value}</Body>}
     </View>
   );
 }
@@ -294,10 +301,10 @@ function DeltaRow({
   const sign = delta > 0 ? '+' : '';
   return (
     <View style={styles.statRow}>
-      <Text style={styles.statLabel}>{label}</Text>
-      <Text style={[styles.statValue, { color }, emphasis && styles.statValueEmphasis]}>
-        {sign}{formatMoney(delta)}
-      </Text>
+      <Label style={styles.statLabel}>{label}</Label>
+      {emphasis
+        ? <Stat color={color} style={styles.statValueEmphasis}>{sign}{formatMoney(delta)}</Stat>
+        : <Body style={[styles.statValue, { color }]}>{sign}{formatMoney(delta)}</Body>}
     </View>
   );
 }
@@ -305,27 +312,16 @@ function DeltaRow({
 const styles = StyleSheet.create({
   container: { paddingBottom: spacing.xl, paddingTop: spacing.sm },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  subtitle: { color: colors.textMuted, fontSize: fontSize.md },
   card: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    padding: spacing.md,
     marginHorizontal: spacing.md,
     marginBottom: spacing.sm,
-    borderWidth: 1,
-    borderColor: colors.border,
   },
   cardLabel: {
-    color: colors.textMuted,
-    fontSize: fontSize.xs,
-    fontWeight: '600',
-    letterSpacing: 1,
     textTransform: 'uppercase',
+    letterSpacing: 1,
     marginBottom: spacing.sm,
   },
   budgetAmount: {
-    color: colors.success,
-    fontSize: fontSize.xxl,
     fontWeight: 'bold',
   },
   statRow: {
@@ -335,15 +331,12 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xs,
   },
   statLabel: {
-    color: colors.textSecondary,
-    fontSize: fontSize.sm,
+    flex: 1,
   },
   statValue: {
-    fontSize: fontSize.md,
     fontWeight: '600',
   },
   statValueEmphasis: {
-    fontSize: fontSize.lg,
     fontWeight: '700',
   },
   divider: {
@@ -357,20 +350,12 @@ const styles = StyleSheet.create({
   },
   suggestionBullet: {
     color: colors.primary,
-    fontSize: fontSize.md,
     marginRight: spacing.xs,
-    width: 12,
   },
   suggestionText: {
-    color: colors.text,
-    fontSize: fontSize.sm,
     flex: 1,
-    lineHeight: 20,
   },
   subSection: {
-    color: colors.textMuted,
-    fontSize: fontSize.xs,
-    fontWeight: '700',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     marginBottom: spacing.xs,
@@ -378,23 +363,14 @@ const styles = StyleSheet.create({
   salaryRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 6,
+    paddingVertical: spacing.xs,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
   salaryName: {
-    color: colors.text,
-    fontSize: fontSize.sm,
     fontWeight: '600',
   },
-  salaryMeta: {
-    color: colors.textSecondary,
-    fontSize: fontSize.xs,
-    marginTop: spacing.xxs,
-  },
   salaryValue: {
-    color: colors.text,
-    fontSize: fontSize.sm,
     fontWeight: '700',
   },
 });

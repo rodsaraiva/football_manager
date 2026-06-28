@@ -1,13 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   ScrollView,
   ActivityIndicator,
 } from 'react-native';
-import { colors, spacing, fontSize, commonStyles } from '@/theme';
+import { colors, spacing, commonStyles } from '@/theme';
 import { useTranslation, ordinal, Language } from '@/i18n';
+import { Card, Icon, EmptyState } from '@/components/kit';
+import type { IconName } from '@/components/kit';
+import { Headline, Body, Caption } from '@/components/typography';
 import { useGameStore } from '@/store/game-store';
 import { useDatabaseStore } from '@/store/database-store';
 import { getClubsByLeague, getClubById } from '@/database/queries/clubs';
@@ -20,6 +22,7 @@ import { calculateStandings, StandingsEntry } from '@/engine/competition/standin
 import { Fixture, Club, Competition, League } from '@/types';
 import {
   NewsItem,
+  NewsCategory,
   generateHeadlines,
   generateHighScoringMatches,
   generateComeback,
@@ -36,6 +39,55 @@ import type { RetirementDecision } from '@/engine/retirement/retirement-engine';
 import type { TKey, TextDescriptor } from '@/i18n/translate';
 
 type TFn = (key: TKey, vars?: Record<string, string | number>) => string;
+
+// Mapeia a categoria do item de notícia para um ícone SVG do kit (substitui o emoji
+// que o gerador carrega em NewsItem.icon — o glifo deixa de ser renderizado).
+const CATEGORY_ICON: Record<NewsCategory, IconName> = {
+  headline: 'news',
+  result: 'goal',
+  standings: 'chart',
+  transfer: 'money',
+  injury: 'injury',
+  topscorer: 'goal',
+  info: 'news',
+  star: 'target',
+  streak: 'chart',
+  comeback: 'whistle',
+  league: 'shield',
+  season_recap: 'chart',
+  retirement: 'squad',
+  press: 'news',
+  board: 'shield',
+  achievement: 'check',
+  scouting: 'target',
+  callup: 'squad',
+  national: 'shield',
+};
+
+const CATEGORY_ACCENT: Record<NewsCategory, string> = {
+  headline: colors.primaryLight,
+  result: colors.primary,
+  standings: colors.gold,
+  transfer: colors.accent,
+  injury: colors.danger,
+  topscorer: colors.success,
+  info: colors.border,
+  star: colors.gold,
+  streak: colors.warning,
+  comeback: colors.accent,
+  league: colors.primaryLight,
+  season_recap: colors.gold,
+  retirement: colors.textSecondary,
+  press: colors.primary,
+  board: colors.gold,
+  achievement: colors.success,
+  scouting: colors.accent,
+  callup: colors.primaryLight,
+  national: colors.gold,
+};
+
+// Itens de ranking (artilheiros) carregam um índice textual "1." em vez de emoji.
+const RANK_ICON = /^\d+\.$/;
 
 // ─── Main ───────────────────────────────────────────────────────────────────
 
@@ -210,7 +262,7 @@ export function NewsScreen() {
           if (injured.length > 0) {
             items.push({
               id: 'injury-header',
-              icon: '🏥',
+              icon: '',
               title: { key: 'news.injury_report_title' },
               body: { key: injured.length > 1 ? 'news.injury_report_body_other' : 'news.injury_report_body_one', vars: { count: injured.length } },
               category: 'injury',
@@ -219,7 +271,7 @@ export function NewsScreen() {
             for (const p of injured) {
               items.push({
                 id: `injury-${p.id}`,
-                icon: '🤕',
+                icon: '',
                 title: { key: 'news.raw', vars: { text: p.name } },
                 body: { key: p.injuryWeeksLeft > 1 ? 'news.injury_player_body_other' : 'news.injury_player_body_one', vars: { weeks: p.injuryWeeksLeft, position: p.position } },
                 category: 'injury',
@@ -232,7 +284,7 @@ export function NewsScreen() {
           for (const p of lowMorale) {
             items.push({
               id: `morale-${p.id}`,
-              icon: '😤',
+              icon: '',
               title: { key: 'news.morale_title', vars: { name: p.name } },
               body: { key: 'news.morale_body', vars: { morale: p.morale } },
               category: 'info',
@@ -244,7 +296,7 @@ export function NewsScreen() {
           if (expiring.length > 0) {
             items.push({
               id: 'contracts-header',
-              icon: '📝',
+              icon: '',
               title: { key: 'news.contracts_title' },
               body: { key: expiring.length > 1 ? 'news.contracts_body_other' : 'news.contracts_body_one', vars: { count: expiring.length } },
               category: 'info',
@@ -253,7 +305,7 @@ export function NewsScreen() {
             for (const p of expiring) {
               items.push({
                 id: `contract-${p.id}`,
-                icon: '⏳',
+                icon: '',
                 title: { key: 'news.raw', vars: { text: p.name } },
                 body: { key: 'news.contract_player_body', vars: { season: p.contractEnd, position: p.position } },
                 category: 'info',
@@ -269,7 +321,7 @@ export function NewsScreen() {
           if (topScorers.length > 0) {
             items.push({
               id: 'topscorer-header',
-              icon: '👑',
+              icon: '',
               title: { key: 'news.topscorer_title' },
               body: { key: 'news.raw', vars: { text: leagueComp.name } },
               category: 'topscorer',
@@ -348,18 +400,6 @@ export function NewsScreen() {
           if (!seen.has(p.id)) items.push(p);
         }
 
-        // Empty state
-        if (items.length === 0) {
-          items.push({
-            id: 'empty',
-            icon: '📰',
-            title: { key: 'news.empty_title' },
-            body: { key: 'news.empty_body' },
-            category: 'info',
-            priority: 0,
-          });
-        }
-
         setNews(sortNews(items));
 
         // W3 news: opening the feed clears the unread badge.
@@ -379,46 +419,46 @@ export function NewsScreen() {
     );
   }
 
+  if (news.length === 0) {
+    return (
+      <View style={commonStyles.screen}>
+        <View style={styles.header}>
+          <Headline>{t('news.header_title')}</Headline>
+          <Body color={colors.primary}>{t('news.header_sub', { season, week })}</Body>
+        </View>
+        <View style={styles.emptyWrap}>
+          <EmptyState art="inbox" title={t('news.empty_title')} description={t('news.empty_body')} />
+        </View>
+      </View>
+    );
+  }
+
   return (
     <View style={commonStyles.screen}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>{t('news.header_title')}</Text>
-        <Text style={styles.headerSub}>
-          {t('news.header_sub', { season, week })}
-        </Text>
+        <Headline>{t('news.header_title')}</Headline>
+        <Body color={colors.primary}>{t('news.header_sub', { season, week })}</Body>
       </View>
       <ScrollView contentContainerStyle={styles.list}>
-        {news.map((item) => (
-          <View
-            key={item.id}
-            style={[
-              styles.card,
-              item.category === 'headline' && styles.cardHeadline,
-              item.category === 'result' && styles.cardResult,
-              item.category === 'standings' && styles.cardStandings,
-              item.category === 'transfer' && styles.cardTransfer,
-              item.category === 'injury' && styles.cardInjury,
-              item.category === 'topscorer' && styles.cardTopscorer,
-              item.category === 'star' && styles.cardStar,
-              item.category === 'streak' && styles.cardStreak,
-              item.category === 'comeback' && styles.cardComeback,
-              item.category === 'league' && styles.cardLeague,
-              item.category === 'season_recap' && styles.cardSeasonRecap,
-              item.category === 'retirement' && styles.cardRetirement,
-              item.category === 'press' && styles.cardPress,
-              item.category === 'board' && styles.cardBoard,
-              item.category === 'achievement' && styles.cardAchievement,
-              item.category === 'scouting' && styles.cardScouting,
-              item.category === 'callup' && styles.cardCallup,
-            ]}
-          >
-            <Text style={styles.cardIcon}>{item.icon}</Text>
-            <View style={styles.cardContent}>
-              <Text style={styles.cardTitle}>{resolveDescriptor(t, lang, item.title)}</Text>
-              <Text style={styles.cardBody}>{resolveDescriptor(t, lang, item.body)}</Text>
-            </View>
-          </View>
-        ))}
+        {news.map((item) => {
+          const accent = CATEGORY_ACCENT[item.category];
+          const isRank = RANK_ICON.test(item.icon);
+          return (
+            <Card key={item.id} variant="detail" accent={accent} style={styles.card}>
+              {isRank ? (
+                <Caption color={accent} style={styles.rankIcon}>{item.icon}</Caption>
+              ) : (
+                <View style={styles.cardIcon}>
+                  <Icon name={CATEGORY_ICON[item.category]} color={accent} size={20} />
+                </View>
+              )}
+              <View style={styles.cardContent}>
+                <Body>{resolveDescriptor(t, lang, item.title)}</Body>
+                <Caption color={colors.textSecondary}>{resolveDescriptor(t, lang, item.body)}</Caption>
+              </View>
+            </Card>
+          );
+        })}
       </ScrollView>
     </View>
   );
@@ -428,12 +468,18 @@ export function NewsScreen() {
 
 // Vars whose numeric value is a table position → rendered as a locale-aware ordinal.
 const ORDINAL_VARS = new Set(['pos', 'from']);
+// Vars whose value is itself a translation key (e.g. C3 scouting verdict) → translated.
+const KEY_VARS = new Set(['verdict']);
 
 function resolveDescriptor(t: TFn, lang: Language, d: TextDescriptor): string {
   if (!d.vars) return t(d.key);
   const out: Record<string, string | number> = {};
   for (const [k, v] of Object.entries(d.vars)) {
-    out[k] = ORDINAL_VARS.has(k) && typeof v === 'number' ? ordinal(lang, v) : v;
+    if (KEY_VARS.has(k) && typeof v === 'string' && v.length > 0) {
+      out[k] = t(v as TKey);
+    } else {
+      out[k] = ORDINAL_VARS.has(k) && typeof v === 'number' ? ordinal(lang, v) : v;
+    }
   }
   return t(d.key, out);
 }
@@ -441,7 +487,7 @@ function resolveDescriptor(t: TFn, lang: Language, d: TextDescriptor): string {
 function buildResultsHeader(week: number, comp: Competition | undefined): NewsItem {
   return {
     id: `results-header-${week}`,
-    icon: '📅',
+    icon: '',
     title: { key: 'news.results_header_title', vars: { week } },
     body: comp ? { key: 'news.results_header_body_comp', vars: { comp: comp.name } } : { key: 'news.results_header_body_fallback' },
     category: 'result',
@@ -459,7 +505,7 @@ function buildMatchResult(
   const isPlayerMatch = f.homeClubId === playerClubId || f.awayClubId === playerClubId;
   return {
     id: `result-${f.id}`,
-    icon: isPlayerMatch ? '🏟️' : '⚽',
+    icon: '',
     title: { key: 'news.scoreline', vars: { home, hg: f.homeGoals ?? 0, ag: f.awayGoals ?? 0, away } },
     body: isPlayerMatch ? { key: 'news.match_your' } : { key: 'news.match_result' },
     category: 'result',
@@ -516,17 +562,9 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
+    gap: spacing.xxs,
   },
-  headerTitle: {
-    color: colors.text,
-    fontSize: fontSize.xl,
-    fontWeight: 'bold',
-  },
-  headerSub: {
-    color: colors.primary,
-    fontSize: fontSize.sm,
-    marginTop: spacing.xxs,
-  },
+  emptyWrap: { flex: 1, justifyContent: 'center', paddingHorizontal: spacing.md },
   list: {
     padding: spacing.sm,
     paddingBottom: spacing.xl,
@@ -534,86 +572,19 @@ const styles = StyleSheet.create({
   card: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.surface,
-    borderRadius: 10,
-    padding: spacing.md,
     marginVertical: spacing.xs,
-    borderLeftWidth: 3,
-    borderLeftColor: colors.border,
-  },
-  cardHeadline: {
-    borderLeftColor: colors.primaryLight,
-    backgroundColor: colors.surfaceLight,
-    borderLeftWidth: 4,
-  },
-  cardResult: {
-    borderLeftColor: colors.primary,
-  },
-  cardStandings: {
-    borderLeftColor: colors.gold,
-  },
-  cardTransfer: {
-    borderLeftColor: colors.accent,
-  },
-  cardInjury: {
-    borderLeftColor: colors.danger,
-  },
-  cardTopscorer: {
-    borderLeftColor: colors.success,
-  },
-  cardStar: {
-    borderLeftColor: colors.gold,
-    backgroundColor: colors.surfaceLight,
-  },
-  cardStreak: {
-    borderLeftColor: colors.warning,
-  },
-  cardComeback: {
-    borderLeftColor: colors.accent,
-  },
-  cardLeague: {
-    borderLeftColor: colors.primaryLight,
-  },
-  cardSeasonRecap: {
-    borderLeftColor: colors.gold,
-    backgroundColor: colors.surfaceLight,
-    borderLeftWidth: 4,
-  },
-  cardRetirement: {
-    borderLeftColor: colors.textSecondary,
-  },
-  cardPress: {
-    borderLeftColor: colors.primary,
-  },
-  cardBoard: {
-    borderLeftColor: colors.gold,
-  },
-  cardAchievement: {
-    borderLeftColor: colors.success,
-  },
-  cardScouting: {
-    borderLeftColor: colors.accent,
-  },
-  cardCallup: {
-    borderLeftColor: colors.primaryLight,
+    gap: spacing.sm,
   },
   cardIcon: {
-    fontSize: fontSize.xl,
+    width: 36,
+    alignItems: 'center',
+  },
+  rankIcon: {
     width: 36,
     textAlign: 'center',
-    marginRight: spacing.sm,
   },
   cardContent: {
     flex: 1,
-  },
-  cardTitle: {
-    color: colors.text,
-    fontSize: fontSize.md,
-    fontWeight: '600',
-  },
-  cardBody: {
-    color: colors.textSecondary,
-    fontSize: fontSize.sm,
-    marginTop: spacing.xxs,
+    gap: spacing.xxs,
   },
 });

@@ -1,18 +1,19 @@
-import React from 'react';
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  ScrollView,
-  StyleSheet,
-  FlatList,
-} from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, ScrollView, Switch } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { colors, alpha, spacing, fontSize, radius, commonStyles } from '@/theme';
+import { colors, alpha, spacing, radius, commonStyles } from '@/theme';
+import { useClubAccent } from '@/theme/useClubAccent';
+import { Card, Button } from '@/components/kit';
+import { Display, Title, Body, Label, Caption, Stat } from '@/components/typography';
 import { useTranslation } from '@/i18n';
 import { useGameStore } from '@/store/game-store';
+import { useDatabaseStore } from '@/store/database-store';
+import { useSettingsStore, setShow2D } from '@/store/settings-store';
 import MatchEventItem from '@/components/MatchEventItem';
+import { ShotMap } from '@/components/ShotMap';
+import { HeatMap } from '@/components/HeatMap';
+import { getMatchEvents } from '@/database/queries/fixtures';
 import { RootStackParamList } from '@/navigation/types';
 import { PlayerRating } from '@/engine/simulation/player-rating';
 import { MatchEvent } from '@/types';
@@ -32,9 +33,9 @@ function StatRow({ label, home, away }: StatRowProps) {
 
   return (
     <View style={statStyles.container}>
-      <Text style={statStyles.value}>{home}</Text>
+      <Stat style={statStyles.value}>{home}</Stat>
       <View style={statStyles.barsWrapper}>
-        <Text style={statStyles.label}>{label}</Text>
+        <Label style={statStyles.label}>{label}</Label>
         <View style={statStyles.bars}>
           <View style={statStyles.homeBar}>
             <View
@@ -54,69 +55,62 @@ function StatRow({ label, home, away }: StatRowProps) {
           </View>
         </View>
       </View>
-      <Text style={statStyles.value}>{away}</Text>
+      <Stat style={statStyles.value}>{away}</Stat>
     </View>
   );
 }
 
-const statStyles = StyleSheet.create({
+const statStyles = {
   container: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
     marginVertical: spacing.xs,
   },
   barsWrapper: {
     flex: 1,
-    alignItems: 'center',
+    alignItems: 'center' as const,
     marginHorizontal: spacing.sm,
   },
   label: {
-    color: colors.textMuted,
-    fontSize: fontSize.xs,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: 3,
+    marginBottom: spacing.xxs,
   },
   bars: {
-    flexDirection: 'row',
-    width: '100%',
-    height: 6,
+    flexDirection: 'row' as const,
+    width: '100%' as const,
+    height: spacing.xs,
     gap: spacing.xxs,
   },
   homeBar: {
     flex: 1,
-    height: 6,
+    height: spacing.xs,
     backgroundColor: colors.border,
-    borderRadius: 3,
-    overflow: 'hidden',
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
+    borderRadius: radius.sm,
+    overflow: 'hidden' as const,
+    flexDirection: 'row' as const,
+    justifyContent: 'flex-end' as const,
   },
   homeBarFill: {
-    height: '100%',
+    height: '100%' as const,
     backgroundColor: colors.primary,
-    borderRadius: 3,
+    borderRadius: radius.sm,
   },
   awayBar: {
     flex: 1,
-    height: 6,
+    height: spacing.xs,
     backgroundColor: colors.border,
-    borderRadius: 3,
-    overflow: 'hidden',
+    borderRadius: radius.sm,
+    overflow: 'hidden' as const,
   },
   awayBarFill: {
-    height: '100%',
+    height: '100%' as const,
     backgroundColor: colors.accent,
-    borderRadius: 3,
+    borderRadius: radius.sm,
   },
   value: {
-    color: colors.text,
-    fontSize: fontSize.md,
-    fontWeight: '600',
-    width: 30,
-    textAlign: 'center',
+    width: spacing.xl,
+    textAlign: 'center' as const,
   },
-});
+};
 
 function getRatingColor(rating: number): string {
   if (rating >= 8) return colors.success;
@@ -127,8 +121,30 @@ function getRatingColor(rating: number): string {
 
 export function MatchResultScreen() {
   const { t } = useTranslation();
+  const accent = useClubAccent();
   const navigation = useNavigation<NavProp>();
   const { lastMatchResult, playerClub, lastMatchIsHome, lastMatchOpponentName, pressPending } = useGameStore();
+  const { dbHandle } = useDatabaseStore();
+  const show2D = useSettingsStore((s) => s.show2D);
+
+  // Geometria (x/y/xg) só existe persistida no DB — o objeto in-memory do store não a
+  // carrega. Deriva o fixtureId de qualquer evento e carrega sob demanda quando o 2D liga.
+  const fixtureId = lastMatchResult?.events.find((e) => e.fixtureId != null)?.fixtureId ?? null;
+  const [geoEvents, setGeoEvents] = useState<MatchEvent[]>([]);
+
+  useEffect(() => {
+    if (!show2D || !dbHandle || fixtureId == null) return;
+    let active = true;
+    (async () => {
+      const rows = await getMatchEvents(dbHandle, fixtureId);
+      if (active) setGeoEvents(rows);
+    })();
+    return () => {
+      active = false;
+    };
+  }, [show2D, dbHandle, fixtureId]);
+
+  const hasGeometry = geoEvents.some((e) => e.x != null && e.y != null);
 
   // After acknowledging the result, route into the press conference when the gate is
   // armed (set by advanceGameWeek when a user match was played). Covers the halftime-
@@ -145,10 +161,16 @@ export function MatchResultScreen() {
   if (!lastMatchResult) {
     return (
       <View style={[commonStyles.screen, styles.centered]}>
-        <Text style={styles.noDataText}>{t('matchresult.no_data')}</Text>
-        <TouchableOpacity style={styles.continueButton} onPress={continuePress}>
-          <Text style={styles.continueButtonText}>{t('matchresult.continue')}</Text>
-        </TouchableOpacity>
+        <Body style={styles.noData}>{t('matchresult.no_data')}</Body>
+        <View style={styles.continueWrap}>
+          <Button
+            label={t('matchresult.continue')}
+            variant="primary"
+            onPress={continuePress}
+            testID="matchresult-continue"
+            accessibilityLabel={t('matchresult.continue')}
+          />
+        </View>
       </View>
     );
   }
@@ -169,23 +191,75 @@ export function MatchResultScreen() {
   return (
     <ScrollView style={commonStyles.screen} contentContainerStyle={styles.container}>
       {/* Score Header */}
-      <View style={styles.scoreCard}>
+      <Card variant="hero" accent={accent.accent} style={styles.scoreCard}>
         <View style={styles.scoreRow}>
-          <Text style={styles.teamName} numberOfLines={1}>{homeTeam}</Text>
+          <Body numberOfLines={1} style={styles.teamName}>{homeTeam}</Body>
           <View style={styles.scoreBox}>
-            <Text style={styles.score}>{homeGoals} - {awayGoals}</Text>
+            <Display>{homeGoals} - {awayGoals}</Display>
           </View>
-          <Text style={[styles.teamName, styles.teamNameRight]} numberOfLines={1}>{awayTeam}</Text>
+          <Body numberOfLines={1} style={[styles.teamName, styles.teamNameRight]}>{awayTeam}</Body>
         </View>
-        <Text style={styles.attendanceText}>
+        <Caption>
           {t('matchresult.attendance', { count: lastMatchResult.attendance.toLocaleString() })}
-        </Text>
+        </Caption>
+      </Card>
+
+      {/* 2D opt-in (L2.7) — default OFF: casual segue só no resumo */}
+      <View style={styles.section}>
+        <Card variant="summary" accent={accent.accent}>
+          <View style={styles.toggleRow}>
+            <View style={styles.toggleLabelWrap}>
+              <Body>{t('matchresult.view_2d')}</Body>
+              <Caption color={colors.textSecondary}>{t('matchresult.view_2d_desc')}</Caption>
+            </View>
+            <Switch
+              testID="matchresult-2d-toggle"
+              accessibilityLabel={t('matchresult.view_2d')}
+              value={show2D}
+              onValueChange={(v) => {
+                if (dbHandle) setShow2D(dbHandle, v);
+              }}
+            />
+          </View>
+
+          {show2D && (
+            <View testID="matchresult-2d-maps" style={styles.mapsWrap}>
+              {hasGeometry ? (
+                <>
+                  <Label style={styles.mapTitle}>{t('matchresult.shotmap')}</Label>
+                  <View style={styles.mapCenter}>
+                    <ShotMap
+                      testID="matchresult-shotmap"
+                      events={geoEvents}
+                      labels={{
+                        goal: t('matchresult.shot_goal'),
+                        onTarget: t('matchresult.shot_on_target'),
+                        offTarget: t('matchresult.shot_off_target'),
+                        saved: t('matchresult.shot_saved'),
+                      }}
+                    />
+                  </View>
+                  <Label style={[styles.mapTitle, styles.mapTitleSpacer]}>{t('matchresult.heatmap')}</Label>
+                  <View style={styles.mapCenter}>
+                    <HeatMap
+                      testID="matchresult-heatmap"
+                      events={geoEvents}
+                      labels={{ less: t('matchresult.heat_less'), more: t('matchresult.heat_more') }}
+                    />
+                  </View>
+                </>
+              ) : (
+                <Caption color={colors.textSecondary}>{t('matchresult.no_geometry')}</Caption>
+              )}
+            </View>
+          )}
+        </Card>
       </View>
 
       {/* Match Events */}
       {goalEvents.length > 0 && (
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{t('matchresult.goals')}</Text>
+          <Title style={styles.sectionTitle}>{t('matchresult.goals')}</Title>
           {goalEvents.map((event: MatchEvent, idx: number) => (
             <MatchEventItem
               key={idx}
@@ -203,7 +277,7 @@ export function MatchResultScreen() {
       {/* All Events */}
       {events.length > 0 && (
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{t('matchresult.events')}</Text>
+          <Title style={styles.sectionTitle}>{t('matchresult.events')}</Title>
           {events.map((event: MatchEvent, idx: number) => (
             <MatchEventItem
               key={idx}
@@ -220,8 +294,8 @@ export function MatchResultScreen() {
 
       {/* Stats */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>{t('matchresult.stats')}</Text>
-        <View style={styles.statsCard}>
+        <Title style={styles.sectionTitle}>{t('matchresult.stats')}</Title>
+        <Card variant="summary" accent={accent.accent}>
           <StatRow label={t('matchresult.possession')} home={stats.homePossession} away={stats.awayPossession} />
           <View style={styles.divider} />
           <StatRow label={t('matchresult.shots')} home={stats.homeShots} away={stats.awayShots} />
@@ -229,144 +303,113 @@ export function MatchResultScreen() {
           <StatRow label={t('matchresult.fouls')} home={stats.homeFouls} away={stats.awayFouls} />
           <View style={styles.divider} />
           <StatRow label={t('matchresult.corners')} home={stats.homeCorners} away={stats.awayCorners} />
-        </View>
+        </Card>
       </View>
 
       {/* Player Ratings */}
       {allRatings.length > 0 && (
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{t('matchresult.player_ratings')}</Text>
-          <View style={styles.ratingsCard}>
+          <Title style={styles.sectionTitle}>{t('matchresult.player_ratings')}</Title>
+          <Card variant="summary" accent={accent.accent}>
             {allRatings.map((pr: PlayerRating, idx: number) => (
               <View key={idx} style={styles.ratingRow}>
-                <Text style={styles.ratingPlayerName}>Player #{pr.playerId}</Text>
-                <Text style={[styles.ratingValue, { color: getRatingColor(pr.rating) }]}>
-                  {pr.rating.toFixed(1)}
-                </Text>
+                <Body>Player #{pr.playerId}</Body>
+                <Stat color={getRatingColor(pr.rating)}>{pr.rating.toFixed(1)}</Stat>
               </View>
             ))}
-          </View>
+          </Card>
         </View>
       )}
 
       {/* Continue Button */}
-      <TouchableOpacity
-        style={styles.continueButton}
-        onPress={continuePress}
-        activeOpacity={0.8}
-      >
-        <Text style={styles.continueButtonText}>{t('matchresult.continue')}</Text>
-      </TouchableOpacity>
+      <View style={styles.continueWrap}>
+        <Button
+          label={t('matchresult.continue')}
+          variant="primary"
+          onPress={continuePress}
+          testID="matchresult-continue"
+          accessibilityLabel={t('matchresult.continue')}
+        />
+      </View>
     </ScrollView>
   );
 }
 
-const styles = StyleSheet.create({
+const styles = {
   container: {
-    paddingBottom: spacing.xl * 2,
+    paddingBottom: spacing.xxl,
   },
   centered: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
   },
-  noDataText: {
-    color: colors.textSecondary,
-    fontSize: fontSize.lg,
+  noData: {
     marginBottom: spacing.lg,
   },
   scoreCard: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    padding: spacing.lg,
     margin: spacing.md,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.border,
+    alignItems: 'center' as const,
   },
   scoreRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    width: '100%',
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    width: '100%' as const,
     marginBottom: spacing.sm,
   },
   teamName: {
-    color: colors.text,
-    fontSize: fontSize.md,
-    fontWeight: '600',
     flex: 1,
-    textAlign: 'left',
+    textAlign: 'left' as const,
   },
   teamNameRight: {
-    textAlign: 'right',
+    textAlign: 'right' as const,
   },
   scoreBox: {
     paddingHorizontal: spacing.md,
-  },
-  score: {
-    color: colors.text,
-    fontSize: fontSize.xxl,
-    fontWeight: 'bold',
-  },
-  attendanceText: {
-    color: colors.textMuted,
-    fontSize: fontSize.xs,
   },
   section: {
     marginHorizontal: spacing.md,
     marginBottom: spacing.md,
   },
   sectionTitle: {
-    color: colors.text,
-    fontSize: fontSize.lg,
-    fontWeight: '600',
     marginBottom: spacing.sm,
-  },
-  statsCard: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    padding: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.border,
   },
   divider: {
     height: 1,
     backgroundColor: colors.border,
     marginVertical: spacing.xs,
   },
-  ratingsCard: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    padding: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
   ratingRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexDirection: 'row' as const,
+    justifyContent: 'space-between' as const,
+    alignItems: 'center' as const,
     paddingVertical: spacing.xs,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
-  ratingPlayerName: {
-    color: colors.text,
-    fontSize: fontSize.sm,
-  },
-  ratingValue: {
-    fontSize: fontSize.sm,
-    fontWeight: '700',
-  },
-  continueButton: {
-    backgroundColor: colors.primary,
-    borderRadius: radius.md,
-    paddingVertical: spacing.md,
+  continueWrap: {
     marginHorizontal: spacing.md,
-    alignItems: 'center',
     marginTop: spacing.sm,
   },
-  continueButtonText: {
-    color: colors.text,
-    fontSize: fontSize.lg,
-    fontWeight: 'bold',
+  toggleRow: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    justifyContent: 'space-between' as const,
   },
-});
+  toggleLabelWrap: {
+    flex: 1,
+    marginRight: spacing.sm,
+  },
+  mapsWrap: {
+    marginTop: spacing.md,
+  },
+  mapTitle: {
+    marginBottom: spacing.sm,
+  },
+  mapTitleSpacer: {
+    marginTop: spacing.lg,
+  },
+  mapCenter: {
+    alignItems: 'center' as const,
+  },
+};

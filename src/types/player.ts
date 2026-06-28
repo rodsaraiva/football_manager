@@ -1,3 +1,6 @@
+import type { PersonalityArchetype } from '@/engine/morale/personality';
+import type { FalloutState } from '@/engine/morale/fallout';
+
 export type Position = 'GK' | 'CB' | 'LB' | 'RB' | 'CDM' | 'CM' | 'CAM' | 'LM' | 'RM' | 'LW' | 'RW' | 'ST';
 
 export interface PlayerAttributes {
@@ -26,6 +29,8 @@ export interface PlayerAttributes {
 
 export type Foot = 'right' | 'left';
 
+export type SquadTier = 'youth' | 'reserve' | 'first';
+
 export interface Player {
   id: number;
   name: string;
@@ -53,6 +58,9 @@ export interface Player {
   loanWage: number | null;
   consecutiveLowMoraleWeeks: number;
   willRetireAtSeasonEnd: boolean;
+  squadTier: SquadTier;
+  personality: PersonalityArchetype;
+  falloutState: FalloutState;
 }
 
 export interface PlayerStats {

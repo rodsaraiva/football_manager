@@ -1,8 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View, ActivityIndicator } from 'react-native';
+import { ScrollView, View, ActivityIndicator } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { colors, commonStyles, fontSize, radius, spacing } from '@/theme';
+import { colors, commonStyles, spacing } from '@/theme';
+import { useClubAccent } from '@/theme/useClubAccent';
+import { Card, Button } from '@/components/kit';
+import { Title, Body, Label } from '@/components/typography';
 import { useTranslation } from '@/i18n';
 import type { TKey } from '@/i18n/translate';
 import { RootStackParamList } from '@/navigation/types';
@@ -10,6 +13,8 @@ import { useGameStore } from '@/store/game-store';
 import { useDatabaseStore } from '@/store/database-store';
 import { useBoardStore } from '@/store/board-store';
 import { getPlayersByClub, updatePlayerMorale } from '@/database/queries/players';
+import { getClubById } from '@/database/queries/clubs';
+import { applyPressSentiment } from '@/engine/press/apply-press-sentiment';
 import { getRecentForm } from '@/database/queries/player-stats';
 import { getRecentFixturesForClub } from '@/database/queries/fixtures';
 import { getSaveBoardTrust, updateSaveBoardTrust } from '@/database/queries/board';
@@ -35,6 +40,7 @@ function clampTrust(v: number): number {
 
 export function PressConferenceScreen() {
   const { t } = useTranslation();
+  const accent = useClubAccent();
   const navigation = useNavigation<NavProp>();
   const dbHandle = useDatabaseStore((s) => s.dbHandle);
   const playerClubId = useGameStore((s) => s.playerClubId);
@@ -108,6 +114,11 @@ export function PressConferenceScreen() {
       await updateSaveBoardTrust(dbHandle, saveId, nextTrust);
       setCurrentTrust(nextTrust);
 
+      // C8-g: a coletiva alimenta o sentimento de mídia acumulado (tier por
+      // reputação do clube). Pular a coletiva NÃO mexe no sentimento.
+      const club = await getClubById(dbHandle, saveId, playerClubId);
+      if (club) await applyPressSentiment(dbHandle, saveId, club.reputation, tone, outcome);
+
       // W3 news: persist a press headline keyed to the board-confidence swing.
       const tier =
         res.confidenceDelta > 0 ? 'positive' : res.confidenceDelta < 0 ? 'negative' : 'neutral';
@@ -166,133 +177,110 @@ export function PressConferenceScreen() {
   if (outcome == null) {
     return (
       <View style={[commonStyles.screen, styles.centered]}>
-        <ActivityIndicator color={colors.primary} />
+        <ActivityIndicator color={accent.accent} />
       </View>
     );
   }
 
+  const confidenceColor =
+    result == null
+      ? colors.textSecondary
+      : result.confidenceDelta > 0
+      ? colors.success
+      : result.confidenceDelta < 0
+      ? colors.danger
+      : colors.textSecondary;
+
   return (
     <View style={commonStyles.screen}>
       <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.card}>
-          <Text style={styles.title}>{t('press.title')}</Text>
-          <Text style={styles.intro}>{t('press.intro')}</Text>
-          <Text style={styles.question}>{t(pressQuestionKey(outcome))}</Text>
+        <Card variant="summary" accent={accent.accent}>
+          <Title>{t('press.title')}</Title>
+          <Body style={styles.intro}>{t('press.intro')}</Body>
+          <View style={[styles.question, { borderLeftColor: accent.accent }]}>
+            <Body>{t(pressQuestionKey(outcome))}</Body>
+          </View>
 
           {result == null && !empty && (
             <View style={styles.toneList}>
               {TONES.map((tone) => (
-                <Pressable
-                  key={tone}
-                  style={[styles.toneButton, busy && styles.disabledButton]}
-                  disabled={busy}
-                  onPress={() => applyTone(tone)}
-                >
-                  <Text style={styles.toneButtonText}>{t(`press.tone_${tone}` as TKey)}</Text>
-                  <Text style={styles.toneButtonDesc}>{t(`press.tone_${tone}_desc` as TKey)}</Text>
-                </Pressable>
+                <View key={tone} style={styles.toneBlock}>
+                  <Button
+                    label={t(`press.tone_${tone}` as TKey)}
+                    variant="primary"
+                    disabled={busy}
+                    onPress={() => applyTone(tone)}
+                    testID={`press-tone-${tone}`}
+                    accessibilityLabel={t(`press.tone_${tone}` as TKey)}
+                  />
+                  <Label style={styles.toneDesc}>{t(`press.tone_${tone}_desc` as TKey)}</Label>
+                </View>
               ))}
-              <Pressable
-                style={[styles.skipButton, busy && styles.disabledButton]}
-                disabled={busy}
-                onPress={applySkip}
-              >
-                <Text style={styles.skipButtonText}>{t('press.skip')}</Text>
-                <Text style={styles.toneButtonDesc}>{t('press.skip_desc')}</Text>
-              </Pressable>
+              <View style={styles.toneBlock}>
+                <Button
+                  label={t('press.skip')}
+                  variant="secondary"
+                  disabled={busy}
+                  onPress={applySkip}
+                  testID="press-skip"
+                  accessibilityLabel={t('press.skip')}
+                />
+                <Label style={styles.toneDesc}>{t('press.skip_desc')}</Label>
+              </View>
             </View>
           )}
 
-          {empty && <Text style={styles.feedback}>{t('press.empty')}</Text>}
+          {empty && <Body style={styles.feedback}>{t('press.empty')}</Body>}
 
           {result != null && (
             <View style={styles.feedbackCard}>
-              <Text style={styles.headline}>{t(result.headlineKey)}</Text>
+              <Title>{t(result.headlineKey)}</Title>
               {result.results.length > 0 && (
-                <Text style={styles.feedback}>
+                <Body style={styles.feedback}>
                   {t('press.summary', {
                     improved: result.summary.improved,
                     worsened: result.summary.worsened,
                     unchanged: result.summary.unchanged,
                   })}
-                </Text>
+                </Body>
               )}
-              <Text
-                style={[
-                  styles.confidence,
-                  result.confidenceDelta > 0 && { color: colors.success },
-                  result.confidenceDelta < 0 && { color: colors.danger },
-                ]}
-              >
+              <Body color={confidenceColor} style={styles.confidence}>
                 {confidenceLine(result.confidenceDelta)}
-              </Text>
+              </Body>
             </View>
           )}
 
           {(result != null || empty) && (
-            <Pressable style={styles.continueButton} onPress={handleContinue}>
-              <Text style={styles.continueButtonText}>{t('press.continue')}</Text>
-            </Pressable>
+            <View style={styles.continueWrap}>
+              <Button
+                label={t('press.continue')}
+                variant="primary"
+                onPress={handleContinue}
+                testID="press-continue"
+                accessibilityLabel={t('press.continue')}
+              />
+            </View>
           )}
-        </View>
+        </Card>
       </ScrollView>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const styles = {
   content: { padding: spacing.md },
-  centered: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  card: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    padding: spacing.md,
-  },
-  title: { color: colors.text, fontSize: fontSize.lg, fontWeight: 'bold', marginBottom: spacing.xs },
-  intro: { color: colors.textSecondary, fontSize: fontSize.sm, marginBottom: spacing.md },
+  centered: { flex: 1, alignItems: 'center' as const, justifyContent: 'center' as const },
+  intro: { marginTop: spacing.xs, marginBottom: spacing.md },
   question: {
-    color: colors.text,
-    fontSize: fontSize.md,
-    fontStyle: 'italic',
     marginBottom: spacing.md,
     borderLeftWidth: 3,
-    borderLeftColor: colors.primary,
     paddingLeft: spacing.sm,
   },
-  toneList: { gap: spacing.sm },
-  toneButton: {
-    backgroundColor: colors.primary,
-    borderRadius: radius.md,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-  },
-  toneButtonText: { color: colors.text, fontSize: fontSize.md, fontWeight: 'bold' },
-  toneButtonDesc: { color: colors.text, fontSize: fontSize.xs, opacity: 0.85, marginTop: spacing.xxs },
-  skipButton: {
-    backgroundColor: colors.surfaceLight,
-    borderRadius: radius.md,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  skipButtonText: { color: colors.textSecondary, fontSize: fontSize.md, fontWeight: '600' },
-  disabledButton: { opacity: 0.4 },
+  toneList: { gap: spacing.md },
+  toneBlock: { gap: spacing.xxs },
+  toneDesc: { paddingHorizontal: spacing.xs },
   feedbackCard: { marginTop: spacing.sm },
-  headline: {
-    color: colors.text,
-    fontSize: fontSize.md,
-    fontWeight: '700',
-    marginBottom: spacing.sm,
-  },
-  feedback: { color: colors.text, fontSize: fontSize.sm, marginTop: spacing.xs },
-  confidence: { color: colors.textSecondary, fontSize: fontSize.sm, fontWeight: '600', marginTop: spacing.sm },
-  continueButton: {
-    backgroundColor: colors.primary,
-    borderRadius: radius.md,
-    paddingVertical: spacing.md,
-    alignItems: 'center',
-    marginTop: spacing.lg,
-  },
-  continueButtonText: { color: colors.text, fontSize: fontSize.lg, fontWeight: 'bold' },
-});
+  feedback: { marginTop: spacing.xs },
+  confidence: { marginTop: spacing.sm },
+  continueWrap: { marginTop: spacing.lg },
+};

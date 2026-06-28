@@ -81,11 +81,9 @@ export const POSITION_WEIGHTS: Record<Position, WeightMap> = {
   },
 };
 
-const ATTRIBUTE_KEYS: AttributeKey[] = [
-  'finishing', 'passing', 'crossing', 'dribbling', 'heading', 'longShots', 'freeKicks',
-  'vision', 'composure', 'decisions', 'positioning', 'aggression', 'leadership',
-  'pace', 'stamina', 'strength', 'agility', 'jumping',
-];
+// Derived from the weight map so a new PlayerAttributes field can't be silently
+// dropped from the overall calculation.
+const ATTRIBUTE_KEYS = Object.keys(POSITION_WEIGHTS.GK) as AttributeKey[];
 
 /**
  * Calculate the positional overall rating for a player.

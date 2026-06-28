@@ -1,22 +1,30 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   FlatList,
   ActivityIndicator,
-  Pressable,
-  Alert,
-  Modal,
   TextInput,
   ScrollView,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { colors, spacing, fontSize, radius, commonStyles } from '@/theme';
+import { useClubAccent } from '@/theme/useClubAccent';
+import {
+  Card,
+  Badge,
+  Button,
+  Chip,
+  Sheet,
+  EmptyState,
+  useConfirm,
+} from '@/components/kit';
+import { Title, Body, Label, Caption, Stat } from '@/components/typography';
 import { useTranslation } from '@/i18n';
 import { getPositionColor, getOverallColor } from '@/utils/player-colors';
 import { useGameStore } from '@/store/game-store';
 import { useDatabaseStore } from '@/store/database-store';
+import { useCelebrationStore } from '@/store/celebration-store';
 import { getFreeAgents, getPlayerById } from '@/database/queries/players';
 import {
   signFreeAgent,
@@ -48,6 +56,8 @@ function parseNumber(input: string): number {
 
 export function FreeAgentsScreen() {
   const { t } = useTranslation();
+  const accent = useClubAccent();
+  const confirm = useConfirm();
   const { playerClubId, season, week, currentSave } = useGameStore();
   const { dbHandle } = useDatabaseStore();
   const saveId = currentSave?.id;
@@ -55,7 +65,6 @@ export function FreeAgentsScreen() {
   const [agents, setAgents] = useState<FreeAgentWithOverall[]>([]);
   const [loading, setLoading] = useState(true);
   const [positionFilter, setPositionFilter] = useState<PositionFilter>('All');
-  const [showDropdown, setShowDropdown] = useState(false);
   const [selected, setSelected] = useState<FreeAgentWithOverall | null>(null);
 
   // Sign dialog state
@@ -113,6 +122,7 @@ export function FreeAgentsScreen() {
   const handleSubmitSigning = useCallback(async () => {
     if (!dbHandle || !selected || playerClubId === null || saveId == null) return;
     const wage = parseNumber(wageStr);
+    const playerName = selected.name;
     const res = await signFreeAgent(dbHandle, saveId, {
       playerId: selected.id,
       clubId: playerClubId,
@@ -123,18 +133,23 @@ export function FreeAgentsScreen() {
       week,
     });
     if (res.success) {
-      Alert.alert(t('transfer.signed_title'), t('transfer.signed_msg', { name: selected.name }));
+      useCelebrationStore.getState().push({
+        kind: 'transfer',
+        titleKey: 'celebration.transfer',
+        detail: playerName,
+      });
       handleCloseSign();
       load();
+      await confirm({ title: t('transfer.signed_title'), message: t('transfer.signed_msg', { name: playerName }), confirmLabel: t('kit.ok') });
     } else {
-      Alert.alert(t('transfer.cannot_sign'), res.reason ?? t('transfer.unknown_error'));
+      await confirm({ title: t('transfer.cannot_sign'), message: res.reason ?? t('transfer.unknown_error'), confirmLabel: t('kit.ok'), tone: 'danger' });
     }
-  }, [dbHandle, selected, playerClubId, saveId, wageStr, years, season, week, handleCloseSign, load]);
+  }, [dbHandle, selected, playerClubId, saveId, wageStr, years, season, week, handleCloseSign, load, confirm, t]);
 
   if (loading) {
     return (
       <View style={[commonStyles.screen, styles.center]}>
-        <ActivityIndicator color={colors.primary} size="large" />
+        <ActivityIndicator color={accent.accent} size="large" />
       </View>
     );
   }
@@ -142,44 +157,37 @@ export function FreeAgentsScreen() {
   return (
     <View style={commonStyles.screen}>
       {/* Position filter */}
-      <View style={styles.filterRow}>
-        <Text style={styles.filterLabel}>{t('transfer.position_label')}</Text>
-        <Pressable
-          style={styles.dropdownButton}
-          onPress={() => setShowDropdown((v) => !v)}
-        >
-          <Text style={styles.dropdownButtonText}>{positionFilter === 'All' ? t('transfer.filter_all') : positionFilter} ▾</Text>
-        </Pressable>
+      <View style={styles.filterHeader}>
+        <Label style={styles.filterLabel}>{t('transfer.position_label')}</Label>
       </View>
-
-      {showDropdown && (
-        <View style={styles.dropdown}>
-          {POSITION_OPTIONS.map((pos) => (
-            <Pressable
-              key={pos}
-              style={[styles.dropdownItem, positionFilter === pos && styles.dropdownItemActive]}
-              onPress={() => {
-                setPositionFilter(pos);
-                setShowDropdown(false);
-              }}
-            >
-              <Text
-                style={[
-                  styles.dropdownItemText,
-                  positionFilter === pos && styles.dropdownItemTextActive,
-                ]}
-              >
-                {pos === 'All' ? t('transfer.filter_all') : pos}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
-      )}
+      <FlatList
+        horizontal
+        testID="free-agents-position-filter"
+        accessibilityLabel={t('transfer.position_label')}
+        data={POSITION_OPTIONS}
+        keyExtractor={(p) => p}
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.filterRow}
+        renderItem={({ item: pos }) => (
+          <Chip
+            label={pos === 'All' ? t('transfer.filter_all') : pos}
+            selected={positionFilter === pos}
+            accent={accent.accent}
+            onPress={() => setPositionFilter(pos)}
+            testID={`chip-filter-${pos}`}
+            accessibilityLabel={pos === 'All' ? t('transfer.filter_all') : pos}
+          />
+        )}
+      />
 
       {filtered.length === 0 ? (
-        <View style={styles.centered}>
-          <Text style={styles.emptyText}>{t('transfer.no_free_agents')}</Text>
-        </View>
+        <EmptyState
+          art="search"
+          title={t('transfer.no_free_agents')}
+          ctaLabel={t('transfer.refresh_list')}
+          onCtaPress={load}
+          accent={accent.accent}
+        />
       ) : (
         <FlatList
           data={filtered}
@@ -189,115 +197,103 @@ export function FreeAgentsScreen() {
             const oColor = getOverallColor(item.overall);
             const expected = freeAgentExpectedWage(item.overall);
             return (
-              <View style={styles.playerRow}>
-                <View style={styles.positionBadge}>
-                  <Text style={[styles.positionText, { color: pColor }]}>{item.position}</Text>
-                </View>
+              <Card variant="detail" accent={accent.accent} style={styles.playerRow}>
+                <Badge value={item.position} accent={pColor} tone="accent" />
                 <View style={styles.playerInfo}>
-                  <Text style={styles.playerName} numberOfLines={1}>{item.name}</Text>
-                  <Text style={styles.playerMeta}>
-                    {t('transfer.fa_meta', { age: item.age, wage: formatMoney(expected) })}
-                  </Text>
+                  <Body numberOfLines={1}>{item.name}</Body>
+                  <Label>{t('transfer.fa_meta', { age: item.age, wage: formatMoney(expected) })}</Label>
                 </View>
-                <View style={[styles.overallBadge, { borderColor: oColor }]}>
-                  <Text style={[styles.overallText, { color: oColor }]}>{item.overall}</Text>
-                </View>
-                <Pressable style={styles.signButton} onPress={() => handleOpenSign(item)}>
-                  <Text style={styles.signButtonText}>{t('transfer.sign_btn')}</Text>
-                </Pressable>
-              </View>
+                <Stat color={oColor} style={styles.ovr}>{item.overall}</Stat>
+                <Button
+                  label={t('transfer.sign_btn')}
+                  variant="primary"
+                  onPress={() => handleOpenSign(item)}
+                  testID={`free-agent-sign-${item.id}`}
+                  accessibilityLabel={t('transfer.sign_btn')}
+                />
+              </Card>
             );
           }}
           contentContainerStyle={styles.listContent}
         />
       )}
 
-      {/* Sign modal */}
-      <Modal
-        visible={selected !== null}
-        transparent
-        animationType="slide"
-        onRequestClose={handleCloseSign}
-      >
-        <View style={styles.backdrop}>
-          <View style={styles.sheet}>
-            <ScrollView contentContainerStyle={styles.sheetContent}>
-              {selected && (
-                <>
-                  <Text style={styles.title}>{t('transfer.sign_free_agent')}</Text>
+      {/* Sign sheet */}
+      <Sheet visible={selected !== null} onClose={handleCloseSign} testID="free-agent-sign-sheet">
+        <ScrollView>
+          {selected && (
+            <>
+              <Title style={styles.sheetTitle}>{t('transfer.sign_free_agent')}</Title>
 
-                  <View style={styles.playerCard}>
-                    <Text style={styles.cardName}>{selected.name}</Text>
-                    <Text style={styles.cardMeta}>
-                      {t('transfer.player_meta', { position: selected.position, age: selected.age, ovr: selected.overall })}
-                    </Text>
-                    <View style={styles.cardStats}>
-                      <View style={styles.cardStat}>
-                        <Text style={styles.cardStatLabel}>{t('transfer.expected_wage')}</Text>
-                        <Text style={styles.cardStatValue}>
-                          {formatMoney(freeAgentExpectedWage(selected.overall))}/wk
-                        </Text>
-                      </View>
-                    </View>
+              <Card variant="summary" style={styles.playerCard}>
+                <Body style={styles.cardName}>{selected.name}</Body>
+                <Label>
+                  {t('transfer.player_meta', { position: selected.position, age: selected.age, ovr: selected.overall })}
+                </Label>
+                <View style={styles.cardStats}>
+                  <View style={styles.cardStat}>
+                    <Caption style={styles.fieldLabel}>{t('transfer.expected_wage')}</Caption>
+                    <Stat>{formatMoney(freeAgentExpectedWage(selected.overall))}/wk</Stat>
                   </View>
+                </View>
+              </Card>
 
-                  <Text style={styles.fieldLabel}>{t('transfer.wage_offer')}</Text>
-                  <TextInput
-                    style={styles.input}
-                    value={wageStr}
-                    onChangeText={setWageStr}
-                    keyboardType="numeric"
-                    placeholder={t('transfer.wage_short')}
-                    placeholderTextColor={colors.textMuted}
+              <Caption style={styles.fieldLabel}>{t('transfer.wage_offer')}</Caption>
+              <TextInput
+                style={styles.input}
+                value={wageStr}
+                onChangeText={setWageStr}
+                keyboardType="numeric"
+                placeholder={t('transfer.wage_short')}
+                placeholderTextColor={colors.textMuted}
+              />
+              <Caption style={styles.helper}>
+                {formatMoney(parseNumber(wageStr))}/wk —{' '}
+                {parseNumber(wageStr) >= freeAgentExpectedWage(selected.overall)
+                  ? 'acceptable'
+                  : 'below expectation'}
+              </Caption>
+
+              <Caption style={[styles.fieldLabel, styles.fieldLabelSpaced]}>
+                {t('transfer.contract_length')}
+              </Caption>
+              <View style={styles.yearsRow}>
+                {[1, 2, 3, 4, 5].map((y) => (
+                  <Chip
+                    key={y}
+                    label={t(y > 1 ? 'transfer.years_other' : 'transfer.years_one', { n: y })}
+                    selected={years === y}
+                    accent={accent.accent}
+                    onPress={() => setYears(y)}
+                    testID={`year-${y}`}
                   />
-                  <Text style={styles.helper}>
-                    {formatMoney(parseNumber(wageStr))}/wk —{' '}
-                    {parseNumber(wageStr) >= freeAgentExpectedWage(selected.overall)
-                      ? 'acceptable'
-                      : 'below expectation'}
-                  </Text>
+                ))}
+              </View>
 
-                  <Text style={[styles.fieldLabel, { marginTop: spacing.md }]}>
-                    {t('transfer.contract_length')}
-                  </Text>
-                  <View style={styles.yearsRow}>
-                    {[1, 2, 3, 4, 5].map((y) => (
-                      <Pressable
-                        key={y}
-                        style={[styles.yearChip, years === y && styles.yearChipActive]}
-                        onPress={() => setYears(y)}
-                      >
-                        <Text style={[styles.yearChipText, years === y && styles.yearChipTextActive]}>
-                          {t(y > 1 ? 'transfer.years_other' : 'transfer.years_one', { n: y })}
-                        </Text>
-                      </Pressable>
-                    ))}
-                  </View>
+              <Caption style={styles.summary}>
+                {t('transfer.signing_bonus', { bonus: formatMoney(parseNumber(wageStr) * 4) })}
+              </Caption>
 
-                  <Text style={styles.summary}>
-                    {t('transfer.signing_bonus', { bonus: formatMoney(parseNumber(wageStr) * 4) })}
-                  </Text>
-
-                  <View style={styles.actions}>
-                    <Pressable
-                      style={[styles.btn, styles.btnSecondary]}
-                      onPress={handleCloseSign}
-                    >
-                      <Text style={styles.btnSecondaryText}>{t('common.cancel')}</Text>
-                    </Pressable>
-                    <Pressable
-                      style={[styles.btn, styles.btnPrimary]}
-                      onPress={handleSubmitSigning}
-                    >
-                      <Text style={styles.btnPrimaryText}>{t('transfer.sign_player')}</Text>
-                    </Pressable>
-                  </View>
-                </>
-              )}
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
+              <View style={styles.actions}>
+                <Button
+                  label={t('common.cancel')}
+                  variant="secondary"
+                  onPress={handleCloseSign}
+                  testID="free-agent-sign-cancel"
+                  accessibilityLabel={t('common.cancel')}
+                />
+                <Button
+                  label={t('transfer.sign_player')}
+                  variant="primary"
+                  onPress={handleSubmitSigning}
+                  testID="free-agent-sign-confirm"
+                  accessibilityLabel={t('transfer.sign_player')}
+                />
+              </View>
+            </>
+          )}
+        </ScrollView>
+      </Sheet>
     </View>
   );
 }
@@ -308,70 +304,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  centered: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  emptyText: {
-    color: colors.textMuted,
-    fontSize: fontSize.md,
-  },
-  filterRow: {
+  filterHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    gap: spacing.sm,
+    paddingTop: spacing.sm,
   },
   filterLabel: {
     color: colors.textSecondary,
-    fontSize: fontSize.sm,
   },
-  dropdownButton: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.md,
-    paddingVertical: 6,
+  filterRow: {
+    gap: spacing.xs,
     paddingHorizontal: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  dropdownButtonText: {
-    color: colors.text,
-    fontSize: fontSize.sm,
-    fontWeight: '600',
-  },
-  dropdown: {
-    position: 'absolute',
-    top: 52,
-    left: spacing.md + 60,
-    backgroundColor: colors.surfaceLight,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    zIndex: 100,
-    elevation: 5,
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    maxWidth: 280,
-    padding: spacing.xs,
-  },
-  dropdownItem: {
-    paddingVertical: 6,
-    paddingHorizontal: spacing.sm,
-    borderRadius: 6,
-    margin: spacing.xxs,
-  },
-  dropdownItemActive: {
-    backgroundColor: colors.primary,
-  },
-  dropdownItemText: {
-    color: colors.textSecondary,
-    fontSize: fontSize.sm,
-  },
-  dropdownItemTextActive: {
-    color: colors.text,
-    fontWeight: '600',
+    paddingVertical: spacing.sm,
   },
   listContent: {
     paddingBottom: spacing.xl,
@@ -379,99 +324,24 @@ const styles = StyleSheet.create({
   playerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
+    gap: spacing.sm,
     marginHorizontal: spacing.md,
     marginVertical: spacing.xs,
-    padding: spacing.sm,
-  },
-  positionBadge: {
-    width: 44,
-    alignItems: 'center',
-    marginRight: spacing.sm,
-  },
-  positionText: {
-    fontSize: fontSize.sm,
-    fontWeight: 'bold',
   },
   playerInfo: {
     flex: 1,
   },
-  playerName: {
-    color: colors.text,
-    fontSize: fontSize.md,
-    fontWeight: '600',
-  },
-  playerMeta: {
-    color: colors.textSecondary,
-    fontSize: fontSize.sm,
-    marginTop: spacing.xxs,
-  },
-  overallBadge: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    borderWidth: 2,
-    justifyContent: 'center',
-    alignItems: 'center',
+  ovr: {
     marginHorizontal: spacing.sm,
   },
-  overallText: {
-    fontSize: fontSize.sm,
-    fontWeight: 'bold',
-  },
-  signButton: {
-    backgroundColor: colors.success,
-    borderRadius: 6,
-    paddingVertical: 6,
-    paddingHorizontal: spacing.sm,
-  },
-  signButtonText: {
-    color: colors.text,
-    fontSize: fontSize.sm,
-    fontWeight: '700',
-  },
-
-  // Modal styles
-  backdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.65)',
-    justifyContent: 'flex-end',
-  },
-  sheet: {
-    backgroundColor: colors.background,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    maxHeight: '90%',
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  sheetContent: {
-    padding: spacing.lg,
-  },
-  title: {
-    color: colors.text,
-    fontSize: fontSize.xl,
-    fontWeight: 'bold',
+  sheetTitle: {
     marginBottom: spacing.md,
   },
   playerCard: {
-    backgroundColor: colors.surface,
-    borderRadius: 10,
-    padding: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.border,
     marginBottom: spacing.md,
   },
   cardName: {
-    color: colors.text,
-    fontSize: fontSize.lg,
     fontWeight: '700',
-  },
-  cardMeta: {
-    color: colors.textSecondary,
-    fontSize: fontSize.sm,
-    marginTop: spacing.xxs,
   },
   cardStats: {
     flexDirection: 'row',
@@ -480,24 +350,13 @@ const styles = StyleSheet.create({
   cardStat: {
     flex: 1,
   },
-  cardStatLabel: {
-    color: colors.textMuted,
-    fontSize: fontSize.xs,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-  },
-  cardStatValue: {
-    color: colors.text,
-    fontSize: fontSize.md,
-    fontWeight: '600',
-    marginTop: spacing.xxs,
-  },
   fieldLabel: {
-    color: colors.textMuted,
-    fontSize: fontSize.xs,
     textTransform: 'uppercase',
     letterSpacing: 1,
     marginBottom: spacing.xs,
+  },
+  fieldLabelSpaced: {
+    marginTop: spacing.md,
   },
   input: {
     backgroundColor: colors.surface,
@@ -505,43 +364,18 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     borderRadius: radius.md,
     paddingHorizontal: spacing.md,
-    paddingVertical: 10,
+    paddingVertical: spacing.sm,
     color: colors.text,
     fontSize: fontSize.md,
   },
   helper: {
-    color: colors.textSecondary,
-    fontSize: fontSize.sm,
     marginTop: spacing.xs,
   },
   yearsRow: {
     flexDirection: 'row',
     gap: spacing.sm,
   },
-  yearChip: {
-    flex: 1,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.md,
-    paddingVertical: spacing.sm,
-    alignItems: 'center',
-  },
-  yearChipActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  yearChipText: {
-    color: colors.textSecondary,
-    fontSize: fontSize.sm,
-    fontWeight: '600',
-  },
-  yearChipTextActive: {
-    color: colors.text,
-  },
   summary: {
-    color: colors.textMuted,
-    fontSize: fontSize.sm,
     marginTop: spacing.md,
     fontStyle: 'italic',
   },
@@ -549,29 +383,5 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: spacing.sm,
     marginTop: spacing.lg,
-  },
-  btn: {
-    flex: 1,
-    paddingVertical: 12,
-    borderRadius: radius.md,
-    alignItems: 'center',
-  },
-  btnPrimary: {
-    backgroundColor: colors.primary,
-  },
-  btnPrimaryText: {
-    color: colors.text,
-    fontSize: fontSize.md,
-    fontWeight: '700',
-  },
-  btnSecondary: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  btnSecondaryText: {
-    color: colors.textSecondary,
-    fontSize: fontSize.md,
-    fontWeight: '600',
   },
 });

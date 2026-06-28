@@ -7,6 +7,7 @@ import { useGameStore } from '@/store/game-store';
 import { HomeScreen } from '@/screens/home/HomeScreen';
 import { SquadListScreen } from '@/screens/squad/SquadListScreen';
 import { NewsScreen } from '@/screens/news/NewsScreen';
+import { InboxScreen } from '@/screens/inbox/InboxScreen';
 import { TacticsScreen } from '@/screens/tactics/TacticsScreen';
 import { ClubOverviewScreen } from '@/screens/club/ClubOverviewScreen';
 import { ReportsHubScreen } from '@/screens/reports/ReportsHubScreen';
@@ -15,14 +16,15 @@ import { TabParamList } from './types';
 const Tab = createBottomTabNavigator<TabParamList>();
 
 export function TabNavigator() {
-  const { accent } = useClubAccent();
+  const { accent, accentDim } = useClubAccent();
   const { t } = useTranslation();
   const unreadNews = useGameStore((s) => s.unreadNewsCount);
+  const inboxBadge = useGameStore((s) => s.actionableInboxCount || s.unreadInboxCount);
   return (
     <Tab.Navigator screenOptions={{
       headerStyle: { backgroundColor: colors.surface },
       headerTintColor: colors.text,
-      tabBarStyle: { backgroundColor: colors.surface, borderTopColor: colors.border },
+      tabBarStyle: { backgroundColor: colors.surface, borderTopColor: accentDim, borderTopWidth: 2 },
       tabBarActiveTintColor: accent,
       tabBarInactiveTintColor: colors.textMuted,
     }}>
@@ -43,6 +45,15 @@ export function TabNavigator() {
           title: t('nav.tab_news'),
           tabBarBadge: unreadNews > 0 ? unreadNews : undefined,
           tabBarIcon: ({ color }) => <Text style={{ color, fontSize: fontSize.xl }}>📰</Text>,
+        }}
+      />
+      <Tab.Screen
+        name="InboxTab"
+        component={InboxScreen}
+        options={{
+          title: t('inbox.tab'),
+          tabBarBadge: inboxBadge > 0 ? inboxBadge : undefined,
+          tabBarIcon: ({ color }) => <Text style={{ color, fontSize: fontSize.xl }}>📨</Text>,
         }}
       />
       <Tab.Screen

@@ -1,3 +1,5 @@
+import { z, ZodObject } from 'zod';
+import { parseRows } from '../parse-rows';
 import { DbHandle } from './players';
 
 export type JobOfferStatus = 'pending' | 'accepted' | 'expired';
@@ -11,14 +13,20 @@ export interface PendingJobOffer {
   divisionLevel: number;
 }
 
-interface PendingJobOfferRow {
-  id: number;
-  offering_club_id: number;
-  club_name: string;
-  club_reputation: number;
-  league_name: string;
-  division_level: number;
-}
+// Projeção de JOIN (job_offers + clubs + leagues); todas as colunas-fonte são NOT NULL.
+const pendingJobOfferRowSchema = z
+  .object({
+    id: z.number(),
+    offering_club_id: z.number(),
+    club_name: z.string(),
+    club_reputation: z.number(),
+    league_name: z.string(),
+    division_level: z.number(),
+  })
+  .passthrough();
+
+// JOIN/projeção, não mapeia 1:1 a uma tabela — fica fora de __rowSchemas.
+export const __rowSchemas: Array<{ table: string; schema: ZodObject<any> }> = [];
 
 export async function insertJobOffer(
   db: DbHandle,
@@ -38,7 +46,7 @@ export async function getPendingJobOffers(
   saveId: number,
   season: number,
 ): Promise<PendingJobOffer[]> {
-  const rows = (await db
+  const rows = await db
     .prepare(
       `SELECT job_offers.id AS id,
               job_offers.offering_club_id AS offering_club_id,
@@ -52,8 +60,8 @@ export async function getPendingJobOffers(
         WHERE job_offers.save_id = ? AND job_offers.season = ? AND job_offers.status = 'pending'
         ORDER BY clubs.reputation DESC, job_offers.offering_club_id ASC`,
     )
-    .all(saveId, season)) as PendingJobOfferRow[];
-  return rows.map((r) => ({
+    .all(saveId, season);
+  return parseRows(pendingJobOfferRowSchema, rows, 'jobOffers.getPendingJobOffers').map((r) => ({
     id: r.id,
     offeringClubId: r.offering_club_id,
     clubName: r.club_name,

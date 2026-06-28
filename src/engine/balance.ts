@@ -22,8 +22,7 @@ export const REPUTATION_SQUAD_WEAK_THRESHOLD = 50;
 
 // Manager (career) reputation deltas — modest, same discipline as the club ones.
 // The MANAGER's reputation is career-wide (persists across club switches), distinct
-// from a club's reputation. Defaults to 50, clamped [1,100].
-export const MANAGER_REP_INITIAL = 50;
+// from a club's reputation.
 export const MANAGER_REP_LEAGUE_TITLE_BONUS = 8;
 export const MANAGER_REP_CUP_BONUS = 4;
 export const MANAGER_REP_PROMOTION_BONUS = 5;
@@ -33,6 +32,16 @@ export const MANAGER_REP_OBJECTIVE_FAILED_PENALTY = -3;
 // A rival club won't poach a manager whose reputation is far below the club's level.
 export const MANAGER_JOB_OFFER_STEP = 12;
 export const MANAGER_JOB_OFFER_MAX = 3;
+
+// C4 manager job market — unemployment spell + contract + ambition weighting.
+export const MANAGER_REP_UNEMPLOYED_DECAY = -4;   // reputação perdida por temporada parada
+export const MANAGER_REP_FLOOR = 1;               // piso de reputação (clamp)
+export const MANAGER_CONTRACT_MIN_SEASONS = 2;
+export const MANAGER_CONTRACT_MAX_SEASONS = 4;
+export const MANAGER_SAVINGS_INITIAL = 0;
+export const MANAGER_UNEMPLOYED_DRAIN = 1;        // poupança drenada por temporada de desemprego
+export const MANAGER_SAVINGS_FLOOR = -3;          // poupança terminal → encerra a carreira
+export const MANAGER_OFFER_AMBITION_WEIGHT = 0.6; // peso da ambição no sorteio ponderado
 
 export const RETIREMENT_MIN_AGE = 33;
 export const RETIREMENT_MAX_AGE = 40;
@@ -59,6 +68,44 @@ export const ASSISTANT_CANDIDATE_POOL_SIZE = 5;
 export const ASSISTANT_COMMENT_CHANCE_PER_WEEK = 0.15;
 // seasonsAtClub thresholds to reach each star level (index = star - 1)
 export const ASSISTANT_QUALITY_THRESHOLDS = [0, 2, 4, 7, 10] as const;
+
+// ─── L1: seleção nacional ───────────────────────────────────────────────────
+// Tamanho do pool considerado para a força da seleção (top-N elegíveis por overall).
+export const NATIONAL_POOL_TOP_N = 23;
+// Tamanho da convocação gerida por janela FIFA (titulares + reservas).
+export const NATIONAL_SQUAD_SIZE = 23;
+// Vantagem de jogar em casa somada à força agregada no modelo abstrato de resultado.
+export const NATIONAL_HOME_ADVANTAGE = 5;
+// Bases de id (dentro do stride do save) para entidades da seleção, escolhidas bem
+// acima do espaço de clubs/competitions/fixtures de liga para nunca colidirem.
+export const NATIONAL_TEAM_ID_BASE = 90_000_000;
+export const NATIONAL_COMP_ID_BASE = 91_000_000;
+export const NATIONAL_FIXTURE_ID_BASE = 92_000_000;
+// Torneio final (mata-mata): comp/fixture ids num espaço próprio, acima da eliminatória,
+// para nunca colidirem com os jogos de qualificação no mesmo national_fixtures.
+export const NATIONAL_TOURNAMENT_COMP_ID_BASE = 93_000_000;
+export const NATIONAL_TOURNAMENT_FIXTURE_ID_BASE = 94_000_000;
+
+// L1-D: prestígio do técnico por resultado internacional da seleção DIRIGIDA pelo usuário.
+// Modesto por jogo (espelha a disciplina de magnitude de manager-reputation-engine), com um
+// bônus bem maior por vencer o torneio. Só a seleção do usuário move a reputação — jogos de
+// rivais não contam. Clampado em [1,100] como o resto da reputação do técnico.
+export const MANAGER_REP_NATIONAL_WIN = 1;
+export const MANAGER_REP_NATIONAL_LOSS = -1;
+export const MANAGER_REP_NATIONAL_TITLE_BONUS = 6;
+
+// ── C7: gestão in-match (janelas ao vivo + conselho) ─────────────────────────
+// Pontos de pausa FIXOS no 2º tempo (em blocos de 3 min; TOTAL_BLOCKS=30, HALF_BLOCK=15).
+// 15 = intervalo (já existente). 22 ≈ minuto 66 (o "horário clássico de mexer").
+export const LIVE_WINDOW_BLOCKS = [15, 22] as const;
+// Janela opt-in da reta final (~minuto 75). Só abre se o trigger 'final_stretch' estiver ligado.
+export const LIVE_FINAL_STRETCH_BLOCK = 25;
+// Teto de janelas por jogo (intervalo + até 2 no 2º tempo). Evita virar 30 pausas.
+export const MAX_LIVE_WINDOWS = 3;
+// Conselho: diferença de gols a partir da qual "está confortável" → recuar/segurar.
+export const ADVICE_LEAD_COMFORTABLE = 2;
+// Conselho: fadiga (escala interna do motor) a partir da qual sugerir tirar o jogador.
+export const ADVICE_FATIGUE_HIGH = 22;
 
 // Staff hiring (scout/physio/assistant/youth_coach/fitness_coach)
 export const STAFF_ROLE_LIMITS: Record<string, number> = {
@@ -94,6 +141,35 @@ export const MORALE_HEAVY_DEFEAT_EXTRA = -1;     // applied when conceding by >=
 export const MORALE_DRIFT_TARGET = 50;
 export const MORALE_DRIFT_RATE = 0.1;            // fraction of the gap closed per idle week
 
+// ─── C5: Psicologia — personalidade (modula deltas de driver por arquétipo) ────
+// Multiplicadores por (arquétipo, "sinal" do driver). 1.0 = neutro. Aplicado sobre
+// o delta base; o resultado é clampado em magnitude p/ não explodir a moral.
+export const PERSONALITY_BENCH_DAMPEN_LEADER = 0.5;   // líder sofre metade do banco
+export const PERSONALITY_WAGE_AMPLIFY_MERCENARY = 1.6; // mercenário liga p/ salário
+export const PERSONALITY_CRITICISM_AMPLIFY_TEMPER = 1.5; // temperamental explode com crítica
+export const PERSONALITY_NEGATIVE_AMPLIFY_PROBLEM = 1.3; // dressing-room amplia qualquer negativo
+export const PERSONALITY_MODIFIER_MAX_MAGNITUDE = 8;   // teto absoluto do delta após modulação
+
+// ─── C5: Psicologia — química de cliques ──────────────────────────────────────
+export const CHEMISTRY_MAX_GROUPS = 3;            // até N cliques por elenco
+export const CHEMISTRY_AFF_NATIONALITY = 0.4;     // peso de nacionalidade compartilhada
+export const CHEMISTRY_AFF_AGE_BAND = 0.3;        // peso de faixa etária próxima (<=3 anos)
+export const CHEMISTRY_AFF_TENURE = 0.3;          // peso de tempo de casa próximo
+export const CHEMISTRY_DRIFT_HAPPY = 75;          // moral do membro acima disto → grupo puxa p/ cima
+export const CHEMISTRY_DRIFT_SAD = 35;            // abaixo disto → grupo arrasta p/ baixo
+export const CHEMISTRY_DRIFT_MAX_BONUS = 1.5;     // |bônus| máximo por semana
+
+// ─── C5: Psicologia — conflito / fallout (máquina de estados por jogador) ──────
+export const FALLOUT_RISK_ARCHETYPES: readonly string[] = ['temperamental', 'mercenary', 'dressingRoomProblem'];
+export const FALLOUT_STREAK_TO_UNSETTLE = 3;        // semanas de moral baixa p/ ficar inquieto
+export const FALLOUT_CRITICISMS_TO_WANT_OUT = 2;    // críticas recentes p/ pedir p/ sair
+export const FALLOUT_RECOVERY_MORALE = 70;          // moral acima disto regride o estado (histerese)
+export const MORALE_EVENTS_KEEP_SEASONS = 2;        // janela do ledger podada no rollover
+export const FALLOUT_CRITICISM_LOOKBACK_WEEKS = 8;  // janela p/ contar críticas recentes
+
 // ─── Ordinary (age-based) retirement (progression-wired) ─────────────────────
 export const ORDINARY_RETIREMENT_BASE_PROB = 0.05;   // at RETIREMENT_MIN_AGE
 export const ORDINARY_RETIREMENT_AGE_SLOPE = 0.07;   // added per year above the min age
+
+// ─── C1 dynasty/legacy ───────────────────────────────────────────────────────
+export const LEGENDS_LIMIT = 12;                      // top-N legends materialized per club

@@ -2,6 +2,9 @@ import {
   simulateMatch,
   simulateFirstHalf,
   resumeSecondHalf,
+  initLiveMatch,
+  simulateSegment,
+  finalizeMatchResult,
   MatchInput,
   MatchResult,
   SecondHalfOverrides,
@@ -151,5 +154,22 @@ describe('edge: invalid sub ids are skipped without throwing', () => {
         (e.playerId === 99999 || e.playerId === 99998 || e.secondaryPlayerId === 88888 || e.secondaryPlayerId === 88887),
     );
     expect(injectedSubs.length).toBe(0);
+  });
+});
+
+describe('N-cuts arbitrários == simulateMatch (compose-equals-whole estendido)', () => {
+  it('cortes irregulares (3,15,16,29,30) batem com o jogo inteiro', () => {
+    for (const seed of [1, 7, 42, 99, 123, 777]) {
+      const whole = simulateMatch(makeInput(72, 68, seed));
+      let s = initLiveMatch(makeInput(72, 68, seed));
+      for (const cut of [3, 15, 16, 29, 30]) s = simulateSegment(s, cut);
+      const composed = finalizeMatchResult(s);
+      expect(composed.events).toEqual(whole.events);
+      expect(composed.homeGoals).toBe(whole.homeGoals);
+      expect(composed.awayGoals).toBe(whole.awayGoals);
+      expect(composed.stats).toEqual(whole.stats);
+      expect(composed.homeRatings).toEqual(whole.homeRatings);
+      expect(composed.awayRatings).toEqual(whole.awayRatings);
+    }
   });
 });

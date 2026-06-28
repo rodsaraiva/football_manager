@@ -4,12 +4,17 @@ import { NavigationContainer, DarkTheme } from '@react-navigation/native';
 import { StatusBar } from 'expo-status-bar';
 import { RootNavigator } from '@/navigation/RootNavigator';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { ClubAccentProvider } from '@/theme/ClubAccentProvider';
+import { ConfirmProvider } from '@/components/kit';
 import LoadingScreen from '@/components/LoadingScreen';
+import { CelebrationOverlay } from '@/components/CelebrationOverlay';
 import { useDatabaseStore } from '@/store/database-store';
+import { useAppFonts } from '@/theme/useAppFonts';
 import { colors, fontSize } from '@/theme';
 
 export default function App() {
   const { isReady, error, initialize, dbHandle } = useDatabaseStore();
+  const fontsReady = useAppFonts();
 
   useEffect(() => {
     initialize();
@@ -18,6 +23,7 @@ export default function App() {
   useEffect(() => {
     if (isReady && dbHandle) {
       import('@/i18n/persistence').then((m) => m.loadPersistedLanguage(dbHandle));
+      import('@/store/settings-store').then((m) => m.hydrateSettings(dbHandle));
     }
   }, [isReady, dbHandle]);
 
@@ -31,7 +37,7 @@ export default function App() {
     );
   }
 
-  if (!isReady) {
+  if (!isReady || !fontsReady) {
     return <LoadingScreen message="Initializing..." />;
   }
 
@@ -49,7 +55,12 @@ export default function App() {
       },
     }}>
       <ErrorBoundary>
-        <RootNavigator />
+        <ClubAccentProvider>
+          <ConfirmProvider>
+            <RootNavigator />
+            <CelebrationOverlay />
+          </ConfirmProvider>
+        </ClubAccentProvider>
       </ErrorBoundary>
       <StatusBar style="light" />
     </NavigationContainer>

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { colors, commonStyles, fontSize, radius, spacing } from '@/theme';
+import { ScrollView, StyleSheet, View } from 'react-native';
+import { spacing, commonStyles } from '@/theme';
+import { useClubAccent } from '@/theme/useClubAccent';
 import { useTranslation } from '@/i18n';
 import type { TKey } from '@/i18n/translate';
 import { useGameStore } from '@/store/game-store';
@@ -9,23 +10,28 @@ import { getPlayersByClub, updatePlayerMorale } from '@/database/queries/players
 import { getRecentForm } from '@/database/queries/player-stats';
 import { computeSquadTeamTalk, SquadTalkMember, SquadTalkSummary } from '@/engine/morale/squad-team-talk';
 import { TeamTalkTone } from '@/engine/morale/team-talk';
+import { Card, Chip } from '@/components/kit';
+import { Title, Body } from '@/components/typography';
 
 const TONES: TeamTalkTone[] = ['praise', 'motivate', 'criticize'];
 
 export function TeamTalkScreen() {
   const { t } = useTranslation();
+  const accent = useClubAccent();
   const dbHandle = useDatabaseStore((s) => s.dbHandle);
   const playerClubId = useGameStore((s) => s.playerClubId);
   const saveId = useGameStore((s) => s.currentSave?.id);
   const season = useGameStore((s) => s.season);
 
   const [summary, setSummary] = useState<SquadTalkSummary | null>(null);
+  const [selectedTone, setSelectedTone] = useState<TeamTalkTone | null>(null);
   const [empty, setEmpty] = useState(false);
   const [busy, setBusy] = useState(false);
 
   async function applyTalk(tone: TeamTalkTone) {
     if (!dbHandle || playerClubId == null || saveId == null || busy) return;
     setBusy(true);
+    setSelectedTone(tone);
     try {
       const squad = await getPlayersByClub(dbHandle, saveId, playerClubId);
       if (squad.length === 0) {
@@ -53,32 +59,33 @@ export function TeamTalkScreen() {
   return (
     <View style={commonStyles.screen}>
       <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.card}>
-          <Text style={styles.title}>{t('interaction.team_talk_title')}</Text>
-          <Text style={styles.intro}>{t('interaction.team_talk_intro')}</Text>
+        <Card variant="summary" accent={accent.accent}>
+          <Title style={styles.title}>{t('interaction.team_talk_title')}</Title>
+          <Body style={styles.intro}>{t('interaction.team_talk_intro')}</Body>
           <View style={styles.toneRow}>
             {TONES.map((tone) => (
-              <Pressable
+              <Chip
                 key={tone}
-                style={[styles.toneButton, busy && styles.disabledButton]}
-                disabled={busy}
+                label={t(`interaction.tone_${tone}` as TKey)}
+                selected={selectedTone === tone}
+                accent={accent.accent}
                 onPress={() => applyTalk(tone)}
-              >
-                <Text style={styles.toneButtonText}>{t(`interaction.tone_${tone}` as TKey)}</Text>
-              </Pressable>
+                testID={`teamtalk-tone-${tone}`}
+                accessibilityLabel={t(`interaction.tone_${tone}` as TKey)}
+              />
             ))}
           </View>
-          {empty && <Text style={styles.summary}>{t('interaction.team_talk_empty')}</Text>}
+          {empty && <Body style={styles.summary}>{t('interaction.team_talk_empty')}</Body>}
           {summary != null && (
-            <Text style={styles.summary}>
+            <Body style={styles.summary}>
               {t('interaction.team_talk_summary', {
                 improved: summary.improved,
                 worsened: summary.worsened,
                 unchanged: summary.unchanged,
               })}
-            </Text>
+            </Body>
           )}
-        </View>
+        </Card>
       </ScrollView>
     </View>
   );
@@ -86,22 +93,8 @@ export function TeamTalkScreen() {
 
 const styles = StyleSheet.create({
   content: { padding: spacing.md },
-  card: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    padding: spacing.md,
-  },
-  title: { color: colors.text, fontSize: fontSize.lg, fontWeight: 'bold', marginBottom: spacing.xs },
-  intro: { color: colors.textSecondary, fontSize: fontSize.sm, marginBottom: spacing.md },
+  title: { marginBottom: spacing.xs },
+  intro: { marginBottom: spacing.md },
   toneRow: { flexDirection: 'row', gap: spacing.sm },
-  toneButton: {
-    flex: 1,
-    backgroundColor: colors.primary,
-    borderRadius: radius.md,
-    paddingVertical: spacing.sm,
-    alignItems: 'center',
-  },
-  disabledButton: { opacity: 0.4 },
-  toneButtonText: { color: colors.text, fontSize: fontSize.sm, fontWeight: 'bold' },
-  summary: { color: colors.text, fontSize: fontSize.md, marginTop: spacing.md },
+  summary: { marginTop: spacing.md },
 });

@@ -1,18 +1,18 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   FlatList,
   ActivityIndicator,
-  Pressable,
-  Alert,
   RefreshControl,
-  Modal,
   TextInput,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { colors, spacing, fontSize, radius, commonStyles } from '@/theme';
+import { useClubAccent } from '@/theme/useClubAccent';
+import { Card, Badge, Button, Sheet, useConfirm } from '@/components/kit';
+import type { BadgeTone } from '@/components/kit';
+import { Title, Body, Label } from '@/components/typography';
 import { useTranslation } from '@/i18n';
 import type { TKey } from '@/i18n/translate';
 import { useGameStore } from '@/store/game-store';
@@ -48,15 +48,17 @@ function parseNumber(input: string): number {
   return cleaned === '' ? 0 : parseInt(cleaned, 10);
 }
 
-const STATUS_META: Record<OfferStatus, { labelKey: TKey; color: string; icon: string }> = {
-  pending: { labelKey: 'offers.status_new', color: colors.warning, icon: '📥' },
-  accepted: { labelKey: 'offers.status_accepted', color: colors.success, icon: '✅' },
-  rejected: { labelKey: 'offers.status_rejected', color: colors.danger, icon: '❌' },
-  countered: { labelKey: 'offers.status_awaiting', color: colors.accent, icon: '💬' },
+const STATUS_META: Record<OfferStatus, { labelKey: TKey; tone: BadgeTone; color: string }> = {
+  pending: { labelKey: 'offers.status_new', tone: 'warning', color: colors.warning },
+  accepted: { labelKey: 'offers.status_accepted', tone: 'success', color: colors.success },
+  rejected: { labelKey: 'offers.status_rejected', tone: 'danger', color: colors.danger },
+  countered: { labelKey: 'offers.status_awaiting', tone: 'accent', color: colors.accent },
 };
 
 export function OffersReceivedScreen() {
   const { t } = useTranslation();
+  const accent = useClubAccent();
+  const confirm = useConfirm();
   const { playerClubId, season, week, currentSave } = useGameStore();
   const saveId = currentSave?.id;
   const { dbHandle } = useDatabaseStore();
@@ -108,30 +110,25 @@ export function OffersReceivedScreen() {
   }, [load]);
 
   const handleAccept = useCallback(
-    (row: OfferRow) => {
+    async (row: OfferRow) => {
       if (!dbHandle || saveId == null) return;
-      Alert.alert(
-        t('offers.accept_offer_title'),
-        t('offers.accept_offer_msg', { player: row.playerName, club: row.offeringClubName, fee: formatMoney(row.offer.feeOffered) }),
-        [
-          { text: t('common.cancel'), style: 'cancel' },
-          {
-            text: t('offers.sell'),
-            style: 'destructive',
-            onPress: async () => {
-              const res = await acceptIncomingOffer(dbHandle, saveId, row.offer.id, season, week);
-              if (!res.success) {
-                Alert.alert(t('transfer.error'), res.reason ?? t('offers.transfer_failed'));
-              } else {
-                Alert.alert(t('offers.player_sold'), t('offers.player_left', { name: row.playerName }));
-              }
-              await load();
-            },
-          },
-        ],
-      );
+      const ok = await confirm({
+        title: t('offers.accept_offer_title'),
+        message: t('offers.accept_offer_msg', { player: row.playerName, club: row.offeringClubName, fee: formatMoney(row.offer.feeOffered) }),
+        confirmLabel: t('offers.sell'),
+        cancelLabel: t('common.cancel'),
+        tone: 'danger',
+      });
+      if (!ok) return;
+      const res = await acceptIncomingOffer(dbHandle, saveId, row.offer.id, season, week);
+      if (!res.success) {
+        await confirm({ title: t('transfer.error'), message: res.reason ?? t('offers.transfer_failed'), confirmLabel: t('kit.ok'), tone: 'danger' });
+      } else {
+        await confirm({ title: t('offers.player_sold'), message: t('offers.player_left', { name: row.playerName }), confirmLabel: t('kit.ok') });
+      }
+      await load();
     },
-    [dbHandle, saveId, season, week, load],
+    [dbHandle, saveId, season, week, load, confirm, t],
   );
 
   const handleReject = useCallback(
@@ -152,15 +149,15 @@ export function OffersReceivedScreen() {
     if (!dbHandle || !counterRow || saveId == null) return;
     const newFee = parseNumber(counterFeeStr);
     if (newFee <= counterRow.offer.feeOffered) {
-      Alert.alert(t('offers.invalid_counter'), t('offers.invalid_counter_msg'));
+      await confirm({ title: t('offers.invalid_counter'), message: t('offers.invalid_counter_msg'), confirmLabel: t('kit.ok'), tone: 'danger' });
       return;
     }
     await counterIncomingOffer(dbHandle, saveId, counterRow.offer.id, newFee);
     setCounterRow(null);
     setCounterFeeStr('');
-    Alert.alert(t('offers.counter_sent'), t('offers.counter_sent_msg'));
+    await confirm({ title: t('offers.counter_sent'), message: t('offers.counter_sent_msg'), confirmLabel: t('kit.ok') });
     await load();
-  }, [dbHandle, saveId, counterRow, counterFeeStr, load]);
+  }, [dbHandle, saveId, counterRow, counterFeeStr, load, confirm, t]);
 
   const handleDismiss = useCallback(
     async (row: OfferRow) => {
@@ -174,7 +171,7 @@ export function OffersReceivedScreen() {
   if (loading) {
     return (
       <View style={[commonStyles.screen, styles.center]}>
-        <ActivityIndicator color={colors.primary} size="large" />
+        <ActivityIndicator color={accent.accent} size="large" />
       </View>
     );
   }
@@ -182,8 +179,8 @@ export function OffersReceivedScreen() {
   if (rows.length === 0) {
     return (
       <View style={[commonStyles.screen, styles.center]}>
-        <Text style={styles.emptyTitle}>{t('offers.none_received')}</Text>
-        <Text style={styles.emptyText}>{t('offers.none_received_sub')}</Text>
+        <Title style={styles.emptyTitle}>{t('offers.none_received')}</Title>
+        <Body style={styles.emptyText}>{t('offers.none_received_sub')}</Body>
       </View>
     );
   }
@@ -201,7 +198,7 @@ export function OffersReceivedScreen() {
         data={sorted}
         keyExtractor={(item) => String(item.offer.id)}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.primary} />
+          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={accent.accent} />
         }
         contentContainerStyle={styles.list}
         renderItem={({ item }) => {
@@ -212,124 +209,120 @@ export function OffersReceivedScreen() {
           const isActionable = item.offer.status === 'pending';
           const isFinal = item.offer.status === 'accepted' || item.offer.status === 'rejected';
           return (
-            <View style={[styles.card, { borderLeftColor: meta.color }]}>
+            <Card variant="detail" accent={meta.color} style={styles.card}>
               <View style={styles.cardHeader}>
                 <View style={styles.cardHeaderLeft}>
-                  <Text style={styles.cardTitle}>{item.playerName}</Text>
-                  <Text style={styles.cardSubtitle}>
+                  <Body style={styles.cardTitle}>{item.playerName}</Body>
+                  <Label>
                     {t('offers.received_meta', { position: item.playerPosition, age: item.playerAge, club: item.offeringClubName })}
-                  </Text>
+                  </Label>
                 </View>
-                <View style={[styles.statusBadge, { backgroundColor: meta.color + '22', borderColor: meta.color }]}>
-                  <Text style={[styles.statusText, { color: meta.color }]}>{meta.icon} {t(meta.labelKey)}</Text>
-                </View>
+                <Badge value={t(meta.labelKey)} tone={meta.tone} />
               </View>
 
               <View style={styles.row}>
-                <Text style={styles.fieldLabel}>{t('offers.offered_fee')}</Text>
-                <Text style={styles.fieldValue}>{formatMoney(item.offer.feeOffered)}</Text>
+                <Label>{t('offers.offered_fee')}</Label>
+                <Body style={styles.fieldValue}>{formatMoney(item.offer.feeOffered)}</Body>
               </View>
               <View style={styles.row}>
-                <Text style={styles.fieldLabel}>{t('transfer.market_value')}</Text>
-                <Text style={styles.fieldValueMuted}>{formatMoney(item.marketValue)}</Text>
+                <Label>{t('transfer.market_value')}</Label>
+                <Label>{formatMoney(item.marketValue)}</Label>
               </View>
               <View style={styles.row}>
-                <Text style={styles.fieldLabel}>{t('offers.vs_market')}</Text>
-                <Text style={[styles.fieldValue, { color: ratioColor }]}>
+                <Label>{t('offers.vs_market')}</Label>
+                <Body style={[styles.fieldValue, { color: ratioColor }]}>
                   {Math.round(ratio * 100)}%
-                </Text>
+                </Body>
               </View>
               <View style={styles.row}>
-                <Text style={styles.fieldLabel}>{t('offers.wage_offered')}</Text>
-                <Text style={styles.fieldValue}>{formatMoney(item.offer.wageOffered)}/wk</Text>
+                <Label>{t('offers.wage_offered')}</Label>
+                <Body style={styles.fieldValue}>{formatMoney(item.offer.wageOffered)}/wk</Body>
               </View>
 
               {isActionable && (
                 <View style={styles.actions}>
-                  <Pressable
-                    style={[styles.btn, styles.btnSecondary]}
+                  <Button
+                    label={t('offers.reject')}
+                    variant="secondary"
                     onPress={() => handleReject(item)}
-                  >
-                    <Text style={styles.btnSecondaryText}>{t('offers.reject')}</Text>
-                  </Pressable>
-                  <Pressable
-                    style={[styles.btn, styles.btnWarning]}
+                    testID={`offer-recv-reject-${item.offer.id}`}
+                    accessibilityLabel={t('offers.reject')}
+                  />
+                  <Button
+                    label={t('offers.counter')}
+                    variant="secondary"
+                    accent={colors.accent}
                     onPress={() => openCounter(item)}
-                  >
-                    <Text style={styles.btnPrimaryText}>{t('offers.counter')}</Text>
-                  </Pressable>
-                  <Pressable
-                    style={[styles.btn, styles.btnPrimary]}
+                    testID={`offer-recv-counter-${item.offer.id}`}
+                    accessibilityLabel={t('offers.counter')}
+                  />
+                  <Button
+                    label={t('offers.accept')}
+                    variant="primary"
                     onPress={() => handleAccept(item)}
-                  >
-                    <Text style={styles.btnPrimaryText}>{t('offers.accept')}</Text>
-                  </Pressable>
+                    testID={`offer-recv-accept-${item.offer.id}`}
+                    accessibilityLabel={t('offers.accept')}
+                  />
                 </View>
               )}
 
               {item.offer.status === 'countered' && (
-                <Text style={styles.hint}>{t('offers.counter_sent_msg')}</Text>
+                <Label style={styles.hint}>{t('offers.counter_sent_msg')}</Label>
               )}
 
               {isFinal && (
                 <View style={styles.actions}>
-                  <Pressable
-                    style={[styles.btn, styles.btnSecondary]}
+                  <Button
+                    label={t('offers.dismiss')}
+                    variant="ghost"
                     onPress={() => handleDismiss(item)}
-                  >
-                    <Text style={styles.btnSecondaryText}>{t('offers.dismiss')}</Text>
-                  </Pressable>
+                    testID={`offer-recv-dismiss-${item.offer.id}`}
+                    accessibilityLabel={t('offers.dismiss')}
+                  />
                 </View>
               )}
-            </View>
+            </Card>
           );
         }}
       />
 
-      {/* Counter dialog */}
-      <Modal
-        visible={counterRow !== null}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setCounterRow(null)}
-      >
-        <View style={styles.backdrop}>
-          <View style={styles.counterSheet}>
-            <Text style={styles.counterTitle}>{t('offers.counter_offer')}</Text>
-            {counterRow && (
-              <>
-                <Text style={styles.counterMeta}>{counterRow.playerName}</Text>
-                <Text style={styles.counterMetaSub}>
-                  {t('offers.current_vs_market', { offer: formatMoney(counterRow.offer.feeOffered), market: formatMoney(counterRow.marketValue) })}
-                </Text>
-                <Text style={styles.fieldLabel}>{t('offers.asking_price')}</Text>
-                <TextInput
-                  style={styles.input}
-                  value={counterFeeStr}
-                  onChangeText={setCounterFeeStr}
-                  keyboardType="numeric"
-                  placeholderTextColor={colors.textMuted}
-                />
-                <Text style={styles.helperText}>{formatMoney(parseNumber(counterFeeStr))}</Text>
-                <View style={styles.actions}>
-                  <Pressable
-                    style={[styles.btn, styles.btnSecondary]}
-                    onPress={() => setCounterRow(null)}
-                  >
-                    <Text style={styles.btnSecondaryText}>{t('common.cancel')}</Text>
-                  </Pressable>
-                  <Pressable
-                    style={[styles.btn, styles.btnPrimary]}
-                    onPress={submitCounter}
-                  >
-                    <Text style={styles.btnPrimaryText}>{t('offers.send_counter')}</Text>
-                  </Pressable>
-                </View>
-              </>
-            )}
-          </View>
-        </View>
-      </Modal>
+      {/* Counter sheet */}
+      <Sheet visible={counterRow !== null} onClose={() => setCounterRow(null)} testID="offer-counter-sheet">
+        <Title style={styles.counterTitle}>{t('offers.counter_offer')}</Title>
+        {counterRow && (
+          <>
+            <Body style={styles.counterMeta}>{counterRow.playerName}</Body>
+            <Label style={styles.counterMetaSub}>
+              {t('offers.current_vs_market', { offer: formatMoney(counterRow.offer.feeOffered), market: formatMoney(counterRow.marketValue) })}
+            </Label>
+            <Label>{t('offers.asking_price')}</Label>
+            <TextInput
+              style={styles.input}
+              value={counterFeeStr}
+              onChangeText={setCounterFeeStr}
+              keyboardType="numeric"
+              placeholderTextColor={colors.textMuted}
+            />
+            <Label style={styles.helperText}>{formatMoney(parseNumber(counterFeeStr))}</Label>
+            <View style={styles.actions}>
+              <Button
+                label={t('common.cancel')}
+                variant="secondary"
+                onPress={() => setCounterRow(null)}
+                testID="offer-counter-cancel"
+                accessibilityLabel={t('common.cancel')}
+              />
+              <Button
+                label={t('offers.send_counter')}
+                variant="primary"
+                onPress={submitCounter}
+                testID="offer-counter-send"
+                accessibilityLabel={t('offers.send_counter')}
+              />
+            </View>
+          </>
+        )}
+      </Sheet>
     </>
   );
 }
@@ -342,14 +335,10 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
   },
   emptyTitle: {
-    color: colors.text,
-    fontSize: fontSize.xl,
-    fontWeight: 'bold',
     marginBottom: spacing.sm,
   },
   emptyText: {
     color: colors.textMuted,
-    fontSize: fontSize.md,
     textAlign: 'center',
   },
   list: {
@@ -357,17 +346,7 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.xl,
   },
   card: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    padding: spacing.md,
     marginVertical: spacing.xs,
-    borderLeftWidth: 4,
-    borderTopWidth: 1,
-    borderRightWidth: 1,
-    borderBottomWidth: 1,
-    borderTopColor: colors.border,
-    borderRightColor: colors.border,
-    borderBottomColor: colors.border,
   },
   cardHeader: {
     flexDirection: 'row',
@@ -380,109 +359,32 @@ const styles = StyleSheet.create({
     marginRight: spacing.sm,
   },
   cardTitle: {
-    color: colors.text,
-    fontSize: fontSize.lg,
     fontWeight: '700',
-  },
-  cardSubtitle: {
-    color: colors.textSecondary,
-    fontSize: fontSize.sm,
-    marginTop: spacing.xxs,
-  },
-  statusBadge: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: 6,
-    borderWidth: 1,
-  },
-  statusText: {
-    fontSize: fontSize.xs,
-    fontWeight: '700',
-    letterSpacing: 0.5,
   },
   row: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     paddingVertical: spacing.xs,
   },
-  fieldLabel: {
-    color: colors.textMuted,
-    fontSize: fontSize.sm,
-  },
   fieldValue: {
-    color: colors.text,
-    fontSize: fontSize.sm,
     fontWeight: '600',
-  },
-  fieldValueMuted: {
-    color: colors.textSecondary,
-    fontSize: fontSize.sm,
   },
   actions: {
     flexDirection: 'row',
     gap: spacing.sm,
     marginTop: spacing.md,
   },
-  btn: {
-    flex: 1,
-    paddingVertical: 10,
-    borderRadius: radius.md,
-    alignItems: 'center',
-  },
-  btnPrimary: {
-    backgroundColor: colors.primary,
-  },
-  btnPrimaryText: {
-    color: colors.text,
-    fontSize: fontSize.sm,
-    fontWeight: '700',
-  },
-  btnWarning: {
-    backgroundColor: colors.accent,
-  },
-  btnSecondary: {
-    backgroundColor: colors.surfaceLight,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  btnSecondaryText: {
-    color: colors.textSecondary,
-    fontSize: fontSize.sm,
-    fontWeight: '600',
-  },
   hint: {
-    color: colors.textMuted,
-    fontSize: fontSize.xs,
     marginTop: spacing.sm,
     fontStyle: 'italic',
   },
-  backdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.65)',
-    justifyContent: 'center',
-    padding: spacing.lg,
-  },
-  counterSheet: {
-    backgroundColor: colors.background,
-    borderRadius: 14,
-    padding: spacing.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
   counterTitle: {
-    color: colors.text,
-    fontSize: fontSize.xl,
-    fontWeight: 'bold',
     marginBottom: spacing.sm,
   },
   counterMeta: {
-    color: colors.text,
-    fontSize: fontSize.lg,
     fontWeight: '600',
   },
   counterMetaSub: {
-    color: colors.textSecondary,
-    fontSize: fontSize.sm,
     marginBottom: spacing.md,
   },
   input: {
@@ -491,14 +393,12 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     borderRadius: radius.md,
     paddingHorizontal: spacing.md,
-    paddingVertical: 10,
+    paddingVertical: spacing.sm,
     color: colors.text,
     fontSize: fontSize.md,
     marginTop: spacing.xs,
   },
   helperText: {
-    color: colors.textSecondary,
-    fontSize: fontSize.sm,
     marginTop: spacing.xs,
   },
 });

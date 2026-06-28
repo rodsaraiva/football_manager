@@ -63,4 +63,14 @@ describe('staff hire/fire queries', () => {
     const cleaned = await getStaffByClub(db, TEST_SAVE_ID, clubId);
     expect(cleaned.some((s) => s.id === id)).toBe(false);
   });
+
+  it('getStaffByClub lê archetype quando presente', async () => {
+    await db.prepare(
+      `INSERT INTO staff (id, save_id, name, role, club_id, ability, wage, contract_end, archetype)
+       VALUES (990501, ?, 'Olheiro Teste', 'scout', ?, 14, 3000, 9999, 'youth')`,
+    ).run(TEST_SAVE_ID, clubId);
+    const staff = await getStaffByClub(db, TEST_SAVE_ID, clubId);
+    expect(staff.find((s) => s.id === 990501)?.archetype).toBe('youth');
+    await fireStaff(db, TEST_SAVE_ID, 990501);
+  });
 });

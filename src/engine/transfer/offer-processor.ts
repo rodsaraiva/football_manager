@@ -11,6 +11,7 @@ import {
   hasExceededMaxRounds,
 } from './negotiation';
 import { TransferType } from '@/types';
+import { emitOfferReceived } from '@/engine/inbox/producers';
 
 function formatFee(amount: number): string {
   if (amount >= 1_000_000) return `$${(amount / 1_000_000).toFixed(1)}M`;
@@ -219,8 +220,22 @@ export async function processPendingOffers(
   if (pending.length === 0) return;
 
   for (const offer of pending) {
-    // Skip offers where the user is the seller — the user decides those
+    // Player is the seller: don't auto-resolve — surface an actionable Inbox thread.
     if (playerClubId !== null && offer.sellingClubId === playerClubId) {
+      const exists = (await db
+        .prepare("SELECT id FROM inbox_threads WHERE save_id = ? AND ref_kind = 'transfer_offer' AND ref_id = ?")
+        .get(saveId, offer.id)) as { id: number } | undefined;
+      if (!exists) {
+        const pl = (await db.prepare('SELECT name FROM players WHERE save_id = ? AND id = ?').get(saveId, offer.playerId)) as { name: string } | undefined;
+        const cl = (await db.prepare('SELECT name FROM clubs WHERE save_id = ? AND id = ?').get(saveId, offer.offeringClubId)) as { name: string } | undefined;
+        await emitOfferReceived(db, saveId, {
+          offerId: offer.id,
+          playerName: pl?.name ?? '',
+          offeringClubName: cl?.name ?? '',
+          fee: offer.feeOffered,
+          season, week,
+        });
+      }
       continue;
     }
     // Load player + club details

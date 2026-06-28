@@ -1,28 +1,51 @@
+import { z, ZodObject } from 'zod';
 import { Fixture, MatchEvent, MatchEventType } from '@/types';
+import { parseRows, parseRow } from '../parse-rows';
 import { DbHandle } from './players';
 
-interface FixtureRow {
-  id: number;
-  competition_id: number;
-  season: number;
-  week: number;
-  round: number | null;
-  home_club_id: number;
-  away_club_id: number;
-  home_goals: number | null;
-  away_goals: number | null;
-  played: number;
-  attendance: number | null;
-}
+// Campos consumidos por rowToFixture; .passthrough() deixa save_id passar.
+const fixtureRowSchema = z
+  .object({
+    id: z.number(),
+    competition_id: z.number(),
+    season: z.number(),
+    week: z.number(),
+    // round é coluna TEXT (numérico-string ou null); rowToFixture mantém o passthrough
+    // tipado como number|null e os consumidores coagem via Number(). Ver cup-bracket.ts.
+    round: z.string().nullable(),
+    home_club_id: z.number(),
+    away_club_id: z.number(),
+    home_goals: z.number().nullable(),
+    away_goals: z.number().nullable(),
+    played: z.number(),
+    attendance: z.number().nullable(),
+  })
+  .passthrough();
+type FixtureRow = z.infer<typeof fixtureRowSchema>;
 
-interface MatchEventRow {
-  id: number;
-  fixture_id: number;
-  minute: number;
-  type: string;
-  player_id: number;
-  secondary_player_id: number | null;
-}
+const matchEventRowSchema = z
+  .object({
+    fixture_id: z.number(),
+    minute: z.number(),
+    type: z.string(),
+    player_id: z.number(),
+    secondary_player_id: z.number().nullable(),
+    // L2: xG da chance + geometria normalizada. Nullable — eventos AI/legados não têm.
+    xg: z.number().nullable().optional(),
+    x: z.number().nullable().optional(),
+    y: z.number().nullable().optional(),
+    phase: z.string().nullable().optional(),
+  })
+  .passthrough();
+type MatchEventRow = z.infer<typeof matchEventRowSchema>;
+
+// Projeção COUNT(*): não é linha de tabela, fica fora de __rowSchemas.
+const countWinsRowSchema = z.object({ wins: z.number() }).passthrough();
+
+export const __rowSchemas: Array<{ table: string; schema: ZodObject<any> }> = [
+  { table: 'fixtures', schema: fixtureRowSchema },
+  { table: 'match_events', schema: matchEventRowSchema },
+];
 
 function rowToFixture(row: FixtureRow): Fixture {
   return {
@@ -30,7 +53,7 @@ function rowToFixture(row: FixtureRow): Fixture {
     competitionId: row.competition_id,
     season: row.season,
     week: row.week,
-    round: row.round,
+    round: row.round as unknown as number | null,
     homeClubId: row.home_club_id,
     awayClubId: row.away_club_id,
     homeGoals: row.home_goals,
@@ -41,13 +64,18 @@ function rowToFixture(row: FixtureRow): Fixture {
 }
 
 function rowToMatchEvent(row: MatchEventRow): MatchEvent {
-  return {
+  const event: MatchEvent = {
     fixtureId: row.fixture_id,
     minute: row.minute,
     type: row.type as MatchEventType,
     playerId: row.player_id,
     secondaryPlayerId: row.secondary_player_id,
   };
+  if (row.xg != null) event.xg = row.xg;
+  if (row.x != null) event.x = row.x;
+  if (row.y != null) event.y = row.y;
+  if (row.phase != null) event.phase = row.phase;
+  return event;
 }
 
 export interface CreateFixtureInput {
@@ -82,15 +110,15 @@ export async function createFixture(db: DbHandle, saveId: number, input: CreateF
 export async function getFixturesByWeek(db: DbHandle, saveId: number, season: number, week: number): Promise<Fixture[]> {
   const rows = await db
     .prepare('SELECT * FROM fixtures WHERE save_id = ? AND season = ? AND week = ?')
-    .all(saveId, season, week) as FixtureRow[];
-  return rows.map(rowToFixture);
+    .all(saveId, season, week);
+  return parseRows(fixtureRowSchema, rows, 'fixtures.getFixturesByWeek').map(rowToFixture);
 }
 
 export async function getFixturesByClub(db: DbHandle, saveId: number, clubId: number, season: number): Promise<Fixture[]> {
   const rows = await db
     .prepare('SELECT * FROM fixtures WHERE save_id = ? AND season = ? AND (home_club_id = ? OR away_club_id = ?)')
-    .all(saveId, season, clubId, clubId) as FixtureRow[];
-  return rows.map(rowToFixture);
+    .all(saveId, season, clubId, clubId);
+  return parseRows(fixtureRowSchema, rows, 'fixtures.getFixturesByClub').map(rowToFixture);
 }
 
 export async function updateFixtureResult(
@@ -112,19 +140,34 @@ export interface AddMatchEventInput {
   type: MatchEventType;
   playerId: number;
   secondaryPlayerId?: number | null;
+  // L2: xG da chance (Fase 1) + geometria normalizada (Fase 2). Opcionais.
+  xg?: number | null;
+  x?: number | null;
+  y?: number | null;
+  phase?: string | null;
 }
 
 export async function addMatchEvent(db: DbHandle, input: AddMatchEventInput): Promise<void> {
   await db.prepare(
-    'INSERT INTO match_events (fixture_id, minute, type, player_id, secondary_player_id) VALUES (?, ?, ?, ?, ?)',
-  ).run(input.fixtureId, input.minute, input.type, input.playerId, input.secondaryPlayerId ?? null);
+    'INSERT INTO match_events (fixture_id, minute, type, player_id, secondary_player_id, xg, x, y, phase) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+  ).run(
+    input.fixtureId,
+    input.minute,
+    input.type,
+    input.playerId,
+    input.secondaryPlayerId ?? null,
+    input.xg ?? null,
+    input.x ?? null,
+    input.y ?? null,
+    input.phase ?? null,
+  );
 }
 
 export async function getMatchEvents(db: DbHandle, fixtureId: number): Promise<MatchEvent[]> {
   const rows = await db
     .prepare('SELECT * FROM match_events WHERE fixture_id = ? ORDER BY minute ASC')
-    .all(fixtureId) as MatchEventRow[];
-  return rows.map(rowToMatchEvent);
+    .all(fixtureId);
+  return parseRows(matchEventRowSchema, rows, 'fixtures.getMatchEvents').map(rowToMatchEvent);
 }
 
 /**
@@ -144,8 +187,9 @@ export async function getNextFixtureForClub(
        ORDER BY week ASC
        LIMIT 1`,
     )
-    .get(saveId, season, clubId, clubId) as FixtureRow | undefined;
-  return row ? rowToFixture(row) : null;
+    .get(saveId, season, clubId, clubId);
+  const parsed = parseRow(fixtureRowSchema.nullable(), row, 'fixtures.getNextFixtureForClub');
+  return parsed ? rowToFixture(parsed) : null;
 }
 
 /**
@@ -154,15 +198,15 @@ export async function getNextFixtureForClub(
  * is naturally excluded). Used by the post-match achievement checkpoint (totalWins).
  */
 export async function countClubWins(db: DbHandle, saveId: number, clubId: number): Promise<number> {
-  const row = (await db
+  const row = await db
     .prepare(
       `SELECT COUNT(*) AS wins FROM fixtures
        WHERE save_id = ? AND played = 1
          AND ((home_club_id = ? AND home_goals > away_goals)
            OR (away_club_id = ? AND away_goals > home_goals))`,
     )
-    .get(saveId, clubId, clubId)) as { wins: number } | undefined;
-  return row?.wins ?? 0;
+    .get(saveId, clubId, clubId);
+  return parseRow(countWinsRowSchema, row, 'fixtures.countClubWins')?.wins ?? 0;
 }
 
 /**
@@ -182,6 +226,6 @@ export async function getRecentFixturesForClub(
        ORDER BY week DESC
        LIMIT ?`,
     )
-    .all(saveId, season, clubId, clubId, limit) as FixtureRow[];
-  return rows.map(rowToFixture);
+    .all(saveId, season, clubId, clubId, limit);
+  return parseRows(fixtureRowSchema, rows, 'fixtures.getRecentFixturesForClub').map(rowToFixture);
 }

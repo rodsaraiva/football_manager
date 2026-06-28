@@ -31,6 +31,7 @@ function mkClub(id: number, name?: string): Club {
     primaryColor: '#000',
     secondaryColor: '#fff',
     trainingFocus: 'balanced',
+    academyReputation: 50,
   };
 }
 

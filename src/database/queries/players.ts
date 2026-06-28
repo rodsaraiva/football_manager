@@ -1,4 +1,6 @@
-import { Player, PlayerAttributes, Position, Foot } from '@/types';
+import { z, ZodObject } from 'zod';
+import { Player, PlayerAttributes, Position, Foot, SquadTier } from '@/types';
+import { parseRows, parseRow } from '../parse-rows';
 
 export interface DbHandle {
   prepare(sql: string): {
@@ -8,56 +10,83 @@ export interface DbHandle {
   };
 }
 
-interface PlayerRow {
-  id: number;
-  name: string;
-  nationality: string;
-  age: number;
-  position: string;
-  secondary_position: string | null;
-  club_id: number | null;
-  wage: number;
-  contract_end: number;
-  market_value: number;
-  base_potential: number;
-  effective_potential: number;
-  morale: number;
-  fitness: number;
-  injury_weeks_left: number;
-  is_free_agent: number;
-  preferred_foot: string;
-  weak_foot_ability: number;
-  is_transfer_listed: number;
-  is_loan_listed: number;
-  asking_price: number | null;
-  loan_wage_share: number | null;
-  loan_wage: number | null;
-  consecutive_low_morale_weeks: number;
-  will_retire_at_season_end: number;
-  suspension_weeks_left: number;
-}
+// Só os campos consumidos por rowToPlayer; .passthrough() deixa as demais colunas
+// (match_sharpness, injury_severity, save_id, etc.) passarem intactas.
+// Nullability fiel a schema.ts: secondary_position/club_id/asking_price/loan_wage_share/
+// loan_wage não têm NOT NULL → .nullable(); booleanos são inteiros 0/1 → z.number().
+const playerRowSchema = z
+  .object({
+    id: z.number(),
+    name: z.string(),
+    nationality: z.string(),
+    age: z.number(),
+    position: z.string(),
+    secondary_position: z.string().nullable(),
+    club_id: z.number().nullable(),
+    wage: z.number(),
+    contract_end: z.number(),
+    market_value: z.number(),
+    base_potential: z.number(),
+    effective_potential: z.number(),
+    morale: z.number(),
+    fitness: z.number(),
+    injury_weeks_left: z.number(),
+    is_free_agent: z.number(),
+    preferred_foot: z.string().optional(),
+    weak_foot_ability: z.number().optional(),
+    is_transfer_listed: z.number(),
+    is_loan_listed: z.number(),
+    asking_price: z.number().nullable(),
+    loan_wage_share: z.number().nullable(),
+    loan_wage: z.number().nullable(),
+    consecutive_low_morale_weeks: z.number(),
+    will_retire_at_season_end: z.number(),
+    suspension_weeks_left: z.number().optional(),
+    squad_tier: z.string(),
+    personality: z.string(),
+    fallout_state: z.string(),
+  })
+  .passthrough();
+type PlayerRow = z.infer<typeof playerRowSchema>;
 
-interface PlayerAttributesRow {
-  player_id: number;
-  finishing: number;
-  passing: number;
-  crossing: number;
-  dribbling: number;
-  heading: number;
-  long_shots: number;
-  free_kicks: number;
-  vision: number;
-  composure: number;
-  decisions: number;
-  positioning: number;
-  aggression: number;
-  leadership: number;
-  pace: number;
-  stamina: number;
-  strength: number;
-  agility: number;
-  jumping: number;
-}
+const playerAttributesRowSchema = z
+  .object({
+    player_id: z.number(),
+    finishing: z.number(),
+    passing: z.number(),
+    crossing: z.number(),
+    dribbling: z.number(),
+    heading: z.number(),
+    long_shots: z.number(),
+    free_kicks: z.number(),
+    vision: z.number(),
+    composure: z.number(),
+    decisions: z.number(),
+    positioning: z.number(),
+    aggression: z.number(),
+    leadership: z.number(),
+    pace: z.number(),
+    stamina: z.number(),
+    strength: z.number(),
+    agility: z.number(),
+    jumping: z.number(),
+  })
+  .passthrough();
+type PlayerAttributesRow = z.infer<typeof playerAttributesRowSchema>;
+
+// Projeção (subconjunto de colunas de players): fica fora de __rowSchemas.
+const playerContractInfoRowSchema = z
+  .object({
+    wage: z.number(),
+    contract_end: z.number(),
+    club_id: z.number().nullable(),
+  })
+  .passthrough();
+
+export const __rowSchemas: Array<{ table: string; schema: ZodObject<any> }> = [
+  { table: 'players', schema: playerRowSchema },
+  { table: 'player_attributes', schema: playerAttributesRowSchema },
+];
 
 function rowToPlayer(row: PlayerRow): Player {
   return {
@@ -87,6 +116,9 @@ function rowToPlayer(row: PlayerRow): Player {
     loanWage: row.loan_wage ?? null,
     consecutiveLowMoraleWeeks: row.consecutive_low_morale_weeks ?? 0,
     willRetireAtSeasonEnd: (row.will_retire_at_season_end ?? 0) === 1,
+    squadTier: (row.squad_tier as SquadTier) ?? 'first',
+    personality: (row.personality ?? 'balanced') as Player['personality'],
+    falloutState: (row.fallout_state ?? 'none') as Player['falloutState'],
   };
 }
 
@@ -113,13 +145,19 @@ function rowToAttributes(row: PlayerAttributesRow): PlayerAttributes {
   };
 }
 
-export async function getPlayersByClub(db: DbHandle, saveId: number, clubId: number): Promise<Player[]> {
+export async function getPlayersByClub(
+  db: DbHandle, saveId: number, clubId: number, tier?: SquadTier,
+): Promise<Player[]> {
   // Defensive guard: a freed player (is_free_agent=1) must never count as squad,
   // even if a buggy path left club_id intact (economy-depth wage-bleed fix).
-  const rows = await db
-    .prepare('SELECT * FROM players WHERE save_id = ? AND club_id = ? AND is_free_agent = 0')
-    .all(saveId, clubId) as PlayerRow[];
-  return rows.map(rowToPlayer);
+  const rows = tier
+    ? await db
+        .prepare('SELECT * FROM players WHERE save_id = ? AND club_id = ? AND is_free_agent = 0 AND squad_tier = ?')
+        .all(saveId, clubId, tier)
+    : await db
+        .prepare('SELECT * FROM players WHERE save_id = ? AND club_id = ? AND is_free_agent = 0')
+        .all(saveId, clubId);
+  return parseRows(playerRowSchema, rows, 'players.getPlayersByClub').map(rowToPlayer);
 }
 
 export async function getPlayersWithAttributesByClub(
@@ -127,13 +165,77 @@ export async function getPlayersWithAttributesByClub(
   saveId: number,
   clubId: number,
 ): Promise<(Player & { attributes: PlayerAttributes })[]> {
-  const playerRows = await db
-    .prepare('SELECT * FROM players WHERE save_id = ? AND club_id = ?')
-    .all(saveId, clubId) as PlayerRow[];
+  const playerRows = parseRows(
+    playerRowSchema,
+    await db.prepare('SELECT * FROM players WHERE save_id = ? AND club_id = ?').all(saveId, clubId),
+    'players.getPlayersWithAttributesByClub',
+  );
   if (playerRows.length === 0) return [];
-  const attrRows = await db
-    .prepare('SELECT * FROM player_attributes WHERE player_id IN (' + playerRows.map(() => '?').join(',') + ')')
-    .all(...playerRows.map((p) => p.id)) as PlayerAttributesRow[];
+  const attrRows = parseRows(
+    playerAttributesRowSchema,
+    await db
+      .prepare('SELECT * FROM player_attributes WHERE player_id IN (' + playerRows.map(() => '?').join(',') + ')')
+      .all(...playerRows.map((p) => p.id)),
+    'players.getPlayersWithAttributesByClub.attrs',
+  );
+  const attrsById = new Map(attrRows.map((a) => [a.player_id, rowToAttributes(a)]));
+  return playerRows
+    .filter((p) => attrsById.has(p.id))
+    .map((p) => ({ ...rowToPlayer(p), attributes: attrsById.get(p.id)! }));
+}
+
+// Carrega jogadores (com atributos) por um conjunto de ids do save, num round-trip.
+// Usado pela escalação da seleção (convocados podem vir de clubes distintos).
+export async function getPlayersWithAttributesByIds(
+  db: DbHandle,
+  saveId: number,
+  ids: number[],
+): Promise<(Player & { attributes: PlayerAttributes })[]> {
+  if (ids.length === 0) return [];
+  const placeholders = ids.map(() => '?').join(',');
+  const playerRows = parseRows(
+    playerRowSchema,
+    await db.prepare(`SELECT * FROM players WHERE save_id = ? AND id IN (${placeholders})`).all(saveId, ...ids),
+    'players.getPlayersWithAttributesByIds',
+  );
+  if (playerRows.length === 0) return [];
+  const attrRows = parseRows(
+    playerAttributesRowSchema,
+    await db
+      .prepare('SELECT * FROM player_attributes WHERE player_id IN (' + playerRows.map(() => '?').join(',') + ')')
+      .all(...playerRows.map((p) => p.id)),
+    'players.getPlayersWithAttributesByIds.attrs',
+  );
+  const attrsById = new Map(attrRows.map((a) => [a.player_id, rowToAttributes(a)]));
+  return playerRows
+    .filter((p) => attrsById.has(p.id))
+    .map((p) => ({ ...rowToPlayer(p), attributes: attrsById.get(p.id)! }));
+}
+
+// Carrega jogadores (com atributos) por demônimos de nacionalidade — pool da seleção
+// (independe de clube). Usado para escalar a seleção rival e a pré-convocação da IA.
+export async function getPlayersWithAttributesByNationalities(
+  db: DbHandle,
+  saveId: number,
+  nationalities: string[],
+): Promise<(Player & { attributes: PlayerAttributes })[]> {
+  if (nationalities.length === 0) return [];
+  const placeholders = nationalities.map(() => '?').join(',');
+  const playerRows = parseRows(
+    playerRowSchema,
+    await db
+      .prepare(`SELECT * FROM players WHERE save_id = ? AND nationality IN (${placeholders})`)
+      .all(saveId, ...nationalities),
+    'players.getPlayersWithAttributesByNationalities',
+  );
+  if (playerRows.length === 0) return [];
+  const attrRows = parseRows(
+    playerAttributesRowSchema,
+    await db
+      .prepare('SELECT * FROM player_attributes WHERE player_id IN (' + playerRows.map(() => '?').join(',') + ')')
+      .all(...playerRows.map((p) => p.id)),
+    'players.getPlayersWithAttributesByNationalities.attrs',
+  );
   const attrsById = new Map(attrRows.map((a) => [a.player_id, rowToAttributes(a)]));
   return playerRows
     .filter((p) => attrsById.has(p.id))
@@ -145,15 +247,19 @@ export async function getPlayerById(
   saveId: number,
   playerId: number,
 ): Promise<(Player & { attributes: PlayerAttributes }) | null> {
-  const playerRow = await db
-    .prepare('SELECT * FROM players WHERE save_id = ? AND id = ?')
-    .get(saveId, playerId) as PlayerRow | undefined;
+  const playerRow = parseRow(
+    playerRowSchema.nullable(),
+    await db.prepare('SELECT * FROM players WHERE save_id = ? AND id = ?').get(saveId, playerId),
+    'players.getPlayerById',
+  );
 
   if (!playerRow) return null;
 
-  const attrRow = await db
-    .prepare('SELECT * FROM player_attributes WHERE player_id = ?')
-    .get(playerId) as PlayerAttributesRow | undefined;
+  const attrRow = parseRow(
+    playerAttributesRowSchema.nullable(),
+    await db.prepare('SELECT * FROM player_attributes WHERE player_id = ?').get(playerId),
+    'players.getPlayerById.attrs',
+  );
 
   if (!attrRow) return null;
 
@@ -197,8 +303,8 @@ export async function searchPlayers(db: DbHandle, saveId: number, filters: Searc
   }
 
   const sql = `SELECT * FROM players WHERE ${conditions.join(' AND ')}`;
-  const rows = await db.prepare(sql).all(...params) as PlayerRow[];
-  return rows.map(rowToPlayer);
+  const rows = await db.prepare(sql).all(...params);
+  return parseRows(playerRowSchema, rows, 'players.searchPlayers').map(rowToPlayer);
 }
 
 export async function updatePlayerMorale(db: DbHandle, saveId: number, playerId: number, morale: number): Promise<void> {
@@ -208,21 +314,27 @@ export async function updatePlayerMorale(db: DbHandle, saveId: number, playerId:
 export async function getFreeAgents(db: DbHandle, saveId: number): Promise<Player[]> {
   const rows = await db
     .prepare('SELECT * FROM players WHERE save_id = ? AND is_free_agent = 1')
-    .all(saveId) as PlayerRow[];
-  return rows.map(rowToPlayer);
+    .all(saveId);
+  return parseRows(playerRowSchema, rows, 'players.getFreeAgents').map(rowToPlayer);
 }
 
 export async function getFreeAgentsWithAttributes(
   db: DbHandle,
   saveId: number,
 ): Promise<(Player & { attributes: PlayerAttributes })[]> {
-  const playerRows = await db
-    .prepare('SELECT * FROM players WHERE save_id = ? AND is_free_agent = 1')
-    .all(saveId) as PlayerRow[];
+  const playerRows = parseRows(
+    playerRowSchema,
+    await db.prepare('SELECT * FROM players WHERE save_id = ? AND is_free_agent = 1').all(saveId),
+    'players.getFreeAgentsWithAttributes',
+  );
   if (playerRows.length === 0) return [];
-  const attrRows = await db
-    .prepare('SELECT * FROM player_attributes WHERE player_id IN (' + playerRows.map(() => '?').join(',') + ')')
-    .all(...playerRows.map((p) => p.id)) as PlayerAttributesRow[];
+  const attrRows = parseRows(
+    playerAttributesRowSchema,
+    await db
+      .prepare('SELECT * FROM player_attributes WHERE player_id IN (' + playerRows.map(() => '?').join(',') + ')')
+      .all(...playerRows.map((p) => p.id)),
+    'players.getFreeAgentsWithAttributes.attrs',
+  );
   const attrsById = new Map(attrRows.map((a) => [a.player_id, rowToAttributes(a)]));
   return playerRows
     .filter((p) => attrsById.has(p.id))
@@ -267,8 +379,8 @@ export async function retirePlayer(db: DbHandle, saveId: number, playerId: numbe
 export async function getPlayersAboutToRetire(db: DbHandle, saveId: number, clubId: number): Promise<Player[]> {
   const rows = await db
     .prepare('SELECT * FROM players WHERE save_id = ? AND club_id = ? AND will_retire_at_season_end = 1')
-    .all(saveId, clubId) as PlayerRow[];
-  return rows.map(rowToPlayer);
+    .all(saveId, clubId);
+  return parseRows(playerRowSchema, rows, 'players.getPlayersAboutToRetire').map(rowToPlayer);
 }
 
 export async function getListedPlayers(
@@ -282,8 +394,8 @@ export async function getListedPlayers(
     '(is_transfer_listed = 1 OR is_loan_listed = 1)';
   const rows = await db
     .prepare(`SELECT * FROM players WHERE save_id = ? AND ${where}`)
-    .all(saveId) as PlayerRow[];
-  return rows.map(rowToPlayer);
+    .all(saveId);
+  return parseRows(playerRowSchema, rows, 'players.getListedPlayers').map(rowToPlayer);
 }
 
 // Uma nova lesão sobrescreve a duração restante (a pancada mais recente define).
@@ -315,9 +427,11 @@ export async function getPlayerContractInfo(
   db: DbHandle,
   playerId: number,
 ): Promise<{ wage: number; contractEnd: number; clubId: number | null } | null> {
-  const row = (await db
-    .prepare('SELECT wage, contract_end, club_id FROM players WHERE id = ?')
-    .get(playerId)) as { wage: number; contract_end: number; club_id: number | null } | undefined;
+  const row = parseRow(
+    playerContractInfoRowSchema.nullable(),
+    await db.prepare('SELECT wage, contract_end, club_id FROM players WHERE id = ?').get(playerId),
+    'players.getPlayerContractInfo',
+  );
   if (!row) return null;
   return { wage: row.wage, contractEnd: row.contract_end, clubId: row.club_id == null ? null : Number(row.club_id) };
 }

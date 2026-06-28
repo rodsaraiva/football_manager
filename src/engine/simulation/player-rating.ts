@@ -6,6 +6,7 @@ export interface PlayerMatchInput {
   overall: number;
   position: Position;
   isLateSub?: boolean; // #8: came on in last 30min
+  formModifier?: number; // C8-e: -1..+1 por forma recente (ausente/0 = legado)
 }
 
 export interface PlayerRating {
@@ -29,6 +30,9 @@ export function calculatePlayerRatings(
       : 6.0 + (player.overall - 50) * 0.03;
     // Random variance ±0.4
     rating += rng.nextFloat(-0.4, 0.4);
+
+    // C8-e: recent-form swing (não consome RNG; somado após a variância).
+    if (player.formModifier) rating += player.formModifier;
 
     // Event bonuses for this player
     for (const e of events) {

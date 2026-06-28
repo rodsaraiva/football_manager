@@ -1,7 +1,12 @@
 import Database from 'better-sqlite3';
 import { createTestDb, createTestDbHandle, seedTestDb, TEST_SAVE_ID } from './test-helpers';
 import { DbHandle } from '@/database/queries/players';
-import { createFixture, updateFixtureResult, countClubWins } from '@/database/queries/fixtures';
+import {
+  createFixture,
+  updateFixtureResult,
+  countClubWins,
+  getNextFixtureForClub,
+} from '@/database/queries/fixtures';
 
 const SAVE_ID = TEST_SAVE_ID;
 
@@ -45,5 +50,14 @@ describe('countClubWins', () => {
 
   it('returns 0 when the club has no wins', async () => {
     expect(await countClubWins(db, SAVE_ID, clubA)).toBe(0);
+  });
+
+  // Regressão L3/EH-3: com schema Zod não-nulável, o .get() sem linha (fim de temporada)
+  // lançava em vez de retornar null. Guarda o caso "sem próxima partida".
+  it('getNextFixtureForClub retorna null (não lança) quando não há partida pendente', async () => {
+    await expect(getNextFixtureForClub(db, SAVE_ID, clubA, 1)).resolves.toBeNull();
+    await playMatch(10, clubA, clubB, 1, 0, 1);
+    const next = await getNextFixtureForClub(db, SAVE_ID, clubA, 1);
+    expect(next).toBeNull(); // a única partida foi jogada → nenhuma pendente
   });
 });

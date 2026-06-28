@@ -7,7 +7,6 @@
 import React, { useCallback, useState } from 'react';
 import {
   View,
-  Text,
   ScrollView,
   StyleSheet,
   ActivityIndicator,
@@ -15,11 +14,12 @@ import {
   FlatList,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import { colors, alpha, spacing, fontSize, radius, commonStyles } from '@/theme';
+import { colors, alpha, spacing, radius, commonStyles } from '@/theme';
 import { useTranslation } from '@/i18n';
 import type { TKey } from '@/i18n/translate';
 import { ValueBadge } from '@/components/ValueBadge';
-import { EmptyState } from '@/components/EmptyState';
+import { EmptyState, Card } from '@/components/kit';
+import { Display, Title, Body, Label, Caption } from '@/components/typography';
 import { useGameStore } from '@/store/game-store';
 import { useDatabaseStore } from '@/store/database-store';
 import { getClubsByLeague } from '@/database/queries/clubs';
@@ -157,7 +157,7 @@ export function ReportsProjectionScreen() {
   if (projection.length === 0) {
     return (
       <View style={[commonStyles.screen, styles.center]}>
-        <EmptyState icon="📈" title={t('report.projection_empty')} />
+        <EmptyState art="generic" title={t('report.projection_empty')} />
       </View>
     );
   }
@@ -176,13 +176,13 @@ export function ReportsProjectionScreen() {
       ListHeaderComponent={
         <>
           {myEntry && (
-            <View style={[styles.myStatusCard, { borderLeftColor: statusColor(myEntry.status) }]}>
-              <Text style={styles.myStatusTitle}>{t('report.projection_my_status')}</Text>
+            <Card variant="summary" accent={statusColor(myEntry.status)} style={[styles.myStatusCard, { borderLeftColor: statusColor(myEntry.status) }]}>
+              <Caption color={colors.textMuted} style={styles.myStatusTitle}>{t('report.projection_my_status')}</Caption>
               <View style={styles.myStatusRow}>
-                <Text style={styles.myPosition}>{myEntry.projectedPosition}º</Text>
+                <Display style={styles.myPosition}>{myEntry.projectedPosition}º</Display>
                 <View style={styles.myStatusInfo}>
-                  <Text style={styles.myPoints}>{t('report.projection_pts_proj', { pts: myEntry.projectedPoints.toFixed(1) })}</Text>
-                  <Text style={styles.myPointsCurrent}>{t('report.projection_pts_current', { pts: myEntry.points, games: myEntry.remainingFixtures })}</Text>
+                  <Body color={colors.primary} style={styles.myPoints}>{t('report.projection_pts_proj', { pts: myEntry.projectedPoints.toFixed(1) })}</Body>
+                  <Caption color={colors.textSecondary} style={styles.myPointsCurrent}>{t('report.projection_pts_current', { pts: myEntry.points, games: myEntry.remainingFixtures })}</Caption>
                 </View>
                 <ValueBadge
                   value={t(statusLabelKey(myEntry.status))}
@@ -190,17 +190,17 @@ export function ReportsProjectionScreen() {
                   size="sm"
                 />
               </View>
-            </View>
+            </Card>
           )}
 
           {nextFiveFixtures.length > 0 && (
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>{t('report.projection_next5')}</Text>
-              <Text style={styles.sectionSub}>{t('report.projection_next5_sub')}</Text>
-              {nextFiveFixtures.map((f, i) => (
+            <Card variant="summary" style={styles.section}>
+              <Title style={styles.sectionTitle}>{t('report.projection_next5')}</Title>
+              <Caption color={colors.textMuted} style={styles.sectionSub}>{t('report.projection_next5_sub')}</Caption>
+              {nextFiveFixtures.map((f) => (
                 <View key={f.fixtureId} style={styles.fixtureRow}>
-                  <Text style={styles.fixtureWeek}>S{f.week}</Text>
-                  <Text style={styles.fixtureName}>{f.opponentName}</Text>
+                  <Caption color={colors.textMuted} style={styles.fixtureWeek}>S{f.week}</Caption>
+                  <Body style={styles.fixtureName}>{f.opponentName}</Body>
                   <ValueBadge
                     value={t(`report.difficulty_${f.difficulty}` as TKey)}
                     tone={f.difficulty === 'easy' ? 'success' : f.difficulty === 'hard' ? 'danger' : 'warning'}
@@ -208,15 +208,15 @@ export function ReportsProjectionScreen() {
                   />
                 </View>
               ))}
-            </View>
+            </Card>
           )}
 
           <View style={styles.tableHeader}>
-            <Text style={[styles.headerCell, { width: 28 }]}>#</Text>
-            <Text style={[styles.headerCell, { flex: 1 }]}>{t('report.col_club')}</Text>
-            <Text style={[styles.headerCell, { width: 42, textAlign: 'right' }]}>Pts</Text>
-            <Text style={[styles.headerCell, { width: 52, textAlign: 'right' }]}>Proj.</Text>
-            <Text style={[styles.headerCell, { width: 34, textAlign: 'right' }]}>Res.</Text>
+            <Label color={colors.textMuted} style={[styles.headerCell, { width: 28 }]}>#</Label>
+            <Label color={colors.textMuted} style={[styles.headerCell, { flex: 1 }]}>{t('report.col_club')}</Label>
+            <Label color={colors.textMuted} style={[styles.headerCell, { width: 42, textAlign: 'right' }]}>Pts</Label>
+            <Label color={colors.textMuted} style={[styles.headerCell, { width: 52, textAlign: 'right' }]}>Proj.</Label>
+            <Label color={colors.textMuted} style={[styles.headerCell, { width: 34, textAlign: 'right' }]}>Res.</Label>
           </View>
         </>
       }
@@ -228,9 +228,9 @@ export function ReportsProjectionScreen() {
         />
       )}
       ListFooterComponent={
-        <Text style={styles.disclaimer}>
+        <Caption color={colors.textMuted} style={styles.disclaimer}>
           {t('report.projection_disclaimer')}
-        </Text>
+        </Caption>
       }
     />
   );
@@ -252,17 +252,17 @@ function StandingRow({
         isMyClub && { borderLeftWidth: 3, borderLeftColor: colors.primary },
       ]}
     >
-      <Text style={[styles.cell, { width: 28 }]}>{entry.projectedPosition}</Text>
-      <Text style={[styles.cell, { flex: 1 }, isMyClub && styles.myClubText]} numberOfLines={1}>
+      <Body style={[styles.cell, { width: 28 }]}>{entry.projectedPosition}</Body>
+      <Body style={[styles.cell, { flex: 1 }, isMyClub && styles.myClubText]} numberOfLines={1}>
         {name}
-      </Text>
-      <Text style={[styles.cell, { width: 42, textAlign: 'right' }]}>{entry.points}</Text>
-      <Text style={[styles.cell, { width: 52, textAlign: 'right', color: colors.primary, fontWeight: '700' }]}>
+      </Body>
+      <Body style={[styles.cell, { width: 42, textAlign: 'right' }]}>{entry.points}</Body>
+      <Body style={[styles.cell, { width: 52, textAlign: 'right', color: colors.primary, fontWeight: '700' }]}>
         {entry.projectedPoints.toFixed(1)}
-      </Text>
-      <Text style={[styles.cell, { width: 34, textAlign: 'right', color: colors.textMuted }]}>
+      </Body>
+      <Body style={[styles.cell, { width: 34, textAlign: 'right', color: colors.textMuted }]}>
         {entry.remainingFixtures}
-      </Text>
+      </Body>
     </View>
   );
 }
@@ -290,21 +290,13 @@ function statusLabelKey(status: ProjectedStanding['status']): TKey {
 const styles = StyleSheet.create({
   container: { paddingBottom: spacing.xl },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing.lg },
-  emptyText: { color: colors.textMuted, fontSize: fontSize.md, textAlign: 'center' },
   myStatusCard: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    padding: spacing.md,
     marginHorizontal: spacing.md,
     marginTop: spacing.sm,
     marginBottom: spacing.sm,
-    borderWidth: 1,
-    borderColor: colors.border,
     borderLeftWidth: 4,
   },
   myStatusTitle: {
-    color: colors.textMuted,
-    fontSize: fontSize.xs,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     marginBottom: spacing.xs,
@@ -315,39 +307,24 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   myPosition: {
-    color: colors.text,
-    fontSize: fontSize.title,
     fontWeight: 'bold',
-    width: 50,
+    width: 64,
   },
   myStatusInfo: { flex: 1 },
   myPoints: {
-    color: colors.primary,
-    fontSize: fontSize.md,
     fontWeight: '700',
   },
   myPointsCurrent: {
-    color: colors.textSecondary,
-    fontSize: fontSize.sm,
     marginTop: spacing.xxs,
   },
   section: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    padding: spacing.md,
     marginHorizontal: spacing.md,
     marginBottom: spacing.sm,
-    borderWidth: 1,
-    borderColor: colors.border,
   },
   sectionTitle: {
-    color: colors.text,
-    fontSize: fontSize.md,
     fontWeight: '700',
   },
   sectionSub: {
-    color: colors.textMuted,
-    fontSize: fontSize.xs,
     marginTop: spacing.xxs,
     marginBottom: spacing.sm,
   },
@@ -358,14 +335,10 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   fixtureWeek: {
-    color: colors.textMuted,
-    fontSize: fontSize.xs,
     width: 24,
   },
   fixtureName: {
     flex: 1,
-    color: colors.text,
-    fontSize: fontSize.sm,
   },
   tableHeader: {
     flexDirection: 'row',
@@ -375,9 +348,6 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.border,
   },
   headerCell: {
-    color: colors.textMuted,
-    fontSize: fontSize.xs,
-    fontWeight: '700',
     textTransform: 'uppercase',
   },
   tableRow: {
@@ -389,16 +359,12 @@ const styles = StyleSheet.create({
     borderBottomColor: alpha(colors.border, 0.27),
   },
   cell: {
-    color: colors.text,
-    fontSize: fontSize.sm,
   },
   myClubText: {
     color: colors.primary,
     fontWeight: '700',
   },
   disclaimer: {
-    color: colors.textMuted,
-    fontSize: fontSize.xs,
     fontStyle: 'italic',
     textAlign: 'center',
     marginTop: spacing.md,

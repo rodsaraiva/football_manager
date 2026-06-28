@@ -1,4 +1,5 @@
 import { DbHandle } from '@/database/queries/players';
+import { emitLoanReturn, WEEKS_PER_SEASON } from '@/engine/inbox/producers';
 
 /**
  * Returns loaned players to their parent club when the loan has reached its
@@ -11,12 +12,14 @@ import { DbHandle } from '@/database/queries/players';
  * When loan_end <= season being finalized, the player is moved back to the
  * parent club and the loan record is effectively closed.
  *
- * Returns the number of players returned.
+ * Returns the number of players returned. Quando `playerClubId` é informado e o clube-pai
+ * é o do jogador humano, emite uma thread informativa na Inbox (sem ação).
  */
 export async function returnExpiredLoans(
   db: DbHandle,
   saveId: number,
   season: number,
+  playerClubId: number | null = null,
 ): Promise<number> {
   // Find loans whose loan_end has been reached and the player hasn't been
   // sold off to yet another club (we trust player.club_id = to_club_id still).
@@ -58,6 +61,17 @@ export async function returnExpiredLoans(
     await db
       .prepare('UPDATE transfers SET loan_end = NULL WHERE save_id = ? AND id = ?')
       .run(saveId, loan.id);
+
+    if (playerClubId !== null && loan.from_club_id === playerClubId) {
+      const pl = (await db.prepare('SELECT name FROM players WHERE save_id = ? AND id = ?').get(saveId, loan.player_id)) as { name: string } | undefined;
+      const cl = (await db.prepare('SELECT name FROM clubs WHERE save_id = ? AND id = ?').get(saveId, loan.to_club_id)) as { name: string } | undefined;
+      await emitLoanReturn(db, saveId, {
+        playerName: pl?.name ?? '',
+        parentClubName: cl?.name ?? '',
+        season,
+        week: WEEKS_PER_SEASON,
+      });
+    }
 
     returned++;
   }

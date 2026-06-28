@@ -1,4 +1,7 @@
-export type MatchEventType = 'goal' | 'assist' | 'yellow' | 'red' | 'substitution' | 'injury' | 'penalty_scored' | 'penalty_missed' | 'free_kick_scored' | 'free_kick_missed' | 'shot_on_target' | 'shot_off_target' | 'save' | 'penalty_shootout';
+export type MatchEventType = 'goal' | 'assist' | 'yellow' | 'red' | 'substitution' | 'injury' | 'penalty_scored' | 'penalty_missed' | 'free_kick_scored' | 'free_kick_missed' | 'shot_on_target' | 'shot_off_target' | 'save' | 'penalty_shootout'
+  // L2 Fase 6: eventos de fase granulares (descritivos), emitidos só quando
+  // MatchInput.emitPhaseEvents está ON, por uma stream RNG separada (phaseRng).
+  | 'tackle' | 'key_pass' | 'recovery' | 'possession_change';
 
 export interface Fixture {
   id: number;
@@ -20,6 +23,16 @@ export interface MatchEvent {
   type: MatchEventType;
   playerId: number;
   secondaryPlayerId: number | null;
+  // L2 Fase 1: qualidade da chance (expected goals) do chute que gerou o evento.
+  // Presente só nos eventos de chute em jogo aberto (gol/chute/defesa); ausente em
+  // eventos sem chute (cartões, subs) e em gols de bola parada. Opcional ⇒ eventos
+  // legados/AI seguem válidos.
+  xg?: number;
+  // L2 Fase 2: geometria normalizada [0,1]×[0,1] + fase, derivada fora da stream do
+  // jogo e persistida só na partida do usuário. Opcional ⇒ eventos legados/AI sem geometria.
+  x?: number;
+  y?: number;
+  phase?: string;
 }
 
 /**

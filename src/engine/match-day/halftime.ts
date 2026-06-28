@@ -1,23 +1,13 @@
 import { DbHandle } from '@/database/queries/players';
-import { getFixturesByWeek } from '@/database/queries/fixtures';
-import { getClubById } from '@/database/queries/clubs';
-import { loadClubMatchData } from '@/engine/game-loop';
-import { SeededRng } from '@/engine/rng';
 import { PlayerForStrength } from '@/engine/simulation/team-strength';
 import { Tactic } from '@/types/tactic';
-import { MatchStats } from '@/engine/simulation/match-engine';
-import {
-  simulateFirstHalf,
-  HalftimeState,
-  MatchInput,
-  MatchResult,
-} from '@/engine/simulation/match-engine';
+import { HalftimeState } from '@/engine/simulation/match-engine';
+import { startUserMatchLive } from '@/engine/match-day/live-match';
 
-// Isolated seed for the user's halftime preview so simulating ONLY their first
-// half never touches the rng stream the weekly advance uses for AI matches.
-export function halftimeSeed(season: number, week: number, fixtureId: number): number {
-  return season * 100000 + week * 100 + fixtureId;
-}
+// Retrocompat: `orientResultToFixture` e `halftimeSeed` agora vivem em
+// live-match.ts (evita ciclo de import). Re-exportados aqui para os consumidores
+// existentes (telas, testes de integração).
+export { orientResultToFixture, liveSeed as halftimeSeed } from '@/engine/match-day/live-match';
 
 export interface UserHalftimeContext {
   halftime: HalftimeState;
@@ -34,16 +24,9 @@ export interface UserHalftimeContext {
 }
 
 /**
- * Simulates ONLY the user's first half with an isolated rng so AI matches are
- * unaffected by the pause. To keep the engine override contract simple, the
- * user's club is ALWAYS oriented as "home" in the MatchInput — manager overrides
- * (which the engine applies to the home side) therefore always hit the user's
- * team regardless of the real venue. `isHome` records the real fixture venue so
- * the UI can show the score correctly and the final result can be re-oriented
- * back to the fixture's home/away frame (see orientResultToFixture).
- *
- * Returns null when the user has no fixture this week (UI falls back to instant
- * advance).
+ * Retrocompat wrapper sobre `startUserMatchLive`. Mantém o shape antigo
+ * `UserHalftimeContext` consumido por telas/testes que ainda não migraram.
+ * Returns null when the user has no fixture this week.
  */
 export async function startUserMatchHalftime(params: {
   dbHandle: DbHandle;
@@ -52,81 +35,15 @@ export async function startUserMatchHalftime(params: {
   playerClubId: number;
   saveId: number;
 }): Promise<UserHalftimeContext | null> {
-  const { dbHandle: db, season, week, playerClubId, saveId } = params;
-
-  const fixtures = await getFixturesByWeek(db, saveId, season, week);
-  const fixture = fixtures.find(
-    f => !f.played && (f.homeClubId === playerClubId || f.awayClubId === playerClubId),
-  );
-  if (!fixture) return null;
-
-  const isHome = fixture.homeClubId === playerClubId;
-  const opponentId = isHome ? fixture.awayClubId : fixture.homeClubId;
-
-  const userData = await loadClubMatchData(db, saveId, playerClubId);
-  const opponentData = await loadClubMatchData(db, saveId, opponentId);
-  const opponentClub = await getClubById(db, saveId, opponentId);
-
-  // User is ALWAYS the engine's "home" side (see doc comment).
-  const input: MatchInput = {
-    fixtureId: fixture.id,
-    homeSquad: userData.squad,
-    awaySquad: opponentData.squad,
-    homeBench: userData.bench,
-    awayBench: opponentData.bench,
-    homeTactic: userData.tactic,
-    awayTactic: opponentData.tactic,
-    homeClubReputation: userData.reputation,
-    awayClubReputation: opponentData.reputation,
-    // P7: user is always the engine's "home" side, so their designated takers
-    // ride on homeSetPieceTakers. Opponent (AI) stays on the auto-pick fallback.
-    homeSetPieceTakers: userData.setPieceTakers,
-    awaySetPieceTakers: opponentData.setPieceTakers,
-    rng: new SeededRng(halftimeSeed(season, week, fixture.id)),
-  };
-
-  const halftime = simulateFirstHalf(input);
-
+  const ctx = await startUserMatchLive(params);
+  if (!ctx) return null;
   return {
-    halftime,
-    isHome,
-    opponentName: opponentClub?.name ?? 'Opponent',
-    homeSquad: halftime.home.squad,
-    homeBench: halftime.home.bench,
-    homeTactic: halftime.home.tactic,
-    fixtureId: fixture.id,
-  };
-}
-
-/**
- * Re-orients an engine result (user-as-home) back to the real fixture frame.
- * When the user is the away side, home/away are swapped so the persisted
- * scoreline, stats and ratings match the fixture's home/away clubs.
- */
-export function orientResultToFixture(result: MatchResult, userIsHome: boolean): MatchResult {
-  if (userIsHome) return result;
-  const s = result.stats;
-  const swappedStats: MatchStats = {
-    homePossession: s.awayPossession,
-    awayPossession: s.homePossession,
-    homeShots: s.awayShots,
-    awayShots: s.homeShots,
-    homeShotsOnTarget: s.awayShotsOnTarget,
-    awayShotsOnTarget: s.homeShotsOnTarget,
-    homeFouls: s.awayFouls,
-    awayFouls: s.homeFouls,
-    homeCorners: s.awayCorners,
-    awayCorners: s.homeCorners,
-    homeXG: s.awayXG,
-    awayXG: s.homeXG,
-  };
-  return {
-    homeGoals: result.awayGoals,
-    awayGoals: result.homeGoals,
-    events: result.events,
-    homeRatings: result.awayRatings,
-    awayRatings: result.homeRatings,
-    stats: swappedStats,
-    attendance: result.attendance,
+    halftime: ctx.state,
+    isHome: ctx.isHome,
+    opponentName: ctx.opponentName,
+    homeSquad: ctx.state.home.squad,
+    homeBench: ctx.homeBench,
+    homeTactic: ctx.homeTactic,
+    fixtureId: ctx.fixtureId,
   };
 }

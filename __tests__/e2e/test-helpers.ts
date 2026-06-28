@@ -23,9 +23,21 @@ import { runSeasonTransition } from '@/engine/season/season-transition';
 import { acceptJobOffer } from '@/engine/board/accept-job-offer';
 import { getCompetitionsBySeason } from '@/database/queries/leagues';
 import { getClubById } from '@/database/queries/clubs';
-import { setJobOffersPending, setUnemployed, markSaveEnded } from '@/database/queries/save';
+import {
+  setJobOffersPending,
+  setUnemployed,
+  markSaveEnded,
+  setUnemployedSince,
+  getManagerSavings,
+  setManagerSavings,
+} from '@/database/queries/save';
 import { getPendingJobOffers } from '@/database/queries/job-offers';
 import { isManagerDismissed } from '@/engine/board/season-outcome';
+import { advanceUnemploymentSeason } from '@/engine/season/unemployment-spell';
+import {
+  getActiveManagerContract,
+  clearManagerContract,
+} from '@/database/queries/manager-contract';
 
 export interface E2EContext {
   rawDb: Database.Database;
@@ -233,6 +245,7 @@ export async function respondToJobOfferGate(
     offeringClubId: offeringClubIdOrNull,
     offerSeason: endedSeason,
     newSeason: ctx.season,
+    band: 'step_up',
     rng: new SeededRng(ctx.saveId * 13 + endedSeason),
   });
   ctx.playerClubId = offeringClubIdOrNull;
@@ -261,7 +274,7 @@ export interface EndSeasonHeadlessResult {
  */
 export async function endSeasonHeadless(
   ctx: E2EContext,
-  opts: { accept: boolean } = { accept: false },
+  opts: { accept: boolean; enterSpell?: boolean } = { accept: false },
 ): Promise<EndSeasonHeadlessResult> {
   const endedSeason = ctx.season - 1; // advanceGameWeek already bumped the pointer
   const club = (await getClubById(ctx.db, ctx.saveId, ctx.playerClubId))!;
@@ -282,6 +295,30 @@ export async function endSeasonHeadless(
 
   // ── W2: dismissed → rescue offers (down-band) instead of an immediate game over ──
   if (isManagerDismissed(evalRes.board.consequence)) {
+    // C4: a demissão paga a cláusula de saída do contrato à poupança e o limpa.
+    const contract = await getActiveManagerContract(ctx.db, ctx.saveId);
+    if (contract) {
+      const savings = await getManagerSavings(ctx.db, ctx.saveId);
+      await setManagerSavings(ctx.db, ctx.saveId, savings + contract.releaseClause);
+      await clearManagerContract(ctx.db, ctx.saveId);
+    }
+
+    // C4: entrar no spell de desemprego (sem aceitar agora) — roda o mundo com o clube
+    // original (igual à UI) para não congelar a simulação e marca o início do spell.
+    if (opts.enterSpell) {
+      await setUnemployed(ctx.db, ctx.saveId, true);
+      await setUnemployedSince(ctx.db, ctx.saveId, endedSeason);
+      await runSeasonTransition(ctx.db, {
+        saveId: ctx.saveId,
+        playerClubId: ctx.playerClubId,
+        endedSeason,
+        newSeason: ctx.season,
+        youthAcademyLevel: club.youthAcademy,
+        rng: new SeededRng(ctx.season * 7777),
+      });
+      return { fired: true, switched: false, newClubId: null };
+    }
+
     const pending = await getPendingJobOffers(ctx.db, ctx.saveId, endedSeason);
     if (opts.accept && pending.length > 0) {
       // The world rolls with the ORIGINAL club (rescue club rolled along), then we switch.
@@ -300,6 +337,7 @@ export async function endSeasonHeadless(
         offeringClubId: newClubId,
         offerSeason: endedSeason,
         newSeason: ctx.season,
+        band: 'rescue',
         rng: new SeededRng(ctx.saveId * 13 + endedSeason),
       });
       await setUnemployed(ctx.db, ctx.saveId, false);
@@ -330,4 +368,57 @@ export async function endSeasonHeadless(
   }
   const switched = await respondToJobOfferGate(ctx, endedSeason, newClubId);
   return { fired: false, switched, newClubId: switched ? newClubId : null };
+}
+
+/**
+ * C4: uma rodada de mercado do técnico desempregado (espelha a UI do gate de ofertas
+ * durante o spell). Aplica decaimento+dreno+novo lote via advanceUnemploymentSeason; se
+ * terminal, encerra a carreira. Se `accept` e houver oferta, roda a transição de mundo e
+ * assina o resgate, saindo do spell. Mantém o ponteiro ctx.season alinhado aos demais helpers.
+ */
+export async function advanceUnemploymentHeadless(
+  ctx: E2EContext,
+  opts: { accept: boolean } = { accept: false },
+): Promise<{ accepted: boolean; terminal: boolean; newClubId: number | null }> {
+  const season = ctx.season; // a virada gera ofertas chaveadas à temporada corrente
+  const res = await advanceUnemploymentSeason(ctx.db, {
+    saveId: ctx.saveId,
+    season,
+    rng: new SeededRng(season * 6151 + ctx.saveId),
+  });
+  if (res.terminal) {
+    await markSaveEnded(ctx.db, ctx.saveId);
+    return { accepted: false, terminal: true, newClubId: null };
+  }
+  if (opts.accept) {
+    const pending = await getPendingJobOffers(ctx.db, ctx.saveId, season);
+    if (pending.length > 0) {
+      const newClubId = pending[0].offeringClubId;
+      const club = (await getClubById(ctx.db, ctx.saveId, ctx.playerClubId))!;
+      await runSeasonTransition(ctx.db, {
+        saveId: ctx.saveId,
+        playerClubId: ctx.playerClubId,
+        endedSeason: season,
+        newSeason: season + 1,
+        youthAcademyLevel: club.youthAcademy,
+        rng: new SeededRng((season + 1) * 7777),
+      });
+      await acceptJobOffer({
+        db: ctx.db,
+        saveId: ctx.saveId,
+        offeringClubId: newClubId,
+        offerSeason: season,
+        newSeason: season + 1,
+        band: 'rescue',
+        rng: new SeededRng(ctx.saveId * 13 + season),
+      });
+      await setUnemployed(ctx.db, ctx.saveId, false);
+      await setUnemployedSince(ctx.db, ctx.saveId, null);
+      ctx.playerClubId = newClubId;
+      ctx.season = season + 1;
+      return { accepted: true, terminal: false, newClubId };
+    }
+  }
+  ctx.season = season + 1; // nenhuma aceitação → avança a rodada de mercado
+  return { accepted: false, terminal: false, newClubId: null };
 }

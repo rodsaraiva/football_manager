@@ -1,10 +1,13 @@
 import { SeededRng } from '@/engine/rng';
 import { PlayerAttributes, Position } from '@/types';
+import { resolveIntakeCount, YouthSpecialization } from '@/engine/youth/youth-levers';
 
 export interface YouthGenerationInput {
   clubId: number;
   academyLevel: number;    // 1-5
   youthCoachBonus: number; // 0-10 (from staff effects)
+  academyReputation?: number;           // 1-100 (default 50)
+  specialization?: YouthSpecialization; // default 'balanced'
   countryCode: string;
   rng: SeededRng;
 }
@@ -67,7 +70,23 @@ function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
 }
 
-function generateAttributes(rng: SeededRng, position: Position, base: number): PlayerAttributes {
+const PHYSICAL_ATTRS: (keyof PlayerAttributes)[] = ['pace', 'stamina', 'strength', 'agility', 'jumping'];
+const TECHNICAL_ATTRS: (keyof PlayerAttributes)[] = ['finishing', 'passing', 'crossing', 'dribbling', 'heading', 'longShots', 'freeKicks'];
+const MENTAL_ATTRS: (keyof PlayerAttributes)[] = ['vision', 'composure', 'decisions', 'positioning', 'aggression', 'leadership'];
+
+function specializationBoostSet(spec: YouthSpecialization, position: Position): Set<keyof PlayerAttributes> {
+  switch (spec) {
+    case 'physical': return new Set(PHYSICAL_ATTRS);
+    case 'technical': return new Set(TECHNICAL_ATTRS);
+    case 'mental': return new Set(MENTAL_ATTRS);
+    case 'position': return new Set(POSITION_BOOSTS[position] ?? []);
+    default: return new Set();
+  }
+}
+
+function generateAttributes(
+  rng: SeededRng, position: Position, base: number, spec: YouthSpecialization,
+): PlayerAttributes {
   const attrKeys: (keyof PlayerAttributes)[] = [
     'finishing', 'passing', 'crossing', 'dribbling', 'heading', 'longShots', 'freeKicks',
     'vision', 'composure', 'decisions', 'positioning', 'aggression', 'leadership',
@@ -75,12 +94,16 @@ function generateAttributes(rng: SeededRng, position: Position, base: number): P
   ];
 
   const boosts = new Set(POSITION_BOOSTS[position] ?? []);
+  const specBoosts = specializationBoostSet(spec, position);
   const attrs: Partial<PlayerAttributes> = {};
 
   for (const key of attrKeys) {
     const variance = rng.nextInt(-10, 10);
     const boost = boosts.has(key) ? rng.nextInt(5, 8) : 0;
-    attrs[key] = clamp(base + variance + boost, 1, 99);
+    // Determinismo: rng.nextInt(3,6) só é consumido quando a chave está no grupo
+    // da specialization; em 'balanced' o set é vazio e o stream fica idêntico ao legado.
+    const specBoost = specBoosts.has(key) ? rng.nextInt(3, 6) : 0;
+    attrs[key] = clamp(base + variance + boost + specBoost, 1, 99);
   }
 
   return attrs as PlayerAttributes;
@@ -95,10 +118,13 @@ function generateName(rng: SeededRng, countryCode: string): string {
 
 export function generateYouthPlayers(input: YouthGenerationInput): YouthPlayer[] {
   const { academyLevel, youthCoachBonus, countryCode, rng } = input;
+  const academyReputation = input.academyReputation ?? 50;
+  const specialization = input.specialization ?? 'balanced';
 
-  // Count: academyLevel + rng.nextInt(-1, 0) clamped to [2, 5]
-  const rawCount = academyLevel + rng.nextInt(-1, 0);
-  const count = clamp(rawCount, 2, 5);
+  // Count via levers (espelha academyLevel + rng.nextInt(-1,0), clamp [2,5]).
+  const count = resolveIntakeCount(
+    { academyLevel, youthCoachBonus, academyReputation, specialization }, rng,
+  );
 
   const players: YouthPlayer[] = [];
 
@@ -107,15 +133,17 @@ export function generateYouthPlayers(input: YouthGenerationInput): YouthPlayer[]
 
     const position = rng.weightedPick(POSITIONS, POSITION_WEIGHTS);
 
-    // basePotential: 40 + academyLevel * 8 + youthCoachBonus + rng.nextInt(-5, 10), clamped [45, 95]
-    const rawPotential = 40 + academyLevel * 8 + youthCoachBonus + rng.nextInt(-5, 10);
+    // repBonus é puro (não consome rng) e é 0 para reputation=50, preservando o
+    // stream legado. basePotential: 40 + academyLevel*8 + bonus + repBonus + rng.nextInt(-5,10).
+    const repBonus = Math.round((academyReputation - 50) / 12);
+    const rawPotential = 40 + academyLevel * 8 + youthCoachBonus + repBonus + rng.nextInt(-5, 10);
     const basePotential = clamp(rawPotential, 45, 95);
 
     // currentOverall: basePotential - rng.nextInt(10, 20), clamped [30, 70]
     const rawOverall = basePotential - rng.nextInt(10, 20);
     const currentOverall = clamp(rawOverall, 30, 70);
 
-    const attributes = generateAttributes(rng, position, currentOverall);
+    const attributes = generateAttributes(rng, position, currentOverall, specialization);
 
     const name = generateName(rng, countryCode);
 

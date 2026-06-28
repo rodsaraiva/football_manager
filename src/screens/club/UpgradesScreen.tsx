@@ -1,14 +1,11 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   View,
-  Text,
   ScrollView,
-  TouchableOpacity,
   StyleSheet,
-  Alert,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import { colors, spacing, fontSize, radius, commonStyles } from '@/theme';
+import { colors, spacing, commonStyles } from '@/theme';
 import { useTranslation } from '@/i18n';
 import type { TKey } from '@/i18n/translate';
 import { useGameStore } from '@/store/game-store';
@@ -18,6 +15,10 @@ import { DbHandle } from '@/database/queries/players';
 import { calculateUpgradeCost, FacilityType } from '@/engine/finance/finance-engine';
 import { applyUpgrade } from '@/engine/finance/upgrades';
 import { Club } from '@/types';
+import { Card, Button, Badge, Icon, useConfirm } from '@/components/kit';
+import type { IconName } from '@/components/kit';
+import StatBar from '@/components/StatBar';
+import { Title, Body, Label, Caption, Stat } from '@/components/typography';
 
 const MAX_LEVEL = 5;
 
@@ -34,22 +35,9 @@ function formatCost(amount: number): string {
 interface FacilityConfig {
   type: FacilityType;
   labelKey: TKey;
-  icon: string;
+  icon: IconName;
   descKey: TKey;
   currentLevel: number;
-}
-
-function LevelBar({ current, max = MAX_LEVEL }: { current: number; max?: number }) {
-  return (
-    <View style={styles.levelBarRow}>
-      {Array.from({ length: max }).map((_, i) => (
-        <View
-          key={i}
-          style={[styles.levelSegment, i < current ? styles.levelSegmentFilled : styles.levelSegmentEmpty]}
-        />
-      ))}
-    </View>
-  );
 }
 
 interface UpgradeCardProps {
@@ -65,6 +53,7 @@ interface UpgradeCardProps {
 
 function UpgradeCard({ config, budget, clubId, saveId, season, week, dbHandle, onUpgradeComplete }: UpgradeCardProps) {
   const { t } = useTranslation();
+  const confirm = useConfirm();
   const isMaxed = config.currentLevel >= MAX_LEVEL;
   const upgradeCost = isMaxed ? null : calculateUpgradeCost(config.type, config.currentLevel);
   const canAfford = !isMaxed && upgradeCost != null && budget >= upgradeCost.cost;
@@ -72,65 +61,78 @@ function UpgradeCard({ config, budget, clubId, saveId, season, week, dbHandle, o
   async function handleUpgrade() {
     if (isMaxed || !upgradeCost) return;
     if (budget < upgradeCost.cost) {
-      Alert.alert(t('upgrades.insufficient_budget'), t('upgrades.insufficient_budget_msg', { cost: formatCost(upgradeCost.cost), facility: t(config.labelKey) }));
+      await confirm({
+        title: t('upgrades.insufficient_budget'),
+        message: t('upgrades.insufficient_budget_msg', { cost: formatCost(upgradeCost.cost), facility: t(config.labelKey) }),
+        confirmLabel: t('kit.ok'),
+        tone: 'danger',
+      });
       return;
     }
     const result = await applyUpgrade(dbHandle, saveId, clubId, config.type, config.currentLevel, season, week);
     if (!result.success) {
-      Alert.alert(t('upgrades.failed'), result.reason ?? t('transfer.unknown_error'));
+      await confirm({
+        title: t('upgrades.failed'),
+        message: result.reason ?? t('transfer.unknown_error'),
+        confirmLabel: t('kit.ok'),
+        tone: 'danger',
+      });
       return;
     }
     onUpgradeComplete();
-    Alert.alert(
-      t('upgrades.complete'),
-      t('upgrades.complete_msg', { facility: t(config.labelKey), level: result.newLevel ?? 0, cost: formatCost(result.cost ?? 0) }),
-    );
+    await confirm({
+      title: t('upgrades.complete'),
+      message: t('upgrades.complete_msg', { facility: t(config.labelKey), level: result.newLevel ?? 0, cost: formatCost(result.cost ?? 0) }),
+      confirmLabel: t('kit.ok'),
+    });
   }
 
   return (
-    <View style={styles.card}>
+    <Card variant="detail" style={styles.card}>
       <View style={styles.cardHeader}>
-        <Text style={styles.cardIcon}>{config.icon}</Text>
+        <Icon name={config.icon} color={colors.primary} size={28} />
         <View style={styles.cardHeaderText}>
-          <Text style={styles.cardTitle}>{t(config.labelKey)}</Text>
-          <Text style={styles.cardDesc}>{t(config.descKey)}</Text>
+          <Title>{t(config.labelKey)}</Title>
+          <Caption color={colors.textSecondary}>{t(config.descKey)}</Caption>
         </View>
       </View>
 
       <View style={styles.levelRow}>
-        <Text style={styles.levelLabel}>{t('upgrades.level', { current: config.currentLevel, max: MAX_LEVEL })}</Text>
-        <LevelBar current={config.currentLevel} />
+        <Body color={colors.textSecondary}>{t('upgrades.level', { current: config.currentLevel, max: MAX_LEVEL })}</Body>
+        <View style={styles.levelBar}>
+          <StatBar value={config.currentLevel} maxValue={MAX_LEVEL} color={colors.primary} barOnly />
+        </View>
       </View>
 
       {isMaxed ? (
         <View style={styles.maxedBadge}>
-          <Text style={styles.maxedText}>{t('upgrades.max_level')}</Text>
+          <Badge value={t('upgrades.max_level')} tone="accent" accent={colors.gold} />
         </View>
       ) : (
         <View style={styles.upgradeRow}>
           <View style={styles.costBlock}>
-            <Text style={styles.costLabel}>{t('upgrades.cost')}</Text>
-            <Text style={styles.costValue}>{upgradeCost ? formatCost(upgradeCost.cost) : '—'}</Text>
+            <Label>{t('upgrades.cost')}</Label>
+            <Stat>{upgradeCost ? formatCost(upgradeCost.cost) : '—'}</Stat>
           </View>
           <View style={styles.costBlock}>
-            <Text style={styles.costLabel}>{t('upgrades.duration')}</Text>
-            <Text style={styles.costValue}>{upgradeCost ? t('upgrades.weeks', { n: upgradeCost.weeks }) : '—'}</Text>
+            <Label>{t('upgrades.duration')}</Label>
+            <Stat>{upgradeCost ? t('upgrades.weeks', { n: upgradeCost.weeks }) : '—'}</Stat>
           </View>
-          <TouchableOpacity
-            style={[styles.upgradeButton, !canAfford && styles.upgradeButtonDisabled]}
-            onPress={handleUpgrade}
+          <Button
+            label={t('upgrades.upgrade_btn')}
+            variant="primary"
             disabled={!canAfford}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.upgradeButtonText}>{t('upgrades.upgrade_btn')}</Text>
-          </TouchableOpacity>
+            onPress={handleUpgrade}
+            testID={`upgrade-${config.type}`}
+            accessibilityLabel={t('upgrades.upgrade_btn')}
+          />
         </View>
       )}
 
       {!isMaxed && !canAfford && (
-        <Text style={styles.insufficientFunds}>{t('upgrades.insufficient_funds')}</Text>
+        <Caption color={colors.danger} style={styles.insufficientFunds}>{t('upgrades.insufficient_funds')}</Caption>
       )}
-    </View>
+    </Card>
   );
 }
 
@@ -160,7 +162,7 @@ export function UpgradesScreen() {
   if (!club) {
     return (
       <View style={[commonStyles.screen, styles.center]}>
-        <Text style={styles.emptyText}>{t('newgame.loading')}</Text>
+        <Body color={colors.textMuted}>{t('newgame.loading')}</Body>
       </View>
     );
   }
@@ -169,28 +171,28 @@ export function UpgradesScreen() {
     {
       type: 'stadium',
       labelKey: 'upgrades.fac_stadium',
-      icon: '🏟',
+      icon: 'shield',
       descKey: 'upgrades.fac_stadium_desc',
       currentLevel: Math.min(club.stadiumCapacity > 60000 ? 5 : club.stadiumCapacity > 45000 ? 4 : club.stadiumCapacity > 30000 ? 3 : club.stadiumCapacity > 15000 ? 2 : 1, MAX_LEVEL),
     },
     {
       type: 'training',
       labelKey: 'upgrades.fac_training',
-      icon: '⚽',
+      icon: 'tactics',
       descKey: 'upgrades.fac_training_desc',
       currentLevel: Math.min(club.trainingFacilities, MAX_LEVEL),
     },
     {
       type: 'youth',
       labelKey: 'upgrades.fac_youth',
-      icon: '🌱',
+      icon: 'squad',
       descKey: 'upgrades.fac_youth_desc',
       currentLevel: Math.min(club.youthAcademy, MAX_LEVEL),
     },
     {
       type: 'medical',
       labelKey: 'upgrades.fac_medical',
-      icon: '🏥',
+      icon: 'injury',
       descKey: 'upgrades.fac_medical_desc',
       currentLevel: Math.min(club.medicalDepartment, MAX_LEVEL),
     },
@@ -198,12 +200,12 @@ export function UpgradesScreen() {
 
   return (
     <ScrollView style={commonStyles.screen} contentContainerStyle={styles.container}>
-      <View style={styles.budgetBanner}>
-        <Text style={styles.budgetLabel}>{t('upgrades.available_budget')}</Text>
-        <Text style={[styles.budgetAmount, { color: club.budget >= 0 ? colors.success : colors.danger }]}>
+      <Card variant="summary" style={styles.budgetBanner}>
+        <Label>{t('upgrades.available_budget')}</Label>
+        <Stat color={club.budget >= 0 ? colors.success : colors.danger}>
           {club.budget < 0 ? '-' : ''}${Math.abs(club.budget).toLocaleString()}
-        </Text>
-      </View>
+        </Stat>
+      </Card>
 
       {facilities.map((fac) => (
         <UpgradeCard
@@ -230,90 +232,34 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  emptyText: {
-    color: colors.textMuted,
-    fontSize: fontSize.md,
-  },
   budgetBanner: {
-    backgroundColor: colors.surface,
-    borderRadius: 10,
-    padding: spacing.md,
     marginHorizontal: spacing.md,
     marginTop: spacing.md,
     marginBottom: spacing.sm,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  budgetLabel: {
-    color: colors.textMuted,
-    fontSize: fontSize.xs,
-    fontWeight: '600',
-    letterSpacing: 1,
-    textTransform: 'uppercase',
-  },
-  budgetAmount: {
-    fontSize: fontSize.xl,
-    fontWeight: 'bold',
   },
   card: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    padding: spacing.md,
     marginHorizontal: spacing.md,
     marginBottom: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.border,
+    gap: spacing.md,
   },
   cardHeader: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    marginBottom: spacing.md,
     gap: spacing.sm,
-  },
-  cardIcon: {
-    fontSize: fontSize.xxl,
   },
   cardHeaderText: {
     flex: 1,
-  },
-  cardTitle: {
-    color: colors.text,
-    fontSize: fontSize.lg,
-    fontWeight: '600',
-  },
-  cardDesc: {
-    color: colors.textSecondary,
-    fontSize: fontSize.sm,
-    marginTop: spacing.xxs,
   },
   levelRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: spacing.md,
+    gap: spacing.md,
   },
-  levelLabel: {
-    color: colors.textSecondary,
-    fontSize: fontSize.sm,
-  },
-  levelBarRow: {
-    flexDirection: 'row',
-    gap: spacing.xs,
-  },
-  levelSegment: {
-    width: 28,
-    height: 8,
-    borderRadius: radius.sm,
-  },
-  levelSegmentFilled: {
-    backgroundColor: colors.primary,
-  },
-  levelSegmentEmpty: {
-    backgroundColor: colors.border,
-  },
+  levelBar: { flex: 1 },
   upgradeRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -322,52 +268,10 @@ const styles = StyleSheet.create({
   costBlock: {
     flex: 1,
   },
-  costLabel: {
-    color: colors.textMuted,
-    fontSize: fontSize.xs,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  costValue: {
-    color: colors.text,
-    fontSize: fontSize.md,
-    fontWeight: '600',
-    marginTop: spacing.xxs,
-  },
-  upgradeButton: {
-    backgroundColor: colors.primary,
-    borderRadius: radius.md,
-    paddingVertical: 10,
-    paddingHorizontal: spacing.md,
-    alignItems: 'center',
-  },
-  upgradeButtonDisabled: {
-    backgroundColor: colors.surfaceLight,
-    opacity: 0.6,
-  },
-  upgradeButtonText: {
-    color: colors.text,
-    fontSize: fontSize.md,
-    fontWeight: '600',
-  },
   maxedBadge: {
-    backgroundColor: `${colors.gold}22`,
-    borderRadius: 6,
-    paddingVertical: spacing.sm,
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: `${colors.gold}44`,
-  },
-  maxedText: {
-    color: colors.gold,
-    fontSize: fontSize.sm,
-    fontWeight: 'bold',
-    letterSpacing: 1,
   },
   insufficientFunds: {
-    color: colors.danger,
-    fontSize: fontSize.xs,
-    marginTop: spacing.xs,
     textAlign: 'right',
   },
 });

@@ -9,12 +9,14 @@ import { GameOverScreen } from '@/screens/GameOverScreen';
 import { FinancesScreen } from '@/screens/club/FinancesScreen';
 import { StaffScreen } from '@/screens/club/StaffScreen';
 import { UpgradesScreen } from '@/screens/club/UpgradesScreen';
+import { SettingsScreen } from '@/screens/SettingsScreen';
 import { TrainingScreen } from '@/screens/tactics/TrainingScreen';
 import { BoardScreen } from '@/screens/club/BoardScreen';
 import { AssistantsScreen } from '@/screens/club/AssistantsScreen';
 import { AssistantHiringScreen } from '@/screens/club/AssistantHiringScreen';
 import { TransferMarketScreen } from '@/screens/club/transfers/TransferMarketScreen';
 import { OffersSentScreen } from '@/screens/club/transfers/OffersSentScreen';
+import { LoanPortfolioScreen } from '@/screens/club/transfers/LoanPortfolioScreen';
 import { OffersReceivedScreen } from '@/screens/club/transfers/OffersReceivedScreen';
 import { FreeAgentsScreen } from '@/screens/club/transfers/FreeAgentsScreen';
 import { MyListingsScreen } from '@/screens/club/transfers/MyListingsScreen';
@@ -30,8 +32,12 @@ import { ReportsProjectionScreen } from '@/screens/reports/ReportsProjectionScre
 import { ReportsFreeAgentScoutScreen } from '@/screens/reports/ReportsFreeAgentScoutScreen';
 import { ScoutingScreen } from '@/screens/reports/ScoutingScreen';
 import { InternationalsScreen } from '@/screens/national/InternationalsScreen';
+import { NationalSquadScreen } from '@/screens/national/NationalSquadScreen';
+import { NationalCalendarScreen } from '@/screens/national/NationalCalendarScreen';
+import { NationalHistoryScreen } from '@/screens/national/NationalHistoryScreen';
 import { HistoryScreen } from '@/screens/history/HistoryScreen';
 import { PlayerDetailRoute } from '@/screens/squad/PlayerDetailRoute';
+import { MoraleBreakdownScreen } from '@/screens/squad/MoraleBreakdownScreen';
 import { TeamTalkScreen } from '@/screens/squad/TeamTalkScreen';
 import { SetPiecesScreen } from '@/screens/tactics/SetPiecesScreen';
 import { MatchResultScreen } from '@/screens/home/MatchResultScreen';
@@ -40,7 +46,13 @@ import { PressConferenceScreen } from '@/screens/match/PressConferenceScreen';
 import { CalendarScreen } from '@/screens/home/CalendarScreen';
 import { PreSeasonScreen } from '@/screens/home/PreSeasonScreen';
 import { JobOffersScreen } from '@/screens/career/JobOffersScreen';
+import { ManagerProfileScreen } from '@/screens/career/ManagerProfileScreen';
 import { AchievementsScreen } from '@/screens/career/AchievementsScreen';
+import { HallOfFameScreen } from '@/screens/career/HallOfFameScreen';
+import { RecordsScreen } from '@/screens/career/RecordsScreen';
+import { ManagerTimelineScreen } from '@/screens/career/ManagerTimelineScreen';
+import { RivalriesScreen } from '@/screens/career/RivalriesScreen';
+import { InboxThreadScreen } from '@/screens/inbox/InboxThreadScreen';
 import { YouthAcademyScreen } from '@/screens/squad/YouthAcademyScreen';
 import { TopScorersScreen } from '@/screens/league/TopScorersScreen';
 import { CupBracketScreen } from '@/screens/league/CupBracketScreen';
@@ -69,10 +81,12 @@ export function RootNavigator() {
       <Stack.Screen name="GameOver" component={GameOverScreen} options={{ headerShown: false }} />
       {/* Player detail + match result (reachable from reports, squad, results) */}
       <Stack.Screen name="PlayerDetail" component={PlayerDetailRoute} options={{ title: t('nav.player') }} />
+      <Stack.Screen name="MoraleBreakdown" component={MoraleBreakdownScreen} options={{ title: t('psychology.title') }} />
       <Stack.Screen name="TeamTalk" component={TeamTalkScreen} options={{ title: t('nav.team_talk') }} />
       <Stack.Screen name="SetPieces" component={SetPiecesScreen} options={{ title: t('nav.set_pieces') }} />
       <Stack.Screen name="MatchResult" component={MatchResultScreen} options={{ title: t('nav.match_result') }} />
       <Stack.Screen name="MatchHalftime" component={MatchHalftimeScreen} options={{ title: t('nav.halftime') }} />
+      <Stack.Screen name="MatchLiveWindow" component={MatchHalftimeScreen} options={{ title: t('nav.halftime') }} />
       <Stack.Screen name="PressConference" component={PressConferenceScreen} options={{ title: t('nav.press') }} />
       {/* Club sub-screens */}
       <Stack.Screen name="ClubFinances" component={FinancesScreen} options={{ title: t('nav.finances') }} />
@@ -82,11 +96,14 @@ export function RootNavigator() {
       <Stack.Screen name="ClubBoard" component={BoardScreen} options={{ title: t('nav.board') }} />
       <Stack.Screen name="ClubAssistants" component={AssistantsScreen} options={{ title: t('nav.assistants') }} />
       <Stack.Screen name="ClubAssistantHiring" component={AssistantHiringScreen} options={{ title: t('nav.hire_assistant') }} />
+      {/* Global settings */}
+      <Stack.Screen name="Settings" component={SettingsScreen} options={{ title: t('nav.settings') }} />
       {/* Transfer sub-screens */}
       <Stack.Screen name="TransferMarket" component={TransferMarketScreen} options={{ title: t('nav.transfer_market') }} />
       <Stack.Screen name="OffersSent" component={OffersSentScreen} options={{ title: t('nav.offers_sent') }} />
       <Stack.Screen name="OffersReceived" component={OffersReceivedScreen} options={{ title: t('nav.offers_received') }} />
       <Stack.Screen name="FreeAgents" component={FreeAgentsScreen} options={{ title: t('nav.free_agents') }} />
+      <Stack.Screen name="LoanPortfolio" component={LoanPortfolioScreen} options={{ title: t('loan_portfolio.title') }} />
       <Stack.Screen name="MyListings" component={MyListingsScreen} options={{ title: t('nav.my_listings') }} />
       {/* League table as a pushable screen */}
       <Stack.Screen name="LeagueStandings" component={StandingsScreen} options={{ title: t('nav.league_table') }} />
@@ -102,16 +119,25 @@ export function RootNavigator() {
       <Stack.Screen name="ReportsFreeAgentScout" component={ReportsFreeAgentScoutScreen} options={{ title: t('nav.reports_free_agent_scout') }} />
       <Stack.Screen name="Scouting" component={ScoutingScreen} options={{ title: t('nav.scouting') }} />
       <Stack.Screen name="Internationals" component={InternationalsScreen} options={{ title: t('nav.internationals') }} />
+      <Stack.Screen name="NationalSquad" component={NationalSquadScreen} options={{ title: t('nav.national_squad') }} />
+      <Stack.Screen name="NationalCalendar" component={NationalCalendarScreen} options={{ title: t('nav.national_calendar') }} />
+      <Stack.Screen name="NationalHistory" component={NationalHistoryScreen} options={{ title: t('nav.national_history') }} />
       {/* History hub */}
       <Stack.Screen name="SeasonHistory" component={HistoryScreen} options={{ title: t('nav.history') }} />
       {/* Orphan screens wired in */}
       <Stack.Screen name="Calendar" component={CalendarScreen} options={{ title: t('nav.calendar') }} />
       <Stack.Screen name="PreSeason" component={PreSeasonScreen} options={{ title: t('nav.preseason') }} />
       <Stack.Screen name="JobOffers" component={JobOffersScreen} options={{ title: t('nav.job_offers') }} />
+      <Stack.Screen name="ManagerProfile" component={ManagerProfileScreen} options={{ title: t('managerprofile.title') }} />
       <Stack.Screen name="Achievements" component={AchievementsScreen} options={{ title: t('nav.achievements') }} />
+      <Stack.Screen name="HallOfFame" component={HallOfFameScreen} options={{ title: t('nav.hall_of_fame') }} />
+      <Stack.Screen name="Records" component={RecordsScreen} options={{ title: t('nav.records') }} />
+      <Stack.Screen name="ManagerTimeline" component={ManagerTimelineScreen} options={{ title: t('nav.manager_timeline') }} />
+      <Stack.Screen name="Rivalries" component={RivalriesScreen} options={{ title: t('nav.rivalries') }} />
       <Stack.Screen name="YouthAcademy" component={YouthAcademyScreen} options={{ title: t('nav.youth_academy') }} />
       <Stack.Screen name="TopScorers" component={TopScorersScreen} options={{ title: t('nav.top_scorers') }} />
       <Stack.Screen name="CupBracket" component={CupBracketScreen} options={{ title: t('nav.cup_bracket') }} />
+      <Stack.Screen name="InboxThread" component={InboxThreadScreen} options={{ title: t('inbox.title') }} />
     </Stack.Navigator>
   );
 }

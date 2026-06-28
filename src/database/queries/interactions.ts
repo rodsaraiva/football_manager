@@ -1,4 +1,17 @@
+import { z, ZodObject } from 'zod';
+import { parseRow } from '../parse-rows';
 import { DbHandle } from './players';
+
+// Projeção com aliases (season/week vêm de last_interaction_*): não mapeia 1:1 a uma tabela.
+const lastInteractionRowSchema = z
+  .object({
+    season: z.number().nullable(),
+    week: z.number().nullable(),
+  })
+  .passthrough()
+  .nullable();
+
+export const __rowSchemas: Array<{ table: string; schema: ZodObject<any> }> = [];
 
 export interface InteractionStamp {
   season: number;
@@ -15,11 +28,12 @@ export async function getLastInteraction(
   saveId: number,
   playerId: number,
 ): Promise<InteractionStamp | null> {
-  const row = (await db
+  const raw = await db
     .prepare(
       'SELECT last_interaction_season AS season, last_interaction_week AS week FROM players WHERE save_id = ? AND id = ?',
     )
-    .get(saveId, playerId)) as { season: number | null; week: number | null } | undefined;
+    .get(saveId, playerId);
+  const row = parseRow(lastInteractionRowSchema, raw, 'interactions.getLastInteraction');
   if (!row || row.season == null || row.week == null) return null;
   return { season: row.season, week: row.week };
 }

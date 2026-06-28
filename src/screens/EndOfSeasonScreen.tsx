@@ -11,6 +11,7 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { colors, spacing, fontSize, radius, commonStyles } from '@/theme';
 import { useGameStore } from '@/store/game-store';
+import { useCelebrationStore } from '@/store/celebration-store';
 import { useDatabaseStore } from '@/store/database-store';
 import { RootStackParamList } from '@/navigation/types';
 import { getCompetitionsBySeason } from '@/database/queries/leagues';
@@ -111,6 +112,14 @@ export function EndOfSeasonScreen() {
           });
           setStoreManagerReputation(evalRes.managerRep.after);
           setManagerRepEval({ before: evalRes.managerRep.before, after: evalRes.managerRep.after, delta: evalRes.managerRep.delta });
+
+          if (evalRes.stats.leaguePosition === 1 || evalRes.wonCup) {
+            useCelebrationStore.getState().push({
+              kind: 'trophy',
+              titleKey: 'celebration.trophy',
+              detail: playerClub?.name ?? undefined,
+            });
+          }
 
           // ── P8 achievements: season-end checkpoint ──────────────────────────
           // Facts known here: titles, promotion, manager rep and seasons completed

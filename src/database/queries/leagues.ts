@@ -1,38 +1,59 @@
+import { z, ZodObject } from 'zod';
 import { Country, League, Competition, CompetitionEntry, CompetitionType, CompetitionFormat } from '@/types';
+import { parseRows, parseRow } from '../parse-rows';
 import { DbHandle } from './players';
 
-interface CountryRow {
-  id: number;
-  name: string;
-  code: string;
-  continent: string;
-}
+const countryRowSchema = z
+  .object({
+    id: z.number(),
+    name: z.string(),
+    code: z.string(),
+    continent: z.string(),
+  })
+  .passthrough();
+type CountryRow = z.infer<typeof countryRowSchema>;
 
-interface LeagueRow {
-  id: number;
-  name: string;
-  country_id: number;
-  division_level: number;
-  num_teams: number;
-  promotion_spots: number;
-  relegation_spots: number;
-}
+const leagueRowSchema = z
+  .object({
+    id: z.number(),
+    name: z.string(),
+    country_id: z.number(),
+    division_level: z.number(),
+    num_teams: z.number(),
+    promotion_spots: z.number(),
+    relegation_spots: z.number(),
+  })
+  .passthrough();
+type LeagueRow = z.infer<typeof leagueRowSchema>;
 
-interface CompetitionRow {
-  id: number;
-  name: string;
-  type: string;
-  format: string;
-  season: number;
-  league_id: number | null;
-}
+const competitionRowSchema = z
+  .object({
+    id: z.number(),
+    name: z.string(),
+    type: z.string(),
+    format: z.string(),
+    season: z.number(),
+    league_id: z.number().nullable(),
+  })
+  .passthrough();
+type CompetitionRow = z.infer<typeof competitionRowSchema>;
 
-interface CompetitionEntryRow {
-  competition_id: number;
-  club_id: number;
-  group_name: string | null;
-  seed: number;
-}
+const competitionEntryRowSchema = z
+  .object({
+    competition_id: z.number(),
+    club_id: z.number(),
+    group_name: z.string().nullable(),
+    seed: z.number(),
+  })
+  .passthrough();
+type CompetitionEntryRow = z.infer<typeof competitionEntryRowSchema>;
+
+export const __rowSchemas: Array<{ table: string; schema: ZodObject<any> }> = [
+  { table: 'countries', schema: countryRowSchema },
+  { table: 'leagues', schema: leagueRowSchema },
+  { table: 'competitions', schema: competitionRowSchema },
+  { table: 'competition_entries', schema: competitionEntryRowSchema },
+];
 
 function rowToCountry(row: CountryRow): Country {
   return {
@@ -78,18 +99,18 @@ function rowToCompetitionEntry(row: CompetitionEntryRow): CompetitionEntry {
 // ─── Reference tables (global — no save scope) ────────────────────────────────
 
 export async function getAllCountries(db: DbHandle): Promise<Country[]> {
-  const rows = await db.prepare('SELECT * FROM countries').all() as CountryRow[];
-  return rows.map(rowToCountry);
+  const rows = await db.prepare('SELECT * FROM countries').all();
+  return parseRows(countryRowSchema, rows, 'leagues.getAllCountries').map(rowToCountry);
 }
 
 export async function getAllLeagues(db: DbHandle): Promise<League[]> {
-  const rows = await db.prepare('SELECT * FROM leagues').all() as LeagueRow[];
-  return rows.map(rowToLeague);
+  const rows = await db.prepare('SELECT * FROM leagues').all();
+  return parseRows(leagueRowSchema, rows, 'leagues.getAllLeagues').map(rowToLeague);
 }
 
 export async function getLeagueById(db: DbHandle, leagueId: number): Promise<League | null> {
-  const row = await db.prepare('SELECT * FROM leagues WHERE id = ?').get(leagueId) as LeagueRow | undefined;
-  return row ? rowToLeague(row) : null;
+  const row = await db.prepare('SELECT * FROM leagues WHERE id = ?').get(leagueId);
+  return row ? rowToLeague(parseRow(leagueRowSchema, row, 'leagues.getLeagueById')) : null;
 }
 
 // ─── World (save-scoped) ──────────────────────────────────────────────────────
@@ -117,8 +138,8 @@ export async function createCompetition(db: DbHandle, saveId: number, input: Cre
 export async function getCompetitionsBySeason(db: DbHandle, saveId: number, season: number): Promise<Competition[]> {
   const rows = await db
     .prepare('SELECT * FROM competitions WHERE save_id = ? AND season = ?')
-    .all(saveId, season) as CompetitionRow[];
-  return rows.map(rowToCompetition);
+    .all(saveId, season);
+  return parseRows(competitionRowSchema, rows, 'leagues.getCompetitionsBySeason').map(rowToCompetition);
 }
 
 export interface AddCompetitionEntryInput {
@@ -137,6 +158,6 @@ export async function addCompetitionEntry(db: DbHandle, saveId: number, input: A
 export async function getCompetitionEntries(db: DbHandle, saveId: number, competitionId: number): Promise<CompetitionEntry[]> {
   const rows = await db
     .prepare('SELECT * FROM competition_entries WHERE save_id = ? AND competition_id = ?')
-    .all(saveId, competitionId) as CompetitionEntryRow[];
-  return rows.map(rowToCompetitionEntry);
+    .all(saveId, competitionId);
+  return parseRows(competitionEntryRowSchema, rows, 'leagues.getCompetitionEntries').map(rowToCompetitionEntry);
 }

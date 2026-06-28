@@ -30,10 +30,27 @@ export const TABLE_NAMES: string[] = [
   'assistants',
   'app_settings',
   'scouting',
+  'scout_missions',
   'job_offers',
+  'manager_contracts',
   'set_piece_takers',
   'achievements',
   'news_items',
+  'inbox_threads',
+  'inbox_messages',
+  'club_legends',
+  'club_records',
+  'rivalries',
+  'manager_career',
+  'youth_loans',
+  'academy_reputation_history',
+  'morale_events',
+  'chemistry_links',
+  'national_teams',
+  'national_fixtures',
+  'national_callups',
+  'national_titles',
+  'national_caps',
 ];
 
 export const SCHEMA_SQL = `
@@ -72,6 +89,7 @@ CREATE TABLE IF NOT EXISTS clubs (
   primary_color       TEXT    NOT NULL,
   secondary_color     TEXT    NOT NULL,
   training_focus      TEXT    NOT NULL DEFAULT 'balanced',
+  academy_reputation  INTEGER NOT NULL DEFAULT 50 CHECK (academy_reputation BETWEEN 1 AND 100),
   debt_weeks          INTEGER NOT NULL DEFAULT 0
 );
 
@@ -91,7 +109,10 @@ CREATE TABLE IF NOT EXISTS players (
   effective_potential INTEGER NOT NULL CHECK (effective_potential BETWEEN 1 AND 100),
   morale             INTEGER NOT NULL CHECK (morale BETWEEN 1 AND 100),
   fitness            INTEGER NOT NULL CHECK (fitness BETWEEN 1 AND 100),
+  match_sharpness    INTEGER NOT NULL DEFAULT 100 CHECK (match_sharpness BETWEEN 1 AND 100),
   injury_weeks_left  INTEGER NOT NULL DEFAULT 0,
+  injury_severity    TEXT,
+  injury_return_fitness INTEGER,
   is_free_agent      INTEGER NOT NULL DEFAULT 0,
   preferred_foot     TEXT    NOT NULL DEFAULT 'right',
   weak_foot_ability  INTEGER NOT NULL DEFAULT 3 CHECK (weak_foot_ability BETWEEN 1 AND 5),
@@ -104,7 +125,10 @@ CREATE TABLE IF NOT EXISTS players (
   will_retire_at_season_end    INTEGER NOT NULL DEFAULT 0,
   suspension_weeks_left        INTEGER NOT NULL DEFAULT 0,
   last_interaction_season      INTEGER,
-  last_interaction_week        INTEGER
+  last_interaction_week        INTEGER,
+  squad_tier         TEXT    NOT NULL DEFAULT 'first',
+  personality        TEXT    NOT NULL DEFAULT 'balanced',
+  fallout_state      TEXT    NOT NULL DEFAULT 'none'
 );
 
 CREATE TABLE IF NOT EXISTS player_attributes (
@@ -171,7 +195,9 @@ CREATE TABLE IF NOT EXISTS staff (
   club_id      INTEGER REFERENCES clubs(id),
   ability      INTEGER NOT NULL CHECK (ability BETWEEN 1 AND 20),
   wage         INTEGER NOT NULL,
-  contract_end INTEGER NOT NULL
+  contract_end INTEGER NOT NULL,
+  youth_specialization TEXT NOT NULL DEFAULT 'balanced',
+  archetype    TEXT
 );
 
 CREATE TABLE IF NOT EXISTS club_finances (
@@ -225,7 +251,11 @@ CREATE TABLE IF NOT EXISTS match_events (
   minute              INTEGER NOT NULL,
   type                TEXT    NOT NULL,
   player_id           INTEGER NOT NULL REFERENCES players(id),
-  secondary_player_id INTEGER REFERENCES players(id)
+  secondary_player_id INTEGER REFERENCES players(id),
+  xg                  REAL,
+  x                   REAL,
+  y                   REAL,
+  phase               TEXT
 );
 
 CREATE TABLE IF NOT EXISTS transfers (
@@ -315,7 +345,10 @@ CREATE TABLE IF NOT EXISTS save_games (
   manager_reputation INTEGER NOT NULL DEFAULT 50,
   job_offers_pending INTEGER NOT NULL DEFAULT 0,
   unemployed      INTEGER NOT NULL DEFAULT 0,
+  unemployed_since_season INTEGER,
+  manager_savings         INTEGER NOT NULL DEFAULT 0,
   onboarding_seen INTEGER NOT NULL DEFAULT 0,
+  media_sentiment INTEGER NOT NULL DEFAULT 0,
   created_at      TEXT    NOT NULL,
   updated_at      TEXT    NOT NULL
 );
@@ -330,6 +363,20 @@ CREATE TABLE IF NOT EXISTS job_offers (
   status          TEXT    NOT NULL DEFAULT 'pending',
   UNIQUE(save_id, season, offering_club_id)
 );
+
+-- C4 manager job market: 1 contrato ativo por save (UNIQUE save_id). save-isolated.
+CREATE TABLE IF NOT EXISTS manager_contracts (
+  id              INTEGER PRIMARY KEY AUTOINCREMENT,
+  save_id         INTEGER NOT NULL REFERENCES save_games(id),
+  club_id         INTEGER NOT NULL REFERENCES clubs(id),
+  start_season    INTEGER NOT NULL,
+  end_season      INTEGER NOT NULL,
+  wage_per_season INTEGER NOT NULL,
+  release_clause  INTEGER NOT NULL,
+  expectation     INTEGER NOT NULL,
+  UNIQUE(save_id)
+);
+CREATE INDEX IF NOT EXISTS idx_manager_contracts_save ON manager_contracts(save_id);
 
 -- Pre-season friendlies live in their own table, fully separate from official
 -- fixtures/competitions. The standings/archiver/promotion engines only read the
@@ -461,6 +508,21 @@ CREATE TABLE IF NOT EXISTS scouting (
   PRIMARY KEY (save_id, player_id)
 );
 
+-- C3 scout_missions: trabalho de scouting em andamento (1 olheiro = 1 missão ativa).
+CREATE TABLE IF NOT EXISTS scout_missions (
+  id               INTEGER PRIMARY KEY AUTOINCREMENT,
+  save_id          INTEGER NOT NULL REFERENCES save_games(id),
+  scout_id         INTEGER NOT NULL,
+  type             TEXT    NOT NULL,
+  target_player_id INTEGER,
+  target_club_id   INTEGER,
+  region_code      TEXT,
+  weeks_elapsed    INTEGER NOT NULL DEFAULT 0,
+  status           TEXT    NOT NULL DEFAULT 'active',
+  created_season   INTEGER NOT NULL,
+  created_week     INTEGER NOT NULL
+);
+
 CREATE INDEX IF NOT EXISTS idx_awards_player        ON season_awards(player_id);
 CREATE INDEX IF NOT EXISTS idx_awards_season_comp   ON season_awards(season, competition_id);
 CREATE INDEX IF NOT EXISTS idx_results_season       ON season_competition_results(season);
@@ -482,6 +544,8 @@ CREATE INDEX IF NOT EXISTS idx_transfer_offers_status ON transfer_offers(status)
 CREATE INDEX IF NOT EXISTS idx_transfer_offers_club   ON transfer_offers(offering_club_id);
 CREATE INDEX IF NOT EXISTS idx_friendlies_save_season ON friendlies(save_id, season);
 CREATE INDEX IF NOT EXISTS idx_scouting_save ON scouting(save_id);
+CREATE INDEX IF NOT EXISTS idx_scout_missions_save  ON scout_missions(save_id, status);
+CREATE INDEX IF NOT EXISTS idx_scout_missions_scout ON scout_missions(save_id, scout_id);
 CREATE INDEX IF NOT EXISTS idx_job_offers_save_status ON job_offers(save_id, season, status);
 
 -- P7 set-piece takers: per-club designated penalty/free-kick/corner taker. Each
@@ -493,6 +557,7 @@ CREATE TABLE IF NOT EXISTS set_piece_takers (
   penalty_taker_id   INTEGER,
   free_kick_taker_id INTEGER,
   corner_taker_id    INTEGER,
+  corner_routine     TEXT    NOT NULL DEFAULT 'auto',
   PRIMARY KEY (save_id, club_id)
 );
 
@@ -528,6 +593,202 @@ CREATE TABLE IF NOT EXISTS news_items (
 
 CREATE INDEX IF NOT EXISTS idx_news_save_season ON news_items(save_id, season, week);
 CREATE INDEX IF NOT EXISTS idx_news_save_read   ON news_items(save_id, read);
+
+-- C6 inbox: caixa de tarefas/decisões (acionável + thread + deadline), irmã de news_items.
+-- title/body são chaves i18n + JSON vars (engine string-free); leitura é por-thread (read em
+-- inbox_threads), distinta do markNewsRead global. deadline_* são (season, week) do relógio do jogo.
+CREATE TABLE IF NOT EXISTS inbox_threads (
+  id              INTEGER PRIMARY KEY AUTOINCREMENT,
+  save_id         INTEGER NOT NULL REFERENCES save_games(id),
+  category        TEXT    NOT NULL,
+  ref_kind        TEXT    NOT NULL DEFAULT 'none',
+  ref_id          INTEGER,
+  action_kind     TEXT    NOT NULL DEFAULT 'none',
+  status          TEXT    NOT NULL DEFAULT 'open',
+  deadline_season INTEGER,
+  deadline_week   INTEGER,
+  read            INTEGER NOT NULL DEFAULT 0,
+  last_season     INTEGER NOT NULL,
+  last_week       INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS inbox_messages (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  save_id     INTEGER NOT NULL REFERENCES save_games(id),
+  thread_id   INTEGER NOT NULL REFERENCES inbox_threads(id),
+  season      INTEGER NOT NULL,
+  week        INTEGER NOT NULL,
+  title_key   TEXT    NOT NULL,
+  title_vars  TEXT    NOT NULL DEFAULT '{}',
+  body_key    TEXT    NOT NULL,
+  body_vars   TEXT    NOT NULL DEFAULT '{}',
+  icon        TEXT    NOT NULL DEFAULT '📨',
+  from_self   INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE INDEX IF NOT EXISTS idx_inbox_threads_save_status ON inbox_threads(save_id, status, deadline_season, deadline_week);
+CREATE INDEX IF NOT EXISTS idx_inbox_threads_save_read   ON inbox_threads(save_id, read);
+CREATE INDEX IF NOT EXISTS idx_inbox_msgs_save_thread    ON inbox_messages(save_id, thread_id);
+
+-- C5 squad psychology: explainable morale ledger (one row per driver) + the chemistry
+-- clique graph. save_id-scoped; the ledger feeds the "Why this morale?" screen.
+CREATE TABLE IF NOT EXISTS morale_events (
+  id        INTEGER PRIMARY KEY AUTOINCREMENT,
+  save_id   INTEGER NOT NULL REFERENCES save_games(id),
+  player_id INTEGER NOT NULL REFERENCES players(id),
+  kind      TEXT    NOT NULL,
+  delta     REAL    NOT NULL,
+  season    INTEGER NOT NULL,
+  week      INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS chemistry_links (
+  id        INTEGER PRIMARY KEY AUTOINCREMENT,
+  save_id   INTEGER NOT NULL REFERENCES save_games(id),
+  club_id   INTEGER NOT NULL REFERENCES clubs(id),
+  group_idx INTEGER NOT NULL,
+  player_id INTEGER NOT NULL REFERENCES players(id),
+  cohesion  REAL    NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_morale_events_player ON morale_events(save_id, player_id, season, week);
+CREATE INDEX IF NOT EXISTS idx_chem_links_club      ON chemistry_links(save_id, club_id);
+
+-- C1 dynasty/legacy: materialized hall-of-fame + all-time records, save-isolated
+-- rivalries (seeded once per save), and the append-only manager career timeline.
+CREATE TABLE IF NOT EXISTS club_legends (
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  save_id       INTEGER NOT NULL REFERENCES save_games(id),
+  club_id       INTEGER NOT NULL REFERENCES clubs(id),
+  player_id     INTEGER NOT NULL REFERENCES players(id),
+  legend_score  INTEGER NOT NULL,
+  appearances   INTEGER NOT NULL,
+  goals         INTEGER NOT NULL,
+  trophies      INTEGER NOT NULL,
+  individual_awards INTEGER NOT NULL,
+  first_season  INTEGER NOT NULL,
+  last_season   INTEGER NOT NULL,
+  UNIQUE(save_id, club_id, player_id)
+);
+CREATE TABLE IF NOT EXISTS club_records (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  save_id     INTEGER NOT NULL REFERENCES save_games(id),
+  club_id     INTEGER NOT NULL REFERENCES clubs(id),
+  record_type TEXT    NOT NULL,
+  value       INTEGER NOT NULL,
+  holder_id   INTEGER,
+  season      INTEGER,
+  fixture_ref INTEGER,
+  detail      TEXT    NOT NULL DEFAULT '',
+  UNIQUE(save_id, club_id, record_type)
+);
+CREATE TABLE IF NOT EXISTS rivalries (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  save_id     INTEGER NOT NULL REFERENCES save_games(id),
+  club_a_id   INTEGER NOT NULL REFERENCES clubs(id),
+  club_b_id   INTEGER NOT NULL REFERENCES clubs(id),
+  intensity   INTEGER NOT NULL CHECK (intensity BETWEEN 1 AND 100),
+  origin      TEXT    NOT NULL,
+  UNIQUE(save_id, club_a_id, club_b_id)
+);
+CREATE TABLE IF NOT EXISTS manager_career (
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  save_id       INTEGER NOT NULL REFERENCES save_games(id),
+  season        INTEGER NOT NULL,
+  club_id       INTEGER NOT NULL REFERENCES clubs(id),
+  division_level INTEGER NOT NULL,
+  league_position INTEGER,
+  total_teams   INTEGER NOT NULL,
+  trophies      INTEGER NOT NULL DEFAULT 0,
+  manager_reputation INTEGER NOT NULL,
+  exit_reason   TEXT    NOT NULL DEFAULT 'stayed',
+  UNIQUE(save_id, season)
+);
+CREATE INDEX IF NOT EXISTS idx_legends_club   ON club_legends(save_id, club_id);
+CREATE INDEX IF NOT EXISTS idx_records_club   ON club_records(save_id, club_id);
+CREATE INDEX IF NOT EXISTS idx_rivalries_save ON rivalries(save_id, club_a_id, club_b_id);
+CREATE INDEX IF NOT EXISTS idx_mgr_career     ON manager_career(save_id, season);
+
+-- C2 youth academy: development loans (extends generic loan with minutes/rating
+-- accumulators) + per-season academy reputation history (mirrors club_reputation_history).
+CREATE TABLE IF NOT EXISTS youth_loans (
+  id             INTEGER PRIMARY KEY AUTOINCREMENT,
+  save_id        INTEGER NOT NULL REFERENCES save_games(id),
+  player_id      INTEGER NOT NULL REFERENCES players(id),
+  parent_club_id INTEGER NOT NULL REFERENCES clubs(id),
+  loan_club_id   INTEGER NOT NULL REFERENCES clubs(id),
+  start_season   INTEGER NOT NULL,
+  loan_end       INTEGER NOT NULL,
+  minutes_played INTEGER NOT NULL DEFAULT 0,
+  appearances    INTEGER NOT NULL DEFAULT 0,
+  rating_sum     REAL    NOT NULL DEFAULT 0,
+  recalled       INTEGER NOT NULL DEFAULT 0,
+  settled        INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS academy_reputation_history (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  save_id    INTEGER NOT NULL REFERENCES save_games(id),
+  club_id    INTEGER NOT NULL REFERENCES clubs(id),
+  season     INTEGER NOT NULL,
+  reputation INTEGER NOT NULL CHECK (reputation BETWEEN 1 AND 100),
+  delta      INTEGER NOT NULL,
+  UNIQUE(save_id, club_id, season)
+);
+
+CREATE TABLE IF NOT EXISTS national_teams (
+  id              INTEGER PRIMARY KEY,
+  save_id         INTEGER NOT NULL REFERENCES save_games(id),
+  country_id      INTEGER NOT NULL REFERENCES countries(id),
+  name            TEXT    NOT NULL,
+  continent       TEXT    NOT NULL,
+  strength        INTEGER NOT NULL DEFAULT 0,
+  is_user_managed INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS national_fixtures (
+  id                INTEGER PRIMARY KEY,
+  save_id           INTEGER NOT NULL REFERENCES save_games(id),
+  competition_id    INTEGER NOT NULL,
+  season            INTEGER NOT NULL,
+  week              INTEGER NOT NULL,
+  round             INTEGER,
+  home_national_id  INTEGER NOT NULL REFERENCES national_teams(id),
+  away_national_id  INTEGER NOT NULL REFERENCES national_teams(id),
+  home_goals        INTEGER,
+  away_goals        INTEGER,
+  played            INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS national_callups (
+  id                INTEGER PRIMARY KEY AUTOINCREMENT,
+  save_id           INTEGER NOT NULL REFERENCES save_games(id),
+  national_team_id  INTEGER NOT NULL REFERENCES national_teams(id),
+  season            INTEGER NOT NULL,
+  window            INTEGER NOT NULL,
+  player_id         INTEGER NOT NULL REFERENCES players(id),
+  is_starter        INTEGER NOT NULL DEFAULT 0,
+  source            TEXT    NOT NULL DEFAULT 'auto',
+  UNIQUE(save_id, national_team_id, season, window, player_id)
+);
+
+CREATE TABLE IF NOT EXISTS national_titles (
+  id                    INTEGER PRIMARY KEY AUTOINCREMENT,
+  save_id               INTEGER NOT NULL REFERENCES save_games(id),
+  competition_id        INTEGER NOT NULL,
+  season                INTEGER NOT NULL,
+  champion_national_id  INTEGER NOT NULL REFERENCES national_teams(id),
+  runner_up_national_id INTEGER NOT NULL REFERENCES national_teams(id),
+  user_managed_won      INTEGER NOT NULL DEFAULT 0,
+  UNIQUE(save_id, competition_id, season)
+);
+
+CREATE TABLE IF NOT EXISTS national_caps (
+  id        INTEGER PRIMARY KEY AUTOINCREMENT,
+  save_id   INTEGER NOT NULL REFERENCES save_games(id),
+  player_id INTEGER NOT NULL REFERENCES players(id),
+  caps      INTEGER NOT NULL DEFAULT 0,
+  goals     INTEGER NOT NULL DEFAULT 0,
+  UNIQUE(save_id, player_id)
+);
 `;
 
 // Composite save_id indexes are created AFTER the save_id migration (database-store),
@@ -540,6 +801,15 @@ CREATE INDEX IF NOT EXISTS idx_finances_save_club        ON club_finances(save_i
 CREATE INDEX IF NOT EXISTS idx_clubs_save_league         ON clubs(save_id, league_id);
 CREATE INDEX IF NOT EXISTS idx_player_stats_save_comp    ON player_stats(save_id, season, competition_id);
 CREATE INDEX IF NOT EXISTS idx_tactics_save_club         ON tactics(save_id, club_id);
+CREATE INDEX IF NOT EXISTS idx_youth_loans_save_parent   ON youth_loans(save_id, parent_club_id);
+CREATE INDEX IF NOT EXISTS idx_youth_loans_active        ON youth_loans(save_id, settled, recalled);
+CREATE INDEX IF NOT EXISTS idx_players_save_tier         ON players(save_id, club_id, squad_tier);
+CREATE INDEX IF NOT EXISTS idx_academy_rep_hist          ON academy_reputation_history(save_id, club_id, season);
+CREATE INDEX IF NOT EXISTS idx_national_teams_save        ON national_teams(save_id);
+CREATE INDEX IF NOT EXISTS idx_national_fixtures_save_season ON national_fixtures(save_id, season, week);
+CREATE INDEX IF NOT EXISTS idx_national_callups_save_window ON national_callups(save_id, national_team_id, season, window);
+CREATE INDEX IF NOT EXISTS idx_national_titles_save        ON national_titles(save_id);
+CREATE INDEX IF NOT EXISTS idx_national_caps_save          ON national_caps(save_id, player_id);
 `;
 
 export interface DbExec {

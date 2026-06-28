@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import {
-  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -12,6 +11,7 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { colors, commonStyles, fontSize, spacing, radius } from '@/theme';
+import { useClubAccent } from '@/theme/useClubAccent';
 import { useTranslation } from '@/i18n';
 import type { TKey } from '@/i18n/translate';
 import { updatePlayerMorale, updatePlayerContract } from '@/database/queries/players';
@@ -27,12 +27,14 @@ import { canAffordWage } from '@/engine/finance/affordability';
 import StatBar from '@/components/StatBar';
 import { getPositionColor, getOverallColor } from '@/utils/player-colors';
 import { calculateOverall } from '@/utils/overall';
-import { Club, Player, PlayerAttributes, Position } from '@/types';
+import { Club, Player, PlayerAttributes } from '@/types';
 import { useDatabaseStore } from '@/store/database-store';
 import { useGameStore } from '@/store/game-store';
 import { getPlayerAwards, getPlayerTitles, SeasonAward, PlayerTitle } from '../../database/queries/history';
 import { setTransferListing, setLoanListing } from '../../database/queries/players';
 import { RootStackParamList } from '@/navigation/types';
+import { Card, Button, Badge, Sheet } from '@/components/kit';
+import { Title, Body, Label, Caption, Stat } from '@/components/typography';
 
 type NavProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -69,27 +71,27 @@ function MaskedAttr({ label, value, tier }: { label: string; value: number; tier
     // unknown: empty bar + "?"
     return (
       <View style={maskedStyles.container}>
-        <Text style={maskedStyles.label}>{label}</Text>
+        <Label style={maskedStyles.label}>{label}</Label>
         <View style={maskedStyles.barContainer} />
-        <Text style={maskedStyles.unknown}>?</Text>
+        <Label style={maskedStyles.unknown}>?</Label>
       </View>
     );
   }
   const mid = (range.lo + range.hi) / 2;
   return (
     <View style={maskedStyles.container}>
-      <Text style={maskedStyles.label}>{label}</Text>
+      <Label style={maskedStyles.label}>{label}</Label>
       <View style={maskedStyles.barContainer}>
         <View style={[maskedStyles.barFill, { width: `${mid}%` as `${number}%` }]} />
       </View>
-      <Text style={maskedStyles.range}>{range.lo}–{range.hi}</Text>
+      <Label style={maskedStyles.range}>{range.lo}–{range.hi}</Label>
     </View>
   );
 }
 
 const maskedStyles = StyleSheet.create({
   container: { flexDirection: 'row', alignItems: 'center', marginVertical: spacing.xs },
-  label: { color: colors.textSecondary, fontSize: fontSize.sm, width: 90 },
+  label: { width: 90 },
   barContainer: {
     flex: 1,
     height: 6,
@@ -99,8 +101,8 @@ const maskedStyles = StyleSheet.create({
     marginHorizontal: spacing.sm,
   },
   barFill: { height: '100%', borderRadius: radius.sm, backgroundColor: colors.textMuted },
-  range: { color: colors.textMuted, fontSize: fontSize.sm, fontWeight: '600', width: 48, textAlign: 'right' },
-  unknown: { color: colors.textMuted, fontSize: fontSize.sm, fontWeight: '600', width: 48, textAlign: 'right' },
+  range: { width: 48, textAlign: 'right' },
+  unknown: { width: 48, textAlign: 'right' },
 });
 
 const TECHNICAL_ATTRS: (keyof PlayerAttributes)[] = ['finishing', 'passing', 'crossing', 'dribbling', 'heading', 'longShots', 'freeKicks'];
@@ -119,6 +121,7 @@ function awardLabel(a: SeasonAward, t: (k: TKey, v?: Record<string, string | num
 export default function PlayerDetailScreen({ player, onBack }: PlayerDetailScreenProps) {
   const { dbHandle } = useDatabaseStore();
   const { t } = useTranslation();
+  const accent = useClubAccent();
   const playerClubId = useGameStore((s) => s.playerClubId);
   const saveId = useGameStore((s) => s.currentSave?.id);
   const season = useGameStore((s) => s.season);
@@ -291,11 +294,17 @@ export default function PlayerDetailScreen({ player, onBack }: PlayerDetailScree
   if (!player) {
     return (
       <View style={commonStyles.screen}>
-        <Pressable style={styles.backButton} onPress={onBack}>
-          <Text style={styles.backButtonText}>{t('playerdetail.back')}</Text>
+        <Pressable
+          style={styles.backButton}
+          onPress={onBack}
+          accessibilityRole="button"
+          accessibilityLabel={t('playerdetail.back')}
+          testID="playerdetail-back"
+        >
+          <Label color={accent.accent}>{t('playerdetail.back')}</Label>
         </Pressable>
         <View style={styles.centered}>
-          <Text style={{ color: colors.textMuted, fontSize: fontSize.md }}>{t('playerdetail.not_found')}</Text>
+          <Body color={colors.textMuted}>{t('playerdetail.not_found')}</Body>
         </View>
       </View>
     );
@@ -307,32 +316,34 @@ export default function PlayerDetailScreen({ player, onBack }: PlayerDetailScree
 
   return (
     <View style={commonStyles.screen}>
-      <Pressable style={styles.backButton} onPress={onBack}>
-        <Text style={styles.backButtonText}>{t('playerdetail.back')}</Text>
+      <Pressable
+        style={styles.backButton}
+        onPress={onBack}
+        accessibilityRole="button"
+        accessibilityLabel={t('playerdetail.back')}
+        testID="playerdetail-back"
+      >
+        <Label color={accent.accent}>{t('playerdetail.back')}</Label>
       </Pressable>
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
         {/* Header */}
-        <View style={styles.headerCard}>
+        <Card variant="hero" accent={accent.accent} style={styles.headerCard}>
           <View style={styles.headerTop}>
             <View style={styles.headerInfo}>
-              <Text style={styles.playerName}>{player.name}</Text>
+              <Title style={styles.playerName}>{player.name}</Title>
               <View style={styles.headerMeta}>
-                <View style={[styles.positionBadge, { borderColor: positionColor }]}>
-                  <Text style={[styles.positionText, { color: positionColor }]}>
-                    {player.position}
-                  </Text>
-                </View>
-                <Text style={styles.metaText}>{t('tactics.detail_age', { age: player.age })}</Text>
-                <Text style={styles.metaText}>{player.nationality}</Text>
+                <Badge value={player.position} tone="neutral" accent={positionColor} size="sm" />
+                <Caption>{t('tactics.detail_age', { age: player.age })}</Caption>
+                <Caption>{player.nationality}</Caption>
               </View>
               {!isOwnPlayer && (
-                <Text style={styles.scoutingIndicator}>{t('scouting.indicator', { value: knowledge })}</Text>
+                <Caption color={colors.reportScout} style={styles.scoutingIndicator}>{t('scouting.indicator', { value: knowledge })}</Caption>
               )}
             </View>
             <View style={[styles.overallCircle, { borderColor: overallColor }]}>
-              <Text style={[styles.overallNumber, { color: overallColor }]}>{overall}</Text>
-              <Text style={styles.overallLabel}>OVR</Text>
+              <Stat color={overallColor} style={styles.overallNumber}>{overall}</Stat>
+              <Caption color={colors.textMuted}>OVR</Caption>
             </View>
           </View>
 
@@ -342,133 +353,158 @@ export default function PlayerDetailScreen({ player, onBack }: PlayerDetailScree
             <StatBar label="Fitness" value={player.fitness} maxValue={100} />
           </View>
 
+          {/* C5: personality archetype + "why this morale?" deep-link */}
+          <View style={styles.psychologyRow}>
+            <Badge
+              value={t(('psychology.archetype_' + player.personality) as TKey)}
+              tone={player.falloutState === 'wantsOut' ? 'danger' : player.falloutState === 'unsettled' ? 'warning' : 'neutral'}
+              size="sm"
+            />
+            <Pressable
+              onPress={() => navigation.navigate('MoraleBreakdown', { playerId: player.id })}
+              testID="playerdetail-morale-why"
+              accessibilityLabel={t('psychology.link_why')}
+            >
+              <Label color={accent.accent}>{t('psychology.link_why')}</Label>
+            </Pressable>
+          </View>
+
           {/* Foot info */}
           <View style={styles.footRow}>
             <View style={styles.footItem}>
-              <Text style={styles.footLabel}>{t('playerdetail.preferred_foot')}</Text>
-              <Text style={styles.footValue}>{player.preferredFoot === 'left' ? t('playerdetail.foot_left') : t('playerdetail.foot_right')}</Text>
+              <Caption color={colors.textMuted}>{t('playerdetail.preferred_foot')}</Caption>
+              <Body>{player.preferredFoot === 'left' ? t('playerdetail.foot_left') : t('playerdetail.foot_right')}</Body>
             </View>
             <View style={styles.footItem}>
-              <Text style={styles.footLabel}>{t('tactics.detail_weak_foot')}</Text>
-              <Text style={styles.footStars}>{'★'.repeat(player.weakFootAbility)}{'☆'.repeat(5 - player.weakFootAbility)}</Text>
+              <Caption color={colors.textMuted}>{t('tactics.detail_weak_foot')}</Caption>
+              <Body color={colors.gold}>{'★'.repeat(player.weakFootAbility)}{'☆'.repeat(5 - player.weakFootAbility)}</Body>
             </View>
           </View>
-        </View>
+        </Card>
 
         {/* Radar comparison button */}
-        <Pressable
-          style={({ pressed }) => [styles.radarBtn, pressed && { opacity: 0.7 }]}
-          onPress={() => navigation.navigate('ReportsRadar', { playerAId: player.id })}
-        >
-          <Text style={styles.radarBtnText}>🕸️ Comparar atributos</Text>
-        </Pressable>
+        <View style={styles.radarBtn}>
+          <Button
+            label={t('playerdetail.compare_attributes')}
+            variant="secondary"
+            onPress={() => navigation.navigate('ReportsRadar', { playerAId: player.id })}
+            testID="playerdetail-radar"
+            accessibilityLabel={t('playerdetail.compare_attributes')}
+          />
+        </View>
 
         {/* Attributes */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{t('tactics.section_technical')}</Text>
+        <Card variant="detail" accent={accent.accent} style={styles.section}>
+          <Label color={colors.textMuted} style={styles.sectionTitle}>{t('tactics.section_technical')}</Label>
           {TECHNICAL_ATTRS.map((key) => (
             <MaskedAttr key={key} label={t(attrI18nKey(key))} value={player.attributes[key]} tier={scoutingTier} />
           ))}
-        </View>
+        </Card>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{t('tactics.section_mental')}</Text>
+        <Card variant="detail" accent={accent.accent} style={styles.section}>
+          <Label color={colors.textMuted} style={styles.sectionTitle}>{t('tactics.section_mental')}</Label>
           {MENTAL_ATTRS.map((key) => (
             <MaskedAttr key={key} label={t(attrI18nKey(key))} value={player.attributes[key]} tier={scoutingTier} />
           ))}
-        </View>
+        </Card>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{t('tactics.section_physical')}</Text>
+        <Card variant="detail" accent={accent.accent} style={styles.section}>
+          <Label color={colors.textMuted} style={styles.sectionTitle}>{t('tactics.section_physical')}</Label>
           {PHYSICAL_ATTRS.map((key) => (
             <MaskedAttr key={key} label={t(attrI18nKey(key))} value={player.attributes[key]} tier={scoutingTier} />
           ))}
-        </View>
+        </Card>
 
         {/* Contract Info */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{t('playerdetail.contract')}</Text>
+        <Card variant="detail" accent={accent.accent} style={styles.section}>
+          <Label color={colors.textMuted} style={styles.sectionTitle}>{t('playerdetail.contract')}</Label>
           <View style={styles.contractRow}>
             <View style={styles.contractItem}>
-              <Text style={commonStyles.label}>{t('transfer.weekly_wage')}</Text>
-              <Text style={styles.contractValue}>{formatCurrency(player.wage)}</Text>
+              <Caption color={colors.textMuted}>{t('transfer.weekly_wage')}</Caption>
+              <Body style={styles.contractValue}>{formatCurrency(player.wage)}</Body>
             </View>
             <View style={styles.contractItem}>
-              <Text style={commonStyles.label}>{t('playerdetail.contract_ends')}</Text>
-              <Text style={styles.contractValue}>{t('standings.season', { season: player.contractEnd })}</Text>
+              <Caption color={colors.textMuted}>{t('playerdetail.contract_ends')}</Caption>
+              <Body style={styles.contractValue}>{t('standings.season', { season: player.contractEnd })}</Body>
             </View>
             <View style={styles.contractItem}>
-              <Text style={commonStyles.label}>{t('transfer.market_value')}</Text>
-              <Text style={styles.contractValue}>{formatCurrency(player.marketValue)}</Text>
+              <Caption color={colors.textMuted}>{t('transfer.market_value')}</Caption>
+              <Body style={styles.contractValue}>{formatCurrency(player.marketValue)}</Body>
             </View>
           </View>
-        </View>
+        </Card>
 
         {/* Individual interactions (own squad only) */}
         {isOwnPlayer && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>{t('interaction.section_title')}</Text>
-            <Text style={styles.moraleValue}>{t('morale.label')}: {morale}</Text>
+          <Card variant="detail" accent={accent.accent} style={styles.section}>
+            <Label color={colors.textMuted} style={styles.sectionTitle}>{t('interaction.section_title')}</Label>
+            <Body color={colors.textSecondary} style={styles.moraleValue}>{t('morale.label')}: {morale}</Body>
             <View style={styles.teamTalkRow}>
               {(['praise', 'criticize'] as const).map((kind) => (
-                <Pressable
-                  key={kind}
-                  style={[styles.teamTalkButton, interactionDone && styles.disabledButton]}
-                  disabled={interactionDone}
-                  onPress={() => handleInteraction(kind)}
-                >
-                  <Text style={styles.teamTalkButtonText}>{t(`interaction.${kind}` as TKey)}</Text>
-                </Pressable>
+                <View key={kind} style={styles.teamTalkButton}>
+                  <Button
+                    label={t(`interaction.${kind}` as TKey)}
+                    variant={kind === 'criticize' ? 'danger' : 'primary'}
+                    disabled={interactionDone}
+                    onPress={() => handleInteraction(kind)}
+                    testID={`playerdetail-${kind}`}
+                    accessibilityLabel={t(`interaction.${kind}` as TKey)}
+                  />
+                </View>
               ))}
             </View>
             {reaction != null && (
-              <Text style={[styles.reactionText, styles[`reaction_${reaction}` as const]]}>
+              <Body color={reactionColor(reaction)} style={styles.reactionText}>
                 {t(`interaction.reaction_${reaction}` as TKey)}
-              </Text>
+              </Body>
             )}
             {interactionDone && reaction == null && (
-              <Text style={styles.cooldownText}>{t('interaction.cooldown')}</Text>
+              <Caption color={colors.textMuted} style={styles.cooldownText}>{t('interaction.cooldown')}</Caption>
             )}
-          </View>
+          </Card>
         )}
 
         {/* Career */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{t('playerdetail.career')}</Text>
+        <Card variant="detail" accent={accent.accent} style={styles.section}>
+          <Label color={colors.textMuted} style={styles.sectionTitle}>{t('playerdetail.career')}</Label>
 
-          <Text style={styles.careerSubHeading}>{t('playerdetail.titles')}</Text>
-          {titles.length === 0 && <Text style={styles.careerEmpty}>{t('playerdetail.no_titles')}</Text>}
+          <Caption color={colors.textMuted} style={styles.careerSubHeading}>{t('playerdetail.titles')}</Caption>
+          {titles.length === 0 && <Caption color={colors.textMuted} style={styles.careerEmpty}>{t('playerdetail.no_titles')}</Caption>}
           {titles.map((title, i) => (
-            <Text key={`title-${i}`} style={styles.careerRow}>
+            <Body key={`title-${i}`} style={styles.careerRow}>
               {title.competitionName} — {t('standings.season', { season: title.season })}
-            </Text>
+            </Body>
           ))}
 
-          <Text style={styles.careerSubHeading}>{t('playerdetail.awards')}</Text>
-          {awards.length === 0 && <Text style={styles.careerEmpty}>{t('playerdetail.no_awards')}</Text>}
+          <Caption color={colors.textMuted} style={styles.careerSubHeading}>{t('playerdetail.awards')}</Caption>
+          {awards.length === 0 && <Caption color={colors.textMuted} style={styles.careerEmpty}>{t('playerdetail.no_awards')}</Caption>}
           {awards.map((a, i) => (
-            <Text key={`award-${i}`} style={styles.careerRow}>
+            <Body key={`award-${i}`} style={styles.careerRow}>
               {awardLabel(a, t)} — {a.competitionName} ({a.season})
               {a.awardType === 'top_scorer' || a.awardType === 'top_assister' ? ` · ${a.value}` : ''}
-            </Text>
+            </Body>
           ))}
-        </View>
+        </Card>
 
         {player.clubId === playerClubId && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>{t('renewal.title')}</Text>
-            <Pressable style={styles.renewButton} onPress={openRenewal}>
-              <Text style={styles.renewButtonText}>{t('renewal.button')}</Text>
-            </Pressable>
-          </View>
+          <Card variant="detail" accent={accent.accent} style={styles.section}>
+            <Label color={colors.textMuted} style={styles.sectionTitle}>{t('renewal.title')}</Label>
+            <Button
+              label={t('renewal.button')}
+              variant="primary"
+              onPress={openRenewal}
+              testID="playerdetail-renew"
+              accessibilityLabel={t('renewal.button')}
+            />
+          </Card>
         )}
 
         {player.clubId === playerClubId && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>{t('tactics.transfer_status_title')}</Text>
+          <Card variant="detail" accent={accent.accent} style={styles.section}>
+            <Label color={colors.textMuted} style={styles.sectionTitle}>{t('tactics.transfer_status_title')}</Label>
 
             <View style={styles.listingRow}>
-              <Text style={styles.listingLabel}>{t('playerdetail.listed_for_transfer')}</Text>
+              <Body style={styles.listingLabel}>{t('playerdetail.listed_for_transfer')}</Body>
               <Switch
                 value={isTransferListed}
                 onValueChange={handleToggleTransferListing}
@@ -476,7 +512,7 @@ export default function PlayerDetailScreen({ player, onBack }: PlayerDetailScree
             </View>
             {isTransferListed && (
               <View style={styles.listingRow}>
-                <Text style={styles.listingLabel}>{t('tactics.asking_price')}</Text>
+                <Body style={styles.listingLabel}>{t('tactics.asking_price')}</Body>
                 <TextInput
                   style={styles.listingInput}
                   value={askingPriceText}
@@ -490,7 +526,7 @@ export default function PlayerDetailScreen({ player, onBack }: PlayerDetailScree
             )}
 
             <View style={styles.listingRow}>
-              <Text style={styles.listingLabel}>{t('playerdetail.listed_for_loan')}</Text>
+              <Body style={styles.listingLabel}>{t('playerdetail.listed_for_loan')}</Body>
               <Switch
                 value={isLoanListed}
                 onValueChange={handleToggleLoanListing}
@@ -498,7 +534,7 @@ export default function PlayerDetailScreen({ player, onBack }: PlayerDetailScree
             </View>
             {isLoanListed && (
               <View style={styles.listingRow}>
-                <Text style={styles.listingLabel}>{t('tactics.loan_wage_share')}</Text>
+                <Body style={styles.listingLabel}>{t('tactics.loan_wage_share')}</Body>
                 <TextInput
                   style={styles.listingInput}
                   value={loanShareText}
@@ -510,90 +546,89 @@ export default function PlayerDetailScreen({ player, onBack }: PlayerDetailScree
                 />
               </View>
             )}
-          </View>
+          </Card>
         )}
       </ScrollView>
 
-      <Modal visible={renewalOpen} transparent animationType="fade" onRequestClose={() => setRenewalOpen(false)}>
-        <View style={styles.modalBackdrop}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>{t('renewal.title')}</Text>
+      <Sheet visible={renewalOpen} onClose={() => setRenewalOpen(false)} testID="playerdetail-renewal">
+        <Title style={styles.modalTitle}>{t('renewal.title')}</Title>
 
-            <Text style={commonStyles.label}>{t('renewal.wage_label')}</Text>
-            <TextInput
-              style={styles.modalInput}
-              value={renewWage}
-              onChangeText={setRenewWage}
-              keyboardType="numeric"
-              placeholder="0"
-              placeholderTextColor={colors.textMuted}
+        <Label color={colors.textMuted}>{t('renewal.wage_label')}</Label>
+        <TextInput
+          style={styles.modalInput}
+          value={renewWage}
+          onChangeText={setRenewWage}
+          keyboardType="numeric"
+          placeholder="0"
+          placeholderTextColor={colors.textMuted}
+        />
+
+        <Label color={colors.textMuted} style={styles.modalYearsLabel}>{t('renewal.years_label')}</Label>
+        <TextInput
+          style={styles.modalInput}
+          value={renewYears}
+          onChangeText={setRenewYears}
+          keyboardType="numeric"
+          placeholder="2"
+          placeholderTextColor={colors.textMuted}
+        />
+
+        {renewalMsg != null && <Body color={colors.textSecondary} style={styles.modalMessage}>{renewalMsg}</Body>}
+
+        <View style={styles.modalButtonRow}>
+          <View style={styles.modalButton}>
+            <Button
+              label={t('renewal.cancel')}
+              variant="ghost"
+              onPress={() => setRenewalOpen(false)}
+              testID="playerdetail-renewal-cancel"
+              accessibilityLabel={t('renewal.cancel')}
             />
-
-            <Text style={[commonStyles.label, { marginTop: spacing.sm }]}>{t('renewal.years_label')}</Text>
-            <TextInput
-              style={styles.modalInput}
-              value={renewYears}
-              onChangeText={setRenewYears}
-              keyboardType="numeric"
-              placeholder="2"
-              placeholderTextColor={colors.textMuted}
-            />
-
-            {renewalMsg != null && <Text style={styles.modalMessage}>{renewalMsg}</Text>}
-
-            <View style={styles.modalButtonRow}>
-              <Pressable style={[styles.modalButton, styles.modalCancel]} onPress={() => setRenewalOpen(false)}>
-                <Text style={styles.modalButtonText}>{t('renewal.cancel')}</Text>
-              </Pressable>
-              {counter != null ? (
-                <Pressable style={styles.modalButton} onPress={() => persistRenewal(counter.wage, counter.years)}>
-                  <Text style={styles.modalButtonText}>{t('renewal.counter_accept')}</Text>
-                </Pressable>
-              ) : (
-                <Pressable style={styles.modalButton} onPress={handleProposeRenewal}>
-                  <Text style={styles.modalButtonText}>{t('renewal.confirm')}</Text>
-                </Pressable>
-              )}
-            </View>
+          </View>
+          <View style={styles.modalButton}>
+            {counter != null ? (
+              <Button
+                label={t('renewal.counter_accept')}
+                variant="primary"
+                onPress={() => persistRenewal(counter.wage, counter.years)}
+                testID="playerdetail-renewal-counter"
+                accessibilityLabel={t('renewal.counter_accept')}
+              />
+            ) : (
+              <Button
+                label={t('renewal.confirm')}
+                variant="primary"
+                onPress={handleProposeRenewal}
+                testID="playerdetail-renewal-confirm"
+                accessibilityLabel={t('renewal.confirm')}
+              />
+            )}
           </View>
         </View>
-      </Modal>
+      </Sheet>
     </View>
   );
+}
+
+function reactionColor(reaction: InteractionReaction): string {
+  if (reaction === 'positive') return colors.success;
+  if (reaction === 'negative') return colors.danger;
+  return colors.textSecondary;
 }
 
 const styles = StyleSheet.create({
   radarBtn: {
     marginHorizontal: spacing.md,
     marginBottom: spacing.sm,
-    backgroundColor: colors.surfaceLight,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.primary,
-    paddingVertical: spacing.sm,
-    alignItems: 'center',
-  },
-  radarBtnText: {
-    color: colors.primary,
-    fontSize: fontSize.sm,
-    fontWeight: '700',
   },
   backButton: {
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
   },
-  backButtonText: {
-    color: colors.primary,
-    fontSize: fontSize.md,
-    fontWeight: '600',
-  },
   scrollContent: {
     paddingBottom: spacing.xl,
   },
   headerCard: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    padding: spacing.md,
     marginHorizontal: spacing.md,
     marginBottom: spacing.sm,
   },
@@ -607,9 +642,6 @@ const styles = StyleSheet.create({
     marginRight: spacing.md,
   },
   playerName: {
-    color: colors.text,
-    fontSize: fontSize.xxl,
-    fontWeight: 'bold',
     marginBottom: spacing.xs,
   },
   headerMeta: {
@@ -618,44 +650,27 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     flexWrap: 'wrap',
   },
-  positionBadge: {
-    borderWidth: 1,
-    borderRadius: 6,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xxs,
-  },
-  positionText: {
-    fontSize: fontSize.sm,
-    fontWeight: 'bold',
-  },
-  metaText: {
-    color: colors.textSecondary,
-    fontSize: fontSize.sm,
-  },
   scoutingIndicator: {
-    color: colors.reportScout,
-    fontSize: fontSize.sm,
-    fontWeight: '600',
     marginTop: spacing.xs,
   },
   overallCircle: {
     width: 64,
     height: 64,
-    borderRadius: 32,
+    borderRadius: radius.pill,
     borderWidth: 2,
     justifyContent: 'center',
     alignItems: 'center',
   },
   overallNumber: {
     fontSize: fontSize.xl,
-    fontWeight: 'bold',
-  },
-  overallLabel: {
-    color: colors.textMuted,
-    fontSize: fontSize.xs,
-    letterSpacing: 1,
   },
   barsSection: {
+    marginTop: spacing.md,
+  },
+  psychologyRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     marginTop: spacing.md,
   },
   footRow: {
@@ -670,33 +685,11 @@ const styles = StyleSheet.create({
     padding: spacing.sm,
     alignItems: 'center',
   },
-  footLabel: {
-    color: colors.textMuted,
-    fontSize: fontSize.xs,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: spacing.xs,
-  },
-  footValue: {
-    color: colors.text,
-    fontSize: fontSize.sm,
-    fontWeight: '600',
-  },
-  footStars: {
-    color: colors.gold,
-    fontSize: fontSize.md,
-  },
   section: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    padding: spacing.md,
     marginHorizontal: spacing.md,
     marginBottom: spacing.sm,
   },
   sectionTitle: {
-    color: colors.textMuted,
-    fontSize: fontSize.xs,
-    fontWeight: 'bold',
     textTransform: 'uppercase',
     letterSpacing: 1,
     marginBottom: spacing.sm,
@@ -710,9 +703,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   contractValue: {
-    color: colors.text,
-    fontSize: fontSize.md,
-    fontWeight: '600',
     marginTop: spacing.xs,
   },
   centered: {
@@ -721,23 +711,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   careerSubHeading: {
-    color: colors.textMuted,
-    fontSize: fontSize.xs,
-    fontWeight: '600',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     marginTop: spacing.sm,
     marginBottom: spacing.xs,
   },
   careerEmpty: {
-    color: colors.textMuted,
-    fontSize: fontSize.sm,
     fontStyle: 'italic',
     marginBottom: spacing.xs,
   },
   careerRow: {
-    color: colors.text,
-    fontSize: fontSize.sm,
     marginBottom: spacing.xs,
   },
   listingRow: {
@@ -747,8 +730,6 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xs,
   },
   listingLabel: {
-    color: colors.text,
-    fontSize: fontSize.sm,
     flex: 1,
   },
   listingInput: {
@@ -757,55 +738,18 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: 6,
+    borderRadius: radius.sm,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
     minWidth: 120,
     textAlign: 'right',
   },
-  moraleValue: { fontSize: fontSize.md, color: colors.textSecondary, marginBottom: spacing.sm },
+  moraleValue: { marginBottom: spacing.sm },
   teamTalkRow: { flexDirection: 'row', gap: spacing.sm },
-  teamTalkButton: {
-    flex: 1,
-    backgroundColor: colors.primary,
-    borderRadius: radius.md,
-    paddingVertical: spacing.sm,
-    alignItems: 'center',
-  },
-  teamTalkButtonText: { fontSize: fontSize.sm, color: colors.text, fontWeight: 'bold' },
-  disabledButton: { opacity: 0.4 },
-  reactionText: { fontSize: fontSize.sm, fontWeight: '600', marginTop: spacing.sm },
-  reaction_positive: { color: colors.success },
-  reaction_neutral: { color: colors.textSecondary },
-  reaction_negative: { color: colors.danger },
-  cooldownText: { fontSize: fontSize.sm, color: colors.textMuted, marginTop: spacing.sm, fontStyle: 'italic' },
-  renewButton: {
-    backgroundColor: colors.primary,
-    borderRadius: radius.md,
-    paddingVertical: spacing.sm,
-    alignItems: 'center',
-  },
-  renewButtonText: { fontSize: fontSize.sm, color: colors.text, fontWeight: 'bold' },
-  modalBackdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: spacing.lg,
-  },
-  modalCard: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: spacing.lg,
-    width: '100%',
-    maxWidth: 420,
-  },
+  teamTalkButton: { flex: 1 },
+  reactionText: { marginTop: spacing.sm },
+  cooldownText: { marginTop: spacing.sm, fontStyle: 'italic' },
   modalTitle: {
-    color: colors.text,
-    fontSize: fontSize.lg,
-    fontWeight: 'bold',
     marginBottom: spacing.md,
   },
   modalInput: {
@@ -819,9 +763,8 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     marginTop: spacing.xs,
   },
+  modalYearsLabel: { marginTop: spacing.sm },
   modalMessage: {
-    color: colors.textSecondary,
-    fontSize: fontSize.sm,
     marginTop: spacing.md,
   },
   modalButtonRow: {
@@ -831,15 +774,5 @@ const styles = StyleSheet.create({
   },
   modalButton: {
     flex: 1,
-    backgroundColor: colors.primary,
-    borderRadius: radius.md,
-    paddingVertical: spacing.sm,
-    alignItems: 'center',
   },
-  modalCancel: {
-    backgroundColor: colors.surfaceLight,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  modalButtonText: { fontSize: fontSize.sm, color: colors.text, fontWeight: 'bold' },
 });

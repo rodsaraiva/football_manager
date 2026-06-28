@@ -1,0 +1,5 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`TabIndicator ativo usa accent; inativo é transparente: active 1`] = `"<div class="css-view-g5y9jx r-alignSelf-1kihuf0 r-borderRadius-z2wwpe r-height-1hlnpa" style="background-color: rgb(34, 170, 85);"></div>"`;
+
+exports[`TabIndicator ativo usa accent; inativo é transparente: inactive 1`] = `"<div class="css-view-g5y9jx r-alignSelf-1kihuf0 r-borderRadius-z2wwpe r-height-1hlnpa" style="background-color: rgba(0, 0, 0, 0);"></div>"`;

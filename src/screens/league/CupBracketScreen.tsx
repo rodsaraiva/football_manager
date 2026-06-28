@@ -1,6 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, ScrollView, StyleSheet, ActivityIndicator } from 'react-native';
-import { colors, spacing, fontSize, radius, commonStyles } from '@/theme';
+import { View, ScrollView, ActivityIndicator } from 'react-native';
+import { spacing, commonStyles } from '@/theme';
+import { useClubAccent } from '@/theme/useClubAccent';
+import { Card, EmptyState } from '@/components/kit';
+import { Body, Label, Caption, Stat } from '@/components/typography';
 import { useGameStore } from '@/store/game-store';
 import { useDatabaseStore } from '@/store/database-store';
 import { useTranslation } from '@/i18n';
@@ -11,6 +14,7 @@ export function CupBracketScreen() {
   const { season, week, currentSave } = useGameStore();
   const { dbHandle } = useDatabaseStore();
   const { t } = useTranslation();
+  const accent = useClubAccent();
   const [rounds, setRounds] = useState<CupRound[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -33,15 +37,15 @@ export function CupBracketScreen() {
   if (loading) {
     return (
       <View style={[commonStyles.screen, styles.center]}>
-        <ActivityIndicator color={colors.primary} size="large" />
+        <ActivityIndicator color={accent.accent} size="large" />
       </View>
     );
   }
 
   if (rounds.length === 0) {
     return (
-      <View style={[commonStyles.screen, styles.center]}>
-        <Text style={styles.empty}>{t('cupbracket.empty')}</Text>
+      <View style={commonStyles.screen}>
+        <EmptyState art="generic" title={t('cupbracket.empty')} />
       </View>
     );
   }
@@ -50,34 +54,38 @@ export function CupBracketScreen() {
     <ScrollView style={commonStyles.screen} contentContainerStyle={styles.content}>
       {rounds.map((r) => (
         <View key={r.round} style={styles.roundBlock}>
-          <Text style={styles.roundTitle}>{t('cupbracket.round', { n: r.round })}</Text>
+          <Label style={styles.roundTitle}>{t('cupbracket.round', { n: r.round })}</Label>
           {r.ties.map((tie, i) => (
-            <View key={i} style={styles.tie}>
-              <Text style={styles.team}>{tie.homeName}</Text>
-              <Text style={styles.score}>
+            <Card key={i} variant="detail" accent={accent.accent} style={styles.tie}>
+              <Body numberOfLines={1} style={styles.team}>{tie.homeName}</Body>
+              <Stat color={accent.accent} style={styles.score}>
                 {tie.homeGoals != null && tie.awayGoals != null
                   ? `${tie.homeGoals} - ${tie.awayGoals}`
                   : 'vs'}
-              </Text>
-              <Text style={[styles.team, styles.teamRight]}>{tie.awayName}</Text>
-            </View>
+              </Stat>
+              <Body numberOfLines={1} style={[styles.team, styles.teamRight]}>{tie.awayName}</Body>
+            </Card>
           ))}
         </View>
       ))}
-      <Text style={styles.pending}>{t('cupbracket.draw_pending')}</Text>
+      <Caption style={styles.pending}>{t('cupbracket.draw_pending')}</Caption>
     </ScrollView>
   );
 }
 
-const styles = StyleSheet.create({
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing.lg },
-  empty: { color: colors.textMuted, fontSize: fontSize.md, textAlign: 'center' },
+const styles = {
+  center: { flex: 1, alignItems: 'center' as const, justifyContent: 'center' as const, padding: spacing.lg },
   content: { padding: spacing.md },
   roundBlock: { marginBottom: spacing.lg },
-  roundTitle: { color: colors.textMuted, fontSize: fontSize.xs, fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: 1, marginBottom: spacing.sm },
-  tie: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surface, borderRadius: radius.md, padding: spacing.md, marginBottom: spacing.sm, borderWidth: 1, borderColor: colors.border },
-  team: { color: colors.text, fontSize: fontSize.sm, fontWeight: '600', flex: 1 },
-  teamRight: { textAlign: 'right' },
-  score: { color: colors.primary, fontSize: fontSize.sm, fontWeight: '700', marginHorizontal: spacing.sm },
-  pending: { color: colors.textMuted, fontSize: fontSize.xs, fontStyle: 'italic', textAlign: 'center', marginTop: spacing.md },
-});
+  roundTitle: { marginBottom: spacing.sm },
+  tie: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: spacing.sm,
+    marginBottom: spacing.sm,
+  },
+  team: { flex: 1 },
+  teamRight: { textAlign: 'right' as const },
+  score: {},
+  pending: { textAlign: 'center' as const, fontStyle: 'italic' as const, marginTop: spacing.md },
+};

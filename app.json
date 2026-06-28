@@ -6,8 +6,11 @@
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
     "newArchEnabled": true,
+    "icon": "./assets/brand/icon.png",
     "splash": {
-      "backgroundColor": "#1a1a2e"
+      "image": "./assets/brand/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0f0f1a"
     },
     "ios": {
       "supportsTablet": true,
@@ -15,9 +18,28 @@
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#1a1a2e"
+        "foregroundImage": "./assets/brand/adaptive-foreground.png",
+        "backgroundColor": "#0f0f1a"
       },
       "package": "com.footballmanager.app"
-    }
+    },
+    "web": {
+      "favicon": "./assets/brand/favicon.png"
+    },
+    "plugins": [
+      [
+        "expo-font",
+        {
+          "fonts": [
+            "./assets/fonts/Manrope-Regular.otf",
+            "./assets/fonts/Manrope-SemiBold.otf",
+            "./assets/fonts/Manrope-Bold.otf",
+            "./assets/fonts/Manrope-ExtraBold.otf",
+            "./assets/fonts/SairaCondensed-SemiBold.ttf",
+            "./assets/fonts/SairaCondensed-Bold.ttf"
+          ]
+        }
+      ]
+    ]
   }
 }

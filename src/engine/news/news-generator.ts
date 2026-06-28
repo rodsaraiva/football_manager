@@ -24,7 +24,8 @@ export type NewsCategory =
   | 'board'
   | 'achievement'
   | 'scouting'
-  | 'callup';
+  | 'callup'
+  | 'national';
 
 export interface NewsItem {
   id: string;

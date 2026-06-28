@@ -1,16 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import {
   View,
-  Text,
-  TouchableOpacity,
+  Pressable,
   StyleSheet,
   ScrollView,
   ActivityIndicator,
-  Alert,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { colors, spacing, fontSize, radius, commonStyles } from '@/theme';
+import { colors, spacing, radius, commonStyles, alpha } from '@/theme';
 import { useDatabaseStore } from '@/store/database-store';
 import { useGameStore } from '@/store/game-store';
 import { useTranslation } from '@/i18n';
@@ -19,6 +17,8 @@ import { changeLanguage } from '@/i18n/persistence';
 import { getAllSaves, deleteSave } from '@/database/queries/saves';
 import { RootStackParamList } from '@/navigation/types';
 import { SaveGame } from '@/types';
+import { Button, Chip, Card, Icon, useConfirm } from '@/components/kit';
+import { Display, Title, Body, Label, Caption } from '@/components/typography';
 
 type NavProp = NativeStackNavigationProp<RootStackParamList, 'MainMenu'>;
 
@@ -28,6 +28,7 @@ export function MainMenuScreen() {
   const loadSave = useGameStore((s) => s.loadSave);
   const { t } = useTranslation();
   const language = useI18nStore((s) => s.language);
+  const confirm = useConfirm();
 
   function handleSetLanguage(lang: 'pt' | 'en') {
     if (dbHandle) changeLanguage(dbHandle, lang);
@@ -58,88 +59,97 @@ export function MainMenuScreen() {
     navigation.navigate('Game');
   }
 
-  function handleDeleteSave(save: SaveGame) {
+  async function handleDeleteSave(save: SaveGame) {
     const label = save.name || t('mainmenu.save_default', { id: save.id });
-    Alert.alert(
-      t('mainmenu.delete_title'),
-      t('mainmenu.delete_confirm', { name: label }),
-      [
-        { text: t('common.cancel'), style: 'cancel' },
-        { text: t('common.delete'), style: 'destructive', onPress: () => doDelete(save) },
-      ],
-    );
-  }
-
-  async function doDelete(save: SaveGame) {
-    if (!dbHandle) return;
+    const ok = await confirm({
+      title: t('mainmenu.delete_title'),
+      message: t('mainmenu.delete_confirm', { name: label }),
+      confirmLabel: t('common.delete'),
+      cancelLabel: t('common.cancel'),
+      tone: 'danger',
+    });
+    if (!ok || !dbHandle) return;
     await deleteSave(dbHandle, save.id);
     setSaves(prev => prev.filter(s => s.id !== save.id));
   }
 
   return (
     <View style={commonStyles.screen}>
-      <View style={styles.langToggle}>
-        {(['pt', 'en'] as const).map((lng) => (
-          <TouchableOpacity
-            key={lng}
-            style={[styles.langButton, language === lng && styles.langButtonActive]}
-            onPress={() => handleSetLanguage(lng)}
-            activeOpacity={0.7}
-          >
-            <Text style={[styles.langButtonText, language === lng && styles.langButtonTextActive]}>
-              {lng.toUpperCase()}
-            </Text>
-          </TouchableOpacity>
-        ))}
+      <View style={styles.topBar}>
+        <View style={styles.langToggle}>
+          {(['pt', 'en'] as const).map((lng) => (
+            <Chip
+              key={lng}
+              label={lng.toUpperCase()}
+              selected={language === lng}
+              onPress={() => handleSetLanguage(lng)}
+              testID={`mainmenu-language-${lng}`}
+              accessibilityLabel={lng.toUpperCase()}
+            />
+          ))}
+        </View>
+        <Pressable
+          testID="mainmenu-settings"
+          accessibilityRole="button"
+          accessibilityLabel={t('nav.settings')}
+          style={styles.settingsButton}
+          onPress={() => navigation.navigate('Settings')}
+        >
+          <Caption color={colors.textSecondary}>{t('nav.settings')}</Caption>
+        </Pressable>
       </View>
       <View style={styles.titleSection}>
-        <Text style={styles.title}>FOOTBALL MANAGER</Text>
-        <Text style={styles.subtitle}>{t('mainmenu.subtitle')}</Text>
+        <Display>FOOTBALL MANAGER</Display>
+        <Body color={colors.primary}>{t('mainmenu.subtitle')}</Body>
       </View>
 
       <View style={styles.buttonSection}>
-        <TouchableOpacity
-          style={styles.primaryButton}
+        <Button
+          label={t('mainmenu.new_game').toUpperCase()}
+          variant="primary"
           onPress={() => navigation.navigate('NewGame')}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.primaryButtonText}>{t('mainmenu.new_game').toUpperCase()}</Text>
-        </TouchableOpacity>
+          testID="mainmenu-new-game"
+          accessibilityLabel={t('mainmenu.new_game')}
+        />
 
         {loading ? (
-          <ActivityIndicator color={colors.primary} style={{ marginTop: spacing.lg }} />
+          <ActivityIndicator color={colors.primary} style={styles.loader} />
         ) : saves.length > 0 ? (
           <View style={styles.savesSection}>
-            <Text style={styles.savesLabel}>{t('mainmenu.load_game')}</Text>
+            <Label style={styles.savesLabel}>{t('mainmenu.load_game')}</Label>
             <ScrollView style={styles.savesList} showsVerticalScrollIndicator={false}>
               {saves.map((save) => (
-                <View key={save.id} style={styles.saveCard}>
-                  <TouchableOpacity
+                <Card key={save.id} variant="detail" style={styles.saveCard}>
+                  <Pressable
                     style={styles.saveCardContent}
                     onPress={() => handleLoadSave(save)}
-                    activeOpacity={0.8}
+                    accessibilityRole="button"
+                    accessibilityLabel={save.name || t('mainmenu.save_default', { id: save.id })}
+                    testID={`mainmenu-load-${save.id}`}
                   >
-                    <Text style={styles.saveName}>{save.name || t('mainmenu.save_default', { id: save.id })}</Text>
-                    <Text style={styles.saveMeta}>
+                    <Title>{save.name || t('mainmenu.save_default', { id: save.id })}</Title>
+                    <Caption color={colors.textSecondary}>
                       {t('mainmenu.save_meta', { season: save.currentSeason, week: save.currentWeek })}
-                    </Text>
-                    <Text style={styles.saveDifficulty}>{save.difficulty}</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
+                    </Caption>
+                    <Caption color={colors.textMuted} style={styles.saveDifficulty}>{save.difficulty}</Caption>
+                  </Pressable>
+                  <Pressable
                     style={styles.deleteButton}
                     onPress={() => handleDeleteSave(save)}
-                    activeOpacity={0.7}
+                    accessibilityRole="button"
+                    accessibilityLabel={t('common.delete')}
+                    testID={`mainmenu-delete-${save.id}`}
                   >
-                    <Text style={styles.deleteButtonText}>X</Text>
-                  </TouchableOpacity>
-                </View>
+                    <Icon name="close" color={colors.danger} size={16} />
+                  </Pressable>
+                </Card>
               ))}
             </ScrollView>
           </View>
         ) : (
-          <View style={styles.noSavesContainer}>
-            <Text style={styles.noSavesText}>{t('mainmenu.no_saves')}</Text>
-          </View>
+          <Card variant="detail" style={styles.noSavesContainer}>
+            <Body color={colors.textMuted}>{t('mainmenu.no_saves')}</Body>
+          </Card>
         )}
       </View>
     </View>
@@ -152,122 +162,64 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingTop: spacing.xl * 2,
-  },
-  title: {
-    color: colors.text,
-    fontSize: fontSize.title,
-    fontWeight: 'bold',
-    letterSpacing: 2,
-    textAlign: 'center',
-  },
-  subtitle: {
-    color: colors.primary,
-    fontSize: fontSize.lg,
-    marginTop: spacing.sm,
-    letterSpacing: 1,
+    gap: spacing.sm,
   },
   buttonSection: {
     flex: 2,
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.xl,
+    gap: spacing.md,
   },
-  primaryButton: {
-    backgroundColor: colors.primary,
-    borderRadius: radius.md,
-    paddingVertical: spacing.md,
-    alignItems: 'center',
-    marginBottom: spacing.md,
-  },
-  primaryButtonText: {
-    color: colors.text,
-    fontSize: fontSize.lg,
-    fontWeight: 'bold',
-    letterSpacing: 1,
-  },
+  loader: { marginTop: spacing.lg },
   savesSection: {
     flex: 1,
   },
   savesLabel: {
-    color: colors.textMuted,
-    fontSize: fontSize.xs,
-    fontWeight: '600',
-    letterSpacing: 1,
     marginBottom: spacing.sm,
-    textTransform: 'uppercase',
   },
   savesList: {
     flex: 1,
   },
   saveCard: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.md,
     marginBottom: spacing.sm,
-    borderWidth: 1,
-    borderColor: colors.border,
     flexDirection: 'row',
     alignItems: 'center',
   },
   saveCardContent: {
     flex: 1,
-    padding: spacing.md,
+    gap: spacing.xxs,
   },
   deleteButton: {
     width: 36,
     height: 36,
-    borderRadius: 18,
-    backgroundColor: `${colors.danger}22`,
+    borderRadius: radius.pill,
+    backgroundColor: alpha(colors.danger, 0.13),
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: spacing.sm,
-  },
-  deleteButtonText: {
-    color: colors.danger,
-    fontSize: fontSize.sm,
-    fontWeight: 'bold',
-  },
-  saveName: {
-    color: colors.text,
-    fontSize: fontSize.md,
-    fontWeight: '600',
-  },
-  saveMeta: {
-    color: colors.textSecondary,
-    fontSize: fontSize.sm,
-    marginTop: spacing.xxs,
+    marginLeft: spacing.sm,
   },
   saveDifficulty: {
-    color: colors.textMuted,
-    fontSize: fontSize.xs,
-    marginTop: spacing.xxs,
     textTransform: 'capitalize',
   },
   noSavesContainer: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.md,
-    padding: spacing.lg,
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.border,
   },
-  noSavesText: {
-    color: colors.textMuted,
-    fontSize: fontSize.md,
-  },
-  langToggle: {
+  topBar: {
     flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: spacing.xs,
+    alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.md,
   },
-  langButton: {
+  langToggle: {
+    flexDirection: 'row',
+    gap: spacing.xs,
+  },
+  settingsButton: {
     paddingVertical: spacing.xs,
     paddingHorizontal: spacing.sm,
-    borderRadius: 6,
+    borderRadius: radius.sm,
     borderWidth: 1,
     borderColor: colors.border,
   },
-  langButtonActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-  langButtonText: { color: colors.textSecondary, fontSize: fontSize.xs, fontWeight: '600' },
-  langButtonTextActive: { color: colors.text },
 });

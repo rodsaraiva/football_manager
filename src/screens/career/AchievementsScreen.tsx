@@ -1,12 +1,14 @@
 import React, { useCallback, useState } from 'react';
 import { View, Text, ScrollView, StyleSheet } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import { colors, spacing, fontSize, radius, commonStyles } from '@/theme';
+import { colors, spacing, fontSize, commonStyles } from '@/theme';
 import { useTranslation } from '@/i18n';
 import { useGameStore } from '@/store/game-store';
 import { useDatabaseStore } from '@/store/database-store';
 import { ACHIEVEMENTS } from '@/engine/achievements/achievements-catalog';
 import { getUnlockedAchievements, UnlockedAchievement } from '@/database/queries/achievements';
+import { Card, Badge } from '@/components/kit';
+import { Headline, Body, Label, Caption, Stat } from '@/components/typography';
 
 export function AchievementsScreen() {
   const { currentSave } = useGameStore();
@@ -33,36 +35,40 @@ export function AchievementsScreen() {
   return (
     <ScrollView style={commonStyles.screen} contentContainerStyle={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>{t('achievements.title')}</Text>
-        <Text style={styles.headerSub}>{t('achievements.subtitle')}</Text>
-        <Text style={styles.count}>
+        <Headline>{t('achievements.title')}</Headline>
+        <Body color={colors.primary}>{t('achievements.subtitle')}</Body>
+        <Label color={colors.gold}>
           {t('achievements.count', { unlocked: unlockedCount, total: ACHIEVEMENTS.length })}
-        </Text>
+        </Label>
       </View>
 
       {ACHIEVEMENTS.map((a) => {
         const row = unlocked.get(a.id);
         const isUnlocked = row != null;
         return (
-          <View
+          <Card
             key={a.id}
-            style={[styles.card, isUnlocked ? styles.cardUnlocked : styles.cardLocked]}
+            variant="detail"
+            accent={colors.gold}
+            selected={isUnlocked}
+            style={[styles.card, !isUnlocked && styles.cardLocked]}
+            testID={`achievement-${a.id}`}
           >
-            <Text style={[styles.icon, !isUnlocked && styles.iconLocked]}>
-              {isUnlocked ? a.icon : '🔒'}
-            </Text>
+            <Text style={[styles.icon, !isUnlocked && styles.iconLocked]}>{a.icon}</Text>
             <View style={styles.content}>
-              <Text style={[styles.title, !isUnlocked && styles.textMuted]}>{t(a.titleKey)}</Text>
-              <Text style={[styles.desc, !isUnlocked && styles.textMuted]}>{t(a.descKey)}</Text>
+              <Body color={isUnlocked ? colors.text : colors.textMuted}>{t(a.titleKey)}</Body>
+              <Caption color={isUnlocked ? colors.textSecondary : colors.textMuted}>
+                {t(a.descKey)}
+              </Caption>
               {isUnlocked ? (
-                <Text style={styles.unlockedAt}>
+                <Caption color={colors.gold}>
                   {t('achievements.unlocked_at', { season: row.season, week: row.week })}
-                </Text>
+                </Caption>
               ) : (
-                <Text style={styles.lockedLabel}>{t('achievements.locked')}</Text>
+                <Badge value={t('achievements.locked')} tone="neutral" size="sm" />
               )}
             </View>
-          </View>
+          </Card>
         );
       })}
     </ScrollView>
@@ -70,50 +76,15 @@ export function AchievementsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { paddingBottom: spacing.xl },
+  container: { paddingVertical: spacing.sm, gap: spacing.xs },
   header: {
-    backgroundColor: colors.surface,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-    marginBottom: spacing.sm,
+    gap: spacing.xs,
   },
-  headerTitle: { color: colors.text, fontSize: fontSize.xxl, fontWeight: 'bold' },
-  headerSub: { color: colors.primary, fontSize: fontSize.sm, marginTop: spacing.xxs },
-  count: { color: colors.gold, fontSize: fontSize.md, fontWeight: '700', marginTop: spacing.sm },
-  card: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    padding: spacing.md,
-    marginHorizontal: spacing.md,
-    marginVertical: spacing.xs,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderLeftWidth: 4,
-  },
-  cardUnlocked: { borderLeftColor: colors.gold },
-  cardLocked: { borderLeftColor: colors.border, opacity: 0.7 },
-  icon: { fontSize: 28, width: 44, textAlign: 'center', marginRight: spacing.sm },
+  card: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginHorizontal: spacing.md },
+  cardLocked: { opacity: 0.7 },
+  icon: { fontSize: fontSize.xxl, width: 44, textAlign: 'center' },
   iconLocked: { opacity: 0.6 },
-  content: { flex: 1 },
-  title: { color: colors.text, fontSize: fontSize.md, fontWeight: '700' },
-  desc: { color: colors.textSecondary, fontSize: fontSize.sm, marginTop: spacing.xxs, lineHeight: 18 },
-  textMuted: { color: colors.textMuted },
-  unlockedAt: {
-    color: colors.gold,
-    fontSize: fontSize.xs,
-    fontWeight: '600',
-    marginTop: spacing.xs,
-  },
-  lockedLabel: {
-    color: colors.textMuted,
-    fontSize: fontSize.xs,
-    fontWeight: '600',
-    letterSpacing: 0.5,
-    marginTop: spacing.xs,
-    textTransform: 'uppercase',
-  },
+  content: { flex: 1, gap: spacing.xxs },
 });

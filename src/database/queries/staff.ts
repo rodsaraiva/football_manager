@@ -1,19 +1,31 @@
+import { z, ZodObject } from 'zod';
 import { Staff, StaffCandidate, StaffRole } from '@/types';
+import type { ScoutArchetype } from '@/engine/scouting/scout-archetypes';
+import { parseRows } from '../parse-rows';
 import { DbHandle } from './players';
 
 // V1: sem season no escopo desta query. contract_end fica uma temporada à frente do
 // horizonte do seed (anos 2025+1..4), evitando contrato já vencido na contratação.
 const STAFF_HIRE_CONTRACT_END = 2028;
 
-interface StaffRow {
-  id: number;
-  name: string;
-  role: string;
-  club_id: number | null;
-  ability: number;
-  wage: number;
-  contract_end: number;
-}
+// Só os campos consumidos por rowToStaff; club_id/archetype são nullable no schema.
+const staffRowSchema = z
+  .object({
+    id: z.number(),
+    name: z.string(),
+    role: z.string(),
+    club_id: z.number().nullable(),
+    ability: z.number(),
+    wage: z.number(),
+    contract_end: z.number(),
+    archetype: z.string().nullable(),
+  })
+  .passthrough();
+type StaffRow = z.infer<typeof staffRowSchema>;
+
+export const __rowSchemas: Array<{ table: string; schema: ZodObject<any> }> = [
+  { table: 'staff', schema: staffRowSchema },
+];
 
 function rowToStaff(row: StaffRow): Staff {
   return {
@@ -24,17 +36,18 @@ function rowToStaff(row: StaffRow): Staff {
     ability: row.ability,
     wage: row.wage,
     contractEnd: row.contract_end,
+    archetype: (row.archetype ?? undefined) as ScoutArchetype | undefined,
   };
 }
 
 export async function getStaffByClub(db: DbHandle, saveId: number, clubId: number): Promise<Staff[]> {
-  const rows = await db.prepare('SELECT * FROM staff WHERE save_id = ? AND club_id = ?').all(saveId, clubId) as StaffRow[];
-  return rows.map(rowToStaff);
+  const rows = await db.prepare('SELECT * FROM staff WHERE save_id = ? AND club_id = ?').all(saveId, clubId);
+  return parseRows(staffRowSchema, rows, 'staff.getStaffByClub').map(rowToStaff);
 }
 
 export async function getStaffByRole(db: DbHandle, saveId: number, role: StaffRole): Promise<Staff[]> {
-  const rows = await db.prepare('SELECT * FROM staff WHERE save_id = ? AND role = ?').all(saveId, role) as StaffRow[];
-  return rows.map(rowToStaff);
+  const rows = await db.prepare('SELECT * FROM staff WHERE save_id = ? AND role = ?').all(saveId, role);
+  return parseRows(staffRowSchema, rows, 'staff.getStaffByRole').map(rowToStaff);
 }
 
 export async function hireStaff(

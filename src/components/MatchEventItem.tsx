@@ -1,6 +1,9 @@
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { View } from 'react-native';
 import { colors, fontSize, spacing } from '@/theme';
+import { Icon } from '@/components/kit';
+import type { IconName } from '@/components/kit';
+import { Body, Label, Caption } from '@/components/typography';
 import { MatchEventType } from '@/types/match';
 
 interface MatchEventItemProps {
@@ -10,21 +13,32 @@ interface MatchEventItemProps {
   secondaryPlayerName?: string;
 }
 
-const EVENT_ICONS: Record<MatchEventType, string> = {
-  goal: '⚽',
-  assist: '👟',
-  yellow: '🟨',
-  red: '🟥',
-  substitution: '🔄',
-  injury: '🏥',
-  penalty_scored: '⚽(P)',
-  penalty_missed: '❌(P)',
-  free_kick_scored: '⚽(FK)',
-  free_kick_missed: '❌(FK)',
-  shot_on_target: '🎯',
-  shot_off_target: '💨',
-  save: '🧤',
-  penalty_shootout: '🥅',
+interface EventGlyph {
+  icon: IconName;
+  color: string;
+  suffix?: string;
+}
+
+const EVENT_GLYPHS: Record<MatchEventType, EventGlyph> = {
+  goal: { icon: 'goal', color: colors.text },
+  assist: { icon: 'assist', color: colors.textSecondary },
+  yellow: { icon: 'yellow', color: colors.warning },
+  red: { icon: 'red', color: colors.danger },
+  substitution: { icon: 'sub', color: colors.textSecondary },
+  injury: { icon: 'injury', color: colors.danger },
+  penalty_scored: { icon: 'goal', color: colors.text, suffix: '(P)' },
+  penalty_missed: { icon: 'close', color: colors.danger, suffix: '(P)' },
+  free_kick_scored: { icon: 'goal', color: colors.text, suffix: '(FK)' },
+  free_kick_missed: { icon: 'close', color: colors.danger, suffix: '(FK)' },
+  shot_on_target: { icon: 'target', color: colors.textSecondary },
+  shot_off_target: { icon: 'target', color: colors.textMuted },
+  save: { icon: 'glove', color: colors.textSecondary },
+  penalty_shootout: { icon: 'goal', color: colors.text },
+  // L2 Fase 6: eventos de fase descritivos (timeline detalhada / PassNetwork futura).
+  tackle: { icon: 'shield', color: colors.textMuted },
+  key_pass: { icon: 'assist', color: colors.textMuted },
+  recovery: { icon: 'shield', color: colors.textMuted },
+  possession_change: { icon: 'arrowRight', color: colors.textMuted },
 };
 
 export default function MatchEventItem({
@@ -33,53 +47,43 @@ export default function MatchEventItem({
   playerName,
   secondaryPlayerName,
 }: MatchEventItemProps) {
-  const icon = EVENT_ICONS[type];
+  const glyph = EVENT_GLYPHS[type];
 
   return (
     <View style={styles.container}>
-      <Text style={styles.minute}>{minute}&apos;</Text>
-      <Text style={styles.icon}>{icon}</Text>
+      <Label style={styles.minute}>{minute}&apos;</Label>
+      <View style={styles.icon}>
+        <Icon name={glyph.icon} color={glyph.color} size={fontSize.lg} />
+        {glyph.suffix != null && <Caption color={glyph.color}>{glyph.suffix}</Caption>}
+      </View>
       <View style={styles.names}>
-        <Text style={styles.playerName}>{playerName}</Text>
+        <Body>{playerName}</Body>
         {secondaryPlayerName ? (
-          <Text style={styles.secondaryName}>{secondaryPlayerName}</Text>
+          <Caption>{secondaryPlayerName}</Caption>
         ) : null}
       </View>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const styles = {
   container: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
     paddingVertical: spacing.xs,
     paddingHorizontal: spacing.md,
   },
   minute: {
-    color: colors.textMuted,
-    fontSize: fontSize.sm,
-    width: 32,
-    textAlign: 'right',
+    width: spacing.xl,
+    textAlign: 'right' as const,
     marginRight: spacing.sm,
   },
   icon: {
-    fontSize: fontSize.md,
-    width: 32,
-    textAlign: 'center',
+    width: spacing.xl,
+    alignItems: 'center' as const,
     marginRight: spacing.sm,
   },
   names: {
     flex: 1,
   },
-  playerName: {
-    color: colors.text,
-    fontSize: fontSize.md,
-    fontWeight: '500',
-  },
-  secondaryName: {
-    color: colors.textSecondary,
-    fontSize: fontSize.sm,
-    marginTop: 1,
-  },
-});
+};

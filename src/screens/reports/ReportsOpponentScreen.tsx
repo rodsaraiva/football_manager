@@ -7,35 +7,42 @@
 import React, { useCallback, useState } from 'react';
 import {
   View,
-  Text,
   ScrollView,
   StyleSheet,
   ActivityIndicator,
   RefreshControl,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import { colors, alpha, spacing, fontSize, radius, commonStyles } from '@/theme';
+import { colors, alpha, spacing, radius, commonStyles } from '@/theme';
 import { useTranslation } from '@/i18n';
 import { SectionCard } from '@/components/SectionCard';
-import { EmptyState } from '@/components/EmptyState';
+import { EmptyState, Card, Button, Toast, ToastTone } from '@/components/kit';
+import { Headline, Body, Label, Caption, Stat } from '@/components/typography';
+import { useClubAccent } from '@/theme/useClubAccent';
 import { useGameStore } from '@/store/game-store';
 import { useDatabaseStore } from '@/store/database-store';
 import { getPlayersWithAttributesByClub } from '@/database/queries/players';
+import { getStaffByClub } from '@/database/queries/staff';
 import { getClubById } from '@/database/queries/clubs';
 import { getNextFixtureForClub, getRecentFixturesForClub, getMatchEvents } from '@/database/queries/fixtures';
+import { getCompletedIntelForClub, getActiveMissions, createMission } from '@/database/queries/scout-missions';
 import { calculateOverall } from '@/utils/overall';
 import { buildOpponentReport, OpponentReport } from '@/engine/reports/opponent-report';
 import { MatchEvent } from '@/types';
 
 export function ReportsOpponentScreen() {
   const { t } = useTranslation();
-  const { playerClubId, playerClub, season, currentSave } = useGameStore();
+  const { playerClubId, playerClub, season, week, currentSave } = useGameStore();
   const { dbHandle } = useDatabaseStore();
+  const accent = useClubAccent();
   const saveId = currentSave?.id;
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [report, setReport] = useState<OpponentReport | null>(null);
   const [noFixture, setNoFixture] = useState(false);
+  const [needsIntel, setNeedsIntel] = useState<{ opponentId: number; opponentName: string } | null>(null);
+  const [intelPending, setIntelPending] = useState(false);
+  const [toast, setToast] = useState<{ title: string; tone: ToastTone } | null>(null);
 
   const load = useCallback(async () => {
     if (!dbHandle || !playerClubId || !playerClub || saveId == null) {
@@ -44,6 +51,7 @@ export function ReportsOpponentScreen() {
     }
     setLoading(true);
     setNoFixture(false);
+    setNeedsIntel(null);
     try {
       const nextFixture = await getNextFixtureForClub(dbHandle, saveId, playerClubId, season);
       if (!nextFixture) {
@@ -54,6 +62,17 @@ export function ReportsOpponentScreen() {
 
       const opponentId =
         nextFixture.homeClubId === playerClubId ? nextFixture.awayClubId : nextFixture.homeClubId;
+
+      // C3 gate: the full report is locked until a completed opponent_intel mission.
+      const hasIntel = await getCompletedIntelForClub(dbHandle, saveId, opponentId);
+      if (!hasIntel) {
+        const opp = await getClubById(dbHandle, saveId, opponentId);
+        const active = await getActiveMissions(dbHandle, saveId);
+        setIntelPending(active.some((m) => m.type === 'opponent_intel' && m.targetClubId === opponentId));
+        setNeedsIntel({ opponentId, opponentName: opp?.name ?? '' });
+        setReport(null);
+        return;
+      }
 
       const [opponentClub, opponentPlayers, recentFixtures] = await Promise.all([
         getClubById(dbHandle, saveId, opponentId),
@@ -98,6 +117,25 @@ export function ReportsOpponentScreen() {
     }
   }, [dbHandle, playerClubId, playerClub, season, saveId]);
 
+  const dispatchScout = useCallback(async () => {
+    if (!dbHandle || saveId == null || playerClubId == null || needsIntel == null) return;
+    const scouts = (await getStaffByClub(dbHandle, saveId, playerClubId)).filter((s) => s.role === 'scout');
+    const active = await getActiveMissions(dbHandle, saveId);
+    const busy = new Set(active.map((m) => m.scoutId));
+    const idle = scouts.filter((s) => !busy.has(s.id)).sort((a, b) => b.ability - a.ability)[0];
+    if (!idle) {
+      setToast({ title: t('opponent.no_scout_available'), tone: 'danger' });
+      return;
+    }
+    await createMission(dbHandle, saveId, {
+      scoutId: idle.id, type: 'opponent_intel',
+      targetPlayerId: null, targetClubId: needsIntel.opponentId, regionCode: null,
+      createdSeason: season, createdWeek: week,
+    });
+    setToast({ title: t('opponent.scout_dispatched', { club: needsIntel.opponentName }), tone: 'success' });
+    await load();
+  }, [dbHandle, saveId, playerClubId, needsIntel, season, week, t, load]);
+
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     try { await load(); } finally { setRefreshing(false); }
@@ -113,10 +151,37 @@ export function ReportsOpponentScreen() {
     );
   }
 
+  if (needsIntel) {
+    return (
+      <View style={[commonStyles.screen, styles.center]}>
+        <EmptyState
+          art="search"
+          title={t('opponent.no_intel_title')}
+          description={t('opponent.no_intel_body', { club: needsIntel.opponentName })}
+        />
+        {intelPending ? (
+          <Caption color={colors.textSecondary} style={styles.intelPending}>{t('opponent.intel_pending')}</Caption>
+        ) : (
+          <Button
+            label={t('opponent.send_scout')}
+            variant="primary"
+            accent={accent.accent}
+            onPress={dispatchScout}
+            testID="opponent-send-scout"
+            accessibilityLabel={t('opponent.send_scout')}
+          />
+        )}
+        {toast && (
+          <Toast title={toast.title} tone={toast.tone} onDismiss={() => setToast(null)} testID="opponent-toast" />
+        )}
+      </View>
+    );
+  }
+
   if (noFixture || !report) {
     return (
       <View style={[commonStyles.screen, styles.center]}>
-        <EmptyState icon="🔍" title={t('report.opp_empty')} />
+        <EmptyState art="search" title={t('report.opp_empty')} />
       </View>
     );
   }
@@ -130,37 +195,35 @@ export function ReportsOpponentScreen() {
       }
     >
       {/* Header */}
-      <View style={styles.headerCard}>
+      <Card variant="hero" accent={colors.reportOpponent} style={styles.headerCard}>
         <View style={styles.headerRow}>
           <View style={styles.headerInfo}>
-            <Text style={styles.opponentName}>{report.opponentName}</Text>
-            <Text style={styles.fixtureInfo}>
+            <Headline style={styles.opponentName}>{report.opponentName}</Headline>
+            <Caption color={colors.textSecondary}>
               {t('report.opp_fixture_info', { week: report.fixtureWeek, venue: report.isHome ? t('report.opp_home') : t('report.opp_away') })}
-            </Text>
+            </Caption>
           </View>
           <View style={[styles.repBadge, { borderColor: repColor(report.reputationLabel) }]}>
-            <Text style={[styles.repText, { color: repColor(report.reputationLabel) }]}>
-              {report.reputationLabel}
-            </Text>
+            <Label color={repColor(report.reputationLabel)}>{report.reputationLabel}</Label>
           </View>
         </View>
         {report.alertMessage && (
           <View style={styles.alertBanner}>
-            <Text style={styles.alertText}>{report.alertMessage}</Text>
+            <Label color={colors.warning}>{report.alertMessage}</Label>
           </View>
         )}
-      </View>
+      </Card>
 
       {/* Recent form */}
       <SectionCard title={t('report.opp_form')} subtitle={t('report.opp_form_sub', { n: report.recentForm.length })}>
         {report.recentForm.length === 0 ? (
-          <Text style={styles.empty}>{t('report.opp_no_games')}</Text>
+          <Caption color={colors.textMuted} style={styles.empty}>{t('report.opp_no_games')}</Caption>
         ) : (
           <View style={styles.formRow}>
             {report.recentForm.map((r, i) => (
               <View key={i} style={[styles.resultChip, { backgroundColor: resultBg(r.result) }]}>
-                <Text style={styles.resultText}>{r.result}</Text>
-                <Text style={styles.resultScore}>{r.goalsFor}-{r.goalsAgainst}</Text>
+                <Label color={colors.text}>{r.result}</Label>
+                <Caption color={colors.text} style={styles.resultScore}>{r.goalsFor}-{r.goalsAgainst}</Caption>
               </View>
             ))}
           </View>
@@ -171,13 +234,13 @@ export function ReportsOpponentScreen() {
       <SectionCard title={t('report.opp_squad')} subtitle={t('report.opp_squad_sub', { ovr: report.squadAvgOverall })}>
         {report.topPlayers.map((p, i) => (
           <View key={p.id} style={styles.playerRow}>
-            <Text style={styles.playerRank}>#{i + 1}</Text>
+            <Label color={colors.textMuted} style={styles.playerRank}>#{i + 1}</Label>
             <View style={styles.playerInfo}>
-              <Text style={styles.playerName}>{p.name}</Text>
-              <Text style={styles.playerMeta}>{p.position}</Text>
+              <Body style={styles.playerName}>{p.name}</Body>
+              <Caption color={colors.textSecondary}>{p.position}</Caption>
             </View>
             <View style={styles.ovrBadge}>
-              <Text style={styles.ovrText}>{p.overall}</Text>
+              <Label color={colors.primary}>{p.overall}</Label>
             </View>
           </View>
         ))}
@@ -187,13 +250,13 @@ export function ReportsOpponentScreen() {
       <SectionCard title={t('report.opp_atk_def')} subtitle={t('report.opp_atk_def_sub', { n: report.recentForm.length })}>
         <View style={styles.statsRow}>
           <View style={styles.statItem}>
-            <Text style={[styles.statValue, { color: colors.success }]}>{report.goalsPerGame}</Text>
-            <Text style={styles.statLabel}>{t('report.opp_goals_for')}</Text>
+            <Stat color={colors.success}>{report.goalsPerGame}</Stat>
+            <Caption color={colors.textSecondary} style={styles.statLabel}>{t('report.opp_goals_for')}</Caption>
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statItem}>
-            <Text style={[styles.statValue, { color: colors.danger }]}>{report.concededPerGame}</Text>
-            <Text style={styles.statLabel}>{t('report.opp_goals_against')}</Text>
+            <Stat color={colors.danger}>{report.concededPerGame}</Stat>
+            <Caption color={colors.textSecondary} style={styles.statLabel}>{t('report.opp_goals_against')}</Caption>
           </View>
         </View>
       </SectionCard>
@@ -216,15 +279,10 @@ function resultBg(result: 'W' | 'D' | 'L'): string {
 const styles = StyleSheet.create({
   container: { paddingBottom: spacing.xl, paddingTop: spacing.sm },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing.lg },
-  emptyText: { color: colors.textMuted, fontSize: fontSize.md, textAlign: 'center' },
+  intelPending: { marginTop: spacing.md, textAlign: 'center' },
   headerCard: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    padding: spacing.md,
     marginHorizontal: spacing.md,
     marginBottom: spacing.sm,
-    borderWidth: 1,
-    borderColor: colors.border,
   },
   headerRow: {
     flexDirection: 'row',
@@ -233,14 +291,7 @@ const styles = StyleSheet.create({
   },
   headerInfo: { flex: 1 },
   opponentName: {
-    color: colors.text,
-    fontSize: fontSize.xxl,
     fontWeight: 'bold',
-  },
-  fixtureInfo: {
-    color: colors.textSecondary,
-    fontSize: fontSize.sm,
-    marginTop: spacing.xxs,
   },
   repBadge: {
     borderWidth: 2,
@@ -248,26 +299,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
   },
-  repText: {
-    fontSize: fontSize.sm,
-    fontWeight: '700',
-  },
   alertBanner: {
     marginTop: spacing.sm,
     backgroundColor: alpha(colors.warning, 0.2),
-    borderRadius: 6,
+    borderRadius: radius.sm,
     padding: spacing.sm,
     borderLeftWidth: 3,
     borderLeftColor: colors.warning,
   },
-  alertText: {
-    color: colors.warning,
-    fontSize: fontSize.sm,
-    fontWeight: '600',
-  },
   empty: {
-    color: colors.textMuted,
-    fontSize: fontSize.sm,
     fontStyle: 'italic',
   },
   formRow: {
@@ -282,15 +322,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     minWidth: 48,
   },
-  resultText: {
-    color: colors.text,
-    fontSize: fontSize.sm,
-    fontWeight: '700',
-  },
   resultScore: {
-    color: colors.text,
-    fontSize: fontSize.xs,
-    marginTop: 1,
+    marginTop: spacing.xxs,
   },
   playerRow: {
     flexDirection: 'row',
@@ -299,34 +332,20 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   playerRank: {
-    color: colors.textMuted,
-    fontSize: fontSize.xs,
-    fontWeight: '700',
     width: 20,
     textAlign: 'center',
   },
   playerInfo: { flex: 1 },
   playerName: {
-    color: colors.text,
-    fontSize: fontSize.md,
     fontWeight: '600',
-  },
-  playerMeta: {
-    color: colors.textSecondary,
-    fontSize: fontSize.sm,
   },
   ovrBadge: {
     backgroundColor: colors.surfaceLight,
-    borderRadius: 6,
+    borderRadius: radius.sm,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xxs,
     borderWidth: 1,
     borderColor: colors.border,
-  },
-  ovrText: {
-    color: colors.primary,
-    fontSize: fontSize.sm,
-    fontWeight: '700',
   },
   statsRow: {
     flexDirection: 'row',
@@ -336,13 +355,7 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
   },
-  statValue: {
-    fontSize: fontSize.xxl,
-    fontWeight: 'bold',
-  },
   statLabel: {
-    color: colors.textSecondary,
-    fontSize: fontSize.xs,
     textAlign: 'center',
     marginTop: spacing.xxs,
   },

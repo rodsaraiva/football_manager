@@ -1,12 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
   Switch,
-  Text,
   TextInput,
   View,
   Platform,
@@ -14,6 +12,7 @@ import {
 import StatBar from '@/components/StatBar';
 import { ContextualHint } from '@/components/ContextualHint';
 import { colors, spacing, fontSize, radius, commonStyles } from '@/theme';
+import { useClubAccent } from '@/theme/useClubAccent';
 import { getPositionColor } from '@/utils/player-colors';
 import { useGameStore } from '@/store/game-store';
 import { useDatabaseStore } from '@/store/database-store';
@@ -32,6 +31,8 @@ import { useTranslation } from '@/i18n';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '@/navigation/types';
+import { Card, Chip, Button, Badge, Sheet, Icon } from '@/components/kit';
+import { Title, Body, Label, Caption, Stat } from '@/components/typography';
 
 const ATTACK_FOCUS_VALUES: AttackFocus[] = [
   'balanced',
@@ -124,6 +125,10 @@ function buildBench(squad: PlayerWithOvr[], startingIds: Set<number>): PlayerWit
   return bench;
 }
 
+function ovrColorFor(ovr: number): string {
+  return ovr >= 75 ? colors.success : ovr >= 60 ? colors.warning : colors.danger;
+}
+
 // ─── Selected player indicator ───────────────────────────────────────────────
 type SelectedPlayer = {
   source: 'pitch';
@@ -141,6 +146,7 @@ type SelectedPlayer = {
 
 export function TacticsScreen() {
   const { t } = useTranslation();
+  const accent = useClubAccent();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const playerClubId = useGameStore((s) => s.playerClubId);
   const currentSave = useGameStore((s) => s.currentSave);
@@ -151,11 +157,8 @@ export function TacticsScreen() {
   const [squad, setSquad] = useState<PlayerWithOvr[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedFormation, setSelectedFormation] = useState<Formation>('4-4-2');
-  const [showFormationDropdown, setShowFormationDropdown] = useState(false);
   const [attackFocus, setAttackFocus] = useState<AttackFocus>('balanced');
-  const [showAttackFocusDropdown, setShowAttackFocusDropdown] = useState(false);
   const [subStrategy, setSubStrategy] = useState<SubstitutionStrategy>('balanced');
-  const [showSubStrategyDropdown, setShowSubStrategyDropdown] = useState(false);
   const [lineup, setLineup] = useState<SlotAssignment[][] | null>(null);
   const [bench, setBench] = useState<PlayerWithOvr[]>([]);
   const [dropTarget, setDropTarget] = useState<string | null>(null);
@@ -318,7 +321,6 @@ export function TacticsScreen() {
   // ─── Handlers ──────────────────────────────────────────────────────────────
   const handleFormationChange = useCallback(async (formation: Formation) => {
     setSelectedFormation(formation);
-    setShowFormationDropdown(false);
     setLineup(null);
     benchInitialized.current = false; // allow bench to rebuild
     if (!dbHandle || !tactic || saveId == null) return;
@@ -330,7 +332,6 @@ export function TacticsScreen() {
 
   const handleAttackFocusChange = useCallback(async (value: AttackFocus) => {
     setAttackFocus(value);
-    setShowAttackFocusDropdown(false);
     if (!dbHandle || !tactic || saveId == null) return;
     try {
       await updateTactic(dbHandle, saveId, tactic.id, { attackFocus: value });
@@ -340,7 +341,6 @@ export function TacticsScreen() {
 
   const handleSubStrategyChange = useCallback(async (value: SubstitutionStrategy) => {
     setSubStrategy(value);
-    setShowSubStrategyDropdown(false);
     if (!dbHandle || !tactic || saveId == null) return;
     try {
       await updateTactic(dbHandle, saveId, tactic.id, { subStrategy: value });
@@ -474,114 +474,88 @@ export function TacticsScreen() {
   if (loading) {
     return (
       <View style={[commonStyles.screen, styles.centered]}>
-        <ActivityIndicator color={colors.primary} size="large" />
+        <ActivityIndicator color={accent.accent} size="large" />
       </View>
     );
   }
 
   return (
     <ScrollView style={commonStyles.screen} contentContainerStyle={styles.scrollContent}>
-      {/* Top bar: formation + team orientation dropdowns */}
-      <View style={styles.topBar}>
-        <View style={{ zIndex: 1003 }}>
-          <Text style={styles.topBarLabel}>{t('tactics.formation_label')}</Text>
-          <Pressable style={styles.dropdownBtn} onPress={() => {
-            setShowFormationDropdown(v => !v);
-            setShowAttackFocusDropdown(false);
-            setShowSubStrategyDropdown(false);
-          }}>
-            <Text style={styles.dropdownBtnText}>{selectedFormation} ▾</Text>
-          </Pressable>
-          {showFormationDropdown && (
-            <View style={styles.dropdownList}>
-              {FORMATIONS.map(f => (
-                <Pressable
-                  key={f}
-                  style={[styles.dropdownItem, f === selectedFormation && styles.dropdownItemActive]}
-                  onPress={() => handleFormationChange(f)}
-                >
-                  <Text style={[styles.dropdownItemText, f === selectedFormation && styles.dropdownItemTextActive]}>{f}</Text>
-                </Pressable>
-              ))}
-            </View>
-          )}
-        </View>
+      {/* Formation selector */}
+      <View style={styles.selectorBlock}>
+        <Label color={colors.textMuted} style={styles.selectorLabel}>{t('tactics.formation_label')}</Label>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
+          {FORMATIONS.map(f => (
+            <Chip
+              key={f}
+              label={f}
+              selected={f === selectedFormation}
+              accent={accent.accent}
+              onPress={() => handleFormationChange(f)}
+              testID={`tactics-formation-${f}`}
+            />
+          ))}
+        </ScrollView>
+      </View>
 
-        <View style={{ flex: 1, zIndex: 1002 }}>
-          <Text style={styles.topBarLabel}>{t('tactics.attack_focus_label')}</Text>
-          <Pressable style={styles.dropdownBtn} onPress={() => {
-            setShowAttackFocusDropdown(v => !v);
-            setShowFormationDropdown(false);
-            setShowSubStrategyDropdown(false);
-          }}>
-            <Text style={styles.dropdownBtnText} numberOfLines={1}>
-              {attackFocusLabel(attackFocus)} ▾
-            </Text>
-          </Pressable>
-          {showAttackFocusDropdown && (
-            <View style={styles.dropdownListWide}>
-              {ATTACK_FOCUS_VALUES.map(value => (
-                <Pressable
-                  key={value}
-                  style={[styles.dropdownItem, value === attackFocus && styles.dropdownItemActive]}
-                  onPress={() => handleAttackFocusChange(value)}
-                >
-                  <Text style={[styles.dropdownItemText, value === attackFocus && styles.dropdownItemTextActive]}>
-                    {attackFocusLabel(value)}
-                  </Text>
-                </Pressable>
-              ))}
-            </View>
-          )}
-        </View>
+      {/* Attack focus selector */}
+      <View style={styles.selectorBlock}>
+        <Label color={colors.textMuted} style={styles.selectorLabel}>{t('tactics.attack_focus_label')}</Label>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
+          {ATTACK_FOCUS_VALUES.map(value => (
+            <Chip
+              key={value}
+              label={attackFocusLabel(value)}
+              selected={value === attackFocus}
+              accent={accent.accent}
+              onPress={() => handleAttackFocusChange(value)}
+              testID={`tactics-attackfocus-${value}`}
+            />
+          ))}
+        </ScrollView>
+      </View>
 
-        <View style={{ flex: 1, zIndex: 1001 }}>
-          <Text style={styles.topBarLabel}>{t('tactics.substitutions_label')}</Text>
-          <Pressable style={styles.dropdownBtn} onPress={() => {
-            setShowSubStrategyDropdown(v => !v);
-            setShowFormationDropdown(false);
-            setShowAttackFocusDropdown(false);
-          }}>
-            <Text style={styles.dropdownBtnText} numberOfLines={1}>
-              {subStrategyLabel(subStrategy)} ▾
-            </Text>
-          </Pressable>
-          {showSubStrategyDropdown && (
-            <View style={styles.dropdownListWide}>
-              {SUB_STRATEGY_VALUES.map(value => (
-                <Pressable
-                  key={value}
-                  style={[styles.dropdownItem, value === subStrategy && styles.dropdownItemActive]}
-                  onPress={() => handleSubStrategyChange(value)}
-                >
-                  <Text style={[styles.dropdownItemText, value === subStrategy && styles.dropdownItemTextActive]}>
-                    {subStrategyLabel(value)}
-                  </Text>
-                </Pressable>
-              ))}
-            </View>
-          )}
-        </View>
+      {/* Substitution strategy selector */}
+      <View style={styles.selectorBlock}>
+        <Label color={colors.textMuted} style={styles.selectorLabel}>{t('tactics.substitutions_label')}</Label>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
+          {SUB_STRATEGY_VALUES.map(value => (
+            <Chip
+              key={value}
+              label={subStrategyLabel(value)}
+              selected={value === subStrategy}
+              accent={accent.accent}
+              onPress={() => handleSubStrategyChange(value)}
+              testID={`tactics-substrategy-${value}`}
+            />
+          ))}
+        </ScrollView>
       </View>
 
       <View style={styles.dragHintRow}>
-        <Text style={styles.dragHintText}>{t('tactics.drag_hint')}</Text>
+        <Caption color={colors.textMuted} style={styles.dragHintText}>{t('tactics.drag_hint')}</Caption>
         <ContextualHint screen="tactics" titleKey="hints.tactics_title" bodyKey="hints.tactics_body" />
       </View>
 
       {/* Set pieces sub-screen link */}
-      <Pressable style={styles.setPiecesLink} onPress={() => navigation.navigate('SetPieces')}>
-        <Text style={styles.setPiecesLinkText}>{t('tactics.set_pieces_link')} →</Text>
+      <Pressable
+        style={styles.setPiecesLink}
+        onPress={() => navigation.navigate('SetPieces')}
+        testID="tactics-setpieces-link"
+        accessibilityRole="button"
+        accessibilityLabel={t('tactics.set_pieces_link')}
+      >
+        <Label color={accent.accent}>{t('tactics.set_pieces_link')}</Label>
+        <Icon name="arrowRight" color={accent.accent} size={16} />
       </Pressable>
 
       {/* Pitch */}
-      <View style={styles.pitchView}>
+      <Card variant="detail" accent={accent.accent} style={styles.pitchView}>
         {displayLineup.map((row, rowIdx) => (
           <View key={rowIdx} style={styles.pitchRow}>
             {row.map((slot, slotIdx) => {
               const p = slot.player;
               const ovr = p?.overall ?? 0;
-              const ovrColor = ovr >= 75 ? colors.success : ovr >= 60 ? colors.warning : colors.danger;
               const key = `pitch-${rowIdx}-${slotIdx}`;
               const isDropHover = dropTarget === key;
               return (
@@ -591,24 +565,23 @@ export function TacticsScreen() {
                   style={[styles.pitchSlot, isDropHover && styles.dropHover]}
                   onPress={() => p && setDetailPlayer(p)}
                 >
-                  <Text style={[styles.pitchRole, { color: getPositionColor(slot.positionRole) }]}>{slot.positionRole}</Text>
-                  <Text style={styles.pitchName} numberOfLines={1}>
+                  <Caption color={getPositionColor(slot.positionRole)} style={styles.pitchRole}>{slot.positionRole}</Caption>
+                  <Caption numberOfLines={1} style={styles.pitchName}>
                     {p ? p.name.split(' ').pop() : '—'}
-                  </Text>
-                  {p && <Text style={[styles.pitchOvr, { color: ovrColor }]}>{ovr}</Text>}
+                  </Caption>
+                  {p && <Stat color={ovrColorFor(ovr)} style={styles.pitchOvr}>{ovr}</Stat>}
                 </Pressable>
               );
             })}
           </View>
         ))}
-      </View>
+      </Card>
 
       {/* Bench */}
-      <View style={styles.section}>
-        <Text style={styles.sectionLabel}>{t('tactics.bench_label', { count: bench.length })}</Text>
+      <Card variant="detail" accent={accent.accent} style={styles.section}>
+        <Label color={colors.textMuted} style={styles.sectionLabel}>{t('tactics.bench_label', { count: bench.length })}</Label>
         <View style={styles.benchGrid}>
           {bench.map((p, idx) => {
-            const ovrColor = p.overall >= 75 ? colors.success : p.overall >= 60 ? colors.warning : colors.danger;
             const key = `bench-${idx}`;
             const isDropHover = dropTarget === key;
             return (
@@ -618,21 +591,20 @@ export function TacticsScreen() {
                 style={[styles.benchCard, isDropHover && styles.dropHover]}
                 onPress={() => setDetailPlayer(p)}
               >
-                <Text style={[styles.benchPos, { color: getPositionColor(p.position) }]}>{p.position}</Text>
-                <Text style={styles.benchName} numberOfLines={1}>{p.name.split(' ').pop()}</Text>
-                <Text style={[styles.benchOvr, { color: ovrColor }]}>{p.overall}</Text>
+                <Caption color={getPositionColor(p.position)} style={styles.benchPos}>{p.position}</Caption>
+                <Caption numberOfLines={1} style={styles.benchName}>{p.name.split(' ').pop()}</Caption>
+                <Stat color={ovrColorFor(p.overall)} style={styles.benchOvr}>{p.overall}</Stat>
               </Pressable>
             );
           })}
         </View>
-      </View>
+      </Card>
 
       {/* Unlisted */}
       {unlisted.length > 0 && (
-        <View style={styles.section}>
-          <Text style={styles.sectionLabel}>{t('tactics.unlisted_label', { count: unlisted.length })}</Text>
+        <Card variant="detail" accent={accent.accent} style={styles.section}>
+          <Label color={colors.textMuted} style={styles.sectionLabel}>{t('tactics.unlisted_label', { count: unlisted.length })}</Label>
           {unlisted.map((p, idx) => {
-            const ovrColor = p.overall >= 75 ? colors.success : p.overall >= 60 ? colors.warning : colors.danger;
             const key = `unlisted-${idx}`;
             return (
               <Pressable
@@ -641,133 +613,135 @@ export function TacticsScreen() {
                 style={styles.unlistedRow}
                 onPress={() => setDetailPlayer(p)}
               >
-                <Text style={[styles.unlistedPos, { color: getPositionColor(p.position) }]}>{p.position}</Text>
-                <Text style={styles.unlistedName} numberOfLines={1}>{p.name}</Text>
-                <Text style={[styles.unlistedOvr, { color: ovrColor }]}>{p.overall}</Text>
+                <Badge value={p.position} tone="neutral" accent={getPositionColor(p.position)} size="sm" />
+                <Body color={colors.textSecondary} numberOfLines={1} style={styles.unlistedName}>{p.name}</Body>
+                <Stat color={ovrColorFor(p.overall)}>{p.overall}</Stat>
               </Pressable>
             );
           })}
-        </View>
+        </Card>
       )}
-      {/* Player Detail Modal */}
-      <Modal visible={detailPlayer !== null} transparent animationType="slide" onRequestClose={() => setDetailPlayer(null)}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            {detailPlayer && (() => {
-              const p = detailPlayer;
-              const ovr = calculateOverall(p.attributes, p.position);
-              const ovrColor = ovr >= 75 ? colors.success : ovr >= 60 ? colors.warning : colors.danger;
-              const a = p.attributes;
-              const techAttrs = [
-                { label: t('tactics.attr_finishing'), val: a.finishing },
-                { label: t('tactics.attr_passing'), val: a.passing },
-                { label: t('tactics.attr_crossing'), val: a.crossing },
-                { label: t('tactics.attr_dribbling'), val: a.dribbling },
-                { label: t('tactics.attr_heading'), val: a.heading },
-                { label: t('tactics.attr_long_shots'), val: a.longShots },
-                { label: t('tactics.attr_free_kicks'), val: a.freeKicks },
-              ];
-              const mentalAttrs = [
-                { label: t('tactics.attr_vision'), val: a.vision },
-                { label: t('tactics.attr_composure'), val: a.composure },
-                { label: t('tactics.attr_decisions'), val: a.decisions },
-                { label: t('tactics.attr_positioning'), val: a.positioning },
-                { label: t('tactics.attr_aggression'), val: a.aggression },
-                { label: t('tactics.attr_leadership'), val: a.leadership },
-              ];
-              const physAttrs = [
-                { label: t('tactics.attr_pace'), val: a.pace },
-                { label: t('tactics.attr_stamina'), val: a.stamina },
-                { label: t('tactics.attr_strength'), val: a.strength },
-                { label: t('tactics.attr_agility'), val: a.agility },
-                { label: t('tactics.attr_jumping'), val: a.jumping },
-              ];
-              return (
-                <ScrollView nestedScrollEnabled>
-                  <View style={styles.detailHeader}>
-                    <Text style={styles.detailName}>{p.name}</Text>
-                    <View style={styles.detailMeta}>
-                      <Text style={[styles.detailPos, { color: colors.primary }]}>{p.position}</Text>
-                      <Text style={styles.detailAge}>{t('tactics.detail_age', { age: p.age })}</Text>
-                      <Text style={[styles.detailOvr, { color: ovrColor }]}>{ovr}</Text>
-                    </View>
+
+      {/* Player Detail Sheet */}
+      <Sheet visible={detailPlayer !== null} onClose={() => setDetailPlayer(null)} testID="tactics-detail">
+        {detailPlayer && (() => {
+          const p = detailPlayer;
+          const ovr = calculateOverall(p.attributes, p.position);
+          const a = p.attributes;
+          const techAttrs = [
+            { label: t('tactics.attr_finishing'), val: a.finishing },
+            { label: t('tactics.attr_passing'), val: a.passing },
+            { label: t('tactics.attr_crossing'), val: a.crossing },
+            { label: t('tactics.attr_dribbling'), val: a.dribbling },
+            { label: t('tactics.attr_heading'), val: a.heading },
+            { label: t('tactics.attr_long_shots'), val: a.longShots },
+            { label: t('tactics.attr_free_kicks'), val: a.freeKicks },
+          ];
+          const mentalAttrs = [
+            { label: t('tactics.attr_vision'), val: a.vision },
+            { label: t('tactics.attr_composure'), val: a.composure },
+            { label: t('tactics.attr_decisions'), val: a.decisions },
+            { label: t('tactics.attr_positioning'), val: a.positioning },
+            { label: t('tactics.attr_aggression'), val: a.aggression },
+            { label: t('tactics.attr_leadership'), val: a.leadership },
+          ];
+          const physAttrs = [
+            { label: t('tactics.attr_pace'), val: a.pace },
+            { label: t('tactics.attr_stamina'), val: a.stamina },
+            { label: t('tactics.attr_strength'), val: a.strength },
+            { label: t('tactics.attr_agility'), val: a.agility },
+            { label: t('tactics.attr_jumping'), val: a.jumping },
+          ];
+          return (
+            <ScrollView nestedScrollEnabled>
+              <View style={styles.detailHeader}>
+                <Title>{p.name}</Title>
+                <View style={styles.detailMeta}>
+                  <Badge value={p.position} tone="accent" accent={accent.accent} size="sm" />
+                  <Caption>{t('tactics.detail_age', { age: p.age })}</Caption>
+                  <Stat color={ovrColorFor(ovr)} style={styles.detailOvr}>{ovr}</Stat>
+                </View>
+              </View>
+              <View style={styles.detailStatsRow}>
+                <View style={styles.detailStatItem}>
+                  <Stat>{p.morale}</Stat>
+                  <Caption color={colors.textMuted}>{t('tactics.detail_morale')}</Caption>
+                </View>
+                <View style={styles.detailStatItem}>
+                  <Stat>{p.fitness}</Stat>
+                  <Caption color={colors.textMuted}>{t('tactics.detail_fitness')}</Caption>
+                </View>
+                <View style={styles.detailStatItem}>
+                  <Body>
+                    {p.preferredFoot === 'left' ? t('tactics.detail_foot_left') : t('tactics.detail_foot_right')}
+                  </Body>
+                  <Caption color={colors.textMuted}>{t('tactics.detail_foot')}</Caption>
+                </View>
+                <View style={styles.detailStatItem}>
+                  <Body color={colors.gold}>{'★'.repeat(p.weakFootAbility)}{'☆'.repeat(5 - p.weakFootAbility)}</Body>
+                  <Caption color={colors.textMuted}>{t('tactics.detail_weak_foot')}</Caption>
+                </View>
+              </View>
+              <Label color={colors.textMuted} style={styles.detailSectionTitle}>{t('tactics.section_technical')}</Label>
+              {techAttrs.map(attr => <StatBar key={attr.label} label={attr.label} value={attr.val} />)}
+              <Label color={colors.textMuted} style={styles.detailSectionTitle}>{t('tactics.section_mental')}</Label>
+              {mentalAttrs.map(attr => <StatBar key={attr.label} label={attr.label} value={attr.val} />)}
+              <Label color={colors.textMuted} style={styles.detailSectionTitle}>{t('tactics.section_physical')}</Label>
+              {physAttrs.map(attr => <StatBar key={attr.label} label={attr.label} value={attr.val} />)}
+              {p.clubId === playerClubId && (
+                <>
+                  <Label color={colors.textMuted} style={styles.detailSectionTitle}>{t('tactics.transfer_status_title')}</Label>
+                  <View style={styles.listingRow}>
+                    <Body style={styles.listingLabel}>{t('tactics.list_for_sale')}</Body>
+                    <Switch value={isTransferListed} onValueChange={handleToggleTransferListing} />
                   </View>
-                  <View style={styles.detailStatsRow}>
-                    <View style={styles.detailStatItem}>
-                      <Text style={styles.detailStatVal}>{p.morale}</Text>
-                      <Text style={styles.detailStatLabel}>{t('tactics.detail_morale')}</Text>
+                  {isTransferListed && (
+                    <View style={styles.listingRow}>
+                      <Body style={styles.listingLabel}>{t('tactics.asking_price')}</Body>
+                      <TextInput
+                        style={styles.listingInput}
+                        value={askingPriceText}
+                        onChangeText={setAskingPriceText}
+                        onBlur={handleBlurAskingPrice}
+                        keyboardType="numeric"
+                        placeholder={t('tactics.asking_price_placeholder')}
+                        placeholderTextColor={colors.textMuted}
+                      />
                     </View>
-                    <View style={styles.detailStatItem}>
-                      <Text style={styles.detailStatVal}>{p.fitness}</Text>
-                      <Text style={styles.detailStatLabel}>{t('tactics.detail_fitness')}</Text>
-                    </View>
-                    <View style={styles.detailStatItem}>
-                      <Text style={styles.detailStatVal}>
-                        {p.preferredFoot === 'left' ? t('tactics.detail_foot_left') : t('tactics.detail_foot_right')}
-                      </Text>
-                      <Text style={styles.detailStatLabel}>{t('tactics.detail_foot')}</Text>
-                    </View>
-                    <View style={styles.detailStatItem}>
-                      <Text style={styles.detailStatVal}>{'★'.repeat(p.weakFootAbility)}{'☆'.repeat(5 - p.weakFootAbility)}</Text>
-                      <Text style={styles.detailStatLabel}>{t('tactics.detail_weak_foot')}</Text>
-                    </View>
-                  </View>
-                  <Text style={styles.detailSectionTitle}>{t('tactics.section_technical')}</Text>
-                  {techAttrs.map(attr => <StatBar key={attr.label} label={attr.label} value={attr.val} />)}
-                  <Text style={styles.detailSectionTitle}>{t('tactics.section_mental')}</Text>
-                  {mentalAttrs.map(attr => <StatBar key={attr.label} label={attr.label} value={attr.val} />)}
-                  <Text style={styles.detailSectionTitle}>{t('tactics.section_physical')}</Text>
-                  {physAttrs.map(attr => <StatBar key={attr.label} label={attr.label} value={attr.val} />)}
-                  {p.clubId === playerClubId && (
-                    <>
-                      <Text style={styles.detailSectionTitle}>{t('tactics.transfer_status_title')}</Text>
-                      <View style={styles.listingRow}>
-                        <Text style={styles.listingLabel}>{t('tactics.list_for_sale')}</Text>
-                        <Switch value={isTransferListed} onValueChange={handleToggleTransferListing} />
-                      </View>
-                      {isTransferListed && (
-                        <View style={styles.listingRow}>
-                          <Text style={styles.listingLabel}>{t('tactics.asking_price')}</Text>
-                          <TextInput
-                            style={styles.listingInput}
-                            value={askingPriceText}
-                            onChangeText={setAskingPriceText}
-                            onBlur={handleBlurAskingPrice}
-                            keyboardType="numeric"
-                            placeholder={t('tactics.asking_price_placeholder')}
-                            placeholderTextColor={colors.textMuted}
-                          />
-                        </View>
-                      )}
-                      <View style={styles.listingRow}>
-                        <Text style={styles.listingLabel}>{t('tactics.list_for_loan')}</Text>
-                        <Switch value={isLoanListed} onValueChange={handleToggleLoanListing} />
-                      </View>
-                      {isLoanListed && (
-                        <View style={styles.listingRow}>
-                          <Text style={styles.listingLabel}>{t('tactics.loan_wage_share')}</Text>
-                          <TextInput
-                            style={styles.listingInput}
-                            value={loanShareText}
-                            onChangeText={setLoanShareText}
-                            onBlur={handleBlurLoanShare}
-                            keyboardType="numeric"
-                            placeholder="50"
-                            placeholderTextColor={colors.textMuted}
-                          />
-                        </View>
-                      )}
-                    </>
                   )}
-                </ScrollView>
-              );
-            })()}
-            <Pressable style={styles.modalCloseBtn} onPress={() => setDetailPlayer(null)}>
-              <Text style={styles.modalCloseBtnText}>{t('tactics.close')}</Text>
-            </Pressable>
-          </View>
-        </View>
-      </Modal>
+                  <View style={styles.listingRow}>
+                    <Body style={styles.listingLabel}>{t('tactics.list_for_loan')}</Body>
+                    <Switch value={isLoanListed} onValueChange={handleToggleLoanListing} />
+                  </View>
+                  {isLoanListed && (
+                    <View style={styles.listingRow}>
+                      <Body style={styles.listingLabel}>{t('tactics.loan_wage_share')}</Body>
+                      <TextInput
+                        style={styles.listingInput}
+                        value={loanShareText}
+                        onChangeText={setLoanShareText}
+                        onBlur={handleBlurLoanShare}
+                        keyboardType="numeric"
+                        placeholder="50"
+                        placeholderTextColor={colors.textMuted}
+                      />
+                    </View>
+                  )}
+                </>
+              )}
+              <View style={styles.detailClose}>
+                <Button
+                  label={t('tactics.close')}
+                  variant="primary"
+                  onPress={() => setDetailPlayer(null)}
+                  testID="tactics-detail-close"
+                  accessibilityLabel={t('tactics.close')}
+                />
+              </View>
+            </ScrollView>
+          );
+        })()}
+      </Sheet>
     </ScrollView>
   );
 }
@@ -776,75 +750,38 @@ const styles = StyleSheet.create({
   scrollContent: { paddingBottom: spacing.xl },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center' },
 
-  // Top bar
-  topBar: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
+  // Selectors
+  selectorBlock: {
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    gap: spacing.sm,
-    zIndex: 10,
+    paddingTop: spacing.sm,
   },
-  topBarLabel: {
-    color: colors.textMuted,
-    fontSize: fontSize.xs,
-    fontWeight: '600',
+  selectorLabel: {
     textTransform: 'uppercase',
     letterSpacing: 1,
     marginBottom: spacing.xs,
   },
-  dropdownBtn: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.md,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.border,
+  chipRow: {
+    gap: spacing.xs,
+    paddingVertical: spacing.xxs,
   },
-  dropdownBtnText: { color: colors.text, fontSize: fontSize.sm, fontWeight: '600' },
-  dropdownList: {
-    position: 'absolute',
-    top: 56,
-    left: 0,
-    backgroundColor: colors.surfaceLight,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    zIndex: 1000,
-    elevation: 10,
-  },
-  dropdownListWide: {
-    position: 'absolute',
-    top: 56,
-    left: 0,
-    right: 0,
-    backgroundColor: colors.surfaceLight,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    zIndex: 1000,
-    elevation: 10,
-  },
-  dropdownItem: { paddingVertical: spacing.sm, paddingHorizontal: spacing.md },
-  dropdownItemActive: { backgroundColor: colors.primary },
-  dropdownItemText: { color: colors.textSecondary, fontSize: fontSize.sm, fontWeight: '600' },
-  dropdownItemTextActive: { color: colors.text },
   dragHintRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-end',
     gap: spacing.sm,
     paddingHorizontal: spacing.md,
-    paddingBottom: spacing.xs,
+    paddingVertical: spacing.xs,
   },
   dragHintText: {
-    color: colors.textMuted,
-    fontSize: fontSize.xs,
     fontStyle: 'italic',
     flex: 1,
     textAlign: 'right',
   },
   setPiecesLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
     marginHorizontal: spacing.md,
     marginBottom: spacing.sm,
     backgroundColor: colors.surface,
@@ -853,16 +790,11 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
-    alignItems: 'center',
   },
-  setPiecesLinkText: { color: colors.primary, fontSize: fontSize.sm, fontWeight: '700' },
 
   // Pitch
   pitchView: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
     marginHorizontal: spacing.md,
-    padding: spacing.sm,
     gap: spacing.sm,
   },
   pitchRow: { flexDirection: 'row', justifyContent: 'space-around' },
@@ -880,22 +812,16 @@ const styles = StyleSheet.create({
     borderColor: colors.success,
     backgroundColor: `${colors.success}22`,
   },
-  pitchRole: { fontSize: fontSize.xs, fontWeight: 'bold', color: colors.textMuted, letterSpacing: 0.5 },
-  pitchName: { color: colors.text, fontSize: 11, fontWeight: '600', marginTop: 1, textAlign: 'center' },
-  pitchOvr: { fontSize: fontSize.xs, fontWeight: 'bold', marginTop: 1 },
+  pitchRole: { letterSpacing: 0.5 },
+  pitchName: { marginTop: 1, textAlign: 'center' },
+  pitchOvr: { marginTop: 1 },
 
   // Sections
   section: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    padding: spacing.md,
     marginHorizontal: spacing.md,
     marginTop: spacing.sm,
   },
   sectionLabel: {
-    color: colors.textMuted,
-    fontSize: fontSize.xs,
-    fontWeight: '700',
     letterSpacing: 1,
     marginBottom: spacing.sm,
   },
@@ -904,12 +830,12 @@ const styles = StyleSheet.create({
   benchGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 6,
+    gap: spacing.xs,
   },
   benchCard: {
     backgroundColor: colors.background,
     borderRadius: radius.md,
-    padding: 6,
+    padding: spacing.xs,
     alignItems: 'center',
     minWidth: 70,
     flex: 1,
@@ -918,14 +844,15 @@ const styles = StyleSheet.create({
     borderColor: 'transparent',
     cursor: 'grab',
   } as any,
-  benchPos: { fontSize: fontSize.xs, fontWeight: 'bold', color: colors.primary },
-  benchName: { color: colors.text, fontSize: 11, fontWeight: '600', marginTop: 1, textAlign: 'center' },
-  benchOvr: { fontSize: fontSize.xs, fontWeight: 'bold', marginTop: 1 },
+  benchPos: {},
+  benchName: { marginTop: 1, textAlign: 'center' },
+  benchOvr: { marginTop: 1 },
 
   // Unlisted
   unlistedRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: spacing.sm,
     backgroundColor: colors.background,
     borderRadius: radius.md,
     padding: spacing.sm,
@@ -934,28 +861,16 @@ const styles = StyleSheet.create({
     borderColor: 'transparent',
     cursor: 'grab',
   } as any,
-  unlistedPos: { color: colors.textMuted, fontSize: fontSize.xs, fontWeight: 'bold', width: 36 },
-  unlistedName: { color: colors.textSecondary, fontSize: fontSize.sm, flex: 1 },
-  unlistedOvr: { fontSize: fontSize.sm, fontWeight: 'bold', width: 30, textAlign: 'right' },
-
-  // Modal
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', paddingHorizontal: spacing.md },
-  modalContent: { backgroundColor: colors.surface, borderRadius: 16, padding: spacing.lg, maxHeight: '85%' },
-  modalCloseBtn: { backgroundColor: colors.primary, borderRadius: radius.md, paddingVertical: 12, alignItems: 'center', marginTop: spacing.sm },
-  modalCloseBtnText: { color: colors.text, fontSize: fontSize.md, fontWeight: '600' },
+  unlistedName: { flex: 1 },
 
   // Detail
   detailHeader: { marginBottom: spacing.md },
-  detailName: { color: colors.text, fontSize: fontSize.xl, fontWeight: 'bold' },
   detailMeta: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginTop: spacing.xs },
-  detailPos: { fontSize: fontSize.md, fontWeight: 'bold' },
-  detailAge: { color: colors.textSecondary, fontSize: fontSize.sm },
-  detailOvr: { fontSize: fontSize.xl, fontWeight: 'bold' },
+  detailOvr: { fontSize: fontSize.xl },
   detailStatsRow: { flexDirection: 'row', gap: spacing.md, marginBottom: spacing.md },
   detailStatItem: { flex: 1, backgroundColor: colors.background, borderRadius: radius.md, padding: spacing.sm, alignItems: 'center' },
-  detailStatVal: { color: colors.text, fontSize: fontSize.lg, fontWeight: 'bold' },
-  detailStatLabel: { color: colors.textMuted, fontSize: fontSize.xs, marginTop: spacing.xxs },
-  detailSectionTitle: { color: colors.textMuted, fontSize: fontSize.xs, fontWeight: '700', letterSpacing: 1, marginTop: spacing.md, marginBottom: spacing.sm },
+  detailSectionTitle: { letterSpacing: 1, marginTop: spacing.md, marginBottom: spacing.sm },
+  detailClose: { marginTop: spacing.sm },
 
   // Listing toggles in modal
   listingRow: {
@@ -965,8 +880,6 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xs,
   },
   listingLabel: {
-    color: colors.text,
-    fontSize: fontSize.sm,
     flex: 1,
   },
   listingInput: {
@@ -975,7 +888,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: 6,
+    borderRadius: radius.sm,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
     minWidth: 120,

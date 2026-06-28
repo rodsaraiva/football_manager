@@ -1,30 +1,51 @@
+import { z, ZodObject } from 'zod';
 import { BoardObjective, BoardObjectiveType, BoardTrustEntry, ReputationHistoryEntry, TrustOutcome } from '@/types/board';
+import { parseRows, parseRow } from '../parse-rows';
 import { DbHandle } from './players';
 
-interface ReputationHistoryRow {
-  id: number;
-  club_id: number;
-  season: number;
-  reputation: number;
-  delta: number;
-}
+// Só os campos consumidos no mapeamento; .passthrough() deixa save_id passar.
+const reputationHistoryRowSchema = z
+  .object({
+    id: z.number(),
+    club_id: z.number(),
+    season: z.number(),
+    reputation: z.number(),
+    delta: z.number(),
+  })
+  .passthrough();
+type ReputationHistoryRow = z.infer<typeof reputationHistoryRowSchema>;
 
-interface BoardObjectiveRow {
-  id: number;
-  club_id: number;
-  season: number;
-  type: string;
-  target: number | null;
-  description: string;
-}
+const boardObjectiveRowSchema = z
+  .object({
+    id: z.number(),
+    club_id: z.number(),
+    season: z.number(),
+    type: z.string(),
+    target: z.number().nullable(),
+    description: z.string(),
+  })
+  .passthrough();
+type BoardObjectiveRow = z.infer<typeof boardObjectiveRowSchema>;
 
-interface BoardTrustRow {
-  id: number;
-  club_id: number;
-  season: number;
-  trust: number;
-  outcome: string;
-}
+const boardTrustRowSchema = z
+  .object({
+    id: z.number(),
+    club_id: z.number(),
+    season: z.number(),
+    trust: z.number(),
+    outcome: z.string(),
+  })
+  .passthrough();
+type BoardTrustRow = z.infer<typeof boardTrustRowSchema>;
+
+// Projeção de coluna única de save_games: fica fora de __rowSchemas.
+const saveBoardTrustRowSchema = z.object({ board_trust: z.number() }).passthrough();
+
+export const __rowSchemas: Array<{ table: string; schema: ZodObject<any> }> = [
+  { table: 'club_reputation_history', schema: reputationHistoryRowSchema },
+  { table: 'board_objectives', schema: boardObjectiveRowSchema },
+  { table: 'board_trust_history', schema: boardTrustRowSchema },
+];
 
 // ─── Reputation history ───────────────────────────────────────────────────────
 
@@ -39,10 +60,16 @@ export async function insertReputationHistory(
 }
 
 export async function getReputationHistory(db: DbHandle, saveId: number, clubId: number): Promise<ReputationHistoryEntry[]> {
-  const rows = (await db
+  const rows = await db
     .prepare('SELECT * FROM club_reputation_history WHERE save_id = ? AND club_id = ? ORDER BY season DESC')
-    .all(saveId, clubId)) as ReputationHistoryRow[];
-  return rows.map((r) => ({ id: r.id, clubId: r.club_id, season: r.season, reputation: r.reputation, delta: r.delta }));
+    .all(saveId, clubId);
+  return parseRows(reputationHistoryRowSchema, rows, 'board.getReputationHistory').map((r) => ({
+    id: r.id,
+    clubId: r.club_id,
+    season: r.season,
+    reputation: r.reputation,
+    delta: r.delta,
+  }));
 }
 
 // ─── Board objectives ─────────────────────────────────────────────────────────
@@ -65,17 +92,18 @@ export async function getBoardObjective(
   clubId: number,
   season: number,
 ): Promise<BoardObjective | null> {
-  const row = (await db
+  const row = await db
     .prepare('SELECT * FROM board_objectives WHERE save_id = ? AND club_id = ? AND season = ?')
-    .get(saveId, clubId, season)) as BoardObjectiveRow | undefined;
-  if (!row) return null;
+    .get(saveId, clubId, season);
+  const parsed = parseRow(boardObjectiveRowSchema.nullable(), row, 'board.getBoardObjective');
+  if (!parsed) return null;
   return {
-    id: row.id,
-    clubId: row.club_id,
-    season: row.season,
-    type: row.type as BoardObjectiveType,
-    target: row.target,
-    description: row.description,
+    id: parsed.id,
+    clubId: parsed.club_id,
+    season: parsed.season,
+    type: parsed.type as BoardObjectiveType,
+    target: parsed.target,
+    description: parsed.description,
   };
 }
 
@@ -92,10 +120,10 @@ export async function insertTrustHistory(
 }
 
 export async function getTrustHistory(db: DbHandle, saveId: number, clubId: number): Promise<BoardTrustEntry[]> {
-  const rows = (await db
+  const rows = await db
     .prepare('SELECT * FROM board_trust_history WHERE save_id = ? AND club_id = ? ORDER BY season DESC')
-    .all(saveId, clubId)) as BoardTrustRow[];
-  return rows.map((r) => ({
+    .all(saveId, clubId);
+  return parseRows(boardTrustRowSchema, rows, 'board.getTrustHistory').map((r) => ({
     id: r.id,
     clubId: r.club_id,
     season: r.season,
@@ -107,10 +135,9 @@ export async function getTrustHistory(db: DbHandle, saveId: number, clubId: numb
 // ─── Save game board trust ────────────────────────────────────────────────────
 
 export async function getSaveBoardTrust(db: DbHandle, saveId: number): Promise<number> {
-  const row = (await db
-    .prepare('SELECT board_trust FROM save_games WHERE id = ?')
-    .get(saveId)) as { board_trust: number } | undefined;
-  return row?.board_trust ?? 50;
+  const row = await db.prepare('SELECT board_trust FROM save_games WHERE id = ?').get(saveId);
+  const parsed = parseRow(saveBoardTrustRowSchema.nullable(), row, 'board.getSaveBoardTrust');
+  return parsed?.board_trust ?? 50;
 }
 
 export async function updateSaveBoardTrust(db: DbHandle, saveId: number, trust: number): Promise<void> {

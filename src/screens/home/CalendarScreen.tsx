@@ -1,11 +1,9 @@
 import React, { useMemo } from 'react';
-import {
-  View,
-  Text,
-  FlatList,
-  StyleSheet,
-} from 'react-native';
-import { colors, spacing, fontSize, commonStyles } from '@/theme';
+import { View, FlatList } from 'react-native';
+import { colors, spacing, radius, commonStyles } from '@/theme';
+import { useClubAccent } from '@/theme/useClubAccent';
+import { Card } from '@/components/kit';
+import { Title, Body, Label, Caption, Stat } from '@/components/typography';
 import { useTranslation } from '@/i18n';
 import { useGameStore } from '@/store/game-store';
 
@@ -17,6 +15,7 @@ interface WeekItem {
 
 export function CalendarScreen() {
   const { t } = useTranslation();
+  const accent = useClubAccent();
   const { week, season, recentResults } = useGameStore();
 
   const weekItems: WeekItem[] = useMemo(() => {
@@ -39,7 +38,7 @@ export function CalendarScreen() {
   }, [week, recentResults]);
 
   function getStatusColor(status: WeekItem['status']): string {
-    if (status === 'current') return colors.primary;
+    if (status === 'current') return accent.accent;
     if (status === 'past') return colors.textMuted;
     return colors.textSecondary;
   }
@@ -51,20 +50,20 @@ export function CalendarScreen() {
       <View
         style={[
           styles.weekRow,
-          isCurrent && styles.weekRowCurrent,
+          isCurrent && { backgroundColor: colors.surface, borderLeftColor: accent.accent },
         ]}
       >
-        <View style={[styles.weekBadge, isCurrent && styles.weekBadgeCurrent]}>
-          <Text style={[styles.weekNumber, { color: isCurrent ? colors.text : getStatusColor(item.status) }]}>
+        <View style={[styles.weekBadge, { backgroundColor: isCurrent ? accent.accent : colors.surfaceLight }]}>
+          <Stat color={isCurrent ? accent.onAccent : getStatusColor(item.status)} style={styles.weekNumber}>
             {item.weekNumber}
-          </Text>
+          </Stat>
         </View>
 
         <View style={styles.weekContent}>
-          <Text style={[styles.weekLabel, { color: getStatusColor(item.status) }]}>
+          <Body color={getStatusColor(item.status)}>
             {t('calendar.week', { n: item.weekNumber })}
-          </Text>
-          <Text style={styles.weekDetail}>
+          </Body>
+          <Caption>
             {item.status === 'past' && item.scoreText
               ? t('calendar.result', { score: item.scoreText })
               : item.status === 'past'
@@ -72,20 +71,18 @@ export function CalendarScreen() {
               : item.status === 'current'
               ? t('calendar.current_week')
               : t('calendar.upcoming')}
-          </Text>
+          </Caption>
         </View>
 
         <View style={styles.statusIndicator}>
           {item.status === 'past' && (
-            <Text style={styles.pastIndicator}>
-              {item.scoreText ? item.scoreText : '—'}
-            </Text>
+            <Label>{item.scoreText ? item.scoreText : '—'}</Label>
           )}
           {item.status === 'current' && (
-            <View style={styles.currentDot} />
+            <View style={[styles.currentDot, { backgroundColor: accent.accent }]} />
           )}
           {item.status === 'future' && (
-            <Text style={styles.futureIndicator}>{t('calendar.vs_tbd')}</Text>
+            <Caption>{t('calendar.vs_tbd')}</Caption>
           )}
         </View>
       </View>
@@ -94,10 +91,10 @@ export function CalendarScreen() {
 
   return (
     <View style={commonStyles.screen}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>{t('calendar.header_title', { season })}</Text>
-        <Text style={styles.headerSubtitle}>{t('calendar.header_sub', { total: weekItems.length, week })}</Text>
-      </View>
+      <Card variant="summary" accent={accent.accent} style={styles.header}>
+        <Title>{t('calendar.header_title', { season })}</Title>
+        <Label>{t('calendar.header_sub', { total: weekItems.length, week })}</Label>
+      </Card>
 
       <FlatList
         data={weekItems}
@@ -116,86 +113,45 @@ export function CalendarScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = {
   header: {
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.lg,
-    paddingBottom: spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  headerTitle: {
-    color: colors.text,
-    fontSize: fontSize.xl,
-    fontWeight: 'bold',
-  },
-  headerSubtitle: {
-    color: colors.textSecondary,
-    fontSize: fontSize.sm,
-    marginTop: spacing.xxs,
+    marginHorizontal: spacing.md,
+    marginTop: spacing.md,
+    marginBottom: spacing.sm,
   },
   listContent: {
     paddingVertical: spacing.xs,
   },
   weekRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     height: 64,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
-  },
-  weekRowCurrent: {
-    backgroundColor: colors.surface,
     borderLeftWidth: 3,
-    borderLeftColor: colors.primary,
+    borderLeftColor: 'transparent',
   },
   weekBadge: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: colors.surfaceLight,
-    alignItems: 'center',
-    justifyContent: 'center',
+    width: spacing.xl,
+    height: spacing.xl,
+    borderRadius: radius.pill,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
     marginRight: spacing.md,
   },
-  weekBadgeCurrent: {
-    backgroundColor: colors.primary,
-  },
-  weekNumber: {
-    fontSize: fontSize.sm,
-    fontWeight: 'bold',
-  },
+  weekNumber: {},
   weekContent: {
     flex: 1,
   },
-  weekLabel: {
-    fontSize: fontSize.md,
-    fontWeight: '500',
-  },
-  weekDetail: {
-    color: colors.textMuted,
-    fontSize: fontSize.xs,
-    marginTop: 1,
-  },
   statusIndicator: {
-    alignItems: 'flex-end',
-    minWidth: 60,
-  },
-  pastIndicator: {
-    color: colors.textMuted,
-    fontSize: fontSize.sm,
-    fontWeight: '600',
+    alignItems: 'flex-end' as const,
+    minWidth: spacing.xxl,
   },
   currentDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: colors.primary,
+    width: spacing.sm,
+    height: spacing.sm,
+    borderRadius: radius.pill,
   },
-  futureIndicator: {
-    color: colors.textMuted,
-    fontSize: fontSize.xs,
-  },
-});
+};

@@ -17,6 +17,8 @@ import { generateStaffCandidates, canHireStaff } from '@/engine/staff/staff-mark
 import { SeededRng } from '@/engine/rng';
 import { STAFF_ROLE_LIMITS } from '@/engine/balance';
 import { Staff, StaffCandidate, StaffRole } from '@/types';
+import { Card, Button } from '@/components/kit';
+import { Title, Body, Label, Caption, Stat } from '@/components/typography';
 
 const ROLE_ORDER: StaffRole[] = ['scout', 'assistant', 'physio', 'youth_coach', 'fitness_coach'];
 
@@ -58,7 +60,7 @@ function AbilityStars({ ability, max = 20 }: { ability: number; max?: number }) 
           ★
         </Text>
       ))}
-      <Text style={styles.abilityNum}>{ability}/{max}</Text>
+      <Caption color={colors.textSecondary} style={styles.abilityNum}>{ability}/{max}</Caption>
     </View>
   );
 }
@@ -68,22 +70,26 @@ function StaffCard({ item, onFire }: { item: Staff; onFire: () => void }) {
   const roleLabel = ROLE_LABEL_KEYS[item.role] ? t(ROLE_LABEL_KEYS[item.role]) : item.role;
 
   return (
-    <View style={styles.card}>
+    <Card variant="detail" style={styles.card}>
       <View style={styles.cardTop}>
         <View style={styles.cardLeft}>
-          <Text style={styles.staffName}>{item.name}</Text>
-          <Text style={styles.staffRole}>{roleLabel}</Text>
+          <Title>{item.name}</Title>
+          <Caption color={colors.primary}>{roleLabel}</Caption>
         </View>
-        <Text style={styles.staffWage}>{t('staff.candidate_wage', { wage: formatWage(item.wage) })}</Text>
+        <Stat color={colors.warning}>{t('staff.candidate_wage', { wage: formatWage(item.wage) })}</Stat>
       </View>
       <View style={styles.cardBottom}>
-        <Text style={styles.abilityLabel}>{t('staff.ability')}</Text>
+        <Label style={styles.abilityLabel}>{t('staff.ability')}</Label>
         <AbilityStars ability={item.ability} />
       </View>
-      <Pressable style={styles.fireBtn} onPress={onFire}>
-        <Text style={styles.fireBtnText}>{t('staff.fire_button')}</Text>
-      </Pressable>
-    </View>
+      <Button
+        label={t('staff.fire_button')}
+        variant="ghost"
+        onPress={onFire}
+        testID={`fire-staff-${item.id}`}
+        accessibilityLabel={t('staff.fire_button')}
+      />
+    </Card>
   );
 }
 
@@ -96,20 +102,24 @@ function CandidateCard({
 }) {
   const { t } = useTranslation();
   return (
-    <View style={styles.candidateCard}>
+    <Card variant="detail" accent={colors.primary} selected style={styles.candidateCard}>
       <View style={styles.cardTop}>
         <View style={styles.cardLeft}>
-          <Text style={styles.staffName}>{candidate.name}</Text>
-          <Text style={styles.candidateMeta}>
+          <Title>{candidate.name}</Title>
+          <Caption color={colors.textSecondary}>
             {t('staff.candidate_ability', { ability: candidate.ability })}
-          </Text>
+          </Caption>
         </View>
-        <Text style={styles.staffWage}>{t('staff.candidate_wage', { wage: formatWage(candidate.wage) })}</Text>
+        <Stat color={colors.warning}>{t('staff.candidate_wage', { wage: formatWage(candidate.wage) })}</Stat>
       </View>
-      <Pressable style={styles.hireBtn} onPress={onHire}>
-        <Text style={styles.hireBtnText}>{t('staff.hire_button')}</Text>
-      </Pressable>
-    </View>
+      <Button
+        label={t('staff.hire_button')}
+        variant="primary"
+        onPress={onHire}
+        testID={`hire-candidate-${candidate.name}`}
+        accessibilityLabel={t('staff.hire_button')}
+      />
+    </Card>
   );
 }
 
@@ -161,8 +171,7 @@ export function StaffScreen() {
       setHireError(t(CANNOT_HIRE_KEYS[result.reason!]));
       return;
     }
-    // Contratação direta: a escolha do candidato já é explícita. (Alert.alert é
-    // no-op no React Native Web, então um confirm via Alert não funcionaria.)
+    // Contratação direta: a escolha do candidato já é explícita, dispensa confirmação.
     setHireError(null);
     await hireStaff(dbHandle, saveId, playerClubId, candidate);
     setOpenRole(null);
@@ -171,7 +180,7 @@ export function StaffScreen() {
 
   const handleFire = async (member: Staff) => {
     if (!dbHandle || saveId == null) return;
-    // Ação direta (reversível: pode recontratar). Alert.alert é no-op no RN Web.
+    // Ação direta e reversível (pode recontratar), dispensa confirmação.
     await fireStaff(dbHandle, saveId, member.id);
     await load();
   };
@@ -179,9 +188,9 @@ export function StaffScreen() {
   return (
     <ScrollView style={commonStyles.screen} contentContainerStyle={styles.listContent}>
       <View style={styles.listHeader}>
-        <Text style={styles.countText}>
+        <Label>
           {t(staff.length === 1 ? 'staff.count_one' : 'staff.count_other', { count: staff.length })}
-        </Text>
+        </Label>
       </View>
 
       {ROLE_ORDER.map((role) => {
@@ -191,9 +200,9 @@ export function StaffScreen() {
         const isOpen = openRole === role;
         return (
           <View key={role} style={styles.roleSection}>
-            <Text style={styles.sectionTitle}>
+            <Label style={styles.sectionTitle}>
               {t(ROLE_LABEL_KEYS[role]).toUpperCase()} ({members.length}/{maxSlots})
-            </Text>
+            </Label>
             {members.map((m) => (
               <StaffCard key={m.id} item={m} onFire={() => handleFire(m)} />
             ))}
@@ -201,13 +210,16 @@ export function StaffScreen() {
               <Pressable
                 style={styles.hireToggle}
                 onPress={() => { setHireError(null); setOpenRole(isOpen ? null : role); }}
+                accessibilityRole="button"
+                accessibilityLabel={t('staff.hire_button')}
+                testID={`hire-toggle-${role}`}
               >
-                <Text style={styles.hireToggleText}>
+                <Body color={colors.primary}>
                   {isOpen ? '−' : '+'} {t('staff.hire_button')}
-                </Text>
+                </Body>
               </Pressable>
             )}
-            {isOpen && hireError && <Text style={styles.hireError}>{hireError}</Text>}
+            {isOpen && hireError && <Caption color={colors.danger} style={styles.hireError}>{hireError}</Caption>}
             {isOpen && !isFull &&
               candidatesForRole(role).map((c) => (
                 <CandidateCard key={`${role}-${c.name}`} candidate={c} onHire={() => handleHire(role, c)} />
@@ -221,8 +233,6 @@ export function StaffScreen() {
 
 const styles = StyleSheet.create({
   hireError: {
-    color: colors.danger,
-    fontSize: fontSize.sm,
     paddingHorizontal: spacing.md,
     paddingBottom: spacing.xs,
   },
@@ -234,67 +244,27 @@ const styles = StyleSheet.create({
   listHeader: {
     marginBottom: spacing.sm,
   },
-  countText: {
-    color: colors.textMuted,
-    fontSize: fontSize.sm,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
   roleSection: {
     marginBottom: spacing.md,
   },
   sectionTitle: {
-    color: colors.textMuted,
-    fontSize: fontSize.xs,
-    fontWeight: '600',
-    letterSpacing: 1,
-    textTransform: 'uppercase',
     marginBottom: spacing.xs,
   },
   card: {
-    backgroundColor: colors.surface,
-    borderRadius: 10,
-    padding: spacing.md,
     marginBottom: spacing.sm,
-    borderWidth: 1,
-    borderColor: colors.border,
+    gap: spacing.sm,
   },
   candidateCard: {
-    backgroundColor: colors.surface,
-    borderRadius: 10,
-    padding: spacing.md,
     marginBottom: spacing.sm,
-    borderWidth: 1,
-    borderColor: colors.primary,
+    gap: spacing.sm,
   },
   cardTop: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
-    marginBottom: spacing.sm,
   },
   cardLeft: {
     flex: 1,
-  },
-  staffName: {
-    color: colors.text,
-    fontSize: fontSize.lg,
-    fontWeight: '600',
-  },
-  staffRole: {
-    color: colors.primary,
-    fontSize: fontSize.sm,
-    marginTop: spacing.xxs,
-  },
-  candidateMeta: {
-    color: colors.textSecondary,
-    fontSize: fontSize.sm,
-    marginTop: spacing.xxs,
-  },
-  staffWage: {
-    color: colors.warning,
-    fontSize: fontSize.md,
-    fontWeight: '600',
   },
   cardBottom: {
     flexDirection: 'row',
@@ -305,10 +275,6 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   abilityLabel: {
-    color: colors.textMuted,
-    fontSize: fontSize.xs,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
     minWidth: 50,
   },
   starsRow: {
@@ -326,21 +292,7 @@ const styles = StyleSheet.create({
     color: colors.border,
   },
   abilityNum: {
-    color: colors.textSecondary,
-    fontSize: fontSize.xs,
     marginLeft: spacing.xs,
-  },
-  fireBtn: {
-    marginTop: spacing.sm,
-    paddingVertical: spacing.xs,
-    alignItems: 'center',
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  fireBtnText: {
-    color: colors.textMuted,
-    fontSize: fontSize.sm,
   },
   hireToggle: {
     backgroundColor: colors.surface,
@@ -351,21 +303,5 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     borderStyle: 'dashed',
     marginBottom: spacing.sm,
-  },
-  hireToggleText: {
-    color: colors.primary,
-    fontSize: fontSize.md,
-    fontWeight: '600',
-  },
-  hireBtn: {
-    backgroundColor: colors.primary,
-    borderRadius: radius.md,
-    paddingVertical: spacing.sm,
-    alignItems: 'center',
-  },
-  hireBtnText: {
-    color: colors.text,
-    fontSize: fontSize.md,
-    fontWeight: '700',
   },
 });

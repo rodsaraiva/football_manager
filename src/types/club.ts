@@ -17,4 +17,5 @@ export interface Club {
   primaryColor: string;
   secondaryColor: string;
   trainingFocus: TrainingFocus;
+  academyReputation: number;
 }

@@ -1,20 +1,30 @@
+import { z, ZodObject } from 'zod';
 import { DbHandle } from './players';
 import { AssistantRole, AssistantWithQuality } from '@/types/assistant';
 import { computeQualityStars, GeneratedAssistant } from '@/engine/assistant/assistant-engine';
+import { parseRows, parseRow } from '../parse-rows';
 
-interface AssistantRow {
-  id: number;
-  club_id: number;
-  save_id: number;
-  role: string;
-  name: string;
-  age: number;
-  archetype: string;
-  seasons_at_club: number;
-  retirement_age: number;
-  wage_per_month: number;
-  will_retire_next_season: number;
-}
+// SELECT * sobre assistants; todas as colunas NOT NULL. will_retire_next_season é int 0/1.
+const assistantRowSchema = z
+  .object({
+    id: z.number(),
+    club_id: z.number(),
+    save_id: z.number(),
+    role: z.string(),
+    name: z.string(),
+    age: z.number(),
+    archetype: z.string(),
+    seasons_at_club: z.number(),
+    retirement_age: z.number(),
+    wage_per_month: z.number(),
+    will_retire_next_season: z.number(),
+  })
+  .passthrough();
+type AssistantRow = z.infer<typeof assistantRowSchema>;
+
+export const __rowSchemas: Array<{ table: string; schema: ZodObject<any> }> = [
+  { table: 'assistants', schema: assistantRowSchema },
+];
 
 function rowToAssistant(row: AssistantRow): AssistantWithQuality {
   return {
@@ -39,8 +49,8 @@ export async function getAssistantsBySave(
 ): Promise<AssistantWithQuality[]> {
   const rows = await db
     .prepare('SELECT * FROM assistants WHERE save_id = ? ORDER BY role ASC')
-    .all(saveId) as AssistantRow[];
-  return rows.map(rowToAssistant);
+    .all(saveId);
+  return parseRows(assistantRowSchema, rows, 'assistants.getAssistantsBySave').map(rowToAssistant);
 }
 
 export async function getAssistantByRole(
@@ -50,8 +60,8 @@ export async function getAssistantByRole(
 ): Promise<AssistantWithQuality | null> {
   const row = await db
     .prepare('SELECT * FROM assistants WHERE save_id = ? AND role = ? LIMIT 1')
-    .get(saveId, role) as AssistantRow | undefined;
-  return row ? rowToAssistant(row) : null;
+    .get(saveId, role);
+  return row ? rowToAssistant(parseRow(assistantRowSchema, row, 'assistants.getAssistantByRole')) : null;
 }
 
 export async function insertAssistant(

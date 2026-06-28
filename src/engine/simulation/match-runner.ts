@@ -2,6 +2,7 @@ import { SeededRng } from '@/engine/rng';
 import { Tactic } from '@/types/tactic';
 import { PlayerForStrength } from './team-strength';
 import { simulateMatch, MatchResult, SetPieceTakers } from './match-engine';
+import { DerbyBonus } from '@/engine/legacy/derby-bonus';
 
 export interface ClubMatchData {
   clubId: number;
@@ -10,12 +11,14 @@ export interface ClubMatchData {
   bench: PlayerForStrength[];
   tactic: Tactic;
   setPieceTakers?: SetPieceTakers; // P7: undefined = auto-pick (AI clubs)
+  formModifiers?: Map<number, number>; // C8-e: só p/ o clube do usuário (AI = undefined)
 }
 
 export interface FixtureSimInput {
   fixtureId: number;
   homeClubId: number;
   awayClubId: number;
+  derbyBonus?: DerbyBonus; // C1: absent ⇒ neutral, no behavior change
 }
 
 export interface SimulatedFixture {
@@ -72,6 +75,9 @@ export function simulateWeekFixtures(args: {
       awayClubReputation: away?.reputation ?? 50,
       homeSetPieceTakers: home?.setPieceTakers,
       awaySetPieceTakers: away?.setPieceTakers,
+      homeFormModifiers: home?.formModifiers,
+      awayFormModifiers: away?.formModifiers,
+      derbyBonus: fx.derbyBonus,
       rng,
     });
     out.push({ fixtureId: fx.fixtureId, result });
