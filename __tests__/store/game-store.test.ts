@@ -32,6 +32,11 @@ describe('game-store', () => {
     expect(s.unemployed).toBe(false);
   });
 
+  it('startNewGame persiste a difficulty recebida (não fixo em normal)', () => {
+    useGameStore.getState().startNewGame(5, 33, 1, 1, 'hard');
+    expect(useGameStore.getState().currentSave?.difficulty).toBe('hard');
+  });
+
   it('loadSave hidrata season/week/playerClubId e flags de carreira do save', () => {
     useGameStore.getState().loadSave(mkSave({ id: 9, playerClubId: 21, currentSeason: 3, currentWeek: 12, managerReputation: 80 }));
     const s = useGameStore.getState();

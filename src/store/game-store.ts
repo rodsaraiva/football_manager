@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { SaveGame, Club, Player, Fixture, Competition } from '@/types';
+import { SaveGame, Club, Player, Fixture, Competition, Difficulty } from '@/types';
 import { MatchResult, HalftimeState } from '@/engine/simulation/match-engine';
 import { PlayerForStrength } from '@/engine/simulation/team-strength';
 import { Tactic } from '@/types/tactic';
@@ -75,7 +75,7 @@ interface GameState {
 
 interface GameActions {
   // Save management
-  startNewGame: (saveId: number, clubId: number, season: number, week: number) => void;
+  startNewGame: (saveId: number, clubId: number, season: number, week: number, difficulty?: Difficulty) => void;
   loadSave: (save: SaveGame) => void;
   clearGame: () => void;
   // Week advancement
@@ -166,7 +166,7 @@ const initialState: GameState = {
 
 export const useGameStore = create<GameStore>((set, get) => ({
   ...initialState,
-  startNewGame: (saveId, clubId, season, week) =>
+  startNewGame: (saveId, clubId, season, week, difficulty = 'normal') =>
     set({
       currentSave: {
         id: saveId,
@@ -174,7 +174,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         currentSeason: season,
         currentWeek: week,
         playerClubId: clubId,
-        difficulty: 'normal',
+        difficulty,
         preseasonPending: false,
         pressPending: false,
         jobOffersPending: false,

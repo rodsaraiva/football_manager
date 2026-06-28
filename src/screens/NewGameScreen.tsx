@@ -15,6 +15,7 @@ import { colors, spacing, fontSize, commonStyles } from '@/theme';
 import { useClubAccent } from '@/theme/useClubAccent';
 import { useDatabaseStore } from '@/store/database-store';
 import { useGameStore } from '@/store/game-store';
+import { useSettingsStore } from '@/store/settings-store';
 import { getAllLeagues, getAllCountries } from '@/database/queries/leagues';
 import { getClubById, ClubWithDivision } from '@/database/queries/clubs';
 import { AMBITION_PROFILES, suggestClubsForProfile, AmbitionProfileId } from '@/engine/newgame/ambition';
@@ -73,7 +74,9 @@ export function NewGameScreen() {
   const [clubs, setClubs] = useState<Club[]>([]);
   const [selectedLeague, setSelectedLeague] = useState<League | null>(null);
   const [selectedClub, setSelectedClub] = useState<Club | null>(null);
-  const [difficulty, setDifficulty] = useState<Difficulty>('normal');
+  const [difficulty, setDifficulty] = useState<Difficulty>(
+    () => useSettingsStore.getState().difficultyDefault,
+  );
   const [loading, setLoading] = useState(true);
   const [starting, setStarting] = useState(false);
   const [expandedCountries, setExpandedCountries] = useState<Set<number>>(new Set());
@@ -197,7 +200,7 @@ export function NewGameScreen() {
       // L1: cria as seleções nacionais (1/país jogável) e define a dirigida pelo usuário.
       await seedNationalTeams(dbHandle, saveId);
 
-      startNewGame(saveId, playerClubId, 1, 1);
+      startNewGame(saveId, playerClubId, 1, 1, difficulty);
 
       // Generate season-1 board objective
       const boardRng = new SeededRng(saveId * 999);
