@@ -22,8 +22,7 @@ export const REPUTATION_SQUAD_WEAK_THRESHOLD = 50;
 
 // Manager (career) reputation deltas — modest, same discipline as the club ones.
 // The MANAGER's reputation is career-wide (persists across club switches), distinct
-// from a club's reputation. Defaults to 50, clamped [1,100].
-export const MANAGER_REP_INITIAL = 50;
+// from a club's reputation.
 export const MANAGER_REP_LEAGUE_TITLE_BONUS = 8;
 export const MANAGER_REP_CUP_BONUS = 4;
 export const MANAGER_REP_PROMOTION_BONUS = 5;

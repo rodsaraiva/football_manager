@@ -25,22 +25,6 @@ export function countryNameForDemonym(demonym: string): string | undefined {
   return DEMONYM_TO_COUNTRY[demonym];
 }
 
-export interface CountryRow {
-  id: number;
-  name: string;
-  continent: string;
-}
-
-/** Finds the country row a demonym maps to, or undefined when unmapped/absent. */
-export function findCountryByDemonym(
-  countries: readonly CountryRow[],
-  demonym: string,
-): CountryRow | undefined {
-  const name = DEMONYM_TO_COUNTRY[demonym];
-  if (name === undefined) return undefined;
-  return countries.find((c) => c.name === name);
-}
-
 export interface PoolCandidate {
   id: number;
   nationality: string; // demonym
