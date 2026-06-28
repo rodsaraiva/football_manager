@@ -5,3 +5,7 @@ dist-scripts/
 coverage/
 .claude/
 .playwright-mcp/
+.superpowers/
+free-agents-colors.png
+transfer-market-colors.png
+youth-academy-c2.png
